@@ -14,17 +14,36 @@ Deno.serve(async (req) => {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
-  const secret = req.headers.get("X-Webhook-Secret");
-  if (secret !== Deno.env.get("WHATSAPP_WEBHOOK_SECRET")) {
-    return new Response("Unauthorized", { status: 401, headers: corsHeaders });
-  }
-
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
+  // Read the incoming secret from header
+  const incomingSecret = req.headers.get("X-Webhook-Secret");
+  console.log("whatsapp-config called, has X-Webhook-Secret:", !!incomingSecret);
+
+  // Verify against stored webhook_secret (fallback to env var)
+  const { data: existingConfig } = await supabase
+    .from("whatsapp_config")
+    .select("webhook_secret")
+    .limit(1)
+    .maybeSingle();
+
+  const storedSecret = existingConfig?.webhook_secret || Deno.env.get("WHATSAPP_WEBHOOK_SECRET");
+
+  if (!storedSecret) {
+    console.error("Geen webhook_secret gevonden in database of env var");
+    return new Response("Server misconfigured", { status: 500, headers: corsHeaders });
+  }
+
+  if (incomingSecret !== storedSecret) {
+    console.error("Webhook secret mismatch");
+    return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+  }
+
   const body = await req.json();
+  console.log("whatsapp-config body action:", body.action || "config-push", "tenant_id:", body.tenant_id);
 
   // Disconnect actie
   if (body.action === "disconnect") {
@@ -34,7 +53,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Upsert credentials
+  // Upsert credentials (config push from SiteJob Connect)
   const { error } = await supabase
     .from("whatsapp_config")
     .upsert(
@@ -51,12 +70,14 @@ Deno.serve(async (req) => {
     );
 
   if (error) {
+    console.error("Config upsert failed:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
+  console.log("Config push succesvol opgeslagen voor tenant:", body.tenant_id);
   return new Response(JSON.stringify({ ok: true }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });

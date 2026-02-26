@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
     return jsonRes({ error: "Geen tenant_id ontvangen van Connect" }, 500);
   }
 
-  // Store tenant_id in whatsapp_config (minimal upsert, credentials come later via config push)
+  // Store tenant_id + webhook_secret in whatsapp_config
   const { error: upsertError } = await supabaseAdmin
     .from("whatsapp_config")
     .upsert(
@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
         phone_number_id: "pending",
         access_token: "pending",
         tenant_id,
+        webhook_secret: webhook_secret || null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
@@ -100,10 +101,7 @@ Deno.serve(async (req) => {
     return jsonRes({ error: "Kon tenant_id niet opslaan" }, 500);
   }
 
-  // If we got a new webhook_secret, note it was received (do not log the actual value)
-  if (webhook_secret) {
-    console.log("Nieuw webhook_secret ontvangen — controleer of WHATSAPP_WEBHOOK_SECRET is bijgewerkt");
-  }
+  console.log("Tenant geregistreerd, webhook_secret opgeslagen:", !!webhook_secret);
 
   return jsonRes({ tenant_id, webhook_secret: webhook_secret ? "ontvangen" : "bestaand" });
 });

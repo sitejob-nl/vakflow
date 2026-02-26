@@ -139,15 +139,24 @@ Deno.serve(async (req) => {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
-  const secret = req.headers.get("X-Webhook-Secret");
-  if (secret !== Deno.env.get("WHATSAPP_WEBHOOK_SECRET")) {
-    return new Response("Unauthorized", { status: 401, headers: corsHeaders });
-  }
-
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
+
+  // Verify webhook secret against stored value (fallback to env var)
+  const incomingSecret = req.headers.get("X-Webhook-Secret");
+  const { data: configForSecret } = await supabase
+    .from("whatsapp_config")
+    .select("webhook_secret")
+    .limit(1)
+    .maybeSingle();
+
+  const storedSecret = configForSecret?.webhook_secret || Deno.env.get("WHATSAPP_WEBHOOK_SECRET");
+  if (!incomingSecret || incomingSecret !== storedSecret) {
+    console.error("Webhook secret mismatch");
+    return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+  }
 
   // Fetch access token once for media downloads
   let accessToken: string | null = null;

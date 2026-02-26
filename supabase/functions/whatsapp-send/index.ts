@@ -185,8 +185,10 @@ Deno.serve(async (req) => {
   // === STATUS CHECK ===
   if (body.action === "status") {
     if (!config) return jsonRes({ connected: false, tenant_id: null });
+    // Return connected: false if credentials are still pending
+    const isPending = config.access_token === "pending" || config.phone_number_id === "pending";
     return jsonRes({
-      connected: true,
+      connected: !isPending,
       phone: config.display_phone || null,
       tenant_id: config.tenant_id || null,
     });
