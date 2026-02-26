@@ -524,7 +524,7 @@ const SettingsPage = () => {
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-4">
           <div>
             <label className={labelClass}>Bedrijfsnaam</label>
-            <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={inputClass} placeholder="MV Solutions" />
+            <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={inputClass} placeholder="Vakflow" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

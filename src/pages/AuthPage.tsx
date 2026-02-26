@@ -120,7 +120,7 @@ const AuthPage = () => {
             {isSettingPassword
               ? "Stel een wachtwoord in voor je account"
               : isLogin
-              ? "Log in met je MV Solutions account"
+              ? "Log in met je Vakflow account"
               : "Maak een nieuw medewerker account aan"}
           </CardDescription>
         </CardHeader>

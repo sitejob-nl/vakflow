@@ -116,7 +116,7 @@ const QuotesPage = () => {
 
         {/* Header */}
         <div className="flex justify-between items-start mb-6">
-          <h1 className="text-[20px] md:text-[26px] font-extrabold tracking-[6px] uppercase text-foreground">MV SOLUTIONS</h1>
+          <h1 className="text-[20px] md:text-[26px] font-extrabold tracking-[6px] uppercase text-foreground">VAKFLOW</h1>
         </div>
 
         {/* Info */}
@@ -183,11 +183,11 @@ const QuotesPage = () => {
           <div className="grid grid-cols-3 gap-2 text-[10px] md:text-[11px]">
             <div>
               <h4 className="font-extrabold mb-1">Betalingsinformatie</h4>
-              <p>Naam rekening: MV Solutions</p>
+              <p>Naam rekening: Vakflow</p>
               <p>NL95 INGB 0111 7593 82</p>
             </div>
             <div>
-              <h4 className="font-extrabold mb-1">MV Solutions</h4>
+              <h4 className="font-extrabold mb-1">Vakflow</h4>
               <p>KvK: 84448237</p>
               <p>Btw: NL003986995B37</p>
             </div>

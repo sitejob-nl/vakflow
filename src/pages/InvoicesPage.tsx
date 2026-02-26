@@ -134,7 +134,7 @@ const InvoicesPage = () => {
             <p className="text-[12px] text-t3 font-mono">{selected.invoice_number ?? "—"}</p>
           </div>
           <div className="text-right">
-            <div className="font-handwriting text-lg md:text-xl font-extrabold text-primary">MV Solutions</div>
+            <div className="font-handwriting text-lg md:text-xl font-extrabold text-primary">Vakflow</div>
             <div className="text-[10px] md:text-[11px] text-t3 leading-relaxed">Heemskerk<br/>KvK 84448237</div>
           </div>
         </div>
@@ -259,7 +259,7 @@ const InvoicesPage = () => {
                       <p>De factuur is als PDF bijlage toegevoegd aan deze e-mail.</p>
                       <br/>
                       <p>Met vriendelijke groet,</p>
-                      <p><strong>MV Solutions</strong></p>
+                      <p><strong>Vakflow</strong></p>
                     </div>
                   `;
 
@@ -277,7 +277,7 @@ const InvoicesPage = () => {
                       },
                       body: JSON.stringify({
                         to: selected.customers.email,
-                        subject: `Factuur ${invoiceNumber} - MV Solutions`,
+                         subject: `Factuur ${invoiceNumber} - Vakflow`,
                         body: `Factuur ${invoiceNumber}`,
                         html: emailHtml,
                         attachments: [{
@@ -297,7 +297,7 @@ const InvoicesPage = () => {
                     direction: "outbound",
                     customer_id: selected.customer_id,
                     work_order_id: selected.work_order_id ?? null,
-                    subject: `Factuur ${invoiceNumber} - MV Solutions`,
+                    subject: `Factuur ${invoiceNumber} - Vakflow`,
                     body: emailHtml,
                     status: "sent",
                     sent_at: new Date().toISOString(),
