@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
       remarks: wo.remarks ?? "",
       signedBy: wo.signed_by ?? "",
       signedAt: wo.signed_at ? new Date(wo.signed_at).toLocaleDateString("nl-NL") : "",
-      companyName: profile?.company_name ?? "MV Solutions",
+      companyName: profile?.company_name ?? "Vakflow",
       companyAddress: profile?.company_address ?? "",
       companyPostalCity: [profile?.company_postal_code, profile?.company_city].filter(Boolean).join(" "),
       companyPhone: profile?.company_phone ?? "",

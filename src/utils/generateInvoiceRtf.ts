@@ -1,6 +1,6 @@
 /**
  * Generates an RTF invoice template with e-Boekhouden merge fields.
- * Matches the MV Solutions PDF invoice layout.
+ * Matches the Vakflow PDF invoice layout.
  */
 export function generateInvoiceRtf(): string {
   // RTF uses twips: 1 inch = 1440 twips, 1 cm ≈ 567 twips
@@ -93,11 +93,11 @@ export function generateInvoiceRtf(): string {
 \cellx9638
 \pard\intbl\sb60\sa60
 {\f0\b\fs16 Betalingsinformatie}\line
-{\f0\fs14 Rekeningnaam: MV Solutions}\line
+{\f0\fs14 Rekeningnaam: Vakflow}\line
 {\f0\fs14 IBAN: NL95 INGB 0111 7593 82}
 \cell
 \pard\intbl\sb60\sa60
-{\f0\b\fs16 MV Solutions}\line
+{\f0\b\fs16 Vakflow}\line
 {\f0\fs14 KvK: 84448237}\line
 {\f0\fs14 BTW: NL003986995B37}
 \cell

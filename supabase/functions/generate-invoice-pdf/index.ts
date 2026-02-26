@@ -357,10 +357,10 @@ function buildPdf(data: InvoiceData): Uint8Array {
   const ftY = footY + 16;
 
   text(fc1, ftY, "Betalingsinformatie", 8, true);
-  text(fc1, ftY + 13, "Naam rekening: MV Solutions", 7);
+  text(fc1, ftY + 13, "Naam rekening: Vakflow", 7);
   text(fc1, ftY + 24, "NL95 INGB 0111 7593 82", 7);
 
-  text(fc2, ftY, "MV Solutions", 8, true);
+  text(fc2, ftY, "Vakflow", 8, true);
   text(fc2, ftY + 13, "KvK: 84448237", 7);
   text(fc2, ftY + 24, "Btw: NL003986995B37", 7);
 

@@ -53,7 +53,7 @@ const Sidebar = () => {
     <>
       {/* Logo */}
       <div className="px-5 py-[18px] flex items-center justify-center border-b border-border">
-        <img src={logoFull} alt="MV Solutions" className="h-10 object-contain" />
+        <img src={logoFull} alt="Vakflow" className="h-10 object-contain" />
       </div>
 
       {/* Navigation */}
