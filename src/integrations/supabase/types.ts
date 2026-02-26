@@ -783,6 +783,7 @@ export type Database = {
           tenant_id: string | null
           updated_at: string | null
           waba_id: string | null
+          webhook_secret: string | null
         }
         Insert: {
           access_token: string
@@ -792,6 +793,7 @@ export type Database = {
           tenant_id?: string | null
           updated_at?: string | null
           waba_id?: string | null
+          webhook_secret?: string | null
         }
         Update: {
           access_token?: string
@@ -801,6 +803,7 @@ export type Database = {
           tenant_id?: string | null
           updated_at?: string | null
           waba_id?: string | null
+          webhook_secret?: string | null
         }
         Relationships: []
       }

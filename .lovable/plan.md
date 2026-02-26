@@ -15,24 +15,23 @@ De huidige config rij heeft `access_token: "pending"` en `phone_number_id: "pend
 
 ---
 
-## Implementatieplan
+## Implementatieplan — ✅ UITGEVOERD
 
-### Stap 1: Database migratie
-- Voeg `webhook_secret TEXT` kolom toe aan `whatsapp_config`
-- Verwijder de huidige "pending" rij zodat er schoon herregistreerd kan worden
+### Stap 1: Database migratie ✅
+- `webhook_secret TEXT` kolom toegevoegd aan `whatsapp_config`
+- Oude "pending" rij verwijderd
 
-### Stap 2: `whatsapp-register` — sla `webhook_secret` op
+### Stap 2: `whatsapp-register` — sla `webhook_secret` op ✅
 - Sla het `webhook_secret` uit de Connect-response op in `whatsapp_config.webhook_secret`
 
-### Stap 3: `whatsapp-config` — verificatie tegen opgeslagen secret
+### Stap 3: `whatsapp-config` — verificatie tegen opgeslagen secret ✅
 - Lees `webhook_secret` uit `whatsapp_config` tabel
 - Vergelijk `X-Webhook-Secret` header met opgeslagen waarde (fallback naar env var `WHATSAPP_WEBHOOK_SECRET`)
 - Voeg `console.log` toe voor debugging
 
-### Stap 4: `whatsapp-webhook` — zelfde verificatie-fix
+### Stap 4: `whatsapp-webhook` — zelfde verificatie-fix ✅
 - Verificeer `X-Webhook-Secret` tegen opgeslagen `webhook_secret` uit database (fallback naar env var)
 
-### Stap 5: `whatsapp-send` — fix status check
+### Stap 5: `whatsapp-send` — fix status check ✅
 - Retourneer `connected: false` als `access_token` of `phone_number_id` gelijk is aan `"pending"`
 - Geef `tenant_id` wel mee zodat de UI weet dat registratie gelukt is maar OAuth nog niet is afgerond
-
