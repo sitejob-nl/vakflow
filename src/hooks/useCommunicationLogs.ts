@@ -61,7 +61,7 @@ export const useSendEmail = () => {
       if (!session) throw new Error("Niet ingelogd");
 
       const res = await fetch(
-        `https://hhozgcmkickfdesnlpgs.supabase.co/functions/v1/send-email`,
+        `https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/send-email`,
         {
           method: "POST",
           headers: {

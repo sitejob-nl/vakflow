@@ -77,7 +77,7 @@ const EmailPage = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Niet ingelogd");
       const res = await fetch(
-        `https://hhozgcmkickfdesnlpgs.supabase.co/functions/v1/fetch-emails`,
+        `https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/fetch-emails`,
         { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` } }
       );
       const json = await res.json();

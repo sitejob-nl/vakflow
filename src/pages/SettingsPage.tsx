@@ -1429,7 +1429,7 @@ const SettingsPage = () => {
                     // Stap 1: Registreer tenant via edge function (beveiligt API key server-side)
                     const profileRes = await supabase.from("profiles").select("company_name").eq("id", user!.id).single();
                     const companyNameVal = profileRes.data?.company_name || "Mijn bedrijf";
-                    const webhookUrl = `https://hhozgcmkickfdesnlpgs.supabase.co/functions/v1/whatsapp-webhook`;
+                    const webhookUrl = `https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/whatsapp-webhook`;
 
                     const { data: registerData, error: registerError } = await supabase.functions.invoke("whatsapp-register", {
                       body: { name: companyNameVal, webhook_url: webhookUrl },

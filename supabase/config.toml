@@ -1,1 +1,10 @@
 project_id = "sigzpqwnavfxtvbyqvzj"
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.whatsapp-config]
+verify_jwt = false
+
+[functions.whatsapp-register]
+verify_jwt = false
