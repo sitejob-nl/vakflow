@@ -1,0 +1,516 @@
+import { useState, useMemo, useEffect } from "react";
+import { useAppointments, useUpdateAppointment, useDeleteAppointment, type Appointment } from "@/hooks/useAppointments";
+import { useCreateWorkOrder, useWorkOrders } from "@/hooks/useWorkOrders";
+import { useServices } from "@/hooks/useCustomers";
+import { buildWorkOrderPayload } from "@/utils/createWorkOrderFromAppointment";
+import { Loader2, Plus, Trash2, CheckCircle2, Navigation, ExternalLink, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, isSameDay, subDays } from "date-fns";
+import { nl } from "date-fns/locale";
+import AppointmentDialog from "@/components/AppointmentDialog";
+import AppointmentDetailSheet from "@/components/AppointmentDetailSheet";
+import { useNavigation } from "@/hooks/useNavigation";
+import { useToast } from "@/hooks/use-toast";
+import { useDirections } from "@/hooks/useMapbox";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+// Quarter-hour slots from 6:00 to 21:45
+const slots = Array.from({ length: 64 }, (_, i) => ({
+  hour: Math.floor((i + 24) / 4),
+  minute: ((i + 24) % 4) * 15,
+  label: `${Math.floor((i + 24) / 4).toString().padStart(2, "0")}:${(((i + 24) % 4) * 15).toString().padStart(2, "0")}`,
+})).filter((s) => s.hour >= 6 && s.hour <= 21);
+
+const SLOT_HEIGHT = 20;
+const defaultEventColor = "#3b82f6";
+
+const statusDot: Record<string, string> = {
+  afgerond: "bg-accent",
+  bezig: "bg-primary animate-pulse-dot",
+  onderweg: "bg-warning",
+  gepland: "bg-border",
+  geannuleerd: "bg-destructive",
+};
+
+const TravelTimeBadge = ({ from, to }: { from: [number, number]; to: [number, number] }) => {
+  const { result, loading, calculate } = useDirections();
+  useEffect(() => {
+    calculate(from, to);
+  }, [from[0], from[1], to[0], to[1], calculate]);
+  if (loading) return null;
+  if (!result?.duration_minutes) return null;
+  return (
+    <div className="flex items-center gap-1.5 py-1 px-1 text-[11px] text-muted-foreground">
+      <Navigation className="h-3 w-3" />
+      <span>{result.duration_minutes} min · {result.distance_km} km</span>
+    </div>
+  );
+};
+
+const PlanningPage = () => {
+  const { toast } = useToast();
+  const { navigate } = useNavigation();
+  const isMobile = useIsMobile();
+
+  const [currentWeekStart, setCurrentWeekStart] = useState(() =>
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  );
+  // Mobile: selected day for day view
+  const [mobileDay, setMobileDay] = useState(() => new Date());
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editAppointment, setEditAppointment] = useState<Appointment | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Appointment | null>(null);
+  const [defaultDate, setDefaultDate] = useState<Date | undefined>();
+  const [detailAppointment, setDetailAppointment] = useState<Appointment | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  // For mobile, fetch a wider range around mobileDay
+  const weekEnd = addDays(currentWeekStart, 8);
+  const mobileStart = isMobile ? startOfWeek(mobileDay, { weekStartsOn: 1 }) : currentWeekStart;
+  const mobileEnd = isMobile ? addDays(mobileStart, 8) : weekEnd;
+
+  const { data: appointments, isLoading } = useAppointments(
+    isMobile ? mobileStart : currentWeekStart,
+    isMobile ? mobileEnd : weekEnd
+  );
+  const deleteAppointment = useDeleteAppointment();
+  const updateAppointment = useUpdateAppointment();
+  const createWorkOrder = useCreateWorkOrder();
+  const { data: allWorkOrders } = useWorkOrders();
+  const { data: services } = useServices();
+
+  const appointmentWoMap = useMemo(() => {
+    const map = new Map<string, string>();
+    allWorkOrders?.forEach((wo) => {
+      if (wo.appointment_id) map.set(wo.appointment_id, wo.id);
+    });
+    return map;
+  }, [allWorkOrders]);
+
+  const [showWeekend, setShowWeekend] = useState(false);
+  const dayCount = showWeekend ? 7 : 5;
+  const days = Array.from({ length: dayCount }, (_, i) => addDays(currentWeekStart, i));
+
+  // Appointments for the selected mobile day
+  const mobileDayAppointments = useMemo(() => {
+    return (appointments ?? [])
+      .filter((a) => isSameDay(new Date(a.scheduled_at), mobileDay))
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+  }, [appointments, mobileDay]);
+
+  const todayAppointments = useMemo(() => {
+    const today = new Date();
+    return (appointments ?? [])
+      .filter((a) => isSameDay(new Date(a.scheduled_at), today))
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+  }, [appointments]);
+
+  const dailyRevenue = useMemo(() => {
+    const source = isMobile ? mobileDayAppointments : todayAppointments;
+    const serviceCount: Record<string, { count: number; price: number; name: string }> = {};
+    source.forEach((a) => {
+      if (a.services && a.status !== "geannuleerd") {
+        const key = a.services.name;
+        if (!serviceCount[key]) serviceCount[key] = { count: 0, price: a.services.price, name: key };
+        serviceCount[key].count++;
+      }
+    });
+    return Object.values(serviceCount);
+  }, [isMobile, mobileDayAppointments, todayAppointments]);
+
+  const totalRevenue = dailyRevenue.reduce((sum, s) => sum + s.count * s.price, 0);
+
+  const handleCellClick = (day: Date, hour: number, minute: number) => {
+    const d = new Date(day);
+    d.setHours(hour, minute, 0, 0);
+    setDefaultDate(d);
+    setEditAppointment(null);
+    setDialogOpen(true);
+  };
+
+  const handleEventClick = (e: React.MouseEvent, appointment: Appointment) => {
+    e.stopPropagation();
+    setDetailAppointment(appointment);
+    setDetailOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteAppointment.mutateAsync(deleteTarget.id);
+      toast({ title: "Afspraak verwijderd" });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+    setDeleteTarget(null);
+  };
+
+  const handleFinish = async (a: Appointment) => {
+    try {
+      const payload = buildWorkOrderPayload(a, services);
+      const wo = await createWorkOrder.mutateAsync(payload as any);
+      await updateAppointment.mutateAsync({ id: a.id, status: "afgerond" });
+      toast({ title: "Werkbon aangemaakt", description: wo.work_order_number ?? "Werkbon is klaar" });
+      navigate("woDetail", { workOrderId: wo.id });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const getEventsForHour = (day: Date, hour: number) => {
+    return (appointments ?? []).filter((a) => {
+      const d = new Date(a.scheduled_at);
+      return isSameDay(d, day) && d.getHours() === hour;
+    });
+  };
+
+  const weekLabel = `${format(currentWeekStart, "d", { locale: nl })} – ${format(addDays(currentWeekStart, dayCount - 1), "d MMM yyyy", { locale: nl })}`;
+
+  // Side panel content (shared between mobile and desktop)
+  const sideAppointments = isMobile ? mobileDayAppointments : todayAppointments;
+  const sideDateLabel = isMobile
+    ? format(mobileDay, "d MMM", { locale: nl })
+    : format(new Date(), "d MMM", { locale: nl });
+  const sideTitlePrefix = isMobile
+    ? (isToday(mobileDay) ? "Vandaag" : format(mobileDay, "EEEE", { locale: nl }))
+    : "Vandaag";
+
+  return (
+    <div className="flex flex-col lg:grid lg:grid-cols-[1fr_310px] gap-5 lg:h-[calc(100vh-58px-48px)]">
+      {/* Calendar */}
+      <div className="bg-card border border-border rounded-lg shadow-card flex flex-col overflow-hidden min-h-[400px] md:min-h-[500px] lg:min-h-0">
+        {/* Toolbar */}
+        {isMobile ? (
+          /* Mobile toolbar: day navigation */
+          <div className="px-3 py-3 flex items-center gap-2 border-b border-border">
+            <button onClick={() => setMobileDay((d) => subDays(d, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button onClick={() => setMobileDay((d) => addDays(d, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <span className="text-[14px] font-extrabold flex-1">
+              {isToday(mobileDay) ? "Vandaag" : format(mobileDay, "EEEE", { locale: nl })}
+              <span className="text-t3 font-semibold ml-1.5 text-[12px]">{format(mobileDay, "d MMM", { locale: nl })}</span>
+            </span>
+            {!isToday(mobileDay) && (
+              <button onClick={() => setMobileDay(new Date())} className="px-2.5 py-1 bg-card border border-border rounded-sm text-[11px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors">
+                Vandaag
+              </button>
+            )}
+          </div>
+        ) : (
+          /* Desktop toolbar */
+          <div className="px-3 md:px-4 py-3 md:py-3.5 flex items-center gap-2 md:gap-2.5 border-b border-border flex-wrap">
+            <button onClick={() => setCurrentWeekStart((w) => subWeeks(w, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">‹</button>
+            <button onClick={() => setCurrentWeekStart((w) => addWeeks(w, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">›</button>
+            <span className="text-base font-extrabold min-w-[170px]">{weekLabel}</span>
+            {appointments && <span className="bg-primary-muted text-primary px-2.5 py-[3px] rounded-full text-[11px] font-bold">{appointments.length} afspraken</span>}
+            <button onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors">Vandaag</button>
+            <button onClick={() => setShowWeekend((v) => !v)} className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors">
+              {showWeekend ? "Ma–Vr" : "Ma–Zo"}
+            </button>
+            <div className="flex-1" />
+            <button
+              onClick={() => { setEditAppointment(null); setDefaultDate(undefined); setDialogOpen(true); }}
+              className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors flex items-center gap-1"
+            >
+              <Plus className="h-3.5 w-3.5" /> Nieuwe afspraak
+            </button>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : isMobile ? (
+            /* ===== MOBILE DAY VIEW ===== */
+            <div className="grid grid-cols-[50px_1fr]">
+              {slots.map((slot) => {
+                const cellEvents = slot.minute === 0 ? getEventsForHour(mobileDay, slot.hour) : [];
+                return (
+                  <div key={slot.label} className="contents">
+                    <div className={`pr-2 text-right text-[10px] text-t3 font-mono flex items-start justify-end border-r border-border pt-0.5 ${slot.minute === 0 ? "border-b border-b-border/60" : "border-b border-b-border/20"}`} style={{ height: `${SLOT_HEIGHT}px` }}>
+                      {slot.minute === 0 ? slot.label : ""}
+                    </div>
+                    <div
+                      className={`relative hover:bg-bg-hover transition-colors cursor-pointer ${slot.minute === 0 ? "border-b border-b-border/60" : "border-b border-b-border/20"}`}
+                      style={{ height: `${SLOT_HEIGHT}px` }}
+                      onClick={() => handleCellClick(mobileDay, slot.hour, slot.minute)}
+                    >
+                      {cellEvents.map((ev) => {
+                        const hexColor = ev.services?.color || defaultEventColor;
+                        const startDate = new Date(ev.scheduled_at);
+                        const startMinuteOffset = startDate.getMinutes();
+                        const durationSlots = (ev.duration_minutes ?? 60) / 15;
+                        const topOffset = (startMinuteOffset / 15) * SLOT_HEIGHT;
+                        const eventHeight = Math.max(durationSlots * SLOT_HEIGHT - 2, SLOT_HEIGHT - 2);
+                        const hasWorkOrder = appointmentWoMap.has(ev.id);
+                        return (
+                          <div key={ev.id} className="absolute left-[2px] right-[2px] z-[2]" style={{ top: `${topOffset}px` }} onClick={(e) => handleEventClick(e, ev)}>
+                            <div
+                              className="rounded-md px-2 py-[3px] text-[12px] font-bold cursor-pointer overflow-hidden hover:shadow-card-hover transition-all relative border-l-[3px]"
+                              style={{
+                                height: `${eventHeight}px`,
+                                backgroundColor: `${hexColor}20`,
+                                color: hexColor,
+                                borderLeftColor: hexColor,
+                              }}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-medium opacity-70 font-mono">
+                                  {format(startDate, "HH:mm")}
+                                </span>
+                                <span className="truncate">{ev.customers?.name ?? "Onbekend"}</span>
+                                {hasWorkOrder && <FileText className="h-3 w-3 opacity-60 flex-shrink-0" />}
+                              </div>
+                              {eventHeight > SLOT_HEIGHT && (
+                                <div className="text-[10px] opacity-60 truncate mt-0.5">
+                                  {ev.services?.name} · {ev.customers?.city}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* ===== DESKTOP WEEK VIEW ===== */
+            <div className={`grid ${showWeekend ? "grid-cols-[58px_repeat(7,1fr)]" : "grid-cols-[58px_repeat(5,1fr)]"}`}>
+              <div className="sticky top-0 bg-card z-10 p-2.5 border-b border-border" />
+              {days.map((d) => (
+                <div key={d.toISOString()} className={`sticky top-0 z-10 p-2.5 text-center text-[11px] font-bold uppercase tracking-wide border-b border-border ${isToday(d) ? "text-primary bg-primary-muted" : "text-t3 bg-card"}`}>
+                  {format(d, "EEE d", { locale: nl })}
+                </div>
+              ))}
+              {slots.map((slot) => (
+                <div key={slot.label} className="contents">
+                  <div className={`pr-2.5 text-right text-[10px] text-t3 font-mono flex items-start justify-end border-r border-border pt-0.5 ${slot.minute === 0 ? "border-b border-b-border/60" : "border-b border-b-border/20"}`} style={{ height: `${SLOT_HEIGHT}px` }}>
+                    {slot.minute === 0 ? slot.label : ""}
+                  </div>
+                  {days.map((day) => {
+                    const cellEvents = slot.minute === 0 ? getEventsForHour(day, slot.hour) : [];
+                    return (
+                      <div
+                        key={day.toISOString() + slot.label}
+                        className={`border-r border-r-border/40 relative hover:bg-bg-hover transition-colors cursor-pointer ${slot.minute === 0 ? "border-b border-b-border/60" : "border-b border-b-border/20"}`}
+                        style={{ height: `${SLOT_HEIGHT}px` }}
+                        onClick={() => handleCellClick(day, slot.hour, slot.minute)}
+                      >
+                        {cellEvents.map((ev) => {
+                          const hexColor = ev.services?.color || defaultEventColor;
+                          const startDate = new Date(ev.scheduled_at);
+                          const startMinuteOffset = startDate.getMinutes();
+                          const durationSlots = (ev.duration_minutes ?? 60) / 15;
+                          const topOffset = (startMinuteOffset / 15) * SLOT_HEIGHT;
+                          const eventHeight = Math.max(durationSlots * SLOT_HEIGHT - 2, SLOT_HEIGHT - 2);
+                          const travelMin = (ev as any).travel_time_minutes;
+                          const travelBlockPx = travelMin ? Math.max(Math.round((travelMin / 15) * SLOT_HEIGHT), 14) : 0;
+                          const hasWorkOrder = appointmentWoMap.has(ev.id);
+                          return (
+                            <div key={ev.id} className="absolute left-[2px] right-[2px] z-[2]" style={{ top: `${topOffset}px` }} onClick={(e) => handleEventClick(e, ev)}>
+                              {travelMin > 0 && (
+                                <div
+                                  className="flex items-center gap-1 text-[8px] text-muted-foreground bg-muted/60 rounded-t-md px-1 border border-border/40 border-b-0"
+                                  style={{ height: `${travelBlockPx}px`, marginTop: `-${travelBlockPx}px` }}
+                                >
+                                  <Navigation className="h-2.5 w-2.5 flex-shrink-0" />
+                                  <span className="truncate">{travelMin} min</span>
+                                </div>
+                              )}
+                              <div
+                                className="rounded-md px-1.5 py-[2px] text-[10px] font-bold cursor-pointer overflow-hidden hover:scale-[1.02] hover:z-[5] hover:shadow-card-hover transition-all relative border-l-[3px]"
+                                style={{
+                                  height: `${eventHeight}px`,
+                                  backgroundColor: `${hexColor}20`,
+                                  color: hexColor,
+                                  borderLeftColor: hexColor,
+                                }}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] font-medium opacity-70 font-mono">
+                                    {format(new Date(ev.scheduled_at), "HH:mm")}
+                                  </span>
+                                  <span className="truncate">{ev.customers?.name ?? "Onbekend"}</span>
+                                  {hasWorkOrder && <FileText className="h-2.5 w-2.5 opacity-60 flex-shrink-0" />}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Side panels */}
+      <div className="flex flex-col gap-4 overflow-y-auto">
+        <div className="bg-card border border-border rounded-lg shadow-card overflow-hidden">
+          <div className="px-4 py-3.5 border-b border-border flex items-center justify-between">
+            <h3 className="text-sm font-bold">{sideTitlePrefix} — {sideDateLabel}</h3>
+            <span className="bg-primary-muted text-primary px-2.5 py-[3px] rounded-full text-[11px] font-bold">{sideAppointments.length}</span>
+          </div>
+          <div className="px-4 py-3">
+            {sideAppointments.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Geen afspraken {isMobile && !isToday(mobileDay) ? "deze dag" : "vandaag"}</p>
+            ) : (
+              sideAppointments.map((a, idx) => {
+                const storedTravel = (a as any).travel_time_minutes;
+                const prev = idx > 0 ? sideAppointments[idx - 1] : null;
+                const prevLat = prev ? (prev.customers as any)?.lat : null;
+                const prevLng = prev ? (prev.customers as any)?.lng : null;
+                const curLat = (a.customers as any)?.lat;
+                const curLng = (a.customers as any)?.lng;
+                const canShowLiveTravel = !storedTravel && prevLat && prevLng && curLat && curLng;
+                return (
+                  <div key={a.id}>
+                    {storedTravel && (
+                      <div className="flex items-center gap-1.5 py-1 px-1 text-[11px] text-muted-foreground">
+                        <Navigation className="h-3 w-3" />
+                        <span>{storedTravel} min</span>
+                        {(a as any).start_location_label && (
+                          <span className="text-muted-foreground/60">vanaf {(a as any).start_location_label}</span>
+                        )}
+                      </div>
+                    )}
+                    {canShowLiveTravel && (
+                      <TravelTimeBadge from={[prevLat, prevLng]} to={[curLat, curLng]} />
+                    )}
+                    <div
+                      className="flex items-start gap-3 py-2.5 border-b border-border last:border-b-0 cursor-pointer hover:bg-bg-hover rounded-sm px-1 -mx-1 transition-colors"
+                      onClick={() => { setDetailAppointment(a); setDetailOpen(true); }}
+                    >
+                      <div className={`w-2 h-2 rounded-full mt-[5px] flex-shrink-0 ${statusDot[a.status] ?? "bg-border"}`} />
+                      <div className="font-mono text-[11.5px] text-t3 min-w-[44px] pt-px">
+                        {format(new Date(a.scheduled_at), "HH:mm")}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-bold truncate flex items-center gap-1">
+                          {a.customers?.name ?? "Onbekend"}
+                          {appointmentWoMap.has(a.id) && <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
+                        </div>
+                        <div className="text-[12px] text-secondary-foreground truncate">
+                          {a.services?.name ?? ""} · {a.customers?.city ?? ""}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {a.customers?.address && a.customers?.city && (
+                          <a
+                            href={`https://www.google.com/maps/place/${`${a.customers.address}, ${a.customers.postal_code || ""} ${a.customers.city}`.replace(/ /g, "+")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-t3 hover:text-primary transition-colors p-1"
+                            title="Routebeschrijving"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                        {a.status !== "afgerond" && a.status !== "geannuleerd" && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleFinish(a); }}
+                            className="text-t3 hover:text-accent transition-colors p-1"
+                            title="Afronden → werkbon aanmaken"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(a); }}
+                          className="text-t3 hover:text-destructive transition-colors p-1"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-lg shadow-card overflow-hidden">
+          <div className="px-4 py-3.5 border-b border-border">
+            <h3 className="text-sm font-bold">Diensten {isMobile && !isToday(mobileDay) ? format(mobileDay, "EEEE", { locale: nl }) : "vandaag"}</h3>
+          </div>
+          <div className="px-4 py-3 text-[13px]">
+            {dailyRevenue.length === 0 ? (
+              <p className="text-muted-foreground text-center py-2">Geen diensten</p>
+            ) : (
+              dailyRevenue.map((d) => (
+                <div key={d.name} className="flex justify-between py-1.5 border-b border-border">
+                  <span>{d.name}</span><strong>{d.count}x · €{(d.count * d.price).toFixed(2)}</strong>
+                </div>
+              ))
+            )}
+            {totalRevenue > 0 && (
+              <div className="flex justify-between pt-2 font-extrabold text-primary">
+                <span>Dagomzet (incl.)</span><strong>€{totalRevenue.toFixed(2)}</strong>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile FAB */}
+      {isMobile && (
+        <button
+          onClick={() => { setEditAppointment(null); setDefaultDate(undefined); setDialogOpen(true); }}
+          className="fixed bottom-20 right-4 z-30 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary-hover transition-colors safe-bottom"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
+      )}
+
+      <AppointmentDetailSheet
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        appointment={detailAppointment}
+        onEdit={(a) => { setEditAppointment(a); setDialogOpen(true); }}
+        onDelete={(a) => setDeleteTarget(a)}
+        onFinish={(a) => handleFinish(a)}
+        linkedWorkOrderId={detailAppointment ? appointmentWoMap.get(detailAppointment.id) ?? null : null}
+      />
+
+      <AppointmentDialog
+        open={dialogOpen}
+        onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditAppointment(null); }}
+        appointment={editAppointment}
+        defaultDate={defaultDate}
+      />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Afspraak verwijderen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Weet je zeker dat je deze afspraak wilt verwijderen?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuleren</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Verwijderen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+};
+
+export default PlanningPage;

@@ -1,0 +1,159 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Caveat:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-handwriting: 'Caveat', cursive;
+
+    --background: 220 10% 97%;
+    --foreground: 0 0% 0%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+
+    --primary: 237 84% 58%;
+    --primary-hover: 237 73% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-muted: 237 84% 58% / 0.10;
+
+    --secondary: 220 10% 97%;
+    --secondary-foreground: 220 13% 33%;
+
+    --muted: 220 13% 91%;
+    --muted-foreground: 218 11% 46%;
+
+    --accent: 142 70% 49%;
+    --accent-hover: 142 70% 42%;
+    --accent-foreground: 0 0% 100%;
+    --accent-muted: 142 70% 49% / 0.10;
+
+    --destructive: 0 86% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-muted: 0 86% 60% / 0.08;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --warning-muted: 38 92% 50% / 0.08;
+
+    --success: 160 94% 30%;
+    --success-foreground: 0 0% 100%;
+    --success-muted: 160 94% 30% / 0.08;
+
+    --purple: 263 83% 58%;
+    --purple-muted: 263 83% 58% / 0.08;
+
+    --cyan: 189 93% 37%;
+    --cyan-muted: 189 93% 37% / 0.08;
+
+    --border: 216 12% 91%;
+    --border-light: 214 14% 84%;
+    --input: 216 12% 91%;
+    --ring: 237 84% 58%;
+
+    --radius: 12px;
+    --radius-sm: 8px;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-md: 0 4px 16px rgba(0,0,0,.08);
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 13% 33%;
+    --sidebar-primary: 237 84% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 5% 96%;
+    --sidebar-accent-foreground: 240 6% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 237 84% 58%;
+
+    --t2: 220 13% 33%;
+    --t3: 218 11% 62%;
+    --bg-hover: 237 50% 97%;
+    --bg-active: 237 50% 94%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+
+/* Pulse animation for live dot */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s infinite;
+}
+
+/* Page transition */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-page-in {
+  animation: fadeIn 0.25s ease;
+}
+
+/* Safe area for mobile bottom nav */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Hide scrollbar for tab rows */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Tab scroll fade indicator */
+.scrollbar-hide-fade {
+  position: relative;
+}
+.scrollbar-hide-fade::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 40px;
+  background: linear-gradient(to right, transparent, hsl(var(--card)));
+  pointer-events: none;
+}
+
+/* Touch improvements */
+@media (max-width: 767px) {
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  input, textarea, select {
+    font-size: 16px !important; /* Prevents iOS zoom */
+  }
+}

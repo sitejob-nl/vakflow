@@ -1,0 +1,111 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { quoteTemplates as hardcodedTemplates } from "@/data/quoteTemplates";
+import type { QuoteItem, OptionalItem } from "@/hooks/useQuotes";
+
+export interface QuoteTemplateDB {
+  id: string;
+  user_id: string;
+  name: string;
+  items: QuoteItem[];
+  optional_items: OptionalItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CombinedTemplate {
+  id: string; // "hardcoded:Name" or uuid
+  name: string;
+  items: QuoteItem[];
+  optionalItems: OptionalItem[];
+  isCustom: boolean;
+}
+
+const QUERY_KEY = ["quote_templates"];
+
+export const useQuoteTemplatesDB = () => {
+  return useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("quote_templates")
+        .select("*")
+        .order("name");
+      if (error) throw error;
+      return (data as any[]).map((t) => ({
+        ...t,
+        items: Array.isArray(t.items) ? t.items : [],
+        optional_items: Array.isArray(t.optional_items) ? t.optional_items : [],
+      })) as QuoteTemplateDB[];
+    },
+  });
+};
+
+export const useCombinedTemplates = () => {
+  const { data: dbTemplates, isLoading } = useQuoteTemplatesDB();
+
+  const combined: CombinedTemplate[] = [
+    ...hardcodedTemplates.map((t) => ({
+      id: `hardcoded:${t.name}`,
+      name: t.name,
+      items: t.items,
+      optionalItems: t.optionalItems,
+      isCustom: false,
+    })),
+    ...(dbTemplates ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      items: t.items,
+      optionalItems: t.optional_items,
+      isCustom: true,
+    })),
+  ];
+
+  return { data: combined, isLoading };
+};
+
+export const useCreateQuoteTemplate = () => {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (tpl: { name: string; items: QuoteItem[]; optional_items: OptionalItem[] }) => {
+      const { data, error } = await supabase
+        .from("quote_templates")
+        .insert({ ...tpl, user_id: user!.id } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
+};
+
+export const useUpdateQuoteTemplate = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; name?: string; items?: QuoteItem[]; optional_items?: OptionalItem[] }) => {
+      const { data, error } = await supabase
+        .from("quote_templates")
+        .update(updates as any)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
+};
+
+export const useDeleteQuoteTemplate = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("quote_templates").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
+};

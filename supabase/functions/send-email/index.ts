@@ -1,0 +1,211 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+function base64ToBytes(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+  }
+  return bytes;
+}
+
+async function decryptPassword(encryptedStr: string): Promise<string> {
+  const keyHex = Deno.env.get("SMTP_ENCRYPTION_KEY");
+  if (!keyHex) throw new Error("SMTP_ENCRYPTION_KEY not configured");
+
+  let keyBytes: Uint8Array;
+  if (keyHex.length === 64 && /^[0-9a-fA-F]+$/.test(keyHex)) {
+    keyBytes = hexToBytes(keyHex);
+  } else {
+    keyBytes = base64ToBytes(keyHex);
+  }
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "AES-GCM" },
+    false,
+    ["decrypt"]
+  );
+
+  const [ivB64, ctB64] = encryptedStr.split(":");
+  const iv = base64ToBytes(ivB64);
+  const ciphertext = base64ToBytes(ctB64);
+
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    ciphertext
+  );
+
+  return new TextDecoder().decode(decrypted);
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Niet ingelogd" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { to, subject, body, html, attachments } = await req.json();
+
+    // Input validation
+    if (!to || typeof to !== "string" || to.length > 500) {
+      return new Response(
+        JSON.stringify({ error: "Ongeldig 'to' veld" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!subject || typeof subject !== "string" || subject.length > 998) {
+      return new Response(
+        JSON.stringify({ error: "Ongeldig 'subject' veld (max 998 tekens)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!body || typeof body !== "string" || body.length > 500000) {
+      return new Response(
+        JSON.stringify({ error: "Ongeldig 'body' veld (max 500KB)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (html && (typeof html !== "string" || html.length > 500000)) {
+      return new Response(
+        JSON.stringify({ error: "Ongeldig 'html' veld (max 500KB)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const toAddresses = to.split(",").map((e: string) => e.trim());
+    if (!toAddresses.every((e: string) => emailRegex.test(e))) {
+      return new Response(
+        JSON.stringify({ error: "Ongeldig e-mailadres in 'to'" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // Validate attachments size
+    if (attachments && Array.isArray(attachments)) {
+      const totalSize = attachments.reduce((sum: number, att: any) => sum + (att.content?.length || 0), 0);
+      if (totalSize > 15_000_000) {
+        return new Response(
+          JSON.stringify({ error: "Bijlagen te groot (max 10MB)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const supabaseUser = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Ongeldige sessie" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("smtp_email, smtp_password, smtp_host, smtp_port")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile?.smtp_email || !profile?.smtp_password) {
+      return new Response(
+        JSON.stringify({ error: "SMTP-gegevens niet ingesteld. Ga naar Instellingen om je e-mail in te stellen." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Decrypt the password
+    let smtpPassword: string;
+    try {
+      smtpPassword = await decryptPassword(profile.smtp_password);
+    } catch (decryptError) {
+      console.error("Decrypt error:", decryptError);
+      // Fallback: try as plain text (for backwards compatibility during migration)
+      smtpPassword = profile.smtp_password;
+    }
+
+    const smtpHost = profile.smtp_host || "smtp.transip.email";
+    const smtpPort = profile.smtp_port || 465;
+
+    const client = new SMTPClient({
+      connection: {
+        hostname: smtpHost,
+        port: smtpPort,
+        tls: true,
+        auth: {
+          username: profile.smtp_email,
+          password: smtpPassword,
+        },
+      },
+    });
+
+    const mailOptions: any = {
+      from: profile.smtp_email,
+      to: to,
+      subject: subject,
+      content: body,
+      html: html || undefined,
+    };
+
+    // Add attachments if provided
+    if (attachments && Array.isArray(attachments)) {
+      mailOptions.attachments = attachments.map((att: any) => ({
+        filename: att.filename,
+        content: base64ToBytes(att.content),
+        contentType: att.contentType || "application/octet-stream",
+        encoding: "binary",
+      }));
+    }
+
+    await client.send(mailOptions);
+
+    await client.close();
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error: any) {
+    console.error("Send email error:", error);
+    return new Response(
+      JSON.stringify({ error: "Fout bij het versturen van de e-mail", code: "EMAIL_SEND_FAILED" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

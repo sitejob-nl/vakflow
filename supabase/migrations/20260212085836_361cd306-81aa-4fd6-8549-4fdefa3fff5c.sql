@@ -1,0 +1,1 @@
+ALTER TABLE public.appointments ADD COLUMN todos jsonb DEFAULT '[]'::jsonb;

@@ -1,0 +1,1 @@
+ALTER TABLE public.communication_logs ALTER COLUMN customer_id DROP NOT NULL;

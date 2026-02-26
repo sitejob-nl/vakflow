@@ -1,0 +1,1 @@
+ALTER TABLE profiles ADD COLUMN eboekhouden_debtor_ledger_id integer;

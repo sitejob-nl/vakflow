@@ -1,0 +1,1 @@
+UPDATE public.invoices SET due_at = issued_at + 30 WHERE invoice_number = 'F-2026-005' AND due_at IS NULL;

@@ -1,0 +1,73 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+
+export type WorkOrder = Tables<"work_orders"> & {
+  customers?: { name: string; address: string | null; city: string | null } | null;
+  services?: { name: string; color: string | null; price: number; category: string | null } | null;
+};
+
+export const useWorkOrders = () => {
+  return useQuery({
+    queryKey: ["work_orders"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("work_orders")
+        .select("*, customers(name, address, city), services(name, color, price, category)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as WorkOrder[];
+    },
+  });
+};
+
+export const useWorkOrder = (id: string | undefined) => {
+  return useQuery({
+    queryKey: ["work_orders", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("work_orders")
+        .select("*, customers(name, address, city, contact_person, phone, email), services(name, color, price, category)")
+        .eq("id", id!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as WorkOrder & { customers: { name: string; address: string | null; city: string | null; contact_person: string | null; phone: string | null; email: string | null } | null } | null;
+    },
+  });
+};
+
+export const useCreateWorkOrder = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (wo: TablesInsert<"work_orders">) => {
+      const { data, error } = await supabase.from("work_orders").insert(wo).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["work_orders"] }),
+  });
+};
+
+export const useUpdateWorkOrder = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: TablesUpdate<"work_orders"> & { id: string }) => {
+      const { data, error } = await supabase.from("work_orders").update(updates).eq("id", id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["work_orders"] }),
+  });
+};
+
+export const useDeleteWorkOrder = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("work_orders").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["work_orders"] }),
+  });
+};

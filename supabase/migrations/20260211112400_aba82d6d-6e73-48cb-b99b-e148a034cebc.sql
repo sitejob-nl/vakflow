@@ -1,0 +1,2 @@
+ALTER TABLE public.addresses ADD COLUMN IF NOT EXISTS lat numeric, ADD COLUMN IF NOT EXISTS lng numeric;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS lat numeric, ADD COLUMN IF NOT EXISTS lng numeric;

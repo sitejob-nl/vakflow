@@ -1,0 +1,55 @@
+project_id = "hhozgcmkickfdesnlpgs"
+
+[functions.mapbox-proxy]
+verify_jwt = false
+
+[functions.generate-invoice-pdf]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
+
+[functions.save-smtp-credentials]
+verify_jwt = false
+
+[functions.sync-invoice-eboekhouden]
+verify_jwt = false
+
+[functions.generate-quote-pdf]
+verify_jwt = false
+
+[functions.invite-user]
+verify_jwt = false
+
+[functions.whatsapp-config]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.whatsapp-send]
+verify_jwt = false
+
+[functions.fetch-emails]
+verify_jwt = false
+
+[functions.geocode-customers]
+verify_jwt = false
+
+[functions.whatsapp-register]
+verify_jwt = false
+
+[functions.generate-workorder-pdf]
+verify_jwt = false
+
+[functions.whatsapp-automation-trigger]
+verify_jwt = false
+
+[functions.reminder-scan]
+verify_jwt = false
+
+[functions.whatsapp-business-profile]
+verify_jwt = false
+
+[functions.whatsapp-templates]
+verify_jwt = false
