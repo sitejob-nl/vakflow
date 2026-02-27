@@ -1,104 +1,33 @@
 
 
-## Plan: Multi-integratie systeem (boekhouding + e-mail)
+## Plan: SuperAdmin dashboard omzetten naar SaaS-schaal
 
-Dit is een groot feature dat de volledige integratie-architectuur uitbreidt. Hieronder het stapsgewijze plan.
+Het huidige dashboard haalt **alle data client-side** op en doet client-side filtering — dat schaalt niet naar 1000+ bedrijven. Daarnaast toont het financiele data (omzet, facturen) die niet relevant is voor platformbeheer.
 
----
+### Wijzigingen in `src/components/SuperAdminStats.tsx`
 
-### Stap 1: Database-uitbreiding
+1. **Verwijder alle financiele data**:
+   - Verwijder `invoices` query uit `Promise.all`
+   - Verwijder `totalInvoices`, `totalRevenue`, `revenue` uit interface en state
+   - Verwijder KPI's "Facturen" en "Omzet (betaald)"
+   - Verwijder "Omzet per bedrijf" bar chart
+   - Verwijder "Facturen" en "Omzet" kolommen uit per-bedrijf tabel
 
-Twee nieuwe kolommen toevoegen aan de `companies` tabel:
+2. **Schaalbaarheid fixes**:
+   - Gebruik `.select("company_id", { count: "exact", head: true })` voor totalen in plaats van alle rijen ophalen en client-side tellen (Supabase 1000 row limit)
+   - Gebruik `count` queries per tabel voor KPI's
+   - Verwijder de per-bedrijf breakdown tabel (dupliceert de Bedrijven-tab en schaalt niet)
 
-- `accounting_provider` (text, nullable) — waarden: `eboekhouden`, `exact`, `rompslomp`, `moneybird`, of `null`
-- `email_provider` (text, nullable) — waarden: `smtp`, `outlook`, of `null`
+3. **KPI grid**: van 6 naar 4 kolommen (`lg:grid-cols-4`): Bedrijven, Gebruikers, Klanten, Werkbonnen
 
-Plus extra kolommen voor Outlook OAuth:
-- `outlook_tenant_id` (text, nullable)
-- `outlook_client_id` (text, nullable)
-- `outlook_refresh_token` (text, nullable) — versleuteld opgeslagen
-- `outlook_email` (text, nullable)
+4. **Groei-chart aanpassen**: voeg "Nieuwe bedrijven" als lijn toe (belangrijkste SaaS metric)
 
----
+### Wijzigingen in `src/pages/SuperAdminPage.tsx`
 
-### Stap 2: Onboarding uitbreiden
+5. **Bedrijventabel schaalbaarheid**: de `fetchCompanies` functie haalt ook alle customers/profiles/work_orders op en filtert client-side — vervang door `count` queries met `.eq("company_id", id)` per bedrijf, of gebruik de bestaande head-count pattern
 
-Het huidige `OnboardingDialog` is een simpele rondleiding. Een nieuwe stap toevoegen (of een apart onboarding-scherm na de rondleiding) waar het bedrijf kiest:
-
-1. **Boekhoudpakket**: e-Boekhouden / Exact Online / Rompslomp / Moneybird / Geen
-2. **E-mail provider**: Outlook / SMTP / Geen
-
-Deze keuzes worden opgeslagen in `companies.accounting_provider` en `companies.email_provider`.
-
----
-
-### Stap 3: Instellingen-pagina aanpassen
-
-De huidige tabs array wijzigen zodat:
-
-- De tab "e-Boekhouden" wordt vervangen door een dynamische "Boekhouding" tab die alleen de instellingen toont van de gekozen provider
-- De SMTP-sectie (nu onder "App-voorkeuren") wordt verplaatst naar een eigen "E-mail" tab die Outlook of SMTP toont op basis van keuze
-- Een "Koppelingen" tab toevoegen waar het bedrijf van provider kan wisselen
-
-**Per accounting provider:**
-- **e-Boekhouden**: Bestaande flow (API token, sjablonen, grootboeken)
-- **Exact Online**: OAuth flow via SiteJob Connect — client ID, redirect, token opslag
-- **Rompslomp**: API key configuratie
-- **Moneybird**: OAuth flow of API token
-
-**Per email provider:**
-- **SMTP**: Bestaande flow (host, port, user, pass)
-- **Outlook**: OAuth via Microsoft Entra — tenant ID, client ID, redirect URI, consent flow
-
----
-
-### Stap 4: Outlook Edge Function
-
-Nieuwe edge function `outlook-send` aanmaken die:
-- Outlook refresh token uit de database haalt
-- Access token ophaalt via Microsoft OAuth2 token endpoint
-- E-mail verstuurt via Microsoft Graph API (`/me/sendMail`)
-
-Plus `outlook-callback` edge function voor de OAuth callback.
-
----
-
-### Stap 5: Send-email functie aanpassen
-
-De bestaande `send-email` edge function uitbreiden:
-- Check `companies.email_provider`
-- Als `outlook`: gebruik Microsoft Graph API
-- Als `smtp`: bestaande SMTP flow
-
----
-
-### Stap 6: Toekomstige boekhouding edge functions
-
-Placeholder edge functions voor Exact/Rompslomp/Moneybird (vergelijkbaar met `sync-invoice-eboekhouden`). De daadwerkelijke API-integratie kan later per provider worden ingevuld wanneer de API credentials beschikbaar zijn.
-
----
-
-### Technische details
-
-**Database migratie SQL:**
-```sql
-ALTER TABLE companies
-  ADD COLUMN accounting_provider text,
-  ADD COLUMN email_provider text DEFAULT 'smtp',
-  ADD COLUMN outlook_tenant_id text,
-  ADD COLUMN outlook_client_id text,
-  ADD COLUMN outlook_refresh_token text,
-  ADD COLUMN outlook_email text;
-```
-
-**Bestanden die worden aangemaakt/gewijzigd:**
-- `src/components/OnboardingDialog.tsx` — keuze-stap toevoegen
-- `src/pages/SettingsPage.tsx` — dynamische tabs op basis van provider
-- `supabase/functions/outlook-send/index.ts` — nieuw
-- `supabase/functions/outlook-callback/index.ts` — nieuw
-- `supabase/functions/send-email/index.ts` — router op basis van provider
-- `supabase/functions/save-smtp-credentials/index.ts` — Outlook velden toevoegen
-
-**Nieuwe secrets nodig:**
-- `OUTLOOK_CLIENT_SECRET` — voor Microsoft Entra app (user moet deze zelf aanmaken)
+### Resultaat
+- Geen financiele bedrijfsdata meer zichtbaar
+- Dashboard werkt met 1000+ bedrijven door server-side counts
+- Focus op platformmetrics: groei, adoptie, activiteit
 
