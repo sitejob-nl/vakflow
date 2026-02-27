@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           apartment: string | null
           city: string | null
+          company_id: string | null
           created_at: string
           customer_id: string
           house_number: string | null
@@ -32,6 +33,7 @@ export type Database = {
         Insert: {
           apartment?: string | null
           city?: string | null
+          company_id?: string | null
           created_at?: string
           customer_id: string
           house_number?: string | null
@@ -46,6 +48,7 @@ export type Database = {
         Update: {
           apartment?: string | null
           city?: string | null
+          company_id?: string | null
           created_at?: string
           customer_id?: string
           house_number?: string | null
@@ -59,6 +62,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "addresses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "addresses_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -71,6 +81,7 @@ export type Database = {
         Row: {
           address_id: string | null
           assigned_to: string | null
+          company_id: string | null
           created_at: string
           customer_id: string
           duration_minutes: number
@@ -86,6 +97,7 @@ export type Database = {
         Insert: {
           address_id?: string | null
           assigned_to?: string | null
+          company_id?: string | null
           created_at?: string
           customer_id: string
           duration_minutes?: number
@@ -101,6 +113,7 @@ export type Database = {
         Update: {
           address_id?: string | null
           assigned_to?: string | null
+          company_id?: string | null
           created_at?: string
           customer_id?: string
           duration_minutes?: number
@@ -129,6 +142,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "appointments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "appointments_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -147,6 +167,7 @@ export type Database = {
       auto_message_settings: {
         Row: {
           channel: string
+          company_id: string | null
           created_at: string
           custom_text: string | null
           delay_hours: number
@@ -159,6 +180,7 @@ export type Database = {
         }
         Insert: {
           channel?: string
+          company_id?: string | null
           created_at?: string
           custom_text?: string | null
           delay_hours?: number
@@ -171,6 +193,7 @@ export type Database = {
         }
         Update: {
           channel?: string
+          company_id?: string | null
           created_at?: string
           custom_text?: string | null
           delay_hours?: number
@@ -181,11 +204,20 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "auto_message_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       automation_send_log: {
         Row: {
           automation_id: string
+          company_id: string | null
           customer_id: string
           id: string
           result: Json | null
@@ -194,6 +226,7 @@ export type Database = {
         }
         Insert: {
           automation_id: string
+          company_id?: string | null
           customer_id: string
           id?: string
           result?: Json | null
@@ -202,6 +235,7 @@ export type Database = {
         }
         Update: {
           automation_id?: string
+          company_id?: string | null
           customer_id?: string
           id?: string
           result?: Json | null
@@ -217,6 +251,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "automation_send_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "automation_send_log_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -229,6 +270,7 @@ export type Database = {
         Row: {
           body: string | null
           channel: string
+          company_id: string | null
           created_at: string
           customer_id: string | null
           direction: string
@@ -244,6 +286,7 @@ export type Database = {
         Insert: {
           body?: string | null
           channel: string
+          company_id?: string | null
           created_at?: string
           customer_id?: string | null
           direction?: string
@@ -259,6 +302,7 @@ export type Database = {
         Update: {
           body?: string | null
           channel?: string
+          company_id?: string | null
           created_at?: string
           customer_id?: string | null
           direction?: string
@@ -272,6 +316,13 @@ export type Database = {
           work_order_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "communication_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "communication_logs_customer_id_fkey"
             columns: ["customer_id"]
@@ -288,10 +339,80 @@ export type Database = {
           },
         ]
       }
+      companies: {
+        Row: {
+          address: string | null
+          btw_number: string | null
+          city: string | null
+          created_at: string
+          eboekhouden_api_token: string | null
+          eboekhouden_debtor_ledger_id: number | null
+          eboekhouden_ledger_id: number | null
+          eboekhouden_template_id: number | null
+          iban: string | null
+          id: string
+          kvk_number: string | null
+          logo_url: string | null
+          name: string
+          phone: string | null
+          postal_code: string | null
+          slug: string
+          smtp_email: string | null
+          smtp_host: string | null
+          smtp_password: string | null
+          smtp_port: number | null
+        }
+        Insert: {
+          address?: string | null
+          btw_number?: string | null
+          city?: string | null
+          created_at?: string
+          eboekhouden_api_token?: string | null
+          eboekhouden_debtor_ledger_id?: number | null
+          eboekhouden_ledger_id?: number | null
+          eboekhouden_template_id?: number | null
+          iban?: string | null
+          id?: string
+          kvk_number?: string | null
+          logo_url?: string | null
+          name: string
+          phone?: string | null
+          postal_code?: string | null
+          slug: string
+          smtp_email?: string | null
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: number | null
+        }
+        Update: {
+          address?: string | null
+          btw_number?: string | null
+          city?: string | null
+          created_at?: string
+          eboekhouden_api_token?: string | null
+          eboekhouden_debtor_ledger_id?: number | null
+          eboekhouden_ledger_id?: number | null
+          eboekhouden_template_id?: number | null
+          iban?: string | null
+          id?: string
+          kvk_number?: string | null
+          logo_url?: string | null
+          name?: string
+          phone?: string | null
+          postal_code?: string | null
+          slug?: string
+          smtp_email?: string | null
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: number | null
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
           city: string | null
+          company_id: string | null
           contact_person: string | null
           created_at: string
           default_service_id: string | null
@@ -312,6 +433,7 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
+          company_id?: string | null
           contact_person?: string | null
           created_at?: string
           default_service_id?: string | null
@@ -332,6 +454,7 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
+          company_id?: string | null
           contact_person?: string | null
           created_at?: string
           default_service_id?: string | null
@@ -351,6 +474,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "customers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "customers_default_service_id_fkey"
             columns: ["default_service_id"]
             isOneToOne: false
@@ -361,6 +491,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          company_id: string | null
           created_at: string
           customer_id: string
           due_at: string | null
@@ -380,6 +511,7 @@ export type Database = {
           work_order_id: string | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           customer_id: string
           due_at?: string | null
@@ -399,6 +531,7 @@ export type Database = {
           work_order_id?: string | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           customer_id?: string
           due_at?: string | null
@@ -419,6 +552,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "invoices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invoices_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -437,6 +577,7 @@ export type Database = {
       notifications: {
         Row: {
           body: string | null
+          company_id: string | null
           created_at: string
           id: string
           link_page: string | null
@@ -447,6 +588,7 @@ export type Database = {
         }
         Insert: {
           body?: string | null
+          company_id?: string | null
           created_at?: string
           id?: string
           link_page?: string | null
@@ -457,6 +599,7 @@ export type Database = {
         }
         Update: {
           body?: string | null
+          company_id?: string | null
           created_at?: string
           id?: string
           link_page?: string | null
@@ -465,13 +608,22 @@ export type Database = {
           title?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
           btw_number: string | null
           company_address: string | null
           company_city: string | null
+          company_id: string | null
           company_name: string | null
           company_phone: string | null
           company_postal_code: string | null
@@ -497,6 +649,7 @@ export type Database = {
           btw_number?: string | null
           company_address?: string | null
           company_city?: string | null
+          company_id?: string | null
           company_name?: string | null
           company_phone?: string | null
           company_postal_code?: string | null
@@ -522,6 +675,7 @@ export type Database = {
           btw_number?: string | null
           company_address?: string | null
           company_city?: string | null
+          company_id?: string | null
           company_name?: string | null
           company_phone?: string | null
           company_postal_code?: string | null
@@ -543,10 +697,19 @@ export type Database = {
           smtp_password?: string | null
           smtp_port?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quote_templates: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           items: Json
@@ -556,6 +719,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           items?: Json
@@ -565,6 +729,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           items?: Json
@@ -573,10 +738,19 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quote_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quotes: {
         Row: {
+          company_id: string | null
           created_at: string
           customer_id: string
           id: string
@@ -594,6 +768,7 @@ export type Database = {
           vat_percentage: number
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           customer_id: string
           id?: string
@@ -611,6 +786,7 @@ export type Database = {
           vat_percentage?: number
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           customer_id?: string
           id?: string
@@ -629,6 +805,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "quotes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "quotes_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -642,6 +825,7 @@ export type Database = {
           category: string | null
           checklist_template: Json | null
           color: string | null
+          company_id: string | null
           created_at: string
           duration_minutes: number
           id: string
@@ -652,6 +836,7 @@ export type Database = {
           category?: string | null
           checklist_template?: Json | null
           color?: string | null
+          company_id?: string | null
           created_at?: string
           duration_minutes?: number
           id?: string
@@ -662,16 +847,26 @@ export type Database = {
           category?: string | null
           checklist_template?: Json | null
           color?: string | null
+          company_id?: string | null
           created_at?: string
           duration_minutes?: number
           id?: string
           name?: string
           price?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "services_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       todos: {
         Row: {
+          company_id: string | null
           completed: boolean
           created_at: string
           customer_id: string | null
@@ -681,6 +876,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           completed?: boolean
           created_at?: string
           customer_id?: string | null
@@ -690,6 +886,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           completed?: boolean
           created_at?: string
           customer_id?: string | null
@@ -699,6 +896,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "todos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "todos_customer_id_fkey"
             columns: ["customer_id"]
@@ -710,27 +914,39 @@ export type Database = {
       }
       user_roles: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_automations: {
         Row: {
+          company_id: string | null
           conditions: Json
           cooldown_hours: number
           created_at: string
@@ -745,6 +961,7 @@ export type Database = {
           variable_mapping: Json
         }
         Insert: {
+          company_id?: string | null
           conditions?: Json
           cooldown_hours?: number
           created_at?: string
@@ -759,6 +976,7 @@ export type Database = {
           variable_mapping?: Json
         }
         Update: {
+          company_id?: string | null
           conditions?: Json
           cooldown_hours?: number
           created_at?: string
@@ -772,11 +990,20 @@ export type Database = {
           user_id?: string
           variable_mapping?: Json
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_automations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_config: {
         Row: {
           access_token: string
+          company_id: string | null
           display_phone: string | null
           id: string
           phone_number_id: string
@@ -787,6 +1014,7 @@ export type Database = {
         }
         Insert: {
           access_token: string
+          company_id?: string | null
           display_phone?: string | null
           id?: string
           phone_number_id: string
@@ -797,6 +1025,7 @@ export type Database = {
         }
         Update: {
           access_token?: string
+          company_id?: string | null
           display_phone?: string | null
           id?: string
           phone_number_id?: string
@@ -805,10 +1034,19 @@ export type Database = {
           waba_id?: string | null
           webhook_secret?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_messages: {
         Row: {
+          company_id: string | null
           content: string | null
           created_at: string | null
           customer_id: string | null
@@ -823,6 +1061,7 @@ export type Database = {
           wamid: string | null
         }
         Insert: {
+          company_id?: string | null
           content?: string | null
           created_at?: string | null
           customer_id?: string | null
@@ -837,6 +1076,7 @@ export type Database = {
           wamid?: string | null
         }
         Update: {
+          company_id?: string | null
           content?: string | null
           created_at?: string | null
           customer_id?: string | null
@@ -850,13 +1090,22 @@ export type Database = {
           type?: string | null
           wamid?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       work_orders: {
         Row: {
           address_id: string | null
           appointment_id: string | null
           checklist: Json | null
+          company_id: string | null
           completed_at: string | null
           created_at: string
           customer_id: string
@@ -879,6 +1128,7 @@ export type Database = {
           address_id?: string | null
           appointment_id?: string | null
           checklist?: Json | null
+          company_id?: string | null
           completed_at?: string | null
           created_at?: string
           customer_id: string
@@ -901,6 +1151,7 @@ export type Database = {
           address_id?: string | null
           appointment_id?: string | null
           checklist?: Json | null
+          company_id?: string | null
           completed_at?: string | null
           created_at?: string
           customer_id?: string
@@ -935,6 +1186,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_orders_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "work_orders_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -955,6 +1213,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_my_company_id: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -962,9 +1221,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_super_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "monteur"
+      app_role: "admin" | "monteur" | "super_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1092,7 +1352,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "monteur"],
+      app_role: ["admin", "monteur", "super_admin"],
     },
   },
 } as const
