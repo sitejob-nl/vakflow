@@ -86,12 +86,14 @@ Deno.serve(async (req) => {
       return jsonRes({ skipped: true, reason: "No WhatsApp opt-in" });
     }
 
-    // Fetch active automations for this trigger type
-    const { data: automations } = await supabase
+    // Fetch active automations for this trigger type (scoped to customer's company)
+    const automationQuery = supabase
       .from("whatsapp_automations")
       .select("*")
       .eq("trigger_type", trigger_type)
       .eq("is_active", true);
+    if (customer.company_id) automationQuery.eq("company_id", customer.company_id);
+    const { data: automations } = await automationQuery;
 
     if (!automations || automations.length === 0) {
       console.log("No active automations for trigger:", trigger_type);
@@ -179,6 +181,7 @@ Deno.serve(async (req) => {
           automation_id: automation.id,
           customer_id: customer_id,
           trigger_type,
+          company_id: customer.company_id || automation.company_id || null,
           result: { success: sendResponse.ok, ...sendResult },
         });
 

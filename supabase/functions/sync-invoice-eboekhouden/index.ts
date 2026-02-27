@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
     if (action === "auto-sync") {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, eboekhouden_api_token, eboekhouden_template_id, eboekhouden_ledger_id, eboekhouden_debtor_ledger_id")
+        .select("id, company_id, eboekhouden_api_token, eboekhouden_template_id, eboekhouden_ledger_id, eboekhouden_debtor_ledger_id")
         .not("eboekhouden_api_token", "is", null);
 
       if (!profiles || profiles.length === 0) {
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
             for (const rel of allRelations) {
               try {
                 const detail = await ebGet(sess, `/relation/${rel.id}`);
-                const customerData = {
+                const customerData: Record<string, any> = {
                   name: detail.name || detail.contact || `Relatie ${rel.id}`,
                   address: detail.address || null,
                   postal_code: detail.postalCode || null,
@@ -203,6 +203,7 @@ Deno.serve(async (req) => {
                   await supabase.from("customers").update(customerData).eq("id", existing.id);
                   cUpdated++;
                 } else {
+                  customerData.company_id = prof.company_id;
                   await supabase.from("customers").insert(customerData);
                   cCreated++;
                 }
@@ -238,6 +239,7 @@ Deno.serve(async (req) => {
                 const vatAmount = Number(ebInv.vatAmount || (total - subtotal));
                 await supabase.from("invoices").insert({
                   customer_id: customer.id,
+                  company_id: prof.company_id,
                   eboekhouden_id: String(ebInv.id),
                   invoice_number: ebInv.invoiceNumber || null,
                   subtotal, total, vat_amount: vatAmount,

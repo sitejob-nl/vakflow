@@ -158,14 +158,18 @@ Deno.serve(async (req) => {
     return new Response("Unauthorized", { status: 401, headers: corsHeaders });
   }
 
-  // Fetch access token once for media downloads
+  // Fetch access token and company_id once for media downloads
   let accessToken: string | null = null;
+  let webhookCompanyId: string | null = null;
   const { data: configRow } = await supabase
     .from("whatsapp_config")
-    .select("access_token")
+    .select("access_token, company_id")
     .limit(1)
     .single();
-  if (configRow) accessToken = configRow.access_token;
+  if (configRow) {
+    accessToken = configRow.access_token;
+    webhookCompanyId = configRow.company_id;
+  }
 
   const body = await req.json();
 
@@ -194,37 +198,40 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Try to match customer by phone using sequential parameterized queries
+          // Try to match customer by phone (scoped to company if known)
           let customer: { id: string } | null = null;
 
           // Try exact match
-          const { data: c1 } = await supabase
+          let custQuery = supabase
             .from("customers")
             .select("id")
             .eq("phone", fromNumber)
-            .limit(1)
-            .maybeSingle();
+            .limit(1);
+          if (webhookCompanyId) custQuery = custQuery.eq("company_id", webhookCompanyId);
+          const { data: c1 } = await custQuery.maybeSingle();
           customer = c1;
 
           // Try with + prefix
           if (!customer) {
-            const { data: c2 } = await supabase
+            let q2 = supabase
               .from("customers")
               .select("id")
               .eq("phone", `+${fromNumber}`)
-              .limit(1)
-              .maybeSingle();
+              .limit(1);
+            if (webhookCompanyId) q2 = q2.eq("company_id", webhookCompanyId);
+            const { data: c2 } = await q2.maybeSingle();
             customer = c2;
           }
 
           // Try Dutch local format (0x instead of 31x)
           if (!customer && fromNumber.startsWith("316")) {
-            const { data: c3 } = await supabase
+            let q3 = supabase
               .from("customers")
               .select("id")
               .eq("phone", `0${fromNumber.slice(2)}`)
-              .limit(1)
-              .maybeSingle();
+              .limit(1);
+            if (webhookCompanyId) q3 = q3.eq("company_id", webhookCompanyId);
+            const { data: c3 } = await q3.maybeSingle();
             customer = c3;
           }
 
@@ -261,6 +268,7 @@ Deno.serve(async (req) => {
               type: msg.type,
               status: "received",
               customer_id: customer?.id || null,
+              company_id: webhookCompanyId,
               metadata,
             },
             { onConflict: "wamid" }
