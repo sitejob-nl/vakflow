@@ -34,13 +34,16 @@ export interface Quote {
 }
 
 export const useQuotes = () => {
+  const { companyId } = useAuth();
   return useQuery({
-    queryKey: ["quotes"],
+    queryKey: ["quotes", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("quotes")
         .select("*, customers(name, address, city, postal_code, email)")
         .order("created_at", { ascending: false });
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
       if (error) throw error;
       return (data as any[]).map((q) => ({
         ...q,

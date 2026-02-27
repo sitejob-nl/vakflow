@@ -15,6 +15,7 @@ export type Appointment = Tables<"appointments"> & {
 
 export const useAppointments = (weekStart: Date, weekEnd: Date) => {
   const queryClient = useQueryClient();
+  const { companyId } = useAuth();
 
   useEffect(() => {
     const channel = supabase
@@ -27,14 +28,16 @@ export const useAppointments = (weekStart: Date, weekEnd: Date) => {
   }, [queryClient]);
 
   return useQuery({
-    queryKey: ["appointments", weekStart.toISOString(), weekEnd.toISOString()],
+    queryKey: ["appointments", weekStart.toISOString(), weekEnd.toISOString(), companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("appointments")
         .select("*, customers(name, address, postal_code, city, lat, lng), services(name, color, price), profiles:assigned_to(full_name), addresses(street, house_number, apartment, postal_code, city, notes)")
         .gte("scheduled_at", weekStart.toISOString())
         .lt("scheduled_at", weekEnd.toISOString())
         .order("scheduled_at");
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
       if (error) throw error;
       return data as Appointment[];
     },

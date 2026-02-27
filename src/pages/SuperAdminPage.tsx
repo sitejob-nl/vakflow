@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, Pencil, Trash2, Search, Plus, X, Save, Loader2 } from "lucide-react";
+import { Building2, Users, Pencil, Trash2, Search, Plus, X, Save, Loader2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -26,7 +26,7 @@ const emptyForm = {
 };
 
 const SuperAdminPage = () => {
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, impersonate, isImpersonating, impersonatedCompanyName, stopImpersonating } = useAuth();
   const { toast } = useToast();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [stats, setStats] = useState<Record<string, CompanyStats>>({});
@@ -168,6 +168,9 @@ const SuperAdminPage = () => {
                   <TableCell className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString("nl-NL")}</TableCell>
                   <TableCell>
                     <div className="flex gap-1 justify-end">
+                      <Button variant="ghost" size="icon" title="Bekijk als dit bedrijf" onClick={() => { impersonate(c.id, c.name); toast({ title: `Bekijken als ${c.name}` }); }}>
+                        <Eye className="w-4 h-4 text-primary" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => setDeleteId(c.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                     </div>

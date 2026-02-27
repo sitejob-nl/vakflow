@@ -9,13 +9,16 @@ export type WorkOrder = Tables<"work_orders"> & {
 };
 
 export const useWorkOrders = () => {
+  const { companyId } = useAuth();
   return useQuery({
-    queryKey: ["work_orders"],
+    queryKey: ["work_orders", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("work_orders")
         .select("*, customers(name, address, city), services(name, color, price, category)")
         .order("created_at", { ascending: false });
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
       if (error) throw error;
       return data as WorkOrder[];
     },
