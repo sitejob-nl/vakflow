@@ -129,6 +129,8 @@ const SettingsPage = () => {
   const [newTplBody, setNewTplBody] = useState("");
   const [newTplFooter, setNewTplFooter] = useState("");
   const [newTplButtons, setNewTplButtons] = useState<{ type: string; text: string; url?: string; phone_number?: string }[]>([]);
+  const [newTplBodyExamples, setNewTplBodyExamples] = useState<string[]>([]);
+  const [newTplHeaderExample, setNewTplHeaderExample] = useState("");
 
   // WhatsApp Business Profile
   const { data: waProfile, isLoading: waProfileLoading } = useWhatsAppProfile(activeTab === 6 && !!waStatus?.connected);
@@ -1056,7 +1058,7 @@ const SettingsPage = () => {
               <div className="border-t border-border pt-4">
                 {!showCreateTemplate ? (
                   <button
-                    onClick={() => { setShowCreateTemplate(true); setNewTplName(""); setNewTplBody(""); setNewTplHeaderText(""); setNewTplFooter(""); setNewTplButtons([]); setNewTplCategory("UTILITY"); setNewTplLanguage("nl"); }}
+                    onClick={() => { setShowCreateTemplate(true); setNewTplName(""); setNewTplBody(""); setNewTplHeaderText(""); setNewTplFooter(""); setNewTplButtons([]); setNewTplCategory("UTILITY"); setNewTplLanguage("nl"); setNewTplBodyExamples([]); setNewTplHeaderExample(""); }}
                     className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors flex items-center gap-1.5"
                   >
                     <Plus className="h-3.5 w-3.5" /> Template aanmaken
@@ -1110,12 +1112,64 @@ const SettingsPage = () => {
                         className={`${inputClass} min-h-[100px]`}
                         placeholder={"Beste {{1}},\n\nUw afspraak is bevestigd op {{2}} om {{3}}.\n\nMet vriendelijke groet"}
                       />
-                      {newTplBody && (
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          Gevonden variabelen: {[...newTplBody.matchAll(/\{\{(\d+)\}\}/g)].map(m => `{{${m[1]}}}`).join(", ") || "geen"}
-                        </p>
-                      )}
+                      {(() => {
+                        const bodyVars = [...newTplBody.matchAll(/\{\{(\d+)\}\}/g)].map(m => parseInt(m[1]));
+                        const uniqueVars = [...new Set(bodyVars)].sort((a, b) => a - b);
+                        // Sync examples array length
+                        if (uniqueVars.length !== newTplBodyExamples.length) {
+                          const newExamples = uniqueVars.map((_, i) => newTplBodyExamples[i] || "");
+                          if (JSON.stringify(newExamples) !== JSON.stringify(newTplBodyExamples)) {
+                            setTimeout(() => setNewTplBodyExamples(newExamples), 0);
+                          }
+                        }
+                        return newTplBody ? (
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            Gevonden variabelen: {uniqueVars.map(v => `{{${v}}}`).join(", ") || "geen"}
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
+
+                    {/* Example values for body variables */}
+                    {newTplBodyExamples.length > 0 && (
+                      <div>
+                        <label className={labelClass}>Voorbeeld variabelen (verplicht voor Meta goedkeuring)</label>
+                        <div className="space-y-2">
+                          {newTplBodyExamples.map((ex, i) => {
+                            const varNum = [...new Set([...newTplBody.matchAll(/\{\{(\d+)\}\}/g)].map(m => parseInt(m[1])))].sort((a, b) => a - b)[i];
+                            return (
+                              <div key={i} className="flex items-center gap-2">
+                                <span className="text-[11px] text-muted-foreground w-12 shrink-0">{`{{${varNum}}}`}</span>
+                                <input
+                                  value={ex}
+                                  onChange={(e) => {
+                                    const updated = [...newTplBodyExamples];
+                                    updated[i] = e.target.value;
+                                    setNewTplBodyExamples(updated);
+                                  }}
+                                  className={inputClass}
+                                  placeholder={`Bijv. ${i === 0 ? "Jan" : i === 1 ? "15 maart 2025" : "14:00"}`}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Header example if it has a variable */}
+                    {newTplHeaderText && /\{\{\d+\}\}/.test(newTplHeaderText) && (
+                      <div>
+                        <label className={labelClass}>Voorbeeld header variabele</label>
+                        <input
+                          value={newTplHeaderExample}
+                          onChange={(e) => setNewTplHeaderExample(e.target.value)}
+                          className={inputClass}
+                          placeholder="Bijv. Jan de Vries"
+                        />
+                      </div>
+                    )}
+
                     <div>
                       <label className={labelClass}>Footer (optioneel)</label>
                       <input value={newTplFooter} onChange={(e) => setNewTplFooter(e.target.value)} className={inputClass} placeholder="Bijv. Verzonden via VentFlow" />
@@ -1187,9 +1241,17 @@ const SettingsPage = () => {
                           try {
                             const components: any[] = [];
                             if (newTplHeaderText) {
-                              components.push({ type: "HEADER", format: "TEXT", text: newTplHeaderText });
+                              const headerComp: any = { type: "HEADER", format: "TEXT", text: newTplHeaderText };
+                              if (/\{\{\d+\}\}/.test(newTplHeaderText) && newTplHeaderExample) {
+                                headerComp.example = { header_text: [newTplHeaderExample] };
+                              }
+                              components.push(headerComp);
                             }
-                            components.push({ type: "BODY", text: newTplBody });
+                            const bodyComp: any = { type: "BODY", text: newTplBody };
+                            if (newTplBodyExamples.length > 0 && newTplBodyExamples.some(e => e)) {
+                              bodyComp.example = { body_text: [newTplBodyExamples] };
+                            }
+                            components.push(bodyComp);
                             if (newTplFooter) {
                               components.push({ type: "FOOTER", text: newTplFooter });
                             }
