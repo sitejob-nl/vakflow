@@ -1238,6 +1238,17 @@ const SettingsPage = () => {
                             toast({ title: "Vul minimaal naam en body in", variant: "destructive" });
                             return;
                           }
+                          // Validate example variables
+                          const hasBodyVars = /\{\{\d+\}\}/.test(newTplBody);
+                          if (hasBodyVars && (!newTplBodyExamples.length || newTplBodyExamples.some(e => !e.trim()))) {
+                            toast({ title: "Vul alle voorbeeld variabelen in", description: "Meta vereist voorbeeldwaarden voor elke variabele in de body.", variant: "destructive" });
+                            return;
+                          }
+                          const hasHeaderVar = newTplHeaderText && /\{\{\d+\}\}/.test(newTplHeaderText);
+                          if (hasHeaderVar && !newTplHeaderExample.trim()) {
+                            toast({ title: "Vul de voorbeeld header variabele in", description: "Meta vereist een voorbeeldwaarde voor de variabele in de header.", variant: "destructive" });
+                            return;
+                          }
                           try {
                             const components: any[] = [];
                             if (newTplHeaderText) {
@@ -1278,7 +1289,7 @@ const SettingsPage = () => {
                             toast({ title: "Template aanmaken mislukt", description: err.message, variant: "destructive" });
                           }
                         }}
-                        disabled={!newTplName || !newTplBody || createWaTemplate.isPending}
+                        disabled={!newTplName || !newTplBody || createWaTemplate.isPending || (/\{\{\d+\}\}/.test(newTplBody) && newTplBodyExamples.some(e => !e.trim())) || (newTplHeaderText && /\{\{\d+\}\}/.test(newTplHeaderText) && !newTplHeaderExample.trim())}
                         className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
                       >
                         {createWaTemplate.isPending ? "Indienen..." : "Template indienen"}
