@@ -47,20 +47,20 @@ const SuperAdminPage = () => {
 
     const statsMap: Record<string, CompanyStats> = {};
     if (data) {
-      const ids = data.map(c => c.id);
-      const [custRes, userRes, woRes] = await Promise.all([
-        supabase.from("customers").select("company_id", { count: "exact", head: false }).in("company_id", ids),
-        supabase.from("profiles").select("company_id", { count: "exact", head: false }).in("company_id", ids),
-        supabase.from("work_orders").select("company_id", { count: "exact", head: false }).in("company_id", ids),
-      ]);
-      for (const id of ids) {
-        statsMap[id] = {
-          company_id: id,
-          customer_count: (custRes.data ?? []).filter(r => r.company_id === id).length,
-          user_count: (userRes.data ?? []).filter(r => r.company_id === id).length,
-          work_order_count: (woRes.data ?? []).filter(r => r.company_id === id).length,
+      // Use individual count queries per company — scales beyond 1000 rows
+      await Promise.all(data.map(async (c) => {
+        const [custCount, userCount, woCount] = await Promise.all([
+          supabase.from("customers").select("*", { count: "exact", head: true }).eq("company_id", c.id),
+          supabase.from("profiles").select("*", { count: "exact", head: true }).eq("company_id", c.id),
+          supabase.from("work_orders").select("*", { count: "exact", head: true }).eq("company_id", c.id),
+        ]);
+        statsMap[c.id] = {
+          company_id: c.id,
+          customer_count: custCount.count ?? 0,
+          user_count: userCount.count ?? 0,
+          work_order_count: woCount.count ?? 0,
         };
-      }
+      }));
     }
     setStats(statsMap);
     setLoading(false);
