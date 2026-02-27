@@ -15,7 +15,7 @@ export interface QuoteTemplateDB {
 }
 
 export interface CombinedTemplate {
-  id: string; // "hardcoded:Name" or uuid
+  id: string;
   name: string;
   items: QuoteItem[];
   optionalItems: OptionalItem[];
@@ -67,12 +67,12 @@ export const useCombinedTemplates = () => {
 
 export const useCreateQuoteTemplate = () => {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, companyId } = useAuth();
   return useMutation({
     mutationFn: async (tpl: { name: string; items: QuoteItem[]; optional_items: OptionalItem[] }) => {
       const { data, error } = await supabase
         .from("quote_templates")
-        .insert({ ...tpl, user_id: user!.id } as any)
+        .insert({ ...tpl, user_id: user!.id, company_id: companyId } as any)
         .select()
         .single();
       if (error) throw error;

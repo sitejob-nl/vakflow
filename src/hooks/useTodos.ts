@@ -31,12 +31,12 @@ export const useTodos = () => {
 
 export const useCreateTodo = () => {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, companyId } = useAuth();
   return useMutation({
     mutationFn: async (params: { title: string; customer_id?: string | null; due_date?: string | null }) => {
       const { data, error } = await supabase
         .from("todos")
-        .insert({ ...params, user_id: user!.id })
+        .insert({ ...params, user_id: user!.id, company_id: companyId } as any)
         .select("*, customers:customer_id(name)")
         .single();
       if (error) throw error;
@@ -50,10 +50,7 @@ export const useToggleTodo = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
-      const { error } = await supabase
-        .from("todos")
-        .update({ completed })
-        .eq("id", id);
+      const { error } = await supabase.from("todos").update({ completed }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["todos"] }),

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 export type Customer = Tables<"customers"> & {
@@ -50,15 +51,15 @@ export const useCustomer = (id: string | undefined) => {
 
 export const useCreateCustomer = () => {
   const qc = useQueryClient();
+  const { companyId } = useAuth();
   return useMutation({
     mutationFn: async (customer: TablesInsert<"customers">) => {
-      const { data, error } = await supabase.from("customers").insert(customer).select().single();
+      const { data, error } = await supabase.from("customers").insert({ ...customer, company_id: companyId } as any).select().single();
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["customers"] });
-      // Auto-sync to e-Boekhouden (fire-and-forget)
       syncCustomerToEboekhouden(data.id);
     },
   });
@@ -74,7 +75,6 @@ export const useUpdateCustomer = () => {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["customers"] });
-      // Auto-sync to e-Boekhouden (fire-and-forget)
       syncCustomerToEboekhouden(data.id);
     },
   });
@@ -104,9 +104,10 @@ export const useServices = () => {
 
 export const useCreateService = () => {
   const qc = useQueryClient();
+  const { companyId } = useAuth();
   return useMutation({
     mutationFn: async (service: { name: string; price: number; category?: string | null; color?: string | null; duration_minutes?: number }) => {
-      const { data, error } = await supabase.from("services").insert(service).select().single();
+      const { data, error } = await supabase.from("services").insert({ ...service, company_id: companyId } as any).select().single();
       if (error) throw error;
       return data;
     },

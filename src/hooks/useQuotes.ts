@@ -53,12 +53,12 @@ export const useQuotes = () => {
 
 export const useCreateQuote = () => {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, companyId } = useAuth();
   return useMutation({
     mutationFn: async (quote: Omit<Quote, "id" | "quote_number" | "created_at" | "user_id" | "customers">) => {
       const { data, error } = await supabase
         .from("quotes")
-        .insert({ ...quote, user_id: user!.id } as any)
+        .insert({ ...quote, user_id: user!.id, company_id: companyId } as any)
         .select()
         .single();
       if (error) throw error;

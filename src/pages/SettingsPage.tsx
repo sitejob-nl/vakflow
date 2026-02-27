@@ -234,14 +234,13 @@ const SettingsPage = () => {
 
   const handleChangeRole = async (userId: string, newRole: string) => {
     try {
-      // Upsert role
-      const { error } = await supabase.from("user_roles").upsert(
-        { user_id: userId, role: newRole } as any,
-        { onConflict: "user_id,role" }
-      );
-      // If the role changed, delete old role first then insert new
-      await supabase.from("user_roles").delete().eq("user_id", userId);
-      await supabase.from("user_roles").insert({ user_id: userId, role: newRole } as any);
+      // Get the company_id from the caller's profile
+      const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
+      const cid = profileData?.company_id;
+      if (!cid) throw new Error("Geen bedrijf gevonden");
+      // Delete old roles for this user in this company, then insert new
+      await supabase.from("user_roles").delete().eq("user_id", userId).eq("company_id", cid);
+      await supabase.from("user_roles").insert({ user_id: userId, company_id: cid, role: newRole } as any);
       setTeamRoles((prev) => ({ ...prev, [userId]: newRole }));
       toast({ title: "Rol bijgewerkt" });
     } catch (err: any) {
@@ -252,27 +251,32 @@ const SettingsPage = () => {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-      if (data) {
-        setFullName(data.full_name ?? "");
-        setPhone(data.phone ?? "");
-        setCompanyName(data.company_name ?? "");
-        setLocation(data.location ?? "");
-        setKvkNumber((data as any).kvk_number ?? "");
-        setBtwNumber((data as any).btw_number ?? "");
-        setCompanyAddress((data as any).company_address ?? "");
-        setCompanyPostalCode((data as any).company_postal_code ?? "");
-        setCompanyCity((data as any).company_city ?? "");
-        setCompanyPhone((data as any).company_phone ?? "");
-        setIban((data as any).iban ?? "");
-        setSmtpEmail((data as any).smtp_email || user?.email || "");
-        setSmtpHost((data as any).smtp_host || "smtp.transip.email");
-        setSmtpPort(String((data as any).smtp_port || "465"));
-        setSmtpHasCredentials(!!(data as any).smtp_email && !!(data as any).smtp_password);
-        setEbTemplateId(String((data as any).eboekhouden_template_id ?? ""));
-        setEbLedgerId(String((data as any).eboekhouden_ledger_id ?? ""));
-        setEbDebtorLedgerId(String((data as any).eboekhouden_debtor_ledger_id ?? ""));
-        setEbConnected(!!(data as any).eboekhouden_api_token);
+      // Load profile data
+      const { data: profileData } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      if (profileData) {
+        setFullName(profileData.full_name ?? "");
+        setPhone(profileData.phone ?? "");
+        setLocation(profileData.location ?? "");
+      }
+      // Load company data
+      const { data: companyData } = await supabase.from("companies").select("*").limit(1).single();
+      if (companyData) {
+        setCompanyName((companyData as any).name ?? "");
+        setKvkNumber((companyData as any).kvk_number ?? "");
+        setBtwNumber((companyData as any).btw_number ?? "");
+        setCompanyAddress((companyData as any).address ?? "");
+        setCompanyPostalCode((companyData as any).postal_code ?? "");
+        setCompanyCity((companyData as any).city ?? "");
+        setCompanyPhone((companyData as any).phone ?? "");
+        setIban((companyData as any).iban ?? "");
+        setSmtpEmail((companyData as any).smtp_email || user?.email || "");
+        setSmtpHost((companyData as any).smtp_host || "smtp.transip.email");
+        setSmtpPort(String((companyData as any).smtp_port || "465"));
+        setSmtpHasCredentials(!!(companyData as any).smtp_email && !!(companyData as any).smtp_password);
+        setEbTemplateId(String((companyData as any).eboekhouden_template_id ?? ""));
+        setEbLedgerId(String((companyData as any).eboekhouden_ledger_id ?? ""));
+        setEbDebtorLedgerId(String((companyData as any).eboekhouden_debtor_ledger_id ?? ""));
+        setEbConnected(!!(companyData as any).eboekhouden_api_token);
       }
       setLoading(false);
     })();
@@ -314,17 +318,18 @@ const SettingsPage = () => {
   const handleSaveCompany = async () => {
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase.from("profiles").update({
-      company_name: companyName,
-      location,
+    const { error } = await supabase.from("companies").update({
+      name: companyName,
       kvk_number: kvkNumber,
       btw_number: btwNumber,
-      company_address: companyAddress,
-      company_postal_code: companyPostalCode,
-      company_city: companyCity,
-      company_phone: companyPhone,
+      address: companyAddress,
+      postal_code: companyPostalCode,
+      city: companyCity,
+      phone: companyPhone,
       iban,
-    } as any).eq("id", user.id);
+    } as any).eq("id", (await supabase.from("profiles").select("company_id").eq("id", user.id).single()).data?.company_id);
+    // Also update location on profile
+    await supabase.from("profiles").update({ location } as any).eq("id", user.id);
     setSaving(false);
     if (error) {
       toast({ title: "Fout", description: error.message, variant: "destructive" });
@@ -395,12 +400,16 @@ const SettingsPage = () => {
       if (ebToken) {
         await saveEbTokenEncrypted(ebToken);
       }
-      // Save template/ledger IDs directly (not sensitive)
-      await supabase.from("profiles").update({
-        eboekhouden_template_id: ebTemplateId ? Number(ebTemplateId) : null,
-        eboekhouden_ledger_id: ebLedgerId ? Number(ebLedgerId) : null,
-        eboekhouden_debtor_ledger_id: ebDebtorLedgerId ? Number(ebDebtorLedgerId) : null,
-      } as any).eq("id", user.id);
+      // Save template/ledger IDs to companies table (not sensitive)
+      const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user.id).single();
+      const cid = profileData?.company_id;
+      if (cid) {
+        await supabase.from("companies").update({
+          eboekhouden_template_id: ebTemplateId ? Number(ebTemplateId) : null,
+          eboekhouden_ledger_id: ebLedgerId ? Number(ebLedgerId) : null,
+          eboekhouden_debtor_ledger_id: ebDebtorLedgerId ? Number(ebDebtorLedgerId) : null,
+        } as any).eq("id", cid);
+      }
       setEbConnected(!!ebToken);
       toast({ title: "e-Boekhouden instellingen opgeslagen" });
     } catch (err: any) {

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type Address = {
   id: string;
@@ -32,9 +33,10 @@ export const useAddresses = (customerId: string | undefined) => {
 
 export const useCreateAddress = () => {
   const qc = useQueryClient();
+  const { companyId } = useAuth();
   return useMutation({
     mutationFn: async (address: Omit<Address, "id" | "created_at" | "last_service_date">) => {
-      const { data, error } = await supabase.from("addresses").insert(address).select().single();
+      const { data, error } = await supabase.from("addresses").insert({ ...address, company_id: companyId } as any).select().single();
       if (error) throw error;
       return data;
     },
