@@ -1,7 +1,7 @@
 import { useNavigation, type Page } from "@/hooks/useNavigation";
 import {
   LayoutGrid, Calendar, Users, FileText, DollarSign,
-  MessageSquare, Bell, LogOut, Settings, Mail
+  MessageSquare, Bell, LogOut, Settings, Mail, Building2
 } from "lucide-react";
 import logoFull from "@/assets/logo-full.png";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,7 +36,7 @@ const allSections = [
 
 const Sidebar = () => {
   const { currentPage, navigate } = useNavigation();
-  const { signOut, isAdmin } = useAuth();
+  const { signOut, isAdmin, isSuperAdmin } = useAuth();
 
   const handleNav = (page: Page) => {
     navigate(page);
@@ -88,6 +88,19 @@ const Sidebar = () => {
 
       {/* Footer */}
       <div className="p-3.5 border-t border-border space-y-px">
+        {isSuperAdmin && (
+          <button
+            onClick={() => handleNav("superadmin")}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2 rounded-sm text-[13.5px] font-semibold transition-all ${
+              currentPage === "superadmin"
+                ? "bg-primary-muted text-primary"
+                : "text-secondary-foreground hover:bg-bg-hover hover:text-foreground"
+            }`}
+          >
+            <Building2 className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.8} />
+            Super Admin
+          </button>
+        )}
         {isAdmin && (
           <button
             onClick={() => handleNav("settings")}
