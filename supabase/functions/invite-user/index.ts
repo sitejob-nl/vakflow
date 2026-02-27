@@ -38,12 +38,28 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify caller is admin
+    // Get caller's company_id
+    const { data: callerProfile } = await adminClient
+      .from("profiles")
+      .select("company_id")
+      .eq("id", caller.id)
+      .single();
+
+    const callerCompanyId = callerProfile?.company_id;
+    if (!callerCompanyId) {
+      return new Response(JSON.stringify({ error: "Geen bedrijf gevonden voor je account" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify caller is admin of their company
     const { data: roleData } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
-      .eq("role", "admin")
+      .eq("company_id", callerCompanyId)
+      .in("role", ["admin", "super_admin"])
       .maybeSingle();
 
     if (!roleData) {
@@ -69,7 +85,21 @@ Deno.serve(async (req) => {
         });
       }
 
-      await adminClient.from("user_roles").delete().eq("user_id", user_id);
+      // Only allow deleting users from the same company
+      const { data: targetProfile } = await adminClient
+        .from("profiles")
+        .select("company_id")
+        .eq("id", user_id)
+        .single();
+
+      if (targetProfile?.company_id !== callerCompanyId) {
+        return new Response(JSON.stringify({ error: "Gebruiker behoort niet tot je bedrijf" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      await adminClient.from("user_roles").delete().eq("user_id", user_id).eq("company_id", callerCompanyId);
       await adminClient.from("profiles").delete().eq("id", user_id);
       const { error } = await adminClient.auth.admin.deleteUser(user_id);
 
@@ -97,7 +127,7 @@ Deno.serve(async (req) => {
 
     const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
       redirectTo: redirect_url || supabaseUrl,
-      data: { full_name: full_name || undefined, role: role || "monteur" },
+      data: { full_name: full_name || undefined, role: role || "monteur", company_id: callerCompanyId },
     });
 
     if (error) {
@@ -107,12 +137,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Assign role to the new user
+    // Assign role and company to the new user
     if (data.user) {
       const assignRole = role || "monteur";
+      
+      // Update profile with company_id
+      await adminClient
+        .from("profiles")
+        .update({ company_id: callerCompanyId })
+        .eq("id", data.user.id);
+
       await adminClient.from("user_roles").upsert(
-        { user_id: data.user.id, role: assignRole },
-        { onConflict: "user_id,role" }
+        { user_id: data.user.id, company_id: callerCompanyId, role: assignRole },
+        { onConflict: "user_id,company_id,role" }
       );
     }
 

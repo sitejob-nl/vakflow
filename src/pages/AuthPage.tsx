@@ -199,16 +199,24 @@ const AuthPage = () => {
                   {isLogin ? "Inloggen" : "Registreren"}
                 </Button>
               </form>
-              <div className="mt-4 text-center">
+              <div className="mt-4 text-center space-y-2">
                 <button
                   type="button"
                   onClick={() => setIsLogin(!isLogin)}
-                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors block w-full"
                 >
                   {isLogin
-                    ? "Nog geen account? Registreer hier"
+                    ? "Medewerker account aanmaken"
                     : "Al een account? Log hier in"}
                 </button>
+                {isLogin && (
+                  <a
+                    href="/signup"
+                    className="text-sm text-primary hover:underline block"
+                  >
+                    Bedrijf registreren →
+                  </a>
+                )}
               </div>
             </>
           )}

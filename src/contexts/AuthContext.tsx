@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode } fro
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type AppRole = "admin" | "monteur";
+type AppRole = "admin" | "monteur" | "super_admin";
 
 interface AuthContextType {
   session: Session | null;
@@ -10,6 +10,8 @@ interface AuthContextType {
   loading: boolean;
   role: AppRole | null;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
+  companyId: string | null;
   onboardingCompleted: boolean | null;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
@@ -23,6 +25,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
   const fetchedForRef = useRef<string | null>(null);
 
@@ -32,10 +35,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const [roleRes, profileRes] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", userId).limit(1).single(),
-      supabase.from("profiles").select("onboarding_completed").eq("id", userId).single(),
+      supabase.from("profiles").select("onboarding_completed, company_id").eq("id", userId).single(),
     ]);
     setRole((roleRes.data?.role as AppRole) ?? null);
     setOnboardingCompleted(profileRes.data?.onboarding_completed ?? null);
+    setCompanyId(profileRes.data?.company_id ?? null);
   };
 
   useEffect(() => {
@@ -48,6 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setRole(null);
           setOnboardingCompleted(null);
+          setCompanyId(null);
           fetchedForRef.current = null;
         }
         setLoading(false);
@@ -87,10 +92,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await supabase.auth.signOut();
   };
 
-  const isAdmin = role === "admin";
+  const isAdmin = role === "admin" || role === "super_admin";
+  const isSuperAdmin = role === "super_admin";
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, role, isAdmin, onboardingCompleted, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, role, isAdmin, isSuperAdmin, companyId, onboardingCompleted, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
