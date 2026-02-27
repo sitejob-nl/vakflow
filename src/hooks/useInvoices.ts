@@ -9,13 +9,16 @@ export type Invoice = Tables<"invoices"> & {
 };
 
 export const useInvoices = () => {
+  const { companyId } = useAuth();
   return useQuery({
-    queryKey: ["invoices"],
+    queryKey: ["invoices", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("invoices")
         .select("*, customers(name, address, city, postal_code, email), work_orders(work_order_number, services(name, price))")
         .order("created_at", { ascending: false });
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
       if (error) throw error;
       return data as Invoice[];
     },

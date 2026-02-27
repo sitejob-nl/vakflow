@@ -14,15 +14,18 @@ export type Todo = {
 };
 
 export const useTodos = () => {
+  const { companyId } = useAuth();
   return useQuery({
-    queryKey: ["todos"],
+    queryKey: ["todos", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("todos")
         .select("*, customers:customer_id(name)")
         .order("completed", { ascending: true })
         .order("due_date", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false });
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
       if (error) throw error;
       return data as Todo[];
     },

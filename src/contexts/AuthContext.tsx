@@ -12,7 +12,12 @@ interface AuthContextType {
   isAdmin: boolean;
   isSuperAdmin: boolean;
   companyId: string | null;
+  realCompanyId: string | null;
   onboardingCompleted: boolean | null;
+  impersonatedCompanyName: string | null;
+  isImpersonating: boolean;
+  impersonate: (companyId: string, companyName: string) => void;
+  stopImpersonating: () => void;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -25,8 +30,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<AppRole | null>(null);
-  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [realCompanyId, setRealCompanyId] = useState<string | null>(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
+  const [impersonatedCompanyId, setImpersonatedCompanyId] = useState<string | null>(null);
+  const [impersonatedCompanyName, setImpersonatedCompanyName] = useState<string | null>(null);
   const fetchedForRef = useRef<string | null>(null);
 
   const fetchUserData = async (userId: string) => {
@@ -39,7 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     ]);
     setRole((roleRes.data?.role as AppRole) ?? null);
     setOnboardingCompleted(profileRes.data?.onboarding_completed ?? null);
-    setCompanyId(profileRes.data?.company_id ?? null);
+    setRealCompanyId(profileRes.data?.company_id ?? null);
   };
 
   useEffect(() => {
@@ -52,7 +59,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setRole(null);
           setOnboardingCompleted(null);
-          setCompanyId(null);
+          setRealCompanyId(null);
+          setImpersonatedCompanyId(null);
+          setImpersonatedCompanyName(null);
           fetchedForRef.current = null;
         }
         setLoading(false);
@@ -95,8 +104,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isAdmin = role === "admin" || role === "super_admin";
   const isSuperAdmin = role === "super_admin";
 
+  const impersonate = (companyId: string, companyName: string) => {
+    setImpersonatedCompanyId(companyId);
+    setImpersonatedCompanyName(companyName);
+  };
+
+  const stopImpersonating = () => {
+    setImpersonatedCompanyId(null);
+    setImpersonatedCompanyName(null);
+  };
+
+  const companyId = impersonatedCompanyId ?? realCompanyId;
+  const isImpersonating = !!impersonatedCompanyId;
+
   return (
-    <AuthContext.Provider value={{ session, user, loading, role, isAdmin, isSuperAdmin, companyId, onboardingCompleted, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{
+      session, user, loading, role, isAdmin, isSuperAdmin,
+      companyId, realCompanyId, onboardingCompleted,
+      impersonatedCompanyName, isImpersonating,
+      impersonate, stopImpersonating,
+      signIn, signUp, signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );

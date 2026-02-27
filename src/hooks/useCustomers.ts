@@ -20,13 +20,16 @@ const syncCustomerToEboekhouden = async (customerId: string) => {
 };
 
 export const useCustomers = () => {
+  const { companyId } = useAuth();
   return useQuery({
-    queryKey: ["customers"],
+    queryKey: ["customers", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("customers")
         .select("*, services:default_service_id(name, color)")
         .order("name");
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
       if (error) throw error;
       return data as Customer[];
     },
@@ -92,10 +95,13 @@ export const useDeleteCustomer = () => {
 };
 
 export const useServices = () => {
+  const { companyId } = useAuth();
   return useQuery({
-    queryKey: ["services"],
+    queryKey: ["services", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("services").select("*").order("category").order("price");
+      let q = supabase.from("services").select("*").order("category").order("price");
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
