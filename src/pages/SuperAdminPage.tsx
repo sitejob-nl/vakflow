@@ -2,13 +2,15 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, Pencil, Trash2, Search, Plus, X, Save, Loader2, Eye } from "lucide-react";
+import { Building2, Users, Pencil, Trash2, Search, Plus, Save, Loader2, Eye, BarChart3, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import SuperAdminStats from "@/components/SuperAdminStats";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Company = Tables<"companies">;
@@ -26,7 +28,7 @@ const emptyForm = {
 };
 
 const SuperAdminPage = () => {
-  const { isSuperAdmin, impersonate, isImpersonating, impersonatedCompanyName, stopImpersonating } = useAuth();
+  const { isSuperAdmin, impersonate } = useAuth();
   const { toast } = useToast();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [stats, setStats] = useState<Record<string, CompanyStats>>({});
@@ -43,7 +45,6 @@ const SuperAdminPage = () => {
     const { data } = await supabase.from("companies").select("*").order("created_at", { ascending: false });
     setCompanies(data ?? []);
 
-    // Fetch stats per company
     const statsMap: Record<string, CompanyStats> = {};
     if (data) {
       const ids = data.map(c => c.id);
@@ -52,7 +53,6 @@ const SuperAdminPage = () => {
         supabase.from("profiles").select("company_id", { count: "exact", head: false }).in("company_id", ids),
         supabase.from("work_orders").select("company_id", { count: "exact", head: false }).in("company_id", ids),
       ]);
-
       for (const id of ids) {
         statsMap[id] = {
           company_id: id,
@@ -68,12 +68,7 @@ const SuperAdminPage = () => {
 
   useEffect(() => { fetchCompanies(); }, []);
 
-  const openCreate = () => {
-    setEditCompany(null);
-    setForm(emptyForm);
-    setDialogOpen(true);
-  };
-
+  const openCreate = () => { setEditCompany(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (c: Company) => {
     setEditCompany(c);
     setForm({
@@ -85,10 +80,7 @@ const SuperAdminPage = () => {
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.slug) {
-      toast({ title: "Naam en slug zijn verplicht", variant: "destructive" });
-      return;
-    }
+    if (!form.name || !form.slug) { toast({ title: "Naam en slug zijn verplicht", variant: "destructive" }); return; }
     setSaving(true);
     if (editCompany) {
       const { error } = await supabase.from("companies").update(form).eq("id", editCompany.id);
@@ -99,9 +91,7 @@ const SuperAdminPage = () => {
       if (error) toast({ title: "Fout bij aanmaken", description: error.message, variant: "destructive" });
       else toast({ title: "Bedrijf aangemaakt" });
     }
-    setSaving(false);
-    setDialogOpen(false);
-    fetchCompanies();
+    setSaving(false); setDialogOpen(false); fetchCompanies();
   };
 
   const handleDelete = async () => {
@@ -109,78 +99,89 @@ const SuperAdminPage = () => {
     const { error } = await supabase.from("companies").delete().eq("id", deleteId);
     if (error) toast({ title: "Fout bij verwijderen", description: error.message, variant: "destructive" });
     else toast({ title: "Bedrijf verwijderd" });
-    setDeleteId(null);
-    fetchCompanies();
+    setDeleteId(null); fetchCompanies();
   };
 
   const filtered = companies.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.slug.toLowerCase().includes(search.toLowerCase())
+    c.name.toLowerCase().includes(search.toLowerCase()) || c.slug.toLowerCase().includes(search.toLowerCase())
   );
 
   if (!isSuperAdmin) return <div className="p-8 text-muted-foreground">Geen toegang.</div>;
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Building2 className="w-6 h-6 text-primary" /> Super Admin — Bedrijven
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">{companies.length} bedrijven geregistreerd</p>
-        </div>
-        <Button onClick={openCreate}><Plus className="w-4 h-4 mr-1" /> Bedrijf toevoegen</Button>
+      <div>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Building2 className="w-6 h-6 text-primary" /> Super Admin
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">Platform overzicht en bedrijvenbeheer</p>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input placeholder="Zoek bedrijf..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
-      </div>
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview" className="gap-1.5"><BarChart3 className="w-4 h-4" /> Overzicht</TabsTrigger>
+          <TabsTrigger value="companies" className="gap-1.5"><List className="w-4 h-4" /> Bedrijven</TabsTrigger>
+        </TabsList>
 
-      {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-      ) : (
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Bedrijf</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>KVK</TableHead>
-                <TableHead className="text-center"><Users className="w-4 h-4 inline" /> Users</TableHead>
-                <TableHead className="text-center">Klanten</TableHead>
-                <TableHead className="text-center">Werkbonnen</TableHead>
-                <TableHead className="text-center">Aangemaakt</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Geen bedrijven gevonden</TableCell></TableRow>
-              ) : filtered.map(c => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs font-mono">{c.slug}</TableCell>
-                  <TableCell className="text-sm">{c.kvk_number || "—"}</TableCell>
-                  <TableCell className="text-center">{stats[c.id]?.user_count ?? 0}</TableCell>
-                  <TableCell className="text-center">{stats[c.id]?.customer_count ?? 0}</TableCell>
-                  <TableCell className="text-center">{stats[c.id]?.work_order_count ?? 0}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString("nl-NL")}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1 justify-end">
-                      <Button variant="ghost" size="icon" title="Bekijk als dit bedrijf" onClick={() => { impersonate(c.id, c.name); toast({ title: `Bekijken als ${c.name}` }); }}>
-                        <Eye className="w-4 h-4 text-primary" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteId(c.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+        <TabsContent value="overview" className="mt-4">
+          <SuperAdminStats />
+        </TabsContent>
+
+        <TabsContent value="companies" className="mt-4 space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="relative max-w-sm w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="Zoek bedrijf..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+            </div>
+            <Button onClick={openCreate}><Plus className="w-4 h-4 mr-1" /> Bedrijf toevoegen</Button>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : (
+            <div className="border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Bedrijf</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead>KVK</TableHead>
+                    <TableHead className="text-center"><Users className="w-4 h-4 inline" /> Users</TableHead>
+                    <TableHead className="text-center">Klanten</TableHead>
+                    <TableHead className="text-center">Werkbonnen</TableHead>
+                    <TableHead className="text-center">Aangemaakt</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.length === 0 ? (
+                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Geen bedrijven gevonden</TableCell></TableRow>
+                  ) : filtered.map(c => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">{c.name}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs font-mono">{c.slug}</TableCell>
+                      <TableCell className="text-sm">{c.kvk_number || "—"}</TableCell>
+                      <TableCell className="text-center">{stats[c.id]?.user_count ?? 0}</TableCell>
+                      <TableCell className="text-center">{stats[c.id]?.customer_count ?? 0}</TableCell>
+                      <TableCell className="text-center">{stats[c.id]?.work_order_count ?? 0}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString("nl-NL")}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 justify-end">
+                          <Button variant="ghost" size="icon" title="Bekijk als dit bedrijf" onClick={() => { impersonate(c.id, c.name); toast({ title: `Bekijken als ${c.name}` }); }}>
+                            <Eye className="w-4 h-4 text-primary" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(c.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Edit/Create Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
