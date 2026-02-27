@@ -113,6 +113,20 @@ serve(async (req) => {
       });
     }
 
+    // Get caller's company_id
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("company_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!callerProfile?.company_id) {
+      return new Response(JSON.stringify({ error: "Geen bedrijf gevonden" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Build update payload
     const updateData: Record<string, any> = {};
     if (smtp_email !== undefined) {
@@ -133,12 +147,11 @@ serve(async (req) => {
       updateData.smtp_port = smtp_port;
     }
 
-    // Save via service role (reusing supabaseAdmin from above)
-
+    // Save to companies table
     const { error: updateError } = await supabaseAdmin
-      .from("profiles")
+      .from("companies")
       .update(updateData)
-      .eq("id", user.id);
+      .eq("id", callerProfile.company_id);
 
     if (updateError) {
       return new Response(JSON.stringify({ error: updateError.message }), {

@@ -137,13 +137,37 @@ serve(async (req) => {
       });
     }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
+    // Try to get SMTP credentials from companies table first
+    const { data: userProfile } = await supabaseAdmin
       .from("profiles")
-      .select("smtp_email, smtp_password, smtp_host, smtp_port")
+      .select("company_id")
       .eq("id", user.id)
       .single();
 
-    if (profileError || !profile?.smtp_email || !profile?.smtp_password) {
+    let smtpCreds: { smtp_email: string | null; smtp_password: string | null; smtp_host: string | null; smtp_port: number | null } | null = null;
+
+    if (userProfile?.company_id) {
+      const { data: companyCreds } = await supabaseAdmin
+        .from("companies")
+        .select("smtp_email, smtp_password, smtp_host, smtp_port")
+        .eq("id", userProfile.company_id)
+        .single();
+      if (companyCreds?.smtp_email && companyCreds?.smtp_password) {
+        smtpCreds = companyCreds;
+      }
+    }
+
+    // Fallback to profile SMTP credentials
+    if (!smtpCreds) {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("smtp_email, smtp_password, smtp_host, smtp_port")
+        .eq("id", user.id)
+        .single();
+      smtpCreds = profile;
+    }
+
+    if (!smtpCreds?.smtp_email || !smtpCreds?.smtp_password) {
       return new Response(
         JSON.stringify({ error: "SMTP-gegevens niet ingesteld. Ga naar Instellingen om je e-mail in te stellen." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -153,15 +177,14 @@ serve(async (req) => {
     // Decrypt the password
     let smtpPassword: string;
     try {
-      smtpPassword = await decryptPassword(profile.smtp_password);
+      smtpPassword = await decryptPassword(smtpCreds.smtp_password!);
     } catch (decryptError) {
       console.error("Decrypt error:", decryptError);
-      // Fallback: try as plain text (for backwards compatibility during migration)
-      smtpPassword = profile.smtp_password;
+      smtpPassword = smtpCreds.smtp_password!;
     }
 
-    const smtpHost = profile.smtp_host || "smtp.transip.email";
-    const smtpPort = profile.smtp_port || 465;
+    const smtpHost = smtpCreds.smtp_host || "smtp.transip.email";
+    const smtpPort = smtpCreds.smtp_port || 465;
 
     const client = new SMTPClient({
       connection: {
@@ -169,14 +192,14 @@ serve(async (req) => {
         port: smtpPort,
         tls: true,
         auth: {
-          username: profile.smtp_email,
+          username: smtpCreds.smtp_email!,
           password: smtpPassword,
         },
       },
     });
 
     const mailOptions: any = {
-      from: profile.smtp_email,
+      from: smtpCreds.smtp_email!,
       to: to,
       subject: subject,
       content: body,

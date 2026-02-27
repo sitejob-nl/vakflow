@@ -59,12 +59,34 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Load company profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("company_name, company_address, company_postal_code, company_city, company_phone, kvk_number, btw_number, iban")
-      .eq("id", user.id)
-      .single();
+    // Load company info from companies table via work order's company_id
+    const companyId = wo.company_id;
+    let company: any = null;
+    if (companyId) {
+      const { data: c } = await supabase
+        .from("companies")
+        .select("name, address, postal_code, city, phone, kvk_number, btw_number")
+        .eq("id", companyId)
+        .single();
+      company = c;
+    }
+    // Fallback to profile if no company found
+    if (!company) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_name, company_address, company_postal_code, company_city, company_phone, kvk_number, btw_number")
+        .eq("id", user.id)
+        .single();
+      company = profile ? {
+        name: profile.company_name,
+        address: profile.company_address,
+        postal_code: profile.company_postal_code,
+        city: profile.company_city,
+        phone: profile.company_phone,
+        kvk_number: profile.kvk_number,
+        btw_number: profile.btw_number,
+      } : null;
+    }
 
     const customer = wo.customers as any;
     const service = wo.services as any;
@@ -105,12 +127,12 @@ Deno.serve(async (req) => {
       remarks: wo.remarks ?? "",
       signedBy: wo.signed_by ?? "",
       signedAt: wo.signed_at ? new Date(wo.signed_at).toLocaleDateString("nl-NL") : "",
-      companyName: profile?.company_name ?? "Vakflow",
-      companyAddress: profile?.company_address ?? "",
-      companyPostalCity: [profile?.company_postal_code, profile?.company_city].filter(Boolean).join(" "),
-      companyPhone: profile?.company_phone ?? "",
-      kvkNumber: profile?.kvk_number ?? "",
-      btwNumber: profile?.btw_number ?? "",
+      companyName: company?.name ?? "Vakflow",
+      companyAddress: company?.address ?? "",
+      companyPostalCity: [company?.postal_code, company?.city].filter(Boolean).join(" "),
+      companyPhone: company?.phone ?? "",
+      kvkNumber: company?.kvk_number ?? "",
+      btwNumber: company?.btw_number ?? "",
     });
 
     return new Response(pdf, {

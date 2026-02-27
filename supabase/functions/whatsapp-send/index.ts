@@ -168,13 +168,22 @@ Deno.serve(async (req) => {
   const userId = await authenticate(req);
   if (!userId) return jsonRes({ error: "Niet ingelogd" }, 401);
 
+  // Get user's company_id
+  const { data: userProfile } = await supabaseAdmin
+    .from("profiles")
+    .select("company_id")
+    .eq("id", userId)
+    .single();
+  const userCompanyId = userProfile?.company_id ?? null;
+
   const body = await req.json();
 
-  // Haal config op
-  const { data: config } = await supabaseAdmin
+  // Haal config op (scoped to company)
+  const configQuery = supabaseAdmin
     .from("whatsapp_config")
-    .select("*")
-    .single();
+    .select("*");
+  if (userCompanyId) configQuery.eq("company_id", userCompanyId);
+  const { data: config } = await configQuery.single();
 
   // === DISCONNECT ===
   if (body.action === "disconnect") {
@@ -333,6 +342,7 @@ Deno.serve(async (req) => {
       status: "sent",
       sent_by: userId,
       customer_id: customer_id || null,
+      company_id: userCompanyId,
     });
   }
 

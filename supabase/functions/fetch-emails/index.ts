@@ -117,11 +117,29 @@ serve(async (req) => {
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .select("smtp_email, smtp_password")
+      .select("smtp_email, smtp_password, company_id")
       .eq("id", user.id)
       .single();
 
-    if (profileError || !profile?.smtp_email || !profile?.smtp_password) {
+    const userCompanyId = profile?.company_id ?? null;
+
+    // Try company SMTP creds first, fallback to profile
+    let smtpEmail = profile?.smtp_email;
+    let smtpPassword = profile?.smtp_password;
+
+    if (userCompanyId) {
+      const { data: companyCreds } = await supabaseAdmin
+        .from("companies")
+        .select("smtp_email, smtp_password")
+        .eq("id", userCompanyId)
+        .single();
+      if (companyCreds?.smtp_email && companyCreds?.smtp_password) {
+        smtpEmail = companyCreds.smtp_email;
+        smtpPassword = companyCreds.smtp_password;
+      }
+    }
+
+    if (!smtpEmail || !smtpPassword) {
       return new Response(
         JSON.stringify({ error: "SMTP/IMAP-gegevens niet ingesteld. Ga naar Instellingen." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -131,9 +149,9 @@ serve(async (req) => {
     // Decrypt password
     let password: string;
     try {
-      password = await decryptPassword(profile.smtp_password);
+      password = await decryptPassword(smtpPassword);
     } catch {
-      password = profile.smtp_password;
+      password = smtpPassword;
     }
 
     // Connect to IMAP
@@ -142,7 +160,7 @@ serve(async (req) => {
       host: "imap.transip.email",
       port: 993,
       tls: true,
-      username: profile.smtp_email,
+      username: smtpEmail,
       password: password,
     });
 
@@ -178,11 +196,13 @@ serve(async (req) => {
 
     console.log(`Fetched ${messages.length} messages`);
 
-    // Get all customers for email matching
-    const { data: allCustomers } = await supabaseAdmin
+    // Get all customers for email matching (scoped to company)
+    const custQuery = supabaseAdmin
       .from("customers")
       .select("id, email")
       .not("email", "is", null);
+    if (userCompanyId) custQuery.eq("company_id", userCompanyId);
+    const { data: allCustomers } = await custQuery;
 
     const customerMap = new Map<string, string>();
     for (const c of allCustomers ?? []) {
@@ -241,6 +261,7 @@ serve(async (req) => {
           status: "sent",
           is_automated: false,
           message_id: messageId,
+          company_id: userCompanyId,
         };
 
         // Link to customer if matched, otherwise save without
