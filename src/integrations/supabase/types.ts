@@ -341,6 +341,7 @@ export type Database = {
       }
       companies: {
         Row: {
+          accounting_provider: string | null
           address: string | null
           btw_number: string | null
           city: string | null
@@ -349,11 +350,16 @@ export type Database = {
           eboekhouden_debtor_ledger_id: number | null
           eboekhouden_ledger_id: number | null
           eboekhouden_template_id: number | null
+          email_provider: string | null
           iban: string | null
           id: string
           kvk_number: string | null
           logo_url: string | null
           name: string
+          outlook_client_id: string | null
+          outlook_email: string | null
+          outlook_refresh_token: string | null
+          outlook_tenant_id: string | null
           phone: string | null
           postal_code: string | null
           slug: string
@@ -363,6 +369,7 @@ export type Database = {
           smtp_port: number | null
         }
         Insert: {
+          accounting_provider?: string | null
           address?: string | null
           btw_number?: string | null
           city?: string | null
@@ -371,11 +378,16 @@ export type Database = {
           eboekhouden_debtor_ledger_id?: number | null
           eboekhouden_ledger_id?: number | null
           eboekhouden_template_id?: number | null
+          email_provider?: string | null
           iban?: string | null
           id?: string
           kvk_number?: string | null
           logo_url?: string | null
           name: string
+          outlook_client_id?: string | null
+          outlook_email?: string | null
+          outlook_refresh_token?: string | null
+          outlook_tenant_id?: string | null
           phone?: string | null
           postal_code?: string | null
           slug: string
@@ -385,6 +397,7 @@ export type Database = {
           smtp_port?: number | null
         }
         Update: {
+          accounting_provider?: string | null
           address?: string | null
           btw_number?: string | null
           city?: string | null
@@ -393,11 +406,16 @@ export type Database = {
           eboekhouden_debtor_ledger_id?: number | null
           eboekhouden_ledger_id?: number | null
           eboekhouden_template_id?: number | null
+          email_provider?: string | null
           iban?: string | null
           id?: string
           kvk_number?: string | null
           logo_url?: string | null
           name?: string
+          outlook_client_id?: string | null
+          outlook_email?: string | null
+          outlook_refresh_token?: string | null
+          outlook_tenant_id?: string | null
           phone?: string | null
           postal_code?: string | null
           slug?: string
