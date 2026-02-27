@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 export type Appointment = Tables<"appointments"> & {
@@ -15,22 +16,14 @@ export type Appointment = Tables<"appointments"> & {
 export const useAppointments = (weekStart: Date, weekEnd: Date) => {
   const queryClient = useQueryClient();
 
-  // Realtime subscription for appointments
   useEffect(() => {
     const channel = supabase
       .channel("appointments-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "appointments" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["appointments"] });
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
   return useQuery({
@@ -70,9 +63,10 @@ export const useAppointmentsForDay = (date: Date | null) => {
 
 export const useCreateAppointment = () => {
   const qc = useQueryClient();
+  const { companyId } = useAuth();
   return useMutation({
     mutationFn: async (appointment: TablesInsert<"appointments">) => {
-      const { data, error } = await supabase.from("appointments").insert(appointment).select().single();
+      const { data, error } = await supabase.from("appointments").insert({ ...appointment, company_id: companyId } as any).select().single();
       if (error) throw error;
       return data;
     },

@@ -48,7 +48,6 @@ export function useAutoMessageSettings() {
         .eq("user_id", user!.id);
       if (error) throw error;
 
-      // Merge with defaults for missing types
       const existing = (data || []) as unknown as AutoMessageSetting[];
       const map = new Map(existing.map((s) => [s.message_type, s]));
 
@@ -70,12 +69,12 @@ export function useAutoMessageSettings() {
 }
 
 export function useUpsertAutoMessageSetting() {
-  const { user } = useAuth();
+  const { user, companyId } = useAuth();
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async (setting: Omit<AutoMessageSetting, "id" | "user_id">) => {
-      const payload = { ...setting, user_id: user!.id };
+      const payload = { ...setting, user_id: user!.id, company_id: companyId };
       const { error } = await supabase
         .from("auto_message_settings" as any)
         .upsert(payload as any, { onConflict: "user_id,message_type" });

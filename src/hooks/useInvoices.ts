@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 export type Invoice = Tables<"invoices"> & {
@@ -39,9 +40,10 @@ export const useInvoice = (id: string | undefined) => {
 
 export const useCreateInvoice = () => {
   const qc = useQueryClient();
+  const { companyId } = useAuth();
   return useMutation({
     mutationFn: async (invoice: TablesInsert<"invoices">) => {
-      const { data, error } = await supabase.from("invoices").insert(invoice).select().single();
+      const { data, error } = await supabase.from("invoices").insert({ ...invoice, company_id: companyId } as any).select().single();
       if (error) throw error;
       return data;
     },
@@ -99,19 +101,6 @@ export const useSyncAllContactsEboekhouden = () => {
       return data as { synced: number; skipped: number; errors: string[] };
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
-  });
-};
-
-export const useSyncInvoiceStatusEboekhouden = () => {
-  return useMutation({
-    mutationFn: async (invoiceId: string) => {
-      const { data, error } = await supabase.functions.invoke("sync-invoice-eboekhouden", {
-        body: { action: "update-invoice-status", invoice_id: invoiceId },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
-    },
   });
 };
 

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 
 export type CommunicationLog = Tables<"communication_logs"> & {
@@ -29,11 +30,12 @@ export const useCommunicationLogs = (customerId?: string) => {
 
 export const useCreateCommunicationLog = () => {
   const qc = useQueryClient();
+  const { companyId } = useAuth();
   return useMutation({
     mutationFn: async (log: TablesInsert<"communication_logs">) => {
       const { data, error } = await supabase
         .from("communication_logs")
-        .insert(log)
+        .insert({ ...log, company_id: companyId } as any)
         .select("*, customers:customer_id(name)")
         .single();
       if (error) throw error;

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 export type WorkOrder = Tables<"work_orders"> & {
@@ -39,9 +40,10 @@ export const useWorkOrder = (id: string | undefined) => {
 
 export const useCreateWorkOrder = () => {
   const qc = useQueryClient();
+  const { companyId } = useAuth();
   return useMutation({
     mutationFn: async (wo: TablesInsert<"work_orders">) => {
-      const { data, error } = await supabase.from("work_orders").insert(wo).select().single();
+      const { data, error } = await supabase.from("work_orders").insert({ ...wo, company_id: companyId } as any).select().single();
       if (error) throw error;
       return data;
     },

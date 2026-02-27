@@ -70,12 +70,12 @@ export function useWhatsAppAutomations() {
 
 export function useCreateAutomation() {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, companyId } = useAuth();
   return useMutation({
     mutationFn: async (automation: Omit<WhatsAppAutomation, "id" | "user_id" | "created_at" | "updated_at">) => {
       const { data, error } = await supabase
         .from("whatsapp_automations")
-        .insert({ ...automation, user_id: user!.id } as any)
+        .insert({ ...automation, user_id: user!.id, company_id: companyId } as any)
         .select()
         .single();
       if (error) throw error;
