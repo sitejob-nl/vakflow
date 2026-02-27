@@ -41,10 +41,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fetchedForRef.current = userId;
 
     const [roleRes, profileRes] = await Promise.all([
-      supabase.from("user_roles").select("role").eq("user_id", userId).limit(1).single(),
+      supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase.from("profiles").select("onboarding_completed, company_id").eq("id", userId).single(),
     ]);
-    setRole((roleRes.data?.role as AppRole) ?? null);
+    // Pick the highest-privilege role: super_admin > admin > monteur
+    const roles = (roleRes.data ?? []).map(r => r.role as AppRole);
+    const bestRole: AppRole | null = roles.includes("super_admin") ? "super_admin" : roles.includes("admin") ? "admin" : roles[0] ?? null;
+    setRole(bestRole);
     setOnboardingCompleted(profileRes.data?.onboarding_completed ?? null);
     setRealCompanyId(profileRes.data?.company_id ?? null);
   };
