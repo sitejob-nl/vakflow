@@ -23,6 +23,7 @@ import EmailPage from "@/pages/EmailPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
 import RemindersPage from "@/pages/RemindersPage";
 import SettingsPage from "@/pages/SettingsPage";
+import CompanySignupPage from "@/pages/CompanySignupPage";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/signup" element={<CompanySignupPage />} />
             <Route
               path="/"
               element={
