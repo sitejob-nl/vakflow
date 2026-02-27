@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.company-signup]
 verify_jwt = false
+
+[functions.outlook-callback]
+verify_jwt = false

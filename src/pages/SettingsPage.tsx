@@ -19,7 +19,7 @@ import { useQuoteTemplatesDB, useDeleteQuoteTemplate, useCombinedTemplates, type
 import { useWhatsAppAutomations, useCreateAutomation, useUpdateAutomation, useDeleteAutomation, TRIGGER_TYPES, AVAILABLE_VARIABLES } from "@/hooks/useWhatsAppAutomations";
 import type { Tables } from "@/integrations/supabase/types";
 
-const tabs = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Sjablonen", "e-Boekhouden", "WhatsApp", "Automatiseringen", "Teamleden"];
+const BASE_TABS = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "Automatiseringen", "Teamleden", "Koppelingen"];
 
 const SettingsPage = () => {
   const { user } = useAuth();
@@ -50,6 +50,16 @@ const SettingsPage = () => {
   const [smtpPort, setSmtpPort] = useState("465");
   const [smtpHasCredentials, setSmtpHasCredentials] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
+  const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
+  const [emailProvider, setEmailProvider] = useState<string | null>("smtp");
+  const [outlookTenantId, setOutlookTenantId] = useState("");
+  const [outlookClientId, setOutlookClientId] = useState("");
+  const [outlookEmail, setOutlookEmail] = useState("");
+  const [outlookConnected, setOutlookConnected] = useState(false);
+  const [savingOutlook, setSavingOutlook] = useState(false);
+  const [savingProviders, setSavingProviders] = useState(false);
+
+  const tabs = BASE_TABS;
 
   // Services tab state
   const { data: services, isLoading: servicesLoading } = useServices();
@@ -117,7 +127,7 @@ const SettingsPage = () => {
   // WhatsApp status
   const queryClient = useQueryClient();
   const { data: waStatus } = useWhatsAppStatus();
-  const { data: waTemplates } = useWhatsAppTemplates(activeTab === 6 && !!waStatus?.connected);
+  const { data: waTemplates } = useWhatsAppTemplates(activeTab === 7 && !!waStatus?.connected);
   const deleteWaTemplate = useDeleteWhatsAppTemplate();
   const createWaTemplate = useCreateWhatsAppTemplate();
   const [deletingWaTemplateName, setDeletingWaTemplateName] = useState<string | null>(null);
@@ -133,7 +143,7 @@ const SettingsPage = () => {
   const [newTplHeaderExample, setNewTplHeaderExample] = useState("");
 
   // WhatsApp Business Profile
-  const { data: waProfile, isLoading: waProfileLoading } = useWhatsAppProfile(activeTab === 6 && !!waStatus?.connected);
+  const { data: waProfile, isLoading: waProfileLoading } = useWhatsAppProfile(activeTab === 7 && !!waStatus?.connected);
   const updateWaProfile = useUpdateWhatsAppProfile();
   const uploadWaPhoto = useUploadWhatsAppProfilePhoto();
   const [waProfileAbout, setWaProfileAbout] = useState("");
@@ -171,7 +181,7 @@ const SettingsPage = () => {
 
   // Load team members when tab is active
   useEffect(() => {
-    if (activeTab === 8) {
+    if (activeTab === 9) {
       loadTeamMembers();
     }
   }, [activeTab]);
@@ -273,6 +283,12 @@ const SettingsPage = () => {
         setSmtpHost((companyData as any).smtp_host || "smtp.transip.email");
         setSmtpPort(String((companyData as any).smtp_port || "465"));
         setSmtpHasCredentials(!!(companyData as any).smtp_email && !!(companyData as any).smtp_password);
+        setAccountingProvider((companyData as any).accounting_provider ?? null);
+        setEmailProvider((companyData as any).email_provider ?? "smtp");
+        setOutlookTenantId((companyData as any).outlook_tenant_id ?? "");
+        setOutlookClientId((companyData as any).outlook_client_id ?? "");
+        setOutlookEmail((companyData as any).outlook_email ?? "");
+        setOutlookConnected(!!(companyData as any).outlook_refresh_token);
         setEbTemplateId(String((companyData as any).eboekhouden_template_id ?? ""));
         setEbLedgerId(String((companyData as any).eboekhouden_ledger_id ?? ""));
         setEbDebtorLedgerId(String((companyData as any).eboekhouden_debtor_ledger_id ?? ""));
@@ -591,40 +607,6 @@ const SettingsPage = () => {
             </button>
           </div>
           <div className="border-t border-border pt-5">
-            <h3 className="text-[14px] font-bold mb-1">E-mail (SMTP)</h3>
-            <p className="text-[12px] text-secondary-foreground mb-3">Stel je e-mailgegevens in om e-mails te versturen vanuit de communicatiemodule.</p>
-            <div className="space-y-3">
-              <div>
-                <label className={labelClass}>E-mailadres</label>
-                <input value={smtpEmail} onChange={(e) => setSmtpEmail(e.target.value)} className={inputClass} placeholder="info@jouwdomein.nl" type="email" />
-              </div>
-              <div>
-                <label className={labelClass}>Wachtwoord</label>
-                <input value={smtpPassword} onChange={(e) => setSmtpPassword(e.target.value)} className={inputClass} placeholder={smtpHasCredentials ? "••••••••  (ongewijzigd)" : "Wachtwoord"} type="password" />
-                {smtpHasCredentials && !smtpPassword && (
-                  <p className="text-[11px] text-t3 mt-1">Laat leeg om het huidige wachtwoord te behouden</p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelClass}>SMTP Server</label>
-                  <input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} className={inputClass} placeholder="smtp.transip.email" />
-                </div>
-                <div>
-                  <label className={labelClass}>Poort</label>
-                  <input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} className={inputClass} placeholder="465" type="number" />
-                </div>
-              </div>
-              <div className="text-[11px] text-t3">SSL/TLS wordt automatisch gebruikt</div>
-              <button onClick={handleSaveSmtp} disabled={savingSmtp} className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
-                {savingSmtp ? "Opslaan..." : "E-mail opslaan"}
-              </button>
-              {smtpHasCredentials && (
-                <p className="text-[11px] text-success font-bold">✓ E-mailgegevens zijn ingesteld</p>
-              )}
-            </div>
-          </div>
-          <div className="border-t border-border pt-5">
             <h3 className="text-[14px] font-bold mb-1">PWA Installatie</h3>
             <p className="text-[12px] text-secondary-foreground mb-3">Installeer VentFlow als app op je telefoon voor snelle toegang.</p>
             <div className="text-[12px] text-secondary-foreground space-y-1">
@@ -766,6 +748,8 @@ const SettingsPage = () => {
 
       {activeTab === 5 && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
+          {accountingProvider === "eboekhouden" ? (
+          <>
           <div>
             <h3 className="text-[14px] font-bold mb-1">e-Boekhouden koppeling</h3>
             <p className="text-[12px] text-secondary-foreground mb-3">Koppel je e-Boekhouden account om facturen automatisch te boeken.</p>
@@ -1006,10 +990,131 @@ const SettingsPage = () => {
               </div>
             </div>
           )}
+          </>
+          ) : accountingProvider === "exact" ? (
+            <div>
+              <h3 className="text-[14px] font-bold mb-1">Exact Online</h3>
+              <p className="text-[12px] text-secondary-foreground mb-3">Exact Online wordt gekoppeld via SiteJob Connect. Neem contact op voor de configuratie.</p>
+              <p className="text-[12px] text-muted-foreground">🔧 Binnenkort beschikbaar</p>
+            </div>
+          ) : accountingProvider === "rompslomp" ? (
+            <div>
+              <h3 className="text-[14px] font-bold mb-1">Rompslomp</h3>
+              <p className="text-[12px] text-secondary-foreground mb-3">Rompslomp-koppeling wordt binnenkort ondersteund.</p>
+              <p className="text-[12px] text-muted-foreground">🔧 Binnenkort beschikbaar</p>
+            </div>
+          ) : accountingProvider === "moneybird" ? (
+            <div>
+              <h3 className="text-[14px] font-bold mb-1">Moneybird</h3>
+              <p className="text-[12px] text-secondary-foreground mb-3">Moneybird-koppeling wordt binnenkort ondersteund.</p>
+              <p className="text-[12px] text-muted-foreground">🔧 Binnenkort beschikbaar</p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-[13px] text-muted-foreground">Geen boekhoudpakket geselecteerd. Ga naar het tabblad <button className="text-primary underline" onClick={() => setActiveTab(10)}>Koppelingen</button> om een provider te kiezen.</p>
+            </div>
+          )}
         </div>
       )}
 
+      {/* E-mail tab */}
       {activeTab === 6 && (
+        <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
+          {emailProvider === "outlook" ? (
+            <>
+              <div>
+                <h3 className="text-[14px] font-bold mb-1">Outlook (Microsoft 365)</h3>
+                <p className="text-[12px] text-secondary-foreground mb-3">Koppel je Outlook-account om e-mails te versturen via Microsoft Graph.</p>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className={labelClass}>Tenant ID</label>
+                  <input value={outlookTenantId} onChange={(e) => setOutlookTenantId(e.target.value)} className={inputClass} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+                <div>
+                  <label className={labelClass}>Client ID (Application ID)</label>
+                  <input value={outlookClientId} onChange={(e) => setOutlookClientId(e.target.value)} className={inputClass} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+                <button
+                  onClick={async () => {
+                    setSavingOutlook(true);
+                    try {
+                      const res = await supabase.functions.invoke("save-smtp-credentials", {
+                        body: { outlook_tenant_id: outlookTenantId, outlook_client_id: outlookClientId },
+                      });
+                      if (res.error) throw res.error;
+                      if (res.data?.error) throw new Error(res.data.error);
+                      toast({ title: "Outlook configuratie opgeslagen" });
+
+                      // Open OAuth consent popup
+                      if (outlookTenantId && outlookClientId) {
+                        const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
+                        const redirectUri = encodeURIComponent(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/outlook-callback`);
+                        const scope = encodeURIComponent("https://graph.microsoft.com/Mail.Send offline_access");
+                        const authUrl = `https://login.microsoftonline.com/${outlookTenantId}/oauth2/v2.0/authorize?client_id=${outlookClientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scope}&state=${profileData?.company_id}&response_mode=query`;
+                        window.open(authUrl, "outlook-auth", "width=600,height=700");
+                      }
+                    } catch (err: any) {
+                      toast({ title: "Fout", description: err.message, variant: "destructive" });
+                    }
+                    setSavingOutlook(false);
+                  }}
+                  disabled={savingOutlook || !outlookTenantId || !outlookClientId}
+                  className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
+                >
+                  {savingOutlook ? "Opslaan..." : outlookConnected ? "Opnieuw koppelen" : "Opslaan & Koppelen"}
+                </button>
+                {outlookConnected && (
+                  <p className="text-[11px] text-success font-bold">✓ Outlook gekoppeld{outlookEmail ? ` — ${outlookEmail}` : ""}</p>
+                )}
+              </div>
+            </>
+          ) : emailProvider === "smtp" ? (
+            <>
+              <div>
+                <h3 className="text-[14px] font-bold mb-1">E-mail (SMTP)</h3>
+                <p className="text-[12px] text-secondary-foreground mb-3">Stel je e-mailgegevens in om e-mails te versturen vanuit de communicatiemodule.</p>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className={labelClass}>E-mailadres</label>
+                  <input value={smtpEmail} onChange={(e) => setSmtpEmail(e.target.value)} className={inputClass} placeholder="info@jouwdomein.nl" type="email" />
+                </div>
+                <div>
+                  <label className={labelClass}>Wachtwoord</label>
+                  <input value={smtpPassword} onChange={(e) => setSmtpPassword(e.target.value)} className={inputClass} placeholder={smtpHasCredentials ? "••••••••  (ongewijzigd)" : "Wachtwoord"} type="password" />
+                  {smtpHasCredentials && !smtpPassword && (
+                    <p className="text-[11px] text-t3 mt-1">Laat leeg om het huidige wachtwoord te behouden</p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>SMTP Server</label>
+                    <input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} className={inputClass} placeholder="smtp.transip.email" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Poort</label>
+                    <input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} className={inputClass} placeholder="465" type="number" />
+                  </div>
+                </div>
+                <div className="text-[11px] text-t3">SSL/TLS wordt automatisch gebruikt</div>
+                <button onClick={handleSaveSmtp} disabled={savingSmtp} className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
+                  {savingSmtp ? "Opslaan..." : "E-mail opslaan"}
+                </button>
+                {smtpHasCredentials && (
+                  <p className="text-[11px] text-success font-bold">✓ E-mailgegevens zijn ingesteld</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div>
+              <p className="text-[13px] text-muted-foreground">Geen e-mail provider geselecteerd. Ga naar het tabblad <button className="text-primary underline" onClick={() => setActiveTab(10)}>Koppelingen</button> om een provider te kiezen.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 7 && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           <div>
             <h3 className="text-[14px] font-bold mb-1 flex items-center gap-1.5">
@@ -1666,7 +1771,7 @@ const SettingsPage = () => {
         </div>
       )}
 
-      {activeTab === 7 && (
+      {activeTab === 8 && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           <div>
             <h3 className="text-[14px] font-bold mb-1">WhatsApp Automatiseringen</h3>
@@ -1867,7 +1972,7 @@ const SettingsPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {activeTab === 8 && (
+      {activeTab === 9 && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           <div>
             <h3 className="text-[14px] font-bold mb-1">Teamlid uitnodigen</h3>
@@ -1960,6 +2065,66 @@ const SettingsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Koppelingen tab */}
+      {activeTab === 10 && (
+        <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
+          <div>
+            <h3 className="text-[14px] font-bold mb-1">Koppelingen</h3>
+            <p className="text-[12px] text-secondary-foreground mb-3">Wijzig welk boekhoudpakket en welke e-mail provider je gebruikt.</p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className={labelClass}>Boekhoudpakket</label>
+              <Select value={accountingProvider || "__none__"} onValueChange={(v) => setAccountingProvider(v === "__none__" ? null : v)}>
+                <SelectTrigger><SelectValue placeholder="Selecteer..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="eboekhouden">e-Boekhouden</SelectItem>
+                  <SelectItem value="exact">Exact Online</SelectItem>
+                  <SelectItem value="rompslomp">Rompslomp</SelectItem>
+                  <SelectItem value="moneybird">Moneybird</SelectItem>
+                  <SelectItem value="__none__">Geen</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className={labelClass}>E-mail provider</label>
+              <Select value={emailProvider || "__none__"} onValueChange={(v) => setEmailProvider(v === "__none__" ? null : v)}>
+                <SelectTrigger><SelectValue placeholder="Selecteer..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="smtp">SMTP (eigen mailserver)</SelectItem>
+                  <SelectItem value="outlook">Outlook (Microsoft 365)</SelectItem>
+                  <SelectItem value="__none__">Geen</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <button
+              onClick={async () => {
+                setSavingProviders(true);
+                try {
+                  const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
+                  if (profileData?.company_id) {
+                    await supabase.from("companies").update({
+                      accounting_provider: accountingProvider,
+                      email_provider: emailProvider,
+                    } as any).eq("id", profileData.company_id);
+                    toast({ title: "Koppelingen opgeslagen" });
+                  }
+                } catch (err: any) {
+                  toast({ title: "Fout", description: err.message, variant: "destructive" });
+                }
+                setSavingProviders(false);
+              }}
+              disabled={savingProviders}
+              className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
+            >
+              {savingProviders ? "Opslaan..." : "Koppelingen opslaan"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <ServiceDialog
         open={serviceDialogOpen}
         onOpenChange={setServiceDialogOpen}

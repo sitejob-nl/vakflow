@@ -76,7 +76,7 @@ serve(async (req) => {
       });
     }
 
-    const { smtp_email, smtp_password, eboekhouden_api_token, smtp_host, smtp_port } = await req.json();
+    const { smtp_email, smtp_password, eboekhouden_api_token, smtp_host, smtp_port, outlook_tenant_id, outlook_client_id } = await req.json();
 
     // Verify user
     const supabaseUser = createClient(
@@ -145,6 +145,12 @@ serve(async (req) => {
     }
     if (smtp_port !== undefined) {
       updateData.smtp_port = smtp_port;
+    }
+    if (outlook_tenant_id !== undefined) {
+      updateData.outlook_tenant_id = outlook_tenant_id;
+    }
+    if (outlook_client_id !== undefined) {
+      updateData.outlook_client_id = outlook_client_id;
     }
 
     // Save to companies table

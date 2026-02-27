@@ -137,23 +137,48 @@ serve(async (req) => {
       });
     }
 
-    // Try to get SMTP credentials from companies table first
+    // Try to get credentials from companies table first
     const { data: userProfile } = await supabaseAdmin
       .from("profiles")
       .select("company_id")
       .eq("id", user.id)
       .single();
 
+    // Check if company uses Outlook
+    let emailProvider = "smtp";
     let smtpCreds: { smtp_email: string | null; smtp_password: string | null; smtp_host: string | null; smtp_port: number | null } | null = null;
 
     if (userProfile?.company_id) {
-      const { data: companyCreds } = await supabaseAdmin
+      const { data: companyData } = await supabaseAdmin
         .from("companies")
-        .select("smtp_email, smtp_password, smtp_host, smtp_port")
+        .select("smtp_email, smtp_password, smtp_host, smtp_port, email_provider, outlook_refresh_token, outlook_tenant_id, outlook_client_id, outlook_email")
         .eq("id", userProfile.company_id)
         .single();
-      if (companyCreds?.smtp_email && companyCreds?.smtp_password) {
-        smtpCreds = companyCreds;
+
+      emailProvider = (companyData as any)?.email_provider || "smtp";
+
+      if (emailProvider === "outlook" && (companyData as any)?.outlook_refresh_token) {
+        // Forward to outlook-send function
+        const outlookRes = await fetch(
+          `${Deno.env.get("SUPABASE_URL")}/functions/v1/outlook-send`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: authHeader,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ to, subject, body, html, attachments }),
+          }
+        );
+        const outlookData = await outlookRes.json();
+        return new Response(JSON.stringify(outlookData), {
+          status: outlookRes.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (companyData?.smtp_email && companyData?.smtp_password) {
+        smtpCreds = companyData;
       }
     }
 
