@@ -28,7 +28,7 @@ const emptyForm = {
 };
 
 const SuperAdminPage = () => {
-  const { isSuperAdmin, impersonate } = useAuth();
+  const { isSuperAdmin, impersonate, role } = useAuth();
   const { toast } = useToast();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [stats, setStats] = useState<Record<string, CompanyStats>>({});
@@ -106,6 +106,7 @@ const SuperAdminPage = () => {
     c.name.toLowerCase().includes(search.toLowerCase()) || c.slug.toLowerCase().includes(search.toLowerCase())
   );
 
+  if (role === null) return <div className="p-8 flex items-center gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> Laden...</div>;
   if (!isSuperAdmin) return <div className="p-8 text-muted-foreground">Geen toegang.</div>;
 
   return (
