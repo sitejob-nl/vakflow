@@ -19,7 +19,7 @@ import { useQuoteTemplatesDB, useDeleteQuoteTemplate, useCombinedTemplates, type
 import { useWhatsAppAutomations, useCreateAutomation, useUpdateAutomation, useDeleteAutomation, TRIGGER_TYPES, AVAILABLE_VARIABLES } from "@/hooks/useWhatsAppAutomations";
 import type { Tables } from "@/integrations/supabase/types";
 
-const BASE_TABS = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "Automatiseringen", "Teamleden", "Koppelingen"];
+const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "Automatiseringen", "Teamleden", "Koppelingen"];
 
 const SettingsPage = () => {
   const { user } = useAuth();
