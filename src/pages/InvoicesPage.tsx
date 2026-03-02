@@ -386,9 +386,33 @@ const InvoicesPage = () => {
             </span>
           )}
           {selected.rompslomp_id && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-success">
-              ✓ Rompslomp #{selected.rompslomp_id}
-            </span>
+            <>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-success">
+                ✓ Rompslomp #{selected.rompslomp_id}
+              </span>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await supabase.functions.invoke("sync-rompslomp", {
+                      body: { action: "download-pdf", rompslomp_id: selected.rompslomp_id },
+                    });
+                    if (res.error) throw res.error;
+                    const blob = new Blob([res.data], { type: "application/pdf" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `Rompslomp_${selected.invoice_number ?? selected.rompslomp_id}.pdf`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch (err: any) {
+                    toast({ title: "Rompslomp PDF fout", description: err.message, variant: "destructive" });
+                  }
+                }}
+                className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1"
+              >
+                <FileDown className="h-3.5 w-3.5" /> Rompslomp PDF
+              </button>
+            </>
           )}
         </div>
       </div>
