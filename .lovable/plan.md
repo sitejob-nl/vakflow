@@ -1,35 +1,37 @@
 
 
-## Probleem
+## Rompslomp PDF downloaden
 
-De Rompslomp API geeft fout: `"Unpermitted parameter: lines."` De Swagger YAML (de echte bron) bevestigt:
+### Wat er moet gebeuren
 
-- Veld moet **`invoice_lines`** zijn, niet `lines`
-- Hoeveelheid moet **`quantity`** zijn, niet `amount`
+Een knop toevoegen naast de bestaande "PDF" knop waarmee de factuur-PDF direct uit Rompslomp gedownload kan worden. Dit is alleen beschikbaar voor facturen die al gesynchroniseerd zijn (met een `rompslomp_id`).
 
-De eerder aangeleverde API-documentatie was onjuist op deze punten.
+### Wijzigingen
 
-## Wijzigingen in `supabase/functions/sync-rompslomp/index.ts`
+**1. Edge Function: `supabase/functions/sync-rompslomp/index.ts`**
 
-### 1. sync-invoices actie
+Nieuwe actie `download-pdf` toevoegen die:
+- De `rompslomp_id` van de factuur ontvangt
+- `GET /companies/{id}/sales_invoices/{rompslomp_id}/pdf` aanroept
+- De PDF binary response doorgeeft aan de client
 
-Verander de invoice line items van `amount` terug naar `quantity`, en het container-veld van `lines` naar `invoice_lines`:
+Hiervoor is een nieuwe helper nodig (`rompslompGetRaw`) die de response als ArrayBuffer retourneert in plaats van JSON.
 
-```typescript
-// Line items:
-{ description: ..., quantity: String(item.qty || 1), price_per_unit: ... }
+**2. Frontend: `src/pages/InvoicesPage.tsx`**
 
-// Invoice data:
-{ contact_id: ..., date: ..., invoice_lines: invoiceLines, api_reference: ... }
+Een extra knop "Rompslomp PDF" toevoegen die verschijnt wanneer `selected.rompslomp_id` bestaat. Deze roept de edge function aan met `action: "download-pdf"` en triggert een download.
+
+**3. Frontend hook: `src/hooks/useInvoices.ts`**
+
+Geen nieuwe hook nodig — de download wordt direct via `supabase.functions.invoke` aangeroepen vanuit de pagina (net zoals de bestaande PDF-knop werkt).
+
+### Technisch detail
+
+```text
+User klikt "Rompslomp PDF"
+  → supabase.functions.invoke("sync-rompslomp", { body: { action: "download-pdf", rompslomp_id: "123" } })
+    → Edge Function: GET https://app.rompslomp.nl/api/v1/companies/{id}/sales_invoices/123/pdf
+    → Return PDF bytes
+  → Browser: Blob → download link → click
 ```
-
-### 2. sync-quotes actie
-
-Zelfde fix: `lines` → `invoice_lines`, `amount` → `quantity`
-
-### 3. pull-invoices actie
-
-Bij het lezen van factuurregels: `quantity` i.p.v. `amount`
-
-Eén bestand, drie plekken corrigeren. Daarna deployen.
 
