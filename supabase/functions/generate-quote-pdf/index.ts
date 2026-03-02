@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { fetchJpegLogo, logoDisplaySize, type LogoData } from "../_shared/pdf-logo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,7 +21,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Validate JWT
     const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -60,6 +60,21 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Fetch company info
+    let company: any = null;
+    let logoData: LogoData | null = null;
+    if (quote.company_id) {
+      const { data: c } = await supabase
+        .from("companies")
+        .select("name, address, postal_code, city, phone, kvk_number, btw_number, iban, logo_url")
+        .eq("id", quote.company_id)
+        .single();
+      company = c;
+      if (c?.logo_url) {
+        logoData = await fetchJpegLogo(c.logo_url);
+      }
+    }
+
     const customer = quote.customers as any;
     const items = Array.isArray(quote.items) ? quote.items : [];
     const optionalItems = Array.isArray(quote.optional_items) ? quote.optional_items : [];
@@ -76,6 +91,13 @@ Deno.serve(async (req) => {
       vatPct: Number(quote.vat_percentage),
       vatAmount: Number(quote.vat_amount),
       total: Number(quote.total),
+      companyName: company?.name ?? "Vakflow",
+      companyAddress: company?.address ?? "",
+      companyPostalCity: [company?.postal_code, company?.city].filter(Boolean).join(" "),
+      kvkNumber: company?.kvk_number ?? "",
+      btwNumber: company?.btw_number ?? "",
+      iban: company?.iban ?? "",
+      logo: logoData,
     });
 
     return new Response(pdf, {
@@ -95,30 +117,25 @@ Deno.serve(async (req) => {
 
 // ---- Minimal PDF generator ----
 
-interface QuoteLineItem {
-  description: string;
-  qty: number;
-  unit_price: number;
-  total: number;
-}
-
-interface QuoteOptionalItem {
-  description: string;
-  price: number;
-}
-
 interface QuoteData {
   quoteNumber: string;
   issuedAt: string;
   customerName: string;
   customerAddress: string;
   customerPostalCity: string;
-  items: QuoteLineItem[];
-  optionalItems: QuoteOptionalItem[];
+  items: any[];
+  optionalItems: any[];
   subtotal: number;
   vatPct: number;
   vatAmount: number;
   total: number;
+  companyName: string;
+  companyAddress: string;
+  companyPostalCity: string;
+  kvkNumber: string;
+  btwNumber: string;
+  iban: string;
+  logo: LogoData | null;
 }
 
 function eur(n: number): string {
@@ -126,6 +143,9 @@ function eur(n: number): string {
 }
 
 function buildPdf(data: QuoteData): Uint8Array {
+  const hasLogo = !!data.logo;
+  const totalObjects = hasLogo ? 7 : 6;
+
   const lines: string[] = [];
   let currentOffset = 0;
 
@@ -157,6 +177,16 @@ function buildPdf(data: QuoteData): Uint8Array {
   const off5 = startObj(5);
   addLine("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
   addLine("endobj");
+
+  let off7 = 0;
+  if (hasLogo && data.logo) {
+    off7 = startObj(7);
+    addLine(`<< /Type /XObject /Subtype /Image /Width ${data.logo.width} /Height ${data.logo.height} /ColorSpace /${data.logo.colorSpace} /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${data.logo.streamLength} >>`);
+    addLine("stream");
+    addLine(data.logo.hexStream);
+    addLine("endstream");
+    addLine("endobj");
+  }
 
   const pageW = 595;
   const pageH = 842;
@@ -197,8 +227,13 @@ function buildPdf(data: QuoteData): Uint8Array {
     contentLines.push("0 0 0 rg");
   }
 
-  // Header - "M V  S O L U T I O N S"
-  text(margin, 65, "M V   S O L U T I O N S", 20, true);
+  // Header - logo or company name
+  if (hasLogo && data.logo) {
+    const { dw, dh } = logoDisplaySize(data.logo);
+    contentLines.push(`q ${dw} 0 0 ${dh} ${margin} ${pageH - 40 - dh} cm /Im1 Do Q`);
+  } else {
+    text(margin, 65, data.companyName.toUpperCase(), 20, true);
+  }
 
   // Customer info & quote meta
   const infoY = 120;
@@ -220,7 +255,6 @@ function buildPdf(data: QuoteData): Uint8Array {
   const col3X = margin + (tableRight - margin) * 0.60;
   const col4X = margin + (tableRight - margin) * 0.80;
 
-  // Table header
   rect(margin, tableY, tableRight - margin, 22, 0.95, 0.96, 0.97);
   text(col1X, tableY + 15, "Artikel", 9, true);
   textCenter(col2X + 30, tableY + 15, "Hoeveelheid", 9, true);
@@ -237,10 +271,8 @@ function buildPdf(data: QuoteData): Uint8Array {
     line(margin, rowY, tableRight, rowY, 0.9);
   }
 
-  // Middle section: optional left, totals right
   const midY = rowY + 30;
 
-  // Optional items
   if (data.optionalItems.length > 0) {
     const optW = (tableRight - margin) * 0.48;
     rect(margin, midY, optW, 22, 0.95, 0.96, 0.97);
@@ -267,7 +299,7 @@ function buildPdf(data: QuoteData): Uint8Array {
   text(totX, midY + 52, "Totaal", 14, true);
   textRight(totValX, midY + 52, eur(data.total), 14, true);
 
-  // Footer
+  // Footer — dynamic company data
   const footH = 65;
   const footY = pageH - margin - footH - 30;
   rect(margin, footY, tableRight - margin, footH, 0.95, 0.96, 0.97);
@@ -278,21 +310,19 @@ function buildPdf(data: QuoteData): Uint8Array {
   const ftY = footY + 16;
 
   text(fc1, ftY, "Betalingsinformatie", 8, true);
-  text(fc1, ftY + 13, "Naam rekening: Vakflow", 7);
-  text(fc1, ftY + 24, "NL95 INGB 0111 7593 82", 7);
+  text(fc1, ftY + 13, `Naam rekening: ${data.companyName}`, 7);
+  if (data.iban) text(fc1, ftY + 24, data.iban, 7);
 
-  text(fc2, ftY, "Vakflow", 8, true);
-  text(fc2, ftY + 13, "KvK: 84448237", 7);
-  text(fc2, ftY + 24, "Btw: NL003986995B37", 7);
+  text(fc2, ftY, data.companyName, 8, true);
+  if (data.kvkNumber) text(fc2, ftY + 13, `KvK: ${data.kvkNumber}`, 7);
+  if (data.btwNumber) text(fc2, ftY + 24, `Btw: ${data.btwNumber}`, 7);
 
   text(fc3, ftY, "Adres", 8, true);
-  text(fc3, ftY + 13, "Graaf Willem II laan 34", 7);
-  text(fc3, ftY + 24, "1964 JN Heemskerk", 7);
+  if (data.companyAddress) text(fc3, ftY + 13, data.companyAddress, 7);
+  if (data.companyPostalCity) text(fc3, ftY + 24, data.companyPostalCity, 7);
 
-  // Validity text centered
   const bottomY = footY + footH + 18;
-  const bottomText = "Deze offerte vervalt 14 dagen na offertedatum";
-  textCenter(pageW / 2, bottomY, bottomText, 10, true);
+  textCenter(pageW / 2, bottomY, "Deze offerte vervalt 14 dagen na offertedatum", 10, true);
 
   const streamContent = contentLines.join("\n");
   const streamBytes = new TextEncoder().encode(streamContent);
@@ -304,23 +334,25 @@ function buildPdf(data: QuoteData): Uint8Array {
   addLine("endstream");
   addLine("endobj");
 
+  const xobjRef = hasLogo ? " /XObject << /Im1 7 0 R >>" : "";
   const off3 = startObj(3);
   addLine(
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Contents 6 0 R /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> >>`
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Contents 6 0 R /Resources << /Font << /F1 4 0 R /F2 5 0 R >>${xobjRef} >> >>`
   );
   addLine("endobj");
 
   const xrefOffset = currentOffset;
   addLine("xref");
-  addLine("0 7");
+  addLine(`0 ${totalObjects + 1}`);
   addLine("0000000000 65535 f ");
   const offsets = [0, off1, off2, off3, off4, off5, off6];
-  for (let i = 1; i <= 6; i++) {
+  if (hasLogo) offsets.push(off7);
+  for (let i = 1; i <= totalObjects; i++) {
     addLine(`${String(offsets[i]).padStart(10, "0")} 00000 n `);
   }
 
   addLine("trailer");
-  addLine("<< /Size 7 /Root 1 0 R >>");
+  addLine(`<< /Size ${totalObjects + 1} /Root 1 0 R >>`);
   addLine("startxref");
   addLine(String(xrefOffset));
   addLine("%%EOF");

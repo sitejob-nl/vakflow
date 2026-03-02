@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { fetchJpegLogo, logoDisplaySize, type LogoData } from "../_shared/pdf-logo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,18 +60,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Load company info from companies table via work order's company_id
+    // Load company info + logo
     const companyId = wo.company_id;
     let company: any = null;
+    let logoData: LogoData | null = null;
     if (companyId) {
       const { data: c } = await supabase
         .from("companies")
-        .select("name, address, postal_code, city, phone, kvk_number, btw_number")
+        .select("name, address, postal_code, city, phone, kvk_number, btw_number, logo_url")
         .eq("id", companyId)
         .single();
       company = c;
+      if (c?.logo_url) {
+        logoData = await fetchJpegLogo(c.logo_url);
+      }
     }
-    // Fallback to profile if no company found
     if (!company) {
       const { data: profile } = await supabase
         .from("profiles")
@@ -133,6 +137,7 @@ Deno.serve(async (req) => {
       companyPhone: company?.phone ?? "",
       kvkNumber: company?.kvk_number ?? "",
       btwNumber: company?.btw_number ?? "",
+      logo: logoData,
     });
 
     return new Response(pdf, {
@@ -180,6 +185,7 @@ interface WoData {
   companyPhone: string;
   kvkNumber: string;
   btwNumber: string;
+  logo: LogoData | null;
 }
 
 function eur(n: number): string {
@@ -187,6 +193,9 @@ function eur(n: number): string {
 }
 
 function buildPdf(data: WoData): Uint8Array {
+  const hasLogo = !!data.logo;
+  const totalObjects = hasLogo ? 7 : 6;
+
   const lines: string[] = [];
   let currentOffset = 0;
 
@@ -218,6 +227,16 @@ function buildPdf(data: WoData): Uint8Array {
   const off5 = startObj(5);
   addLine("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
   addLine("endobj");
+
+  let off7 = 0;
+  if (hasLogo && data.logo) {
+    off7 = startObj(7);
+    addLine(`<< /Type /XObject /Subtype /Image /Width ${data.logo.width} /Height ${data.logo.height} /ColorSpace /${data.logo.colorSpace} /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${data.logo.streamLength} >>`);
+    addLine("stream");
+    addLine(data.logo.hexStream);
+    addLine("endstream");
+    addLine("endobj");
+  }
 
   const pageW = 595;
   const pageH = 842;
@@ -252,9 +271,15 @@ function buildPdf(data: WoData): Uint8Array {
     contentLines.push("0 0 0 rg");
   }
 
-  // Header
-  text(margin, 55, data.companyName.toUpperCase(), 18, true);
-  text(margin, 75, "W E R K B O N", 12, true);
+  // Header — logo or company name
+  if (hasLogo && data.logo) {
+    const { dw, dh } = logoDisplaySize(data.logo);
+    contentLines.push(`q ${dw} 0 0 ${dh} ${margin} ${pageH - 40 - dh} cm /Im1 Do Q`);
+    text(margin, 75, "W E R K B O N", 12, true);
+  } else {
+    text(margin, 55, data.companyName.toUpperCase(), 18, true);
+    text(margin, 75, "W E R K B O N", 12, true);
+  }
 
   // Meta info (right)
   const rx = pageW - margin;
@@ -311,7 +336,6 @@ function buildPdf(data: WoData): Uint8Array {
     text(margin, cy, "Checklist:", 9, true); cy += 15;
     for (const item of data.checklist) {
       if (cy > pageH - 80) break;
-      const mark = item.checked ? "\\374" : "\\370"; // ✓ or ø in WinAnsi-ish
       text(margin, cy, `[${item.checked ? "x" : " "}] ${item.label}`, 9); cy += 14;
     }
   }
@@ -348,9 +372,8 @@ function buildPdf(data: WoData): Uint8Array {
   const footY = pageH - margin - 30;
   rect(margin, footY, pageW - margin * 2, 25, 0.95, 0.96, 0.97);
   const fc1 = margin + 10;
-  const fc2 = margin + 200;
   text(fc1, footY + 16, `${data.companyName} | KvK: ${data.kvkNumber} | BTW: ${data.btwNumber}`, 7);
-  text(fc2 + 100, footY + 16, `${data.companyAddress} ${data.companyPostalCity}`, 7);
+  text(fc1 + 300, footY + 16, `${data.companyAddress} ${data.companyPostalCity}`, 7);
 
   const streamContent = contentLines.join("\n");
   const streamBytes = new TextEncoder().encode(streamContent);
@@ -362,23 +385,25 @@ function buildPdf(data: WoData): Uint8Array {
   addLine("endstream");
   addLine("endobj");
 
+  const xobjRef = hasLogo ? " /XObject << /Im1 7 0 R >>" : "";
   const off3 = startObj(3);
   addLine(
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Contents 6 0 R /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> >>`
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Contents 6 0 R /Resources << /Font << /F1 4 0 R /F2 5 0 R >>${xobjRef} >> >>`
   );
   addLine("endobj");
 
   const xrefOffset = currentOffset;
   addLine("xref");
-  addLine("0 7");
+  addLine(`0 ${totalObjects + 1}`);
   addLine("0000000000 65535 f ");
   const offsets = [0, off1, off2, off3, off4, off5, off6];
-  for (let i = 1; i <= 6; i++) {
+  if (hasLogo) offsets.push(off7);
+  for (let i = 1; i <= totalObjects; i++) {
     addLine(`${String(offsets[i]).padStart(10, "0")} 00000 n `);
   }
 
   addLine("trailer");
-  addLine("<< /Size 7 /Root 1 0 R >>");
+  addLine(`<< /Size ${totalObjects + 1} /Root 1 0 R >>`);
   addLine("startxref");
   addLine(String(xrefOffset));
   addLine("%%EOF");
