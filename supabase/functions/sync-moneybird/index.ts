@@ -524,6 +524,93 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Action: create single quote (push to Moneybird as estimate, adopt estimate number)
+    if (action === "create-quote") {
+      const { quote_id } = body;
+      if (!quote_id) {
+        return jsonRes({ error: "quote_id is verplicht" }, 400);
+      }
+
+      const { data: quote, error: qErr } = await supabaseAdmin
+        .from("quotes")
+        .select("*, customers(id, name, type, contact_person, email, phone, address, postal_code, city, moneybird_contact_id)")
+        .eq("id", quote_id)
+        .single();
+      if (qErr || !quote) {
+        return jsonRes({ error: `Offerte niet gevonden: ${qErr?.message}` }, 400);
+      }
+
+      const customer = quote.customers as any;
+
+      // Auto-create contact in Moneybird if needed
+      let contactId = customer?.moneybird_contact_id;
+      if (!contactId && customer) {
+        const isIndividual = customer.type === "particulier";
+        const nameParts = (customer.name || "").split(" ");
+        const contactData: any = {
+          company_name: !isIndividual ? customer.name : undefined,
+          firstname: isIndividual ? nameParts[0] : (customer.contact_person?.split(" ")[0] || undefined),
+          lastname: isIndividual ? nameParts.slice(1).join(" ") || customer.name : (customer.contact_person?.split(" ").slice(1).join(" ") || undefined),
+          email: customer.email || undefined,
+          phone: customer.phone || undefined,
+          address1: customer.address || undefined,
+          zipcode: customer.postal_code || undefined,
+          city: customer.city || undefined,
+        };
+        const contactResult = await mbPost(adminId, "contacts", apiToken, { contact: contactData });
+        contactId = String(contactResult?.id);
+        if (contactId) {
+          await supabaseAdmin.from("customers").update({ moneybird_contact_id: contactId }).eq("id", customer.id);
+        }
+      }
+
+      if (!contactId) {
+        return jsonRes({ error: "Kan geen Moneybird contact aanmaken voor deze klant" }, 400);
+      }
+
+      const vatPct = Number(quote.vat_percentage || 21);
+      const items = Array.isArray(quote.items) ? quote.items : [];
+      const details = (items as any[]).map((item: any) => ({
+        description: item.description || "Item",
+        amount: String(item.qty || 1),
+        price: String(Number(item.unit_price || 0) / (1 + vatPct / 100)),
+      }));
+
+      const estimateData: any = {
+        contact_id: parseInt(contactId),
+        estimate_date: quote.issued_at || new Date().toISOString().split("T")[0],
+        details_attributes: details,
+      };
+
+      console.log(`create-quote: pushing to Moneybird`, JSON.stringify(estimateData));
+      const result = await mbPost(adminId, "estimates", apiToken, { estimate: estimateData });
+      const mbId = result?.id;
+
+      if (!mbId) {
+        return jsonRes({ error: "Geen ID terug van Moneybird", result }, 500);
+      }
+
+      // Fetch full estimate to get estimate_id (= Moneybird estimate number)
+      const fullEstimate = await mbGet(adminId, `estimates/${mbId}`, apiToken);
+      const moneybirdEstimateNumber = fullEstimate?.estimate_id || null;
+
+      const updateData: any = {
+        moneybird_id: String(mbId),
+        status: "verzonden",
+      };
+      if (moneybirdEstimateNumber) {
+        updateData.quote_number = moneybirdEstimateNumber;
+      }
+      await supabaseAdmin.from("quotes").update(updateData).eq("id", quote_id);
+
+      console.log(`create-quote: success, moneybird_id=${mbId}, quote_number=${moneybirdEstimateNumber}`);
+      return jsonRes({
+        success: true,
+        moneybird_id: String(mbId),
+        quote_number: moneybirdEstimateNumber,
+      });
+    }
+
     // Action: sync quotes (push to Moneybird as estimates)
     if (action === "sync-quotes") {
       const { data: quotes } = await supabaseAdmin

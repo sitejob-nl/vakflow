@@ -7,7 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useCustomers } from "@/hooks/useCustomers";
 import { useCreateQuote, useUpdateQuote, type Quote, type QuoteItem, type OptionalItem } from "@/hooks/useQuotes";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { useCombinedTemplates } from "@/hooks/useQuoteTemplates";
 
 interface Props {
@@ -25,6 +28,17 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
   const createQuote = useCreateQuote();
   const updateQuote = useUpdateQuote();
   const { toast } = useToast();
+  const { companyId } = useAuth();
+  const queryClient = useQueryClient();
+  const [syncing, setSyncing] = useState(false);
+  const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!companyId) return;
+    supabase.from("companies").select("accounting_provider").eq("id", companyId).single().then(({ data }) => {
+      setAccountingProvider(data?.accounting_provider ?? null);
+    });
+  }, [companyId]);
 
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [customerId, setCustomerId] = useState("");
@@ -92,8 +106,30 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
         await updateQuote.mutateAsync({ id: editQuote.id, ...payload });
         toast({ title: "Offerte bijgewerkt" });
       } else {
-        await createQuote.mutateAsync(payload);
-        toast({ title: "Offerte aangemaakt" });
+        const newQuote = await createQuote.mutateAsync(payload);
+
+        // Auto-sync to accounting provider if connected
+        if ((accountingProvider === "rompslomp" || accountingProvider === "moneybird") && newQuote?.id) {
+          setSyncing(true);
+          const funcName = accountingProvider === "rompslomp" ? "sync-rompslomp" : "sync-moneybird";
+          const providerLabel = accountingProvider === "rompslomp" ? "Rompslomp" : "Moneybird";
+          try {
+            const res = await supabase.functions.invoke(funcName, {
+              body: { action: accountingProvider === "rompslomp" ? "sync-quote" : "create-quote", quote_id: newQuote.id },
+            });
+            if (res.error) throw res.error;
+            if (res.data?.error) throw new Error(res.data.error);
+            const qNumber = res.data?.quote_number;
+            toast({ title: `✓ Offerte aangemaakt in ${providerLabel}`, description: qNumber ? `Offertenummer: ${qNumber}` : undefined });
+            queryClient.invalidateQueries({ queryKey: ["quotes"] });
+          } catch (syncErr: any) {
+            toast({ title: `${providerLabel} sync mislukt`, description: syncErr.message, variant: "destructive" });
+          } finally {
+            setSyncing(false);
+          }
+        } else {
+          toast({ title: "Offerte aangemaakt" });
+        }
       }
       onOpenChange(false);
     } catch (err: any) {
@@ -202,8 +238,8 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
-            <Button onClick={handleSave} disabled={createQuote.isPending || updateQuote.isPending}>
-              {editQuote ? "Opslaan" : "Aanmaken"}
+            <Button onClick={handleSave} disabled={createQuote.isPending || updateQuote.isPending || syncing}>
+              {syncing ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Synchroniseren...</> : editQuote ? "Opslaan" : "Aanmaken"}
             </Button>
           </div>
         </div>
