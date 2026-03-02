@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.sync-rompslomp]
 verify_jwt = false
+
+[functions.sync-moneybird]
+verify_jwt = false

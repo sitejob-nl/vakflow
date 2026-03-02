@@ -279,3 +279,113 @@ export const usePullQuotesRompslomp = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["quotes"] }),
   });
 };
+
+// === Moneybird sync hooks ===
+
+export const useSyncContactsMoneybird = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+        body: { action: "sync-contacts" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; skipped: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+  });
+};
+
+export const usePullContactsMoneybird = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+        body: { action: "pull-contacts" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total: number; created: number; updated: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+  });
+};
+
+export const useSyncInvoicesMoneybird = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+        body: { action: "sync-invoices" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; skipped: number; errors: string[] };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
+    },
+  });
+};
+
+export const usePullInvoicesMoneybird = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+        body: { action: "pull-invoices" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total_in_moneybird: number; already_imported: number; imported: number; skipped_no_customer: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+};
+
+export const usePullInvoiceStatusMoneybird = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+        body: { action: "pull-invoice-status" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { checked: number; updated: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+};
+
+export const useSyncQuotesMoneybird = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+        body: { action: "sync-quotes" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; skipped: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quotes"] }),
+  });
+};
+
+export const usePullQuotesMoneybird = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+        body: { action: "pull-quotes" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total_in_moneybird: number; already_imported: number; imported: number; skipped_no_customer: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quotes"] }),
+  });
+};

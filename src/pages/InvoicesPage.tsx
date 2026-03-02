@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useInvoices, useUpdateInvoice, useDeleteInvoice, useSyncInvoiceEboekhouden, usePullInvoiceStatusEboekhouden, useSyncInvoicesRompslomp, usePullInvoiceStatusRompslomp } from "@/hooks/useInvoices";
+import { useInvoices, useUpdateInvoice, useDeleteInvoice, useSyncInvoiceEboekhouden, usePullInvoiceStatusEboekhouden, useSyncInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncInvoicesMoneybird, usePullInvoiceStatusMoneybird } from "@/hooks/useInvoices";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCreateCommunicationLog } from "@/hooks/useCommunicationLogs";
 import type { Invoice } from "@/hooks/useInvoices";
@@ -43,6 +43,8 @@ const InvoicesPage = () => {
   const pullStatusEb = usePullInvoiceStatusEboekhouden();
   const syncRompslomp = useSyncInvoicesRompslomp();
   const pullStatusRompslomp = usePullInvoiceStatusRompslomp();
+  const syncMoneybird = useSyncInvoicesMoneybird();
+  const pullStatusMoneybird = usePullInvoiceStatusMoneybird();
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const createLog = useCreateCommunicationLog();
@@ -88,6 +90,8 @@ const InvoicesPage = () => {
       if (status === "verzonden") {
         if (accountingProvider === "rompslomp") {
           handleSyncRompslomp();
+        } else if (accountingProvider === "moneybird") {
+          handleSyncMoneybird();
         } else if (accountingProvider === "eboekhouden") {
           handleSyncEb(id);
         }
@@ -100,6 +104,12 @@ const InvoicesPage = () => {
             toast({ title: "✓ Betaalstatus gesynchroniseerd met Rompslomp" });
           }).catch((err: any) => {
             toast({ title: "Rompslomp status sync mislukt", description: err.message, variant: "destructive" });
+          });
+        } else if (accountingProvider === "moneybird") {
+          pullStatusMoneybird.mutateAsync().then(() => {
+            toast({ title: "✓ Betaalstatus gesynchroniseerd met Moneybird" });
+          }).catch((err: any) => {
+            toast({ title: "Moneybird status sync mislukt", description: err.message, variant: "destructive" });
           });
         } else if (accountingProvider === "eboekhouden") {
           pullStatusEb.mutateAsync().then(() => {
@@ -128,6 +138,24 @@ const InvoicesPage = () => {
       }
     } catch (err: any) {
       toast({ title: "Rompslomp sync mislukt", description: err.message, variant: "destructive" });
+    }
+    setSyncingId(null);
+  };
+
+  const handleSyncMoneybird = async () => {
+    setSyncingId("moneybird");
+    try {
+      const result = await syncMoneybird.mutateAsync();
+      const errMsg = result?.errors?.length ? `\nFouten: ${result.errors.join(", ")}` : "";
+      if ((result?.synced ?? 0) > 0) {
+        toast({ title: "Gesynchroniseerd met Moneybird", description: `${result.synced} facturen gesynchroniseerd${errMsg}` });
+      } else if (result?.errors?.length) {
+        toast({ title: "Moneybird sync mislukt", description: result.errors.join("; "), variant: "destructive" });
+      } else {
+        toast({ title: "Geen facturen om te synchroniseren", description: `Overgeslagen: ${result?.skipped ?? 0}` });
+      }
+    } catch (err: any) {
+      toast({ title: "Moneybird sync mislukt", description: err.message, variant: "destructive" });
     }
     setSyncingId(null);
   };
@@ -244,20 +272,23 @@ const InvoicesPage = () => {
               ✓ Betaald
             </button>
           )}
-          {/* PDF button - use Rompslomp PDF when available, otherwise generate own */}
-          {selected.rompslomp_id ? (
+          {/* PDF button - use accounting provider PDF when available, otherwise generate own */}
+          {(selected.rompslomp_id || (selected as any).moneybird_id) ? (
             <button
               onClick={async () => {
                 try {
-                  const res = await supabase.functions.invoke("sync-rompslomp", {
-                    body: { action: "download-pdf", rompslomp_id: selected.rompslomp_id },
-                  });
+                  const isMoneybird = !!(selected as any).moneybird_id;
+                  const funcName = isMoneybird ? "sync-moneybird" : "sync-rompslomp";
+                  const bodyPayload = isMoneybird
+                    ? { action: "download-pdf", moneybird_id: (selected as any).moneybird_id }
+                    : { action: "download-pdf", rompslomp_id: selected.rompslomp_id };
+                  const res = await supabase.functions.invoke(funcName, { body: bodyPayload });
                   if (res.error) throw res.error;
                   const blob = new Blob([res.data], { type: "application/pdf" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  a.download = `Factuur_${selected.invoice_number ?? selected.rompslomp_id}.pdf`;
+                  a.download = `Factuur_${selected.invoice_number ?? selected.id}.pdf`;
                   a.click();
                   URL.revokeObjectURL(url);
                 } catch (err: any) {
@@ -299,9 +330,15 @@ const InvoicesPage = () => {
               onClick={async () => {
                 setSendingEmail(true);
                 try {
-                  // 1. Generate PDF (use Rompslomp PDF if available)
+                  // 1. Generate PDF (use accounting provider PDF if available)
                   let pdfBlob: Blob;
-                  if (selected.rompslomp_id) {
+                  if ((selected as any).moneybird_id) {
+                    const res = await supabase.functions.invoke("sync-moneybird", {
+                      body: { action: "download-pdf", moneybird_id: (selected as any).moneybird_id },
+                    });
+                    if (res.error) throw res.error;
+                    pdfBlob = new Blob([res.data], { type: "application/pdf" });
+                  } else if (selected.rompslomp_id) {
                     const res = await supabase.functions.invoke("sync-rompslomp", {
                       body: { action: "download-pdf", rompslomp_id: selected.rompslomp_id },
                     });
