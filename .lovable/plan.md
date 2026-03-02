@@ -1,22 +1,33 @@
 
 
-## Plan: Rompslomp Company ID automatisch ophalen
+## Plan: Fix Rompslomp factuur import — correcte bedragen en regelitems
 
-### Huidige situatie
-De gebruiker moet handmatig zowel een API token als een Company ID invullen. De Rompslomp API biedt `GET /api/v1/me` en `GET /api/v1/companies` endpoints waarmee het company_id automatisch opgehaald kan worden.
+### Probleem
+Alle uit Rompslomp geïmporteerde facturen hebben `subtotal: 0`, `total: 0`, `items: []`. Dit komt door:
+1. **Verkeerde veldnamen** — de code leest `total_without_tax` / `total_with_tax`, maar Rompslomp gebruikt `price_without_vat` / `price_with_vat`
+2. **Factuurregels worden niet geïmporteerd** — `invoice_lines` worden genegeerd
+3. **Betaalstatus** — code checkt `paid_at` / `state === "paid"`, maar Rompslomp gebruikt `payment_status === "paid"`
 
-### Wijzigingen
+### Wijzigingen in `supabase/functions/sync-rompslomp/index.ts`
 
-**1. `supabase/functions/sync-rompslomp/index.ts` — nieuwe actie `auto-detect`**
-- Nieuwe actie die het API token uit de request body ontvangt (nog niet opgeslagen)
-- Roept `GET /api/v1/companies` aan met het token
-- Geeft lijst van companies terug (id + naam)
-- Wordt aangeroepen voordat de koppeling wordt opgeslagen
+**pull-invoices actie:**
+- Per factuur een individuele GET doen (`/sales_invoices/{id}`) om de `invoice_lines` op te halen (de lijst-endpoint bevat mogelijk niet alle details)
+- Bedragen uitlezen met correcte veldnamen: `price_without_vat` → `subtotal`, `price_with_vat` → `total`, `vat_amount`
+- `invoice_lines` converteren naar ons `items` jsonb-formaat: `{ description, qty, unit_price, total }` — waarbij `price_per_unit` (excl. BTW) en `quantity` worden overgenomen, en `price_with_vat` per regel als `total` incl.
+- Betaalstatus: `payment_status === "paid"` → `status: "betaald"`
 
-**2. `src/pages/SettingsPage.tsx` — Koppelingen tab**
-- Na invoeren van API token: knop "Detecteer bedrijf" die `sync-rompslomp` met `action: "auto-detect"` aanroept
-- Bij 1 bedrijf: vult automatisch Company ID en naam in
-- Bij meerdere: laat een select zien om te kiezen
-- Company ID veld wordt dan read-only (automatisch ingevuld)
-- Verwijder de handmatige Company ID input of maak het optioneel als fallback
+**pull-invoice-status actie:**
+- Check `payment_status === "paid"` i.p.v. `paid_at` / `state === "paid"`
+
+**sync-invoices actie (push):**
+- `price_per_unit` is excl. BTW in Rompslomp. Huidige code stuurt `unit_price` die incl. BTW is → moet gedeeld worden door 1.21 (of het BTW-percentage)
+
+### Bestaande facturen opnieuw pullen
+Na de fix kunnen de bestaande facturen (die nu allemaal €0 zijn) opnieuw gesynchroniseerd worden. We passen de pull-invoices actie aan zodat deze ook bestaande facturen met `subtotal = 0` en een `rompslomp_id` opnieuw ophaalt en bijwerkt.
+
+### Bestanden
+
+| Bestand | Actie |
+|---|---|
+| `supabase/functions/sync-rompslomp/index.ts` | Fix pull-invoices, pull-invoice-status, sync-invoices veldnamen |
 
