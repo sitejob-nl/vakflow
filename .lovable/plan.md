@@ -1,60 +1,74 @@
 
 
-## Vakflow Feature Analyse: Wat hebben we vs. wat ontbreekt
+## Implementatie Roadmap — Fase 2 Features
 
-### ✅ Al gebouwd
+Een logische volgorde op basis van afhankelijkheden, gebruikerswaarde, en bouwcomplexiteit.
 
-| Feature | Implementatie |
-|---------|--------------|
-| **Field service app** | Volledige PWA met offline support (`vite-plugin-pwa`) |
-| **Digitale werkbonnen** | `WorkOrdersPage`, `WorkOrderDetailPage`, checklist, foto's, handtekening |
-| **Digitaal planbord** | `PlanningPage` met weekweergave, kwartierslots, drag-achtige UI |
-| **Integraties met boekhoudpakket** | e-Boekhouden, Rompslomp, Moneybird — alle drie volledig |
-| **On- en offline werken** | PWA met service worker, pull-to-refresh |
-| **Realtime communicatie** | WhatsApp Business API integratie, templates, automations |
-| **Werkbon app** | Mobiele werkbon flow met checklist, foto's voor/na, notities |
-| **Realtime updates** | Supabase realtime subscriptions op appointments |
-| **Historie** | Communicatielogs, werkbon notities met timestamps |
-| **Klantcommunicatie** | WhatsApp, e-mail (SMTP + Outlook), communicatielogs |
-| **SMS / E-mail functie** | E-mail via SMTP/Outlook, WhatsApp (geen SMS) |
-| **Automatisering** | WhatsApp automations met triggers, cooldowns, variabelen |
-| **Personaliseren** | Bedrijfslogo, merkkleur, diensten met kleuren |
-| **Werkbon planning** | Afspraken → werkbonnen koppeling |
-| **Werkplanning** | Weekplanner met reistijdberekening (Mapbox) |
-| **Werkorder** | Volledige CRUD met statussen (open/bezig/afgerond) |
-| **Online werkbon** | PDF generatie, digitale handtekening |
-| **Field service planning** | Planning met toewijzing aan monteurs |
-| **Buitendienst planning** | Planbord met routeberekening |
-| **Werkbonnen toewijzen aan specifieke gebruikers** | `assigned_to` op appointments |
-| **Gratis werkbon voorbeeld & template** | Diensten met checklist templates |
+---
 
-### ❌ Nog niet gebouwd
+### Fase 2A — Fundament (direct waarde, weinig afhankelijkheden)
 
-| Feature | Wat het inhoudt |
-|---------|----------------|
-| **Tijdregistratie** | Urenregistratie per werkbon/monteur, start/stop timer, dagstaten |
-| **Objectbeheer / Assetmanagement** | Assets/objecten registreren met locatie, onderhoudshistorie, QR/barcode |
-| **Eigen formulieren** | Formulierbouwer voor custom velden per werkbontype |
-| **VCA Checks en Veiligheidsformulieren** | Veiligheidschecklist templates, verplichte checks vóór werkstart |
-| **Registreer materiaalverbruik** | Materialen/voorraad koppelen aan werkbonnen |
-| **Rapportages** | Dashboard met KPI's, omzet, productiviteit, export |
-| **Informatiebeheer** | Kennisbank/documenten per klant of object |
-| **Vaardigheden gebruikers** | Skills/certificaten per monteur, automatische matching |
-| **Personeelsplanning** | Beschikbaarheid, verlof, capaciteitsoverzicht |
-| **Ad-hoc planningen** | Spoedopdrachten met prioriteit in bestaande planning |
-| **Herhaalplanning** | Terugkerende afspraken op interval (al deels: `interval_months` op klanten) |
-| **Scan objecten in het veld** | QR/barcode scanner in de app |
-| **Automatische planning van objecten** | Op basis van interval automatisch inplannen |
-| **Object specifieke formulieren** | Formulieren gekoppeld aan objecttype |
-| **Objecten vanuit veldapp aanmaken** | Asset registratie vanuit mobiel |
-| **Dagstaten invullen in het veld** | Dag-overzicht met uren, materiaal, ritten |
-| **Mutatie ingevulde dagstaten** | Correcties op ingediende dagstaten |
-| **Urenregistratie app voor monteurs en planners** | Timer + handmatige invoer |
-| **Formulieren automatisch toevoegen aan werkbontypes** | Koppeling formulier ↔ diensttype |
+| # | Feature | Waarom nu |
+|---|---------|-----------|
+| 1 | **Tijdregistratie** | Meest gevraagd, standalone, direct bruikbaar voor monteurs. Start/stop timer op werkbon, dagstaten, urenexport. |
+| 2 | **Materiaalverbruik registratie** | Kleine database-uitbreiding, koppelt aan bestaande werkbonnen. Producten/materialen tabel + registratie per werkbon. |
+| 3 | **Herhaalplanning** | `interval_months` bestaat al op klanten. Automatisch afspraken genereren op basis van interval. Laaghangend fruit. |
+| 4 | **Rapportages** | Bouwt voort op tijdregistratie + materiaalverbruik. KPI-dashboard met omzet, productiviteit, doorlooptijd. |
 
-### Samenvatting
+### Fase 2B — Objectbeheer (bouwt op elkaar)
 
-**Gebouwd: ~21 van 30+ functies** — de kern (werkbonnen, planning, boekhoudkoppelingen, communicatie, PWA) staat stevig.
+| # | Feature | Waarom nu |
+|---|---------|-----------|
+| 5 | **Objectbeheer / Assetmanagement** | Nieuw datamodel (objecten tabel). Koppeling aan klanten, locatie, onderhoudshistorie. Basis voor veel volgende features. |
+| 6 | **Objecten vanuit veldapp aanmaken** | Uitbreiding op #5, mobiele registratie. |
+| 7 | **Scan objecten in het veld** | QR/barcode scanner, koppelt aan objecten uit #5. |
+| 8 | **Automatische planning van objecten** | Objecten + herhaalplanning (#3) combineren: automatisch inplannen op basis van onderhoudsinterval. |
+| 9 | **Object specifieke formulieren** | Vereist eerst eigen formulieren (#10). |
 
-**Grootste gaps:** Tijdregistratie, objectbeheer/assetmanagement, eigen formulieren, materiaalverbruik, rapportages, en VCA/veiligheidsformulieren. Dit zijn typische "fase 2" field service features die de app naar enterprise-niveau tillen.
+### Fase 2C — Formulieren & Veiligheid
+
+| # | Feature | Waarom nu |
+|---|---------|-----------|
+| 10 | **Eigen formulieren** | Formulierbouwer: custom velden, drag & drop, koppeling aan diensten. Basis voor VCA en object-formulieren. |
+| 11 | **VCA Checks en Veiligheidsformulieren** | Voorgedefinieerde templates op de formulierbouwer uit #10. Verplichte checks vóór werkstart. |
+| 12 | **Formulieren automatisch toevoegen aan werkbontypes** | Koppeltabel formulier ↔ diensttype, automatisch laden bij werkbon. |
+
+### Fase 2D — Personeel & Planning
+
+| # | Feature | Waarom nu |
+|---|---------|-----------|
+| 13 | **Vaardigheden gebruikers** | Skills/certificaten per monteur, verloopdatums. |
+| 14 | **Personeelsplanning** | Beschikbaarheid, verlof, capaciteitsoverzicht. Bouwt voort op bestaand planbord. |
+| 15 | **Ad-hoc planningen** | Spoedopdrachten met prioriteit in bestaande planning. |
+
+### Fase 2E — Dagstaten & Kennisbank
+
+| # | Feature | Waarom nu |
+|---|---------|-----------|
+| 16 | **Dagstaten invullen in het veld** | Combineert tijdregistratie (#1) + materiaalverbruik (#2) in dagelijks overzicht. |
+| 17 | **Mutatie ingevulde dagstaten** | Correcties/goedkeuring workflow op #16. |
+| 18 | **Informatiebeheer** | Kennisbank/documenten per klant of object. Laatste prioriteit, meest standalone. |
+
+---
+
+### Visueel pad
+
+```text
+Fase 2A (fundament)          Fase 2B (objecten)         Fase 2C (formulieren)
+─────────────────────        ──────────────────         ─────────────────────
+1. Tijdregistratie ──┐       5. Objectbeheer ──┐        10. Eigen formulieren ──┐
+2. Materiaalverbruik ├─→ 4   6. Veldapp aanmak │            │                   │
+3. Herhaalplanning ──┘       7. QR Scanner     ├─→ 8    11. VCA Checks          │
+4. Rapportages               9. Object forms ──┘←──────12. Auto-koppeling ──────┘
+
+Fase 2D (personeel)          Fase 2E (afronding)
+──────────────────           ───────────────────
+13. Vaardigheden             16. Dagstaten ←── 1 + 2
+14. Personeelsplanning       17. Mutatie dagstaten
+15. Ad-hoc planningen        18. Informatiebeheer
+```
+
+### Aanbevolen startvolgorde
+
+Begin met **Tijdregistratie** — het is de meest gevraagde feature, volledig standalone, en levert direct waarde op voor monteurs en planners. Daarna **Materiaalverbruik** en **Herhaalplanning** als snelle wins voordat het grotere objectbeheer-blok wordt aangepakt.
 
