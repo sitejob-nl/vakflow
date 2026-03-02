@@ -1,41 +1,51 @@
 
 
-## Plan: Bedrijfslogo uploaden en tonen in de app
+## Plan: Abonnementsbeheer per bedrijf (feature flags + gebruikerslimiet)
 
-Het doel is dat elk bedrijf een eigen logo kan uploaden dat overal in de app wordt getoond (sidebar, header, login) — zodat het aanvoelt als hun eigen software.
+### Wat wordt gebouwd
+Een systeem waarmee de SuperAdmin per bedrijf kan instellen:
+1. **Max aantal gebruikers** (gratis inbegrepen bij hun abonnement)
+2. **Feature toggles** — welke modules beschikbaar zijn (bijv. WhatsApp, Offertes, E-mail, Facturatie, etc.)
 
-### Wat er al is
-- `companies` tabel heeft al een `logo_url` kolom (text, nullable)
-- Geen storage bucket voor logo's nog
+De app respecteert deze limieten: geblokkeerde features verdwijnen uit de sidebar/navigatie, en het uitnodigen van teamleden wordt geblokkeerd als het maximum is bereikt.
+
+---
 
 ### Implementatie
 
-**1. Storage bucket aanmaken** (migratie)
-- Nieuwe public bucket `company-logos` zodat logo's direct via URL bereikbaar zijn
-- RLS policies: authenticated users mogen uploaden/verwijderen in hun eigen company folder
+**Stap 1 — Database: kolommen toevoegen aan `companies`**
 
-**2. Logo upload in Instellingen** (`src/pages/SettingsPage.tsx`)
-- Bij de tab "Bedrijfsgegevens" een logo upload veld toevoegen
-- Preview van het huidige logo tonen
-- Upload naar `company-logos/{company_id}/logo.png`
-- Na upload: `logo_url` kolom in `companies` bijwerken met de public URL
-- Verwijder-optie om terug te vallen op het standaard Vakflow logo
+Nieuwe kolommen op de `companies` tabel:
+- `max_users` (integer, default 2) — max aantal gebruikers inclusief admin
+- `enabled_features` (text[], default alle features) — lijst van ingeschakelde module-slugs
 
-**3. AuthContext uitbreiden** (`src/contexts/AuthContext.tsx`)
-- `companyLogoUrl` toevoegen aan de context
-- Bij `fetchUserData` de company `logo_url` ophalen en beschikbaar stellen
-- Meenemen bij impersonation (logo van ge-impersoneerd bedrijf tonen)
+Mogelijke feature-slugs: `dashboard`, `planning`, `customers`, `workorders`, `invoices`, `quotes`, `email`, `whatsapp`, `communication`, `reminders`
 
-**4. Logo tonen in Sidebar** (`src/components/Sidebar.tsx`)
-- Huidige hardcoded `logo-full.png` vervangen door: als `companyLogoUrl` bestaat → bedrijfslogo, anders → Vakflow logo als fallback
+**Stap 2 — SuperAdmin: abonnementsinstellingen per bedrijf**
 
-**5. Logo tonen in Header** (`src/components/Header.tsx`)
-- Zelfde logica: `companyLogoUrl` → bedrijfslogo, anders → standaard `logo.png`
+In `SuperAdminPage.tsx` het bedrijf-edit-dialog uitbreiden met:
+- Een numeriek veld "Max gebruikers"
+- Een checkbox-grid voor alle features (aan/uit per feature)
+
+Dit wordt opgeslagen naar de `companies` tabel.
+
+**Stap 3 — AuthContext: features + max_users doorgeven**
+
+`AuthContext` haalt `max_users` en `enabled_features` op bij login en stelt ze beschikbaar als context-waarden. Bij impersonation worden de waarden van het ge-impersoneerde bedrijf gebruikt.
+
+**Stap 4 — Sidebar/navigatie: features filteren**
+
+`Sidebar.tsx` en `MobileNav.tsx` filteren navigatie-items op basis van `enabledFeatures` uit de context. Uitgeschakelde modules worden niet getoond.
+
+**Stap 5 — Teamleden: gebruikerslimiet afdwingen**
+
+In `SettingsPage.tsx` bij het Teamleden-tab: controleer of het huidige aantal teamleden < `maxUsers` voordat de uitnodiging verzonden wordt. Toon een melding als het limiet bereikt is.
 
 ### Bestanden
-- Nieuwe migratie: bucket `company-logos` + RLS policies
-- `src/contexts/AuthContext.tsx` — `companyLogoUrl` toevoegen
-- `src/pages/SettingsPage.tsx` — upload UI bij Bedrijfsgegevens tab
-- `src/components/Sidebar.tsx` — dynamisch logo
-- `src/components/Header.tsx` — dynamisch logo
+- Nieuwe migratie: `max_users` + `enabled_features` kolommen
+- `src/contexts/AuthContext.tsx` — nieuwe state: `maxUsers`, `enabledFeatures`
+- `src/pages/SuperAdminPage.tsx` — edit-dialog uitbreiden
+- `src/components/Sidebar.tsx` — feature filtering
+- `src/components/MobileNav.tsx` — feature filtering
+- `src/pages/SettingsPage.tsx` — gebruikerslimiet check bij uitnodigen
 
