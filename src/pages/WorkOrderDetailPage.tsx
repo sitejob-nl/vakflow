@@ -3,6 +3,7 @@ import { useWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
 import { useCreateInvoice } from "@/hooks/useInvoices";
 import { Loader2, Plus, Download } from "lucide-react";
 import PhotoUpload from "@/components/PhotoUpload";
+import WorkOrderTimer from "@/components/WorkOrderTimer";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
@@ -371,6 +372,11 @@ const WorkOrderDetailPage = () => {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Tijdregistratie */}
+          <div className="mb-3">
+            <WorkOrderTimer workOrderId={wo.id} />
           </div>
 
           <div className="bg-background border border-border rounded-sm p-4 mb-3">
