@@ -36,7 +36,7 @@ const allSections = [
 
 const Sidebar = () => {
   const { currentPage, navigate } = useNavigation();
-  const { signOut, isAdmin, isSuperAdmin, companyLogoUrl } = useAuth();
+  const { signOut, isAdmin, isSuperAdmin, companyLogoUrl, enabledFeatures } = useAuth();
 
   const handleNav = (page: Page) => {
     navigate(page);
@@ -45,7 +45,10 @@ const Sidebar = () => {
   const sections = allSections
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => !item.adminOnly || isAdmin),
+      items: section.items.filter((item) =>
+        (!item.adminOnly || isAdmin) &&
+        (enabledFeatures.length === 0 || enabledFeatures.includes(item.id))
+      ),
     }))
     .filter((section) => section.items.length > 0);
 

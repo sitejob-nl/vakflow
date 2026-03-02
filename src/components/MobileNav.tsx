@@ -13,9 +13,12 @@ const allItems = [
 
 const MobileNav = forwardRef<HTMLElement>((_props, ref) => {
   const { currentPage, navigate } = useNavigation();
-  const { isAdmin } = useAuth();
+  const { isAdmin, enabledFeatures } = useAuth();
 
-  const items = allItems.filter((item) => !item.adminOnly || isAdmin);
+  const items = allItems.filter((item) =>
+    (!item.adminOnly || isAdmin) &&
+    (enabledFeatures.length === 0 || enabledFeatures.includes(item.id))
+  );
 
   return (
     <nav ref={ref} className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border safe-bottom">
