@@ -634,6 +634,47 @@ export type Database = {
           },
         ]
       }
+      materials: {
+        Row: {
+          article_number: string | null
+          category: string | null
+          company_id: string | null
+          created_at: string
+          id: string
+          name: string
+          unit: string
+          unit_price: number
+        }
+        Insert: {
+          article_number?: string | null
+          category?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          unit?: string
+          unit_price?: number
+        }
+        Update: {
+          article_number?: string | null
+          category?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          unit?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materials_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -1216,6 +1257,70 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_order_materials: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          id: string
+          material_id: string | null
+          name: string
+          notes: string | null
+          quantity: number
+          total: number
+          unit: string
+          unit_price: number
+          work_order_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          material_id?: string | null
+          name: string
+          notes?: string | null
+          quantity?: number
+          total?: number
+          unit?: string
+          unit_price?: number
+          work_order_id: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          material_id?: string | null
+          name?: string
+          notes?: string | null
+          quantity?: number
+          total?: number
+          unit?: string
+          unit_price?: number
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_materials_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_materials_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
             referencedColumns: ["id"]
           },
         ]
