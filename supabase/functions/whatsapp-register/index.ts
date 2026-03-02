@@ -43,6 +43,19 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
+  // Check for existing tenant_id first
+  const { data: existingConfig } = await supabaseAdmin
+    .from("whatsapp_config")
+    .select("tenant_id")
+    .not("tenant_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingConfig?.tenant_id) {
+    console.log("Bestaande tenant_id gevonden:", existingConfig.tenant_id);
+    return jsonRes({ tenant_id: existingConfig.tenant_id, existing: true });
+  }
+
   const body = await req.json();
   const { name, webhook_url } = body;
 
