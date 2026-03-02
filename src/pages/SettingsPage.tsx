@@ -14,12 +14,13 @@ import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ServiceDialog from "@/components/ServiceDialog";
+import MaterialsSettings from "@/components/MaterialsSettings";
 import TemplateDialog from "@/components/TemplateDialog";
 import { useQuoteTemplatesDB, useDeleteQuoteTemplate, useCombinedTemplates, type QuoteTemplateDB } from "@/hooks/useQuoteTemplates";
 import { useWhatsAppAutomations, useCreateAutomation, useUpdateAutomation, useDeleteAutomation, TRIGGER_TYPES, AVAILABLE_VARIABLES } from "@/hooks/useWhatsAppAutomations";
 import type { Tables } from "@/integrations/supabase/types";
 
-const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "Automatiseringen", "Teamleden", "Koppelingen"];
+const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "Automatiseringen", "Teamleden", "Koppelingen"];
 
 // Map tab names to required feature slugs (tabs not listed here are always shown)
 const TAB_FEATURE_MAP: Record<string, string> = {
@@ -898,6 +899,8 @@ const SettingsPage = () => {
           )}
         </div>
       )}
+
+      {activeTab === "Materialen" && <MaterialsSettings />}
 
       {activeTab === "Sjablonen" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
