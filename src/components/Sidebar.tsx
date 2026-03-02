@@ -1,7 +1,7 @@
 import { useNavigation, type Page } from "@/hooks/useNavigation";
 import {
   LayoutGrid, Calendar, Users, FileText, DollarSign,
-  MessageSquare, Bell, LogOut, Settings, Mail, Building2
+  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3
 } from "lucide-react";
 import logoFull from "@/assets/logo-full.png";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,6 +26,7 @@ const allSections = [
     items: [
       { id: "invoices" as Page, icon: DollarSign, label: "Facturatie", adminOnly: true },
       { id: "quotes" as Page, icon: FileText, label: "Offertes", adminOnly: true },
+      { id: "reports" as Page, icon: BarChart3, label: "Rapportages", adminOnly: true },
       { id: "email" as Page, icon: Mail, label: "E-mail", adminOnly: true },
       { id: "whatsapp" as Page, icon: MessageSquare, label: "WhatsApp", adminOnly: true },
       { id: "communication" as Page, icon: MessageSquare, label: "Logboek", adminOnly: true },
