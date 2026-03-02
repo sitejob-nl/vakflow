@@ -164,6 +164,147 @@ export type Database = {
           },
         ]
       }
+      asset_maintenance_logs: {
+        Row: {
+          asset_id: string
+          company_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          maintenance_date: string
+          performed_by: string | null
+          work_order_id: string | null
+        }
+        Insert: {
+          asset_id: string
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          maintenance_date?: string
+          performed_by?: string | null
+          work_order_id?: string | null
+        }
+        Update: {
+          asset_id?: string
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          maintenance_date?: string
+          performed_by?: string | null
+          work_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_maintenance_logs_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_maintenance_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_maintenance_logs_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_maintenance_logs_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assets: {
+        Row: {
+          address_id: string | null
+          asset_type: string | null
+          brand: string | null
+          company_id: string | null
+          created_at: string
+          customer_id: string | null
+          id: string
+          install_date: string | null
+          last_maintenance_date: string | null
+          model: string | null
+          name: string
+          next_maintenance_date: string | null
+          notes: string | null
+          serial_number: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address_id?: string | null
+          asset_type?: string | null
+          brand?: string | null
+          company_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          install_date?: string | null
+          last_maintenance_date?: string | null
+          model?: string | null
+          name: string
+          next_maintenance_date?: string | null
+          notes?: string | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address_id?: string | null
+          asset_type?: string | null
+          brand?: string | null
+          company_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          install_date?: string | null
+          last_maintenance_date?: string | null
+          model?: string | null
+          name?: string
+          next_maintenance_date?: string | null
+          notes?: string | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auto_message_settings: {
         Row: {
           channel: string

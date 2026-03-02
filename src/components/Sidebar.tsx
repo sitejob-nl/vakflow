@@ -1,7 +1,7 @@
 import { useNavigation, type Page } from "@/hooks/useNavigation";
 import {
   LayoutGrid, Calendar, Users, FileText, DollarSign,
-  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3
+  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box
 } from "lucide-react";
 import logoFull from "@/assets/logo-full.png";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +31,12 @@ const allSections = [
       { id: "whatsapp" as Page, icon: MessageSquare, label: "WhatsApp", adminOnly: true },
       { id: "communication" as Page, icon: MessageSquare, label: "Logboek", adminOnly: true },
       { id: "reminders" as Page, icon: Bell, label: "Reminders", adminOnly: true },
+    ],
+  },
+  {
+    label: "Beheer",
+    items: [
+      { id: "assets" as Page, icon: Box, label: "Objecten", adminOnly: true },
     ],
   },
 ];
