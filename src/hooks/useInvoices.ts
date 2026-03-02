@@ -169,3 +169,83 @@ export const usePullInvoiceStatusEboekhouden = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
   });
 };
+
+// === Rompslomp sync hooks ===
+
+export const useSyncContactsRompslomp = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-rompslomp", {
+        body: { action: "sync-contacts" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; skipped: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+  });
+};
+
+export const useSyncInvoicesRompslomp = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-rompslomp", {
+        body: { action: "sync-invoices" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; skipped: number; errors: string[] };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
+    },
+  });
+};
+
+export const usePullContactsRompslomp = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-rompslomp", {
+        body: { action: "pull-contacts" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total: number; created: number; updated: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+  });
+};
+
+export const usePullInvoicesRompslomp = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-rompslomp", {
+        body: { action: "pull-invoices" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total_in_rompslomp: number; already_imported: number; imported: number; skipped_no_customer: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+};
+
+export const usePullInvoiceStatusRompslomp = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-rompslomp", {
+        body: { action: "pull-invoice-status" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { checked: number; updated: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+};
