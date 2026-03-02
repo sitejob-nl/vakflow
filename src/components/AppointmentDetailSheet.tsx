@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
   Clock, MapPin, User, Wrench, Navigation, ExternalLink,
-  Pencil, Trash2, CheckCircle2, Plus, X, Loader2, FileText,
+  Pencil, Trash2, CheckCircle2, Plus, X, Loader2, FileText, Copy,
 } from "lucide-react";
 import { useUpdateAppointment, type Appointment } from "@/hooks/useAppointments";
 import { useCreateWorkOrder } from "@/hooks/useWorkOrders";
@@ -32,6 +32,7 @@ interface Props {
   onEdit: (appointment: Appointment) => void;
   onDelete: (appointment: Appointment) => void;
   onFinish: (appointment: Appointment) => void;
+  onDuplicate?: (appointment: Appointment) => void;
   linkedWorkOrderId?: string | null;
 }
 
@@ -51,7 +52,7 @@ const statusColors: Record<string, string> = {
   geannuleerd: "bg-destructive/15 text-destructive",
 };
 
-const AppointmentDetailSheet = ({ open, onOpenChange, appointment, onEdit, onDelete, onFinish, linkedWorkOrderId }: Props) => {
+const AppointmentDetailSheet = ({ open, onOpenChange, appointment, onEdit, onDelete, onFinish, onDuplicate, linkedWorkOrderId }: Props) => {
   const { toast } = useToast();
   const { navigate } = useNavigation();
   const updateAppointment = useUpdateAppointment();
@@ -308,6 +309,16 @@ const AppointmentDetailSheet = ({ open, onOpenChange, appointment, onEdit, onDel
         >
           <Pencil className="h-3.5 w-3.5 mr-1" /> Bewerken
         </Button>
+        {onDuplicate && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[12px]"
+            onClick={() => { onOpenChange(false); onDuplicate(a); }}
+          >
+            <Copy className="h-3.5 w-3.5 mr-1" /> Kopiëren
+          </Button>
+        )}
         {linkedWorkOrderId ? (
           <Button
             variant="outline"

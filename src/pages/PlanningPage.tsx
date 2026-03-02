@@ -3,15 +3,19 @@ import { useAppointments, useUpdateAppointment, useDeleteAppointment, type Appoi
 import { useCreateWorkOrder, useWorkOrders } from "@/hooks/useWorkOrders";
 import { useServices } from "@/hooks/useCustomers";
 import { buildWorkOrderPayload } from "@/utils/createWorkOrderFromAppointment";
-import { Loader2, Plus, Trash2, CheckCircle2, Navigation, ExternalLink, FileText, ChevronLeft, ChevronRight } from "lucide-react";
-import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, isSameDay, subDays } from "date-fns";
+import { Loader2, Plus, Trash2, CheckCircle2, Navigation, ExternalLink, FileText, ChevronLeft, ChevronRight, Users, Calendar as CalendarIcon } from "lucide-react";
+import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, isSameDay, subDays, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { nl } from "date-fns/locale";
 import AppointmentDialog from "@/components/AppointmentDialog";
 import AppointmentDetailSheet from "@/components/AppointmentDetailSheet";
+import CurrentTimeIndicator from "@/components/planning/CurrentTimeIndicator";
+import MonthView from "@/components/planning/MonthView";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useToast } from "@/hooks/use-toast";
 import { useDirections } from "@/hooks/useMapbox";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -68,15 +72,35 @@ const PlanningPage = () => {
   const [detailAppointment, setDetailAppointment] = useState<Appointment | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
+  // View mode: week or month
+  const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  const [currentMonth, setCurrentMonth] = useState(() => new Date());
+
+  // Employee filter
+  const [filterEmployee, setFilterEmployee] = useState<string>("all");
+  const { data: teamMembers } = useTeamMembers();
+
   // For mobile, fetch a wider range around mobileDay
   const weekEnd = addDays(currentWeekStart, 8);
   const mobileStart = isMobile ? startOfWeek(mobileDay, { weekStartsOn: 1 }) : currentWeekStart;
   const mobileEnd = isMobile ? addDays(mobileStart, 8) : weekEnd;
 
-  const { data: appointments, isLoading } = useAppointments(
-    isMobile ? mobileStart : currentWeekStart,
-    isMobile ? mobileEnd : weekEnd
-  );
+  // Month view date range
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = addDays(endOfMonth(currentMonth), 1);
+
+  const fetchStart = viewMode === "month" && !isMobile ? monthStart : (isMobile ? mobileStart : currentWeekStart);
+  const fetchEnd = viewMode === "month" && !isMobile ? monthEnd : (isMobile ? mobileEnd : weekEnd);
+
+  const { data: rawAppointments, isLoading } = useAppointments(fetchStart, fetchEnd);
+
+  // Filter appointments by employee
+  const appointments = useMemo(() => {
+    if (!rawAppointments) return rawAppointments;
+    if (filterEmployee === "all") return rawAppointments;
+    return rawAppointments.filter((a) => a.assigned_to === filterEmployee);
+  }, [rawAppointments, filterEmployee]);
+
   const deleteAppointment = useDeleteAppointment();
   const updateAppointment = useUpdateAppointment();
   const createWorkOrder = useCreateWorkOrder();
@@ -206,14 +230,49 @@ const PlanningPage = () => {
         ) : (
           /* Desktop toolbar */
           <div className="px-3 md:px-4 py-3 md:py-3.5 flex items-center gap-2 md:gap-2.5 border-b border-border flex-wrap">
-            <button onClick={() => setCurrentWeekStart((w) => subWeeks(w, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">‹</button>
-            <button onClick={() => setCurrentWeekStart((w) => addWeeks(w, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">›</button>
-            <span className="text-base font-extrabold min-w-[170px]">{weekLabel}</span>
+            {viewMode === "week" ? (
+              <>
+                <button onClick={() => setCurrentWeekStart((w) => subWeeks(w, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">‹</button>
+                <button onClick={() => setCurrentWeekStart((w) => addWeeks(w, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">›</button>
+                <span className="text-base font-extrabold min-w-[170px]">{weekLabel}</span>
+              </>
+            ) : (
+              <>
+                <button onClick={() => setCurrentMonth((m) => subMonths(m, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">‹</button>
+                <button onClick={() => setCurrentMonth((m) => addMonths(m, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">›</button>
+                <span className="text-base font-extrabold min-w-[170px]">{format(currentMonth, "MMMM yyyy", { locale: nl })}</span>
+              </>
+            )}
             {appointments && <span className="bg-primary-muted text-primary px-2.5 py-[3px] rounded-full text-[11px] font-bold">{appointments.length} afspraken</span>}
-            <button onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors">Vandaag</button>
-            <button onClick={() => setShowWeekend((v) => !v)} className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors">
-              {showWeekend ? "Ma–Vr" : "Ma–Zo"}
+            <button onClick={() => { setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 })); setCurrentMonth(new Date()); }} className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors">Vandaag</button>
+            {viewMode === "week" && (
+              <button onClick={() => setShowWeekend((v) => !v)} className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors">
+                {showWeekend ? "Ma–Vr" : "Ma–Zo"}
+              </button>
+            )}
+            {/* View mode toggle */}
+            <button
+              onClick={() => setViewMode(viewMode === "week" ? "month" : "week")}
+              className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors flex items-center gap-1"
+            >
+              <CalendarIcon className="h-3.5 w-3.5" />
+              {viewMode === "week" ? "Maand" : "Week"}
             </button>
+            {/* Employee filter */}
+            {teamMembers && teamMembers.length > 1 && (
+              <Select value={filterEmployee} onValueChange={setFilterEmployee}>
+                <SelectTrigger className="w-[160px] h-8 text-[12px]">
+                  <Users className="h-3.5 w-3.5 mr-1 flex-shrink-0" />
+                  <SelectValue placeholder="Alle medewerkers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle medewerkers</SelectItem>
+                  {teamMembers.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.full_name ?? "Onbekend"}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <div className="flex-1" />
             <button
               onClick={() => { setEditAppointment(null); setDefaultDate(undefined); setDialogOpen(true); }}
@@ -229,7 +288,13 @@ const PlanningPage = () => {
             <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : isMobile ? (
             /* ===== MOBILE DAY VIEW ===== */
-            <div className="grid grid-cols-[50px_1fr]">
+            <div className="relative grid grid-cols-[50px_1fr]">
+              {/* Time indicator for mobile - spans the right column */}
+              {isToday(mobileDay) && (
+                <div className="absolute left-[50px] right-0 top-0 bottom-0 pointer-events-none">
+                  <CurrentTimeIndicator startHour={6} endHour={22} slotHeight={SLOT_HEIGHT} />
+                </div>
+              )}
               {slots.map((slot) => {
                 const cellEvents = slot.minute === 0 ? getEventsForHour(mobileDay, slot.hour) : [];
                 return (
@@ -282,9 +347,19 @@ const PlanningPage = () => {
                 );
               })}
             </div>
+          ) : viewMode === "month" ? (
+            /* ===== DESKTOP MONTH VIEW ===== */
+            <MonthView
+              currentMonth={currentMonth}
+              appointments={appointments ?? []}
+              onDayClick={(day) => {
+                setCurrentWeekStart(startOfWeek(day, { weekStartsOn: 1 }));
+                setViewMode("week");
+              }}
+            />
           ) : (
             /* ===== DESKTOP WEEK VIEW ===== */
-            <div className={`grid ${showWeekend ? "grid-cols-[58px_repeat(7,1fr)]" : "grid-cols-[58px_repeat(5,1fr)]"}`}>
+            <div className={`relative grid ${showWeekend ? "grid-cols-[58px_repeat(7,1fr)]" : "grid-cols-[58px_repeat(5,1fr)]"}`}>
               <div className="sticky top-0 bg-card z-10 p-2.5 border-b border-border" />
               {days.map((d) => (
                 <div key={d.toISOString()} className={`sticky top-0 z-10 p-2.5 text-center text-[11px] font-bold uppercase tracking-wide border-b border-border ${isToday(d) ? "text-primary bg-primary-muted" : "text-t3 bg-card"}`}>
@@ -305,6 +380,10 @@ const PlanningPage = () => {
                         style={{ height: `${SLOT_HEIGHT}px` }}
                         onClick={() => handleCellClick(day, slot.hour, slot.minute)}
                       >
+                        {/* Current time indicator for today column */}
+                        {slot.hour === 6 && slot.minute === 0 && isToday(day) && (
+                          <CurrentTimeIndicator startHour={6} endHour={22} slotHeight={SLOT_HEIGHT} />
+                        )}
                         {cellEvents.map((ev) => {
                           const hexColor = ev.services?.color || defaultEventColor;
                           const startDate = new Date(ev.scheduled_at);
@@ -483,6 +562,14 @@ const PlanningPage = () => {
         onEdit={(a) => { setEditAppointment(a); setDialogOpen(true); }}
         onDelete={(a) => setDeleteTarget(a)}
         onFinish={(a) => handleFinish(a)}
+        onDuplicate={(a) => {
+          const tomorrow = new Date(a.scheduled_at);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          setDefaultDate(tomorrow);
+          // Set as template: pass as edit but we'll clear the id
+          setEditAppointment({ ...a, id: "__duplicate__" as any } as Appointment);
+          setDialogOpen(true);
+        }}
         linkedWorkOrderId={detailAppointment ? appointmentWoMap.get(detailAppointment.id) ?? null : null}
       />
 
