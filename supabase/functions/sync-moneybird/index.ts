@@ -342,16 +342,16 @@ Deno.serve(async (req) => {
 
           if (!customer) { skippedNoCustomer++; continue; }
 
-          const totalPrice = Number(mInv.total_price_incl_tax_with_discount || 0);
-          const totalExcl = Number(mInv.total_price_excl_tax_with_discount || 0);
+          const totalPrice = Number(mInv.total_price_incl_tax || 0);
+          const totalExcl = Number(mInv.total_price_excl_tax || 0);
           const vatAmount = totalPrice - totalExcl;
 
           const details = mInv.details || [];
           const items = Array.isArray(details) ? details.map((d: any) => ({
             description: d.description || "Item",
-            qty: Number(d.amount || 1),
+            qty: Number(d.amount || d.amount_decimal || 1),
             unit_price: Number(d.price || 0) * (1 + (Number(d.tax_rate?.percentage || 21) / 100)),
-            total: Number(d.total_price_incl_tax_with_discount || 0),
+            total: Number(d.total_price_excl_tax_with_discount || 0) * (1 + (Number(d.tax_rate?.percentage || 21) / 100)),
           })) : [];
 
           const state = mInv.state;
@@ -513,7 +513,7 @@ Deno.serve(async (req) => {
       if (!moneybird_id) {
         return jsonRes({ error: "moneybird_id is verplicht" }, 400);
       }
-      const pdfBytes = await mbGetRaw(adminId, `sales_invoices/${moneybird_id}/download_pdf.json`, apiToken);
+      const pdfBytes = await mbGetRaw(adminId, `sales_invoices/${moneybird_id}/download_pdf`, apiToken);
       return new Response(pdfBytes, {
         status: 200,
         headers: {
@@ -610,16 +610,17 @@ Deno.serve(async (req) => {
 
           if (!customer) { skippedNoCustomer++; continue; }
 
-          const totalPrice = Number(est.total_price_incl_tax_with_discount || 0);
-          const totalExcl = Number(est.total_price_excl_tax_with_discount || 0);
+          const totalPrice = Number(est.total_price_incl_tax || 0);
+          const totalExcl = Number(est.total_price_excl_tax || 0);
           const vatAmount = totalPrice - totalExcl;
+          const vatPct = totalExcl > 0 ? ((totalPrice - totalExcl) / totalExcl) * 100 : 21;
 
           const details = est.details || [];
           const items = Array.isArray(details) ? details.map((d: any) => ({
             description: d.description || "Item",
-            qty: Number(d.amount || 1),
-            unit_price: Number(d.price || 0) * 1.21,
-            total: Number(d.total_price_incl_tax_with_discount || 0),
+            qty: Number(d.amount || d.amount_decimal || 1),
+            unit_price: Number(d.price || 0) * (1 + vatPct / 100),
+            total: Number(d.total_price_excl_tax_with_discount || 0) * (1 + vatPct / 100),
           })) : [];
 
           const stateMap: Record<string, string> = {
