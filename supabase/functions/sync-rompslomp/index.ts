@@ -27,6 +27,18 @@ async function rompslompGet(companyId: string, path: string, token: string) {
   return res.json();
 }
 
+async function rompslompGetRaw(companyId: string, path: string, token: string): Promise<ArrayBuffer> {
+  const url = `${ROMPSLOMP_BASE}/companies/${companyId}${path}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/pdf" },
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Rompslomp GET ${path}: ${res.status} ${errText}`);
+  }
+  return res.arrayBuffer();
+}
+
 async function rompslompPost(companyId: string, path: string, token: string, body: unknown) {
   const url = `${ROMPSLOMP_BASE}/companies/${companyId}${path}`;
   const res = await fetch(url, {
@@ -206,6 +218,7 @@ Deno.serve(async (req) => {
             due_date: inv.due_at || undefined,
             invoice_lines: invoiceLines,
             api_reference: inv.invoice_number || undefined,
+            _publish: true,
           };
 
           console.log(`Pushing invoice ${inv.invoice_number} to Rompslomp:`, JSON.stringify(invoiceData));
@@ -459,6 +472,7 @@ Deno.serve(async (req) => {
             date: quote.issued_at || new Date().toISOString().split("T")[0],
             invoice_lines: quoteLines,
             api_reference: quote.quote_number || undefined,
+            _publish: true,
           };
 
           console.log(`Pushing quote ${quote.quote_number} to Rompslomp:`, JSON.stringify(quotationData));
@@ -579,6 +593,23 @@ Deno.serve(async (req) => {
         imported,
         skipped_no_customer: skippedNoCustomer,
         errors,
+      });
+    }
+
+    // Action: download PDF from Rompslomp
+    if (action === "download-pdf") {
+      const { rompslomp_id } = body;
+      if (!rompslomp_id) {
+        return jsonRes({ error: "rompslomp_id is verplicht" }, 400);
+      }
+      const pdfBytes = await rompslompGetRaw(rompslompCompanyId, `/sales_invoices/${rompslomp_id}/pdf`, apiToken);
+      return new Response(pdfBytes, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="Rompslomp_${rompslomp_id}.pdf"`,
+        },
       });
     }
 
