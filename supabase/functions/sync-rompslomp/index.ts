@@ -174,6 +174,8 @@ Deno.serve(async (req) => {
         .eq("company_id", company.id)
         .is("rompslomp_id", null);
 
+      console.log(`sync-invoices: found ${invoices?.length ?? 0} invoices without rompslomp_id`);
+
       let synced = 0;
       let skipped = 0;
       const errors: string[] = [];
@@ -182,6 +184,7 @@ Deno.serve(async (req) => {
         try {
           const customer = inv.customers as any;
           if (!customer?.rompslomp_contact_id) {
+            console.log(`Skipping invoice ${inv.invoice_number}: no rompslomp_contact_id on customer`);
             skipped++;
             continue;
           }
@@ -201,13 +204,20 @@ Deno.serve(async (req) => {
             invoice_lines: invoiceLines,
           };
 
+          console.log(`Pushing invoice ${inv.invoice_number} to Rompslomp:`, JSON.stringify(invoiceData));
+
           const result = await rompslompPost(rompslompCompanyId, "/sales_invoices", apiToken, { sales_invoice: invoiceData });
           const rompslompId = result?.id || result?.sales_invoice?.id;
           if (rompslompId) {
             await supabaseAdmin.from("invoices").update({ rompslomp_id: String(rompslompId) }).eq("id", inv.id);
             synced++;
+            console.log(`Invoice ${inv.invoice_number} synced, rompslomp_id: ${rompslompId}`);
+          } else {
+            console.log(`Invoice ${inv.invoice_number}: no rompslomp_id in response`, JSON.stringify(result));
+            errors.push(`${inv.invoice_number}: Geen ID in Rompslomp response`);
           }
         } catch (err: any) {
+          console.error(`Invoice ${inv.invoice_number || inv.id} sync error:`, err.message);
           errors.push(`${inv.invoice_number || inv.id}: ${err.message}`);
         }
       }

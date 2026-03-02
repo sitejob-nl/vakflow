@@ -118,7 +118,14 @@ const InvoicesPage = () => {
     setSyncingId("rompslomp");
     try {
       const result = await syncRompslomp.mutateAsync();
-      toast({ title: "Gesynchroniseerd met Rompslomp", description: `${result?.synced ?? 0} facturen gesynchroniseerd` });
+      const errMsg = result?.errors?.length ? `\nFouten: ${result.errors.join(", ")}` : "";
+      if ((result?.synced ?? 0) > 0) {
+        toast({ title: "Gesynchroniseerd met Rompslomp", description: `${result.synced} facturen gesynchroniseerd${errMsg}` });
+      } else if (result?.errors?.length) {
+        toast({ title: "Rompslomp sync mislukt", description: result.errors.join("; "), variant: "destructive" });
+      } else {
+        toast({ title: "Geen facturen om te synchroniseren", description: `Overgeslagen: ${result?.skipped ?? 0}` });
+      }
     } catch (err: any) {
       toast({ title: "Rompslomp sync mislukt", description: err.message, variant: "destructive" });
     }
