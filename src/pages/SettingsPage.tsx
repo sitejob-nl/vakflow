@@ -130,9 +130,9 @@ const SettingsPage = () => {
   // Rompslomp state
   const [rompslompConnected, setRompslompConnected] = useState(false);
   const [rompslompCompanyName, setRompslompCompanyName] = useState("");
-  const [rompslompClientId, setRompslompClientId] = useState("");
-  const [rompslompClientSecret, setRompslompClientSecret] = useState("");
-  const [rompslompRegistering, setRompslompRegistering] = useState(false);
+  const [rompslompApiToken, setRompslompApiToken] = useState("");
+  const [rompslompCompanyId, setRompslompCompanyId] = useState("");
+  const [rompslompTesting, setRompslompTesting] = useState(false);
   const [rompslompSyncingContacts, setRompslompSyncingContacts] = useState(false);
   const [rompslompSyncingInvoices, setRompslompSyncingInvoices] = useState(false);
   const [rompslompPullingContacts, setRompslompPullingContacts] = useState(false);
@@ -333,10 +333,10 @@ const SettingsPage = () => {
         setCompanyLogoPreview((companyData as any).logo_url ?? null);
         setBrandColor((companyData as any).brand_color ?? "");
         // Rompslomp
-        setRompslompConnected(!!(companyData as any).rompslomp_tenant_id && !!(companyData as any).rompslomp_company_id);
+        setRompslompConnected(!!(companyData as any).rompslomp_api_token && !!(companyData as any).rompslomp_company_id);
         setRompslompCompanyName((companyData as any).rompslomp_company_name ?? "");
-        setRompslompClientId((companyData as any).rompslomp_client_id ?? "");
-        setRompslompClientSecret((companyData as any).rompslomp_client_secret ?? "");
+        setRompslompApiToken((companyData as any).rompslomp_api_token ?? "");
+        setRompslompCompanyId((companyData as any).rompslomp_company_id ?? "");
       }
       setLoading(false);
     })();
@@ -1197,7 +1197,7 @@ const SettingsPage = () => {
           ) : accountingProvider === "rompslomp" ? (
             <div className="space-y-4">
               <h3 className="text-[14px] font-bold mb-1">Rompslomp</h3>
-              <p className="text-[12px] text-secondary-foreground mb-3">Koppel je Rompslomp-account via SiteJob Connect om contacten en facturen te synchroniseren.</p>
+              <p className="text-[12px] text-secondary-foreground mb-3">Synchroniseer contacten en facturen met je Rompslomp-account via een API token.</p>
 
               {rompslompConnected ? (
                 <div className="space-y-4">
@@ -1205,6 +1205,28 @@ const SettingsPage = () => {
                     <CheckCircle className="h-4 w-4" />
                     Verbonden{rompslompCompanyName ? ` — ${rompslompCompanyName}` : ""}
                   </div>
+
+                  <button
+                    onClick={async () => {
+                      setRompslompTesting(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("sync-rompslomp", {
+                          body: { action: "test" },
+                        });
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        toast({ title: "Verbinding geslaagd!", description: "Rompslomp API is bereikbaar." });
+                      } catch (err: any) {
+                        toast({ title: "Verbinding mislukt", description: err.message, variant: "destructive" });
+                      }
+                      setRompslompTesting(false);
+                    }}
+                    disabled={rompslompTesting}
+                    className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {rompslompTesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                    Test verbinding
+                  </button>
 
                   <div>
                     <h4 className="text-[13px] font-bold mb-2">Data pushen naar Rompslomp</h4>
@@ -1310,13 +1332,14 @@ const SettingsPage = () => {
                         const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
                         if (profileData?.company_id) {
                           await supabase.from("companies").update({
-                            rompslomp_tenant_id: null,
-                            rompslomp_webhook_secret: null,
+                            rompslomp_api_token: null,
                             rompslomp_company_id: null,
                             rompslomp_company_name: null,
                           } as any).eq("id", profileData.company_id);
                           setRompslompConnected(false);
                           setRompslompCompanyName("");
+                          setRompslompApiToken("");
+                          setRompslompCompanyId("");
                           toast({ title: "Rompslomp ontkoppeld" });
                         }
                       } catch (err: any) {
@@ -1334,48 +1357,7 @@ const SettingsPage = () => {
                     <XCircle className="h-4 w-4" />
                     Niet verbonden
                   </div>
-                  <button
-                    onClick={async () => {
-                      setRompslompRegistering(true);
-                      try {
-                        if (!rompslompClientId || !rompslompClientSecret) {
-                          toast({ title: "Fout", description: "Vul eerst Client ID en Client Secret in bij het tabblad Koppelingen.", variant: "destructive" });
-                          setRompslompRegistering(false);
-                          return;
-                        }
-                        const { data: registerData, error: registerError } = await supabase.functions.invoke("rompslomp-register", {
-                          body: { client_id: rompslompClientId, client_secret: rompslompClientSecret },
-                        });
-                        if (registerError) throw registerError;
-                        if (!registerData?.tenant_id) throw new Error("Geen tenant_id ontvangen");
-
-                        const popup = window.open(
-                          `https://connect.sitejob.nl/rompslomp-setup?tenant_id=${registerData.tenant_id}`,
-                          "rompslomp-setup",
-                          "width=600,height=700"
-                        );
-                        const handler = (event: MessageEvent) => {
-                          if (event.data?.type === "rompslomp-connected" || event.data === "rompslomp-connected") {
-                            setRompslompConnected(true);
-                            // Reload company data to get company_name
-                            supabase.from("companies").select("rompslomp_company_name").limit(1).single().then(({ data }) => {
-                              if (data) setRompslompCompanyName((data as any).rompslomp_company_name || "");
-                            });
-                            window.removeEventListener("message", handler);
-                          }
-                        };
-                        window.addEventListener("message", handler);
-                      } catch (err: any) {
-                        toast({ title: "Fout bij koppelen", description: err.message, variant: "destructive" });
-                      }
-                      setRompslompRegistering(false);
-                    }}
-                    disabled={rompslompRegistering}
-                    className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
-                  >
-                    {rompslompRegistering ? <Loader2 className="h-3.5 w-3.5 animate-spin inline mr-1.5" /> : null}
-                    📗 Koppel Rompslomp
-                  </button>
+                  <p className="text-[12px] text-muted-foreground">Vul je API token en Company ID in bij het tabblad <button className="text-primary underline" onClick={() => setActiveTab("Koppelingen")}>Koppelingen</button> om de koppeling te activeren.</p>
                 </div>
               )}
             </div>
@@ -2482,15 +2464,15 @@ const SettingsPage = () => {
             </div>
             {accountingProvider === "rompslomp" && (
               <div className="border-t border-border pt-4 space-y-3">
-                <h4 className="text-[13px] font-bold">Rompslomp OAuth credentials</h4>
-                <p className="text-[11px] text-secondary-foreground">Vul je Rompslomp Client ID en Client Secret in. Deze zijn nodig om de koppeling te starten.</p>
+                <h4 className="text-[13px] font-bold">Rompslomp API-koppeling</h4>
+                <p className="text-[11px] text-secondary-foreground">Ga naar <a href="https://rompslomp.nl" target="_blank" rel="noopener noreferrer" className="text-primary underline">Rompslomp</a> → Instellingen → API tokens om een API token aan te maken. Je Company ID vind je in de URL wanneer je ingelogd bent (bijv. rompslomp.nl/companies/<strong>12345</strong>/...).</p>
                 <div>
-                  <label className={labelClass}>Client ID</label>
-                  <input value={rompslompClientId} onChange={(e) => setRompslompClientId(e.target.value)} className={inputClass} placeholder="jouw-rompslomp-client-id" />
+                  <label className={labelClass}>API Token</label>
+                  <input value={rompslompApiToken} onChange={(e) => setRompslompApiToken(e.target.value)} className={inputClass} placeholder="Jouw Rompslomp API token" type="password" />
                 </div>
                 <div>
-                  <label className={labelClass}>Client Secret</label>
-                  <input value={rompslompClientSecret} onChange={(e) => setRompslompClientSecret(e.target.value)} className={inputClass} placeholder="jouw-rompslomp-client-secret" type="password" />
+                  <label className={labelClass}>Company ID</label>
+                  <input value={rompslompCompanyId} onChange={(e) => setRompslompCompanyId(e.target.value)} className={inputClass} placeholder="bijv. 12345" />
                 </div>
               </div>
             )}
@@ -2500,10 +2482,18 @@ const SettingsPage = () => {
                 try {
                   const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
                   if (profileData?.company_id) {
-                    await supabase.from("companies").update({
+                    const updateData: any = {
                       accounting_provider: accountingProvider,
                       email_provider: emailProvider,
-                    } as any).eq("id", profileData.company_id);
+                    };
+                    if (accountingProvider === "rompslomp") {
+                      updateData.rompslomp_api_token = rompslompApiToken || null;
+                      updateData.rompslomp_company_id = rompslompCompanyId || null;
+                    }
+                    await supabase.from("companies").update(updateData).eq("id", profileData.company_id);
+                    if (accountingProvider === "rompslomp") {
+                      setRompslompConnected(!!rompslompApiToken && !!rompslompCompanyId);
+                    }
                     toast({ title: "Koppelingen opgeslagen" });
                   }
                 } catch (err: any) {
