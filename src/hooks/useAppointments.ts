@@ -44,20 +44,24 @@ export const useAppointments = (weekStart: Date, weekEnd: Date) => {
   });
 };
 
-export const useAppointmentsForDay = (date: Date | null) => {
+export const useAppointmentsForDay = (date: Date | null, assignedTo?: string | null) => {
   const dayStart = date ? new Date(date.getFullYear(), date.getMonth(), date.getDate()) : null;
   const dayEnd = dayStart ? new Date(dayStart.getTime() + 86400000) : null;
 
   return useQuery({
-    queryKey: ["appointments-day", dayStart?.toISOString()],
+    queryKey: ["appointments-day", dayStart?.toISOString(), assignedTo],
     enabled: !!dayStart,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("appointments")
         .select("*, customers(name, address, postal_code, city, lat, lng)")
         .gte("scheduled_at", dayStart!.toISOString())
         .lt("scheduled_at", dayEnd!.toISOString())
         .order("scheduled_at");
+      if (assignedTo) {
+        q = q.eq("assigned_to", assignedTo);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return data as Appointment[];
     },

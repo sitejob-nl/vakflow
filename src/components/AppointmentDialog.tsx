@@ -12,6 +12,7 @@ import { useCreateAppointment, useUpdateAppointment, useAppointmentsForDay } fro
 import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDirections } from "@/hooks/useMapbox";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -40,12 +41,16 @@ const DEFAULT_START_LABEL = "Heemskerk (standaard)";
 
 const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Props) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const { data: customers } = useCustomers();
   const { data: services } = useServices();
   const createAppointment = useCreateAppointment();
   const updateAppointment = useUpdateAppointment();
   const { result: travelInfo, loading: travelLoading, calculate: calcTravel } = useDirections();
   const isEdit = !!appointment;
+
+  // Determine the assigned_to for filtering: use existing appointment's value or current user
+  const assignedTo = appointment?.assigned_to || user?.id || null;
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -74,7 +79,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
     return isNaN(d.getTime()) ? null : d;
   }, [form.scheduled_at]);
 
-  const { data: dayAppointments } = useAppointmentsForDay(formDate);
+  const { data: dayAppointments } = useAppointmentsForDay(formDate, assignedTo);
 
   // Find previous appointment on same day (before current time)
   const previousAppointment = useMemo(() => {
