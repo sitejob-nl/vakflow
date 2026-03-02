@@ -133,6 +133,8 @@ const SettingsPage = () => {
   const [rompslompApiToken, setRompslompApiToken] = useState("");
   const [rompslompCompanyId, setRompslompCompanyId] = useState("");
   const [rompslompTesting, setRompslompTesting] = useState(false);
+  const [rompslompDetecting, setRompslompDetecting] = useState(false);
+  const [rompslompCompanies, setRompslompCompanies] = useState<{ id: string; name: string }[]>([]);
   const [rompslompSyncingContacts, setRompslompSyncingContacts] = useState(false);
   const [rompslompSyncingInvoices, setRompslompSyncingInvoices] = useState(false);
   const [rompslompPullingContacts, setRompslompPullingContacts] = useState(false);
@@ -2465,15 +2467,70 @@ const SettingsPage = () => {
             {accountingProvider === "rompslomp" && (
               <div className="border-t border-border pt-4 space-y-3">
                 <h4 className="text-[13px] font-bold">Rompslomp API-koppeling</h4>
-                <p className="text-[11px] text-secondary-foreground">Ga naar <a href="https://rompslomp.nl" target="_blank" rel="noopener noreferrer" className="text-primary underline">Rompslomp</a> → Instellingen → API tokens om een API token aan te maken. Je Company ID vind je in de URL wanneer je ingelogd bent (bijv. rompslomp.nl/companies/<strong>12345</strong>/...).</p>
+                <p className="text-[11px] text-secondary-foreground">Ga naar <a href="https://rompslomp.nl" target="_blank" rel="noopener noreferrer" className="text-primary underline">Rompslomp</a> → Instellingen → API tokens om een API token aan te maken.</p>
                 <div>
                   <label className={labelClass}>API Token</label>
-                  <input value={rompslompApiToken} onChange={(e) => setRompslompApiToken(e.target.value)} className={inputClass} placeholder="Jouw Rompslomp API token" type="password" />
+                  <input value={rompslompApiToken} onChange={(e) => { setRompslompApiToken(e.target.value); setRompslompCompanies([]); setRompslompCompanyId(""); setRompslompCompanyName(""); }} className={inputClass} placeholder="Jouw Rompslomp API token" type="password" />
                 </div>
-                <div>
-                  <label className={labelClass}>Company ID</label>
-                  <input value={rompslompCompanyId} onChange={(e) => setRompslompCompanyId(e.target.value)} className={inputClass} placeholder="bijv. 12345" />
-                </div>
+                {rompslompApiToken && !rompslompCompanyId && rompslompCompanies.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setRompslompDetecting(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("sync-rompslomp", {
+                          body: { action: "auto-detect", token: rompslompApiToken },
+                        });
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        const companies = data?.companies || [];
+                        if (companies.length === 0) {
+                          toast({ title: "Geen bedrijven gevonden", description: "Controleer je API token.", variant: "destructive" });
+                        } else if (companies.length === 1) {
+                          setRompslompCompanyId(companies[0].id);
+                          setRompslompCompanyName(companies[0].name);
+                          toast({ title: "Bedrijf gedetecteerd", description: companies[0].name });
+                        } else {
+                          setRompslompCompanies(companies);
+                        }
+                      } catch (err: any) {
+                        toast({ title: "Detectie mislukt", description: err.message, variant: "destructive" });
+                      }
+                      setRompslompDetecting(false);
+                    }}
+                    disabled={rompslompDetecting}
+                    className="px-4 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                  >
+                    {rompslompDetecting ? <><Loader2 className="inline w-3 h-3 mr-1 animate-spin" /> Detecteren...</> : "Detecteer bedrijf"}
+                  </button>
+                )}
+                {rompslompCompanies.length > 1 && !rompslompCompanyId && (
+                  <div>
+                    <label className={labelClass}>Kies een bedrijf</label>
+                    <Select value="" onValueChange={(v) => {
+                      const chosen = rompslompCompanies.find(c => c.id === v);
+                      if (chosen) {
+                        setRompslompCompanyId(chosen.id);
+                        setRompslompCompanyName(chosen.name);
+                        setRompslompCompanies([]);
+                      }
+                    }}>
+                      <SelectTrigger><SelectValue placeholder="Selecteer bedrijf..." /></SelectTrigger>
+                      <SelectContent>
+                        {rompslompCompanies.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name} (ID: {c.id})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {rompslompCompanyId && (
+                  <div className="flex items-center gap-2 text-[12px] text-muted-foreground bg-muted/50 p-2 rounded">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span><strong>{rompslompCompanyName || `Bedrijf`}</strong> (ID: {rompslompCompanyId})</span>
+                    <button type="button" onClick={() => { setRompslompCompanyId(""); setRompslompCompanyName(""); setRompslompCompanies([]); }} className="ml-auto text-destructive text-[11px] underline">Wijzigen</button>
+                  </div>
+                )}
               </div>
             )}
             <button
@@ -2489,6 +2546,7 @@ const SettingsPage = () => {
                     if (accountingProvider === "rompslomp") {
                       updateData.rompslomp_api_token = rompslompApiToken || null;
                       updateData.rompslomp_company_id = rompslompCompanyId || null;
+                      updateData.rompslomp_company_name = rompslompCompanyName || null;
                     }
                     await supabase.from("companies").update(updateData).eq("id", profileData.company_id);
                     if (accountingProvider === "rompslomp") {
