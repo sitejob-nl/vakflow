@@ -1,76 +1,57 @@
 
 
-## Plan: Rompslomp Boekhoudintegratie via SiteJob Connect
+## Plan: Rompslomp omzetten naar API token (geen OAuth)
 
-### Overzicht
-Volledige Rompslomp-koppeling implementeren via SiteJob Connect (OAuth token management). Het patroon volgt de bestaande WhatsApp-integratie: een register edge function, config/webhook endpoints, en een sync edge function voor API calls.
+De huidige implementatie gebruikt OAuth via SiteJob Connect (client_id, client_secret, tenant registratie, popup flow). Dit wordt vervangen door een simpele API token flow: bedrijf vult hun Rompslomp API token + company_id in, en het systeem praat direct met de Rompslomp API.
 
 ### Database
 
-**Nieuwe kolommen op `companies` tabel:**
-- `rompslomp_tenant_id` (text, nullable) — tenant ID bij SiteJob Connect
-- `rompslomp_webhook_secret` (text, nullable) — voor token-ophaling
-- `rompslomp_company_id` (text, nullable) — Rompslomp bedrijfs-ID (gepusht via config)
-- `rompslomp_company_name` (text, nullable) — Rompslomp bedrijfsnaam
+**Migratie — kolommen toevoegen + opruimen op `companies`:**
+- Toevoegen: `rompslomp_api_token` (text, nullable) — het API token uit Rompslomp instellingen
+- Bestaande kolommen `rompslomp_tenant_id`, `rompslomp_webhook_secret` worden niet meer gebruikt voor OAuth maar kunnen blijven staan (backward compat). `rompslomp_company_id` wordt hergebruikt voor het Rompslomp bedrijfs-ID dat de gebruiker invult.
 
-**Nieuwe kolommen op `customers` tabel:**
-- `rompslomp_contact_id` (text, nullable) — relatie-ID in Rompslomp
+### Edge function: `sync-rompslomp/index.ts`
 
-**Nieuwe kolommen op `invoices` tabel:**
-- `rompslomp_id` (text, nullable) — factuur-ID in Rompslomp
+Vereenvoudigen:
+- **Verwijder** `getRompslompToken()` (SiteJob Connect token call)
+- Lees `rompslomp_api_token` en `rompslomp_company_id` uit de `companies` tabel
+- Gebruik het API token direct als Bearer token + vaste base URL `https://api.rompslomp.nl/api/v1`
+- Fix de API endpoints: `/invoices` → `/sales_invoices`, wrapper `invoice` → `sales_invoice`, `price` → `price_per_unit`, `invoice_lines_attributes` → `invoice_lines`
+- Controleer "verbonden" op basis van `rompslomp_api_token` + `rompslomp_company_id` (niet tenant_id/webhook_secret)
 
-### Edge Functions (4 nieuwe)
+### Edge function: `rompslomp-register/index.ts`
 
-**1. `rompslomp-register` — Tenant registratie**
-- Authenticatie: JWT (ingelogde admin)
-- Registreert tenant bij SiteJob Connect met `client_id`, `client_secret` uit request body
-- Slaat `tenant_id` + `webhook_secret` op in `companies` tabel
-- Geeft `tenant_id` terug voor de setup-popup
+Kan verwijderd worden — niet meer nodig (geen OAuth registratie).
 
-**2. `rompslomp-config` — Config push ontvanger**
-- Authenticatie: `X-Webhook-Secret` header (verify_jwt = false)
-- Ontvangt `company_id` + `company_name` na succesvolle OAuth
-- Ontvangt `disconnect` actie bij ontkoppeling
-- Slaat gegevens op in `companies` tabel
+### Edge functions: `rompslomp-config/index.ts`, `rompslomp-webhook/index.ts`
 
-**3. `rompslomp-webhook` — Webhook ontvanger**
-- Authenticatie: `X-Webhook-Secret` header (verify_jwt = false)
-- Ontvangt doorgestuurde Rompslomp events (invoice.created, etc.)
-- Verwerkt relevante events (bijv. betaalstatus bijwerken)
+Blijven bestaan maar worden niet actief gebruikt bij API token flow. Kunnen later opgeruimd worden.
 
-**4. `sync-rompslomp` — API sync functie**
-- Authenticatie: JWT (ingelogde admin)
-- Haalt verse token op via SiteJob Connect (`rompslomp-token` endpoint)
-- Acties: `test`, `sync-contacts`, `sync-invoices`, `pull-contacts`, `pull-invoices`, `pull-invoice-status`
-- Structuur vergelijkbaar met `sync-invoice-eboekhouden`
-
-### Frontend (SettingsPage.tsx)
-
-**Boekhouding tab — Rompslomp sectie (vervangt "binnenkort beschikbaar"):**
-1. **Niet gekoppeld:** "Koppel Rompslomp" knop → registreert tenant → opent popup naar `connect.sitejob.nl/rompslomp-setup?tenant_id=...`
-2. **Gekoppeld:** Status tonen (bedrijfsnaam), sync-knoppen (contacten/facturen pushen/pullen), ontkoppel-knop
-3. PostMessage listener voor `rompslomp-connected` event
+### Frontend: `SettingsPage.tsx`
 
 **Koppelingen tab:**
-- Bij selectie van "rompslomp": velden voor `client_id` en `client_secret` (OAuth credentials per bedrijf)
-- Opslaan naar `companies` tabel
+- Vervang "Client ID" en "Client Secret" velden door:
+  - **API Token** (text/password input)
+  - **Company ID** (text input, met uitleg hoe te vinden)
+- Sla op naar `rompslomp_api_token` en `rompslomp_company_id` op de companies tabel
 
-### Config (supabase/config.toml)
-```
-[functions.rompslomp-config]
-verify_jwt = false
+**Boekhouding tab:**
+- Verwijder de hele OAuth popup flow ("Koppel Rompslomp" knop met rompslomp-register + SiteJob Connect popup)
+- "Verbonden" check: `rompslomp_api_token` + `rompslomp_company_id` aanwezig
+- Sync-knoppen (push/pull contacten/facturen, betaalstatus) blijven exact hetzelfde
+- "Test verbinding" knop toevoegen die `sync-rompslomp` met `action: "test"` aanroept
+- Ontkoppelen: wist `rompslomp_api_token`, `rompslomp_company_id`, `rompslomp_company_name`
 
-[functions.rompslomp-webhook]
-verify_jwt = false
-```
+### Hooks: `useInvoices.ts`
+
+Geen wijzigingen — de mutations roepen `sync-rompslomp` aan, die intern verandert.
 
 ### Bestanden
-- Nieuwe migratie: kolommen op `companies`, `customers`, `invoices`
-- `supabase/functions/rompslomp-register/index.ts`
-- `supabase/functions/rompslomp-config/index.ts`
-- `supabase/functions/rompslomp-webhook/index.ts`
-- `supabase/functions/sync-rompslomp/index.ts`
-- `supabase/config.toml` — verify_jwt = false voor config + webhook
-- `src/pages/SettingsPage.tsx` — Rompslomp UI in Boekhouding + Koppelingen tabs
-- `src/hooks/useInvoices.ts` — Rompslomp sync mutations toevoegen
+
+| Bestand | Actie |
+|---|---|
+| Migratie SQL | Nieuw: `rompslomp_api_token` kolom |
+| `supabase/functions/sync-rompslomp/index.ts` | Herschrijven: direct API token, fix endpoints |
+| `supabase/functions/rompslomp-register/index.ts` | Verwijderen |
+| `src/pages/SettingsPage.tsx` | Aanpassen: API token velden, verwijder OAuth flow |
 
