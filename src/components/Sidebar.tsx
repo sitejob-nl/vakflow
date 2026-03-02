@@ -3,7 +3,7 @@ import {
   LayoutGrid, Calendar, Users, FileText, DollarSign,
   MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box
 } from "lucide-react";
-import logoFull from "@/assets/logo-full.png";
+import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { useAuth } from "@/contexts/AuthContext";
 
 const allSections = [
@@ -62,8 +62,8 @@ const Sidebar = () => {
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="px-5 py-[18px] flex items-center justify-center border-b border-border">
-        <img src={companyLogoUrl || logoFull} alt="Logo" className="h-10 object-contain max-w-[180px]" />
+      <div className={`px-5 py-[18px] flex items-center justify-center border-b border-border ${!companyLogoUrl ? 'bg-foreground rounded-t-lg' : ''}`}>
+        <img src={companyLogoUrl || vakflowLogo} alt="Logo" className="h-10 object-contain max-w-[180px]" />
       </div>
 
       {/* Navigation */}

@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wind, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import vakflowLogo from "@/assets/vakflow-logo.svg";
 import PWAInstallGuide from "@/components/PWAInstallGuide";
 import { useToast } from "@/hooks/use-toast";
 
@@ -105,13 +106,8 @@ const AuthPage = () => {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md shadow-lg border-border">
         <CardHeader className="text-center space-y-3">
-          <div className="mx-auto flex items-center gap-2">
-            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
-              <Wind className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold tracking-tight text-foreground">
-              Vent<span className="text-primary">Flow</span>
-            </span>
+          <div className="mx-auto bg-foreground rounded-xl px-5 py-3 inline-flex items-center justify-center">
+            <img src={vakflowLogo} alt="Vakflow" className="h-10 object-contain" />
           </div>
           <CardTitle className="text-xl">
             {isSettingPassword ? "Wachtwoord instellen" : isLogin ? "Inloggen" : "Account aanmaken"}
