@@ -2,17 +2,35 @@
 
 ## Probleem
 
-De `whatsapp-register` edge function probeert altijd een **nieuwe tenant** aan te maken bij SiteJob Connect, maar er bestaat al een tenant (`635800af-...`) in de `whatsapp_config` tabel. SiteJob Connect weigert daarom met "al gekoppeld".
+De Rompslomp API geeft twee fouten:
+1. `reference` is geen geldig veld — moet `api_reference` zijn
+2. `invoice_lines` is geen geldig veld — moet `lines` zijn
+3. `quantity` moet `amount` zijn (per de API docs)
 
-## Oplossing
+## Wijziging in `supabase/functions/sync-rompslomp/index.ts`
 
-Pas `supabase/functions/whatsapp-register/index.ts` aan zodat het eerst checkt of er al een `tenant_id` bestaat in `whatsapp_config`. Zo ja: sla de registratie over en geef de bestaande `tenant_id` terug, zodat de popup gewoon geopend kan worden.
+In de **sync-invoices** actie (rond regel 194-205):
 
-### Wijziging in `whatsapp-register/index.ts`
+```typescript
+// Huidige (fout):
+invoice_lines: invoiceLines,
+reference: inv.invoice_number || undefined,
+// met quantity in de line items
 
-- Na authenticatie: query `whatsapp_config` voor bestaande `tenant_id`
-- Als `tenant_id` gevonden en niet null → return direct `{ tenant_id, existing: true }` zonder SiteJob Connect aan te roepen
-- Alleen bij geen bestaande tenant → registreer nieuw bij SiteJob Connect (huidige flow)
+// Nieuw (correct per API docs):
+lines: invoiceLines,
+api_reference: inv.invoice_number || undefined,
+// en amount i.p.v. quantity in de line items
+```
 
-Dit is een minimale wijziging van ~10 regels in één bestand.
+De line items worden:
+```typescript
+{
+  description: item.description || "Item",
+  amount: String(item.qty || 1),        // was: quantity
+  price_per_unit: String(...)
+}
+```
+
+Eén bestand, drie veldnamen corrigeren.
 
