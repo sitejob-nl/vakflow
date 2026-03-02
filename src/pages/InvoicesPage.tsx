@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
-import { useInvoices, useUpdateInvoice, useDeleteInvoice, useSyncInvoiceEboekhouden, usePullInvoiceStatusEboekhouden } from "@/hooks/useInvoices";
+import { useState, useMemo, useEffect } from "react";
+import { useInvoices, useUpdateInvoice, useDeleteInvoice, useSyncInvoiceEboekhouden, usePullInvoiceStatusEboekhouden, useSyncInvoicesRompslomp, usePullInvoiceStatusRompslomp } from "@/hooks/useInvoices";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCreateCommunicationLog } from "@/hooks/useCommunicationLogs";
 import type { Invoice } from "@/hooks/useInvoices";
 import { format } from "date-fns";
@@ -37,11 +38,22 @@ const InvoicesPage = () => {
   const updateInvoice = useUpdateInvoice();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { companyId } = useAuth();
   const syncEb = useSyncInvoiceEboekhouden();
   const pullStatusEb = usePullInvoiceStatusEboekhouden();
+  const syncRompslomp = useSyncInvoicesRompslomp();
+  const pullStatusRompslomp = usePullInvoiceStatusRompslomp();
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const createLog = useCreateCommunicationLog();
+  const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!companyId) return;
+    supabase.from("companies").select("accounting_provider").eq("id", companyId).single().then(({ data }) => {
+      setAccountingProvider(data?.accounting_provider ?? null);
+    });
+  }, [companyId]);
 
   const { containerRef, pullDistance, refreshing, isTriggered } = usePullToRefresh({
     onRefresh: () => queryClient.invalidateQueries({ queryKey: ["invoices"] }),
@@ -72,22 +84,45 @@ const InvoicesPage = () => {
       await updateInvoice.mutateAsync(updates);
       toast({ title: `Factuur status gewijzigd naar ${statusConfig[status]?.label ?? status}` });
 
-      // Auto-sync to e-Boekhouden when status becomes "verzonden"
+      // Auto-sync when status becomes "verzonden"
       if (status === "verzonden") {
-        handleSyncEb(id);
+        if (accountingProvider === "rompslomp") {
+          handleSyncRompslomp();
+        } else if (accountingProvider === "eboekhouden") {
+          handleSyncEb(id);
+        }
       }
 
-      // Pull invoice status from e-Boekhouden (pull-only, API has no PATCH for invoices)
+      // Pull invoice status when marked as paid
       if (status === "betaald") {
-        pullStatusEb.mutateAsync().then(() => {
-          toast({ title: "✓ Betaalstatus gesynchroniseerd met e-Boekhouden" });
-        }).catch((err: any) => {
-          toast({ title: "e-Boekhouden status sync mislukt", description: err.message, variant: "destructive" });
-        });
+        if (accountingProvider === "rompslomp") {
+          pullStatusRompslomp.mutateAsync().then(() => {
+            toast({ title: "✓ Betaalstatus gesynchroniseerd met Rompslomp" });
+          }).catch((err: any) => {
+            toast({ title: "Rompslomp status sync mislukt", description: err.message, variant: "destructive" });
+          });
+        } else if (accountingProvider === "eboekhouden") {
+          pullStatusEb.mutateAsync().then(() => {
+            toast({ title: "✓ Betaalstatus gesynchroniseerd met e-Boekhouden" });
+          }).catch((err: any) => {
+            toast({ title: "e-Boekhouden status sync mislukt", description: err.message, variant: "destructive" });
+          });
+        }
       }
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
     }
+  };
+
+  const handleSyncRompslomp = async () => {
+    setSyncingId("rompslomp");
+    try {
+      const result = await syncRompslomp.mutateAsync();
+      toast({ title: "Gesynchroniseerd met Rompslomp", description: `${result?.synced ?? 0} facturen gesynchroniseerd` });
+    } catch (err: any) {
+      toast({ title: "Rompslomp sync mislukt", description: err.message, variant: "destructive" });
+    }
+    setSyncingId(null);
   };
 
   const handleSyncEb = async (id: string) => {
@@ -317,8 +352,8 @@ const InvoicesPage = () => {
               E-mail
             </button>
           )}
-          {/* e-Boekhouden sync button */}
-          {(selected.status === "verzonden" || selected.status === "betaald") && !selected.eboekhouden_id && (
+          {/* Accounting sync button */}
+          {accountingProvider === "eboekhouden" && (selected.status === "verzonden" || selected.status === "betaald") && !selected.eboekhouden_id && (
             <button
               onClick={() => handleSyncEb(selected.id)}
               disabled={syncingId === selected.id}
@@ -328,9 +363,24 @@ const InvoicesPage = () => {
               Sync e-Boekhouden
             </button>
           )}
+          {accountingProvider === "rompslomp" && (selected.status === "verzonden" || selected.status === "betaald") && !selected.rompslomp_id && (
+            <button
+              onClick={() => handleSyncRompslomp()}
+              disabled={syncingId === "rompslomp"}
+              className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1 disabled:opacity-50"
+            >
+              {syncingId === "rompslomp" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BookOpen className="h-3.5 w-3.5" />}
+              Sync Rompslomp
+            </button>
+          )}
           {selected.eboekhouden_id && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-success">
               ✓ e-Boekhouden #{selected.eboekhouden_id}
+            </span>
+          )}
+          {selected.rompslomp_id && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-success">
+              ✓ Rompslomp #{selected.rompslomp_id}
             </span>
           )}
         </div>
