@@ -14,6 +14,7 @@ interface AuthContextType {
   companyId: string | null;
   realCompanyId: string | null;
   companyLogoUrl: string | null;
+  companyBrandColor: string | null;
   onboardingCompleted: boolean | null;
   impersonatedCompanyName: string | null;
   isImpersonating: boolean;
@@ -36,7 +37,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [impersonatedCompanyId, setImpersonatedCompanyId] = useState<string | null>(null);
   const [impersonatedCompanyName, setImpersonatedCompanyName] = useState<string | null>(null);
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [companyBrandColor, setCompanyBrandColor] = useState<string | null>(null);
   const [impersonatedLogoUrl, setImpersonatedLogoUrl] = useState<string | null>(null);
+  const [impersonatedBrandColor, setImpersonatedBrandColor] = useState<string | null>(null);
   const fetchedForRef = useRef<string | null>(null);
 
   const fetchUserData = async (userId: string) => {
@@ -57,8 +60,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Fetch company logo
     if (cid) {
-      const { data: companyData } = await supabase.from("companies").select("logo_url").eq("id", cid).single();
+      const { data: companyData } = await supabase.from("companies").select("logo_url, brand_color").eq("id", cid).single();
       setCompanyLogoUrl(companyData?.logo_url ?? null);
+      setCompanyBrandColor((companyData as any)?.brand_color ?? null);
     }
   };
 
@@ -120,26 +124,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const impersonate = async (companyId: string, companyName: string) => {
     setImpersonatedCompanyId(companyId);
     setImpersonatedCompanyName(companyName);
-    // Fetch impersonated company logo
-    const { data } = await supabase.from("companies").select("logo_url").eq("id", companyId).single();
+    const { data } = await supabase.from("companies").select("logo_url, brand_color").eq("id", companyId).single();
     setImpersonatedLogoUrl(data?.logo_url ?? null);
+    setImpersonatedBrandColor((data as any)?.brand_color ?? null);
   };
 
   const stopImpersonating = () => {
     setImpersonatedCompanyId(null);
     setImpersonatedCompanyName(null);
     setImpersonatedLogoUrl(null);
+    setImpersonatedBrandColor(null);
   };
 
   const companyId = impersonatedCompanyId ?? realCompanyId;
   const isImpersonating = !!impersonatedCompanyId;
   const activeLogoUrl = impersonatedLogoUrl ?? companyLogoUrl;
+  const activeBrandColor = impersonatedBrandColor ?? companyBrandColor;
 
   return (
     <AuthContext.Provider value={{
       session, user, loading, role, isAdmin, isSuperAdmin,
-      companyId, realCompanyId, companyLogoUrl: activeLogoUrl, onboardingCompleted,
-      impersonatedCompanyName, isImpersonating,
+      companyId, realCompanyId, companyLogoUrl: activeLogoUrl, companyBrandColor: activeBrandColor,
+      onboardingCompleted, impersonatedCompanyName, isImpersonating,
       impersonate, stopImpersonating,
       signIn, signUp, signOut,
     }}>
