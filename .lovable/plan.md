@@ -1,37 +1,61 @@
 
 
-## Rompslomp PDF downloaden
+## Plan: Rompslomp als leidend systeem voor facturen
 
-### Wat er moet gebeuren
+### Wat de gebruiker wil
 
-Een knop toevoegen naast de bestaande "PDF" knop waarmee de factuur-PDF direct uit Rompslomp gedownload kan worden. Dit is alleen beschikbaar voor facturen die al gesynchroniseerd zijn (met een `rompslomp_id`).
+1. Bij het aanmaken van een factuur: direct naar Rompslomp pushen en het factuurnummer + data van Rompslomp terug ophalen en tonen
+2. Alleen de Rompslomp PDF tonen (niet de eigen Vakflow PDF) wanneer Rompslomp gekoppeld is
+3. Factuurnummer van Rompslomp is leidend
 
 ### Wijzigingen
 
-**1. Edge Function: `supabase/functions/sync-rompslomp/index.ts`**
+**1. Edge Function: `sync-rompslomp/index.ts` — nieuwe actie `create-invoice`**
 
-Nieuwe actie `download-pdf` toevoegen die:
-- De `rompslomp_id` van de factuur ontvangt
-- `GET /companies/{id}/sales_invoices/{rompslomp_id}/pdf` aanroept
-- De PDF binary response doorgeeft aan de client
+Een nieuwe actie die één factuur pusht naar Rompslomp en de Rompslomp-data teruggeeft:
+- Ontvangt de Vakflow `invoice_id`
+- Pusht naar Rompslomp (`POST /sales_invoices` met `_publish: true`)
+- Haalt direct daarna de volledige factuur op (`GET /sales_invoices/{id}`) om het factuurnummer en bedragen te krijgen
+- Update de Vakflow factuur met `rompslomp_id` en het Rompslomp `invoice_number`
+- Retourneert de Rompslomp data aan de frontend
 
-Hiervoor is een nieuwe helper nodig (`rompslompGetRaw`) die de response als ArrayBuffer retourneert in plaats van JSON.
+**2. Frontend: `InvoiceDialog.tsx` — auto-sync na aanmaken**
 
-**2. Frontend: `src/pages/InvoicesPage.tsx`**
+Na succesvol aanmaken van een factuur (wanneer `accountingProvider === "rompslomp"`):
+- Roep `create-invoice` aan met het nieuwe factuur-ID
+- Update de factuur met het Rompslomp factuurnummer
+- Toon een toast met het Rompslomp factuurnummer
 
-Een extra knop "Rompslomp PDF" toevoegen die verschijnt wanneer `selected.rompslomp_id` bestaat. Deze roept de edge function aan met `action: "download-pdf"` en triggert een download.
+**3. Frontend: `InvoicesPage.tsx` — PDF knop logica**
 
-**3. Frontend hook: `src/hooks/useInvoices.ts`**
+Wanneer `accountingProvider === "rompslomp"`:
+- Verberg de standaard "PDF" knop als de factuur een `rompslomp_id` heeft
+- Toon alleen de "Rompslomp PDF" knop (hernoem naar gewoon "PDF")
+- Toon het Rompslomp factuurnummer in de preview header
+- Bij e-mail verzending: gebruik de Rompslomp PDF in plaats van de eigen PDF
 
-Geen nieuwe hook nodig — de download wordt direct via `supabase.functions.invoke` aangeroepen vanuit de pagina (net zoals de bestaande PDF-knop werkt).
+**4. Factuurnummer weergave**
+
+Het `invoice_number` veld wordt overschreven met het nummer uit Rompslomp. Hierdoor toont de hele UI automatisch het juiste nummer.
 
 ### Technisch detail
 
 ```text
-User klikt "Rompslomp PDF"
-  → supabase.functions.invoke("sync-rompslomp", { body: { action: "download-pdf", rompslomp_id: "123" } })
-    → Edge Function: GET https://app.rompslomp.nl/api/v1/companies/{id}/sales_invoices/123/pdf
-    → Return PDF bytes
-  → Browser: Blob → download link → click
+Gebruiker maakt factuur aan
+  → InvoiceDialog: createInvoice.mutateAsync(payload)
+    → Vakflow DB: factuur opgeslagen met auto-nummer
+  → supabase.functions.invoke("sync-rompslomp", { body: { action: "create-invoice", invoice_id: "..." } })
+    → Edge Function: POST /sales_invoices (push naar Rompslomp)
+    → Edge Function: GET /sales_invoices/{id} (haal Rompslomp data op)
+    → Edge Function: UPDATE invoices SET rompslomp_id, invoice_number, status='verzonden'
+  → Frontend: invalidate queries → factuur verschijnt met Rompslomp nummer
 ```
+
+### Bestanden
+
+| Bestand | Wijziging |
+|---------|-----------|
+| `supabase/functions/sync-rompslomp/index.ts` | Nieuwe `create-invoice` actie |
+| `src/components/InvoiceDialog.tsx` | Auto-sync naar Rompslomp na aanmaken |
+| `src/pages/InvoicesPage.tsx` | PDF knop: alleen Rompslomp PDF tonen, e-mail met Rompslomp PDF |
 
