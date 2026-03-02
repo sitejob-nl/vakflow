@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ROMPSLOMP_BASE = "https://api.rompslomp.nl/api/v1";
+const ROMPSLOMP_BASE = "https://app.rompslomp.nl/api/v1";
 
 function jsonRes(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -143,14 +143,18 @@ Deno.serve(async (req) => {
 
       for (const cust of customers || []) {
         try {
+          const isIndividual = cust.type === "particulier";
           const contactData: any = {
-            company_name: cust.type === "zakelijk" ? cust.name : undefined,
-            first_name: cust.contact_person || cust.name,
-            email: cust.email || undefined,
-            phone: cust.phone || undefined,
+            is_individual: isIndividual,
+            is_supplier: false,
+            company_name: !isIndividual ? cust.name : undefined,
+            contact_person_name: isIndividual ? cust.name : (cust.contact_person || undefined),
+            contact_person_email_address: cust.email || undefined,
+            contact_number: cust.phone || undefined,
             address: cust.address || undefined,
             zipcode: cust.postal_code || undefined,
             city: cust.city || undefined,
+            api_reference: cust.id,
           };
           const result = await rompslompPost(rompslompCompanyId, "/contacts", apiToken, { contact: contactData });
           const contactId = result?.id || result?.contact?.id;
@@ -245,10 +249,10 @@ Deno.serve(async (req) => {
         try {
           const contactId = String(contact.id);
           const customerData: any = {
-            name: contact.company_name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || `Contact ${contactId}`,
-            contact_person: contact.first_name ? `${contact.first_name} ${contact.last_name || ""}`.trim() : null,
-            email: contact.email || null,
-            phone: contact.phone || null,
+            name: contact.company_name || contact.contact_person_name || contact.name || `Contact ${contactId}`,
+            contact_person: contact.contact_person_name || null,
+            email: contact.contact_person_email_address || null,
+            phone: contact.contact_number || null,
             address: contact.address || null,
             postal_code: contact.zipcode || null,
             city: contact.city || null,
@@ -316,7 +320,7 @@ Deno.serve(async (req) => {
           // Skip if already imported AND has valid amounts
           if (existing && existing.subtotal > 0) continue;
 
-          // Fetch full invoice detail to get invoice_lines
+          // Fetch full invoice detail to get lines
           const fullResult = await rompslompGet(rompslompCompanyId, `/sales_invoices/${rInvSummary.id}`, apiToken);
           const rInv = fullResult?.sales_invoice || fullResult;
 
@@ -337,20 +341,20 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          const subtotal = Number(rInv.price_without_vat ?? rInv.total_without_tax ?? 0);
-          const total = Number(rInv.price_with_vat ?? rInv.total_with_tax ?? 0);
-          const vatAmount = Number(rInv.vat_amount ?? (total - subtotal));
+          const subtotal = Number(rInv.total_price_without_vat ?? 0);
+          const total = Number(rInv.total_price_with_vat ?? 0);
+          const vatAmount = total - subtotal;
 
-          // Convert invoice_lines to our items format
-          const rLines = rInv.invoice_lines || rInv.lines || [];
+          // Convert lines to our items format
+          const rLines = rInv.lines || [];
           const items = Array.isArray(rLines) ? rLines.map((line: any) => ({
             description: line.description || "Item",
-            qty: Number(line.quantity || 1),
-            unit_price: Number(line.price_per_unit || line.price || 0) * (1 + (Number(line.vat_percentage || 21) / 100)),
-            total: Number(line.price_with_vat || line.total_with_vat || 0),
+            qty: Number(line.amount || 1),
+            unit_price: Number(line.price_per_unit || 0) * (1 + (Number(line.vat_percentage || 21) / 100)),
+            total: Number(line.price_with_vat || 0),
           })) : [];
 
-          const isPaid = rInv.payment_status === "paid" || rInv.paid_at;
+          const isPaid = parseFloat(rInv.open_amount || "1") === 0;
           const invoiceData: any = {
             customer_id: customer.id,
             company_id: company.id,
@@ -361,8 +365,8 @@ Deno.serve(async (req) => {
             vat_amount: vatAmount,
             items,
             status: isPaid ? "betaald" : "verzonden",
-            issued_at: rInv.date || rInv.invoice_date || null,
-            paid_at: rInv.paid_at || (isPaid ? new Date().toISOString().split("T")[0] : null),
+            issued_at: rInv.date || null,
+            paid_at: isPaid ? new Date().toISOString().split("T")[0] : null,
           };
 
           if (existing) {
@@ -405,10 +409,11 @@ Deno.serve(async (req) => {
           const rInv = await rompslompGet(rompslompCompanyId, `/sales_invoices/${inv.rompslomp_id}`, apiToken);
           const invoiceData = rInv?.sales_invoice || rInv;
           checked++;
-          if (invoiceData.payment_status === "paid" || invoiceData.paid_at) {
+          const isPaid = parseFloat(invoiceData.open_amount || "1") === 0;
+          if (isPaid) {
             await supabaseAdmin
               .from("invoices")
-              .update({ status: "betaald", paid_at: invoiceData.paid_at || new Date().toISOString().split("T")[0] })
+              .update({ status: "betaald", paid_at: new Date().toISOString().split("T")[0] })
               .eq("id", inv.id);
             updated++;
           }
@@ -418,6 +423,163 @@ Deno.serve(async (req) => {
       }
 
       return jsonRes({ checked, updated, errors });
+    }
+
+    // Action: sync quotes (push to Rompslomp)
+    if (action === "sync-quotes") {
+      const { data: quotes } = await supabaseAdmin
+        .from("quotes")
+        .select("*, customers(id, name, rompslomp_contact_id)")
+        .eq("company_id", company.id)
+        .is("rompslomp_id", null);
+
+      console.log(`sync-quotes: found ${quotes?.length ?? 0} quotes without rompslomp_id`);
+
+      let synced = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      for (const quote of quotes || []) {
+        try {
+          const customer = quote.customers as any;
+          if (!customer?.rompslomp_contact_id) {
+            skipped++;
+            continue;
+          }
+
+          const vatPct = Number(quote.vat_percentage || 21);
+          const items = Array.isArray(quote.items) ? quote.items : [];
+          const quoteLines = items.map((item: any) => ({
+            description: item.description || "Item",
+            amount: String(item.qty || 1),
+            price_per_unit: String(Number(item.unit_price || 0) / (1 + vatPct / 100)),
+          }));
+          const quotationData: any = {
+            contact_id: parseInt(customer.rompslomp_contact_id),
+            date: quote.issued_at || new Date().toISOString().split("T")[0],
+            lines: quoteLines,
+            api_reference: quote.quote_number || undefined,
+          };
+
+          console.log(`Pushing quote ${quote.quote_number} to Rompslomp:`, JSON.stringify(quotationData));
+
+          const result = await rompslompPost(rompslompCompanyId, "/quotations", apiToken, { quotation: quotationData });
+          const rompslompId = result?.id || result?.quotation?.id;
+          if (rompslompId) {
+            await supabaseAdmin.from("quotes").update({ rompslomp_id: String(rompslompId) }).eq("id", quote.id);
+            synced++;
+          } else {
+            errors.push(`${quote.quote_number}: Geen ID in Rompslomp response`);
+          }
+        } catch (err: any) {
+          console.error(`Quote ${quote.quote_number || quote.id} sync error:`, err.message);
+          errors.push(`${quote.quote_number || quote.id}: ${err.message}`);
+        }
+      }
+
+      return jsonRes({ synced, skipped, errors });
+    }
+
+    // Action: pull quotes (from Rompslomp)
+    if (action === "pull-quotes") {
+      let page = 1;
+      let allQuotations: any[] = [];
+      while (true) {
+        const result = await rompslompGet(rompslompCompanyId, `/quotations?page=${page}&per_page=100`, apiToken);
+        const quotations = result?.quotations || result || [];
+        if (!Array.isArray(quotations) || quotations.length === 0) break;
+        allQuotations = allQuotations.concat(quotations);
+        if (quotations.length < 100) break;
+        page++;
+      }
+
+      const { data: existingQuotes } = await supabaseAdmin
+        .from("quotes")
+        .select("id, rompslomp_id")
+        .eq("company_id", company.id)
+        .not("rompslomp_id", "is", null);
+
+      const existingSet = new Set((existingQuotes || []).map(q => String(q.rompslomp_id)));
+
+      let imported = 0;
+      let skippedNoCustomer = 0;
+      const errors: string[] = [];
+
+      for (const rQuote of allQuotations) {
+        try {
+          const rompId = String(rQuote.id);
+          if (existingSet.has(rompId)) continue;
+
+          // Fetch full detail
+          const fullResult = await rompslompGet(rompslompCompanyId, `/quotations/${rQuote.id}`, apiToken);
+          const rQ = fullResult?.quotation || fullResult;
+
+          const contactId = rQ.contact_id ? String(rQ.contact_id) : null;
+          let customer = null;
+          if (contactId) {
+            const { data } = await supabaseAdmin
+              .from("customers")
+              .select("id")
+              .eq("rompslomp_contact_id", contactId)
+              .eq("company_id", company.id)
+              .maybeSingle();
+            customer = data;
+          }
+
+          if (!customer) {
+            skippedNoCustomer++;
+            continue;
+          }
+
+          const subtotal = Number(rQ.total_price_without_vat ?? 0);
+          const total = Number(rQ.total_price_with_vat ?? 0);
+          const vatAmount = total - subtotal;
+
+          const rLines = rQ.lines || [];
+          const items = Array.isArray(rLines) ? rLines.map((line: any) => ({
+            description: line.description || "Item",
+            qty: Number(line.amount || 1),
+            unit_price: Number(line.price_per_unit || 0) * (1 + 0.21),
+            total: Number(line.price_with_vat || 0),
+          })) : [];
+
+          // Map Rompslomp status to Vakflow status
+          const statusMap: Record<string, string> = {
+            concept: "concept",
+            published: "verzonden",
+            approved: "geaccepteerd",
+            denied: "afgewezen",
+            invoiced: "geaccepteerd",
+          };
+
+          // We need a user_id for the quote — use the current user
+          await supabaseAdmin.from("quotes").insert({
+            customer_id: customer.id,
+            company_id: company.id,
+            user_id: userId,
+            rompslomp_id: rompId,
+            quote_number: rQ.invoice_number || null,
+            subtotal,
+            total,
+            vat_amount: vatAmount,
+            items,
+            optional_items: [],
+            status: statusMap[rQ.status] || "concept",
+            issued_at: rQ.date || null,
+          });
+          imported++;
+        } catch (err: any) {
+          errors.push(`Quotation ${rQuote.id}: ${err.message}`);
+        }
+      }
+
+      return jsonRes({
+        total_in_rompslomp: allQuotations.length,
+        already_imported: existingSet.size,
+        imported,
+        skipped_no_customer: skippedNoCustomer,
+        errors,
+      });
     }
 
     return jsonRes({ error: `Onbekende actie: ${action}` }, 400);

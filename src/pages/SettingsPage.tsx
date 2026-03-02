@@ -8,7 +8,7 @@ import { useWhatsAppTemplates, useDeleteWhatsAppTemplate, useCreateWhatsAppTempl
 import { useWhatsAppProfile, useUpdateWhatsAppProfile, useUploadWhatsAppProfilePhoto } from "@/hooks/useWhatsAppProfile";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServices, useDeleteService } from "@/hooks/useCustomers";
-import { useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden, useSyncContactsRompslomp, useSyncInvoicesRompslomp, usePullContactsRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp } from "@/hooks/useInvoices";
+import { useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden, useSyncContactsRompslomp, useSyncInvoicesRompslomp, usePullContactsRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncQuotesRompslomp, usePullQuotesRompslomp } from "@/hooks/useInvoices";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -140,11 +140,15 @@ const SettingsPage = () => {
   const [rompslompPullingContacts, setRompslompPullingContacts] = useState(false);
   const [rompslompPullingInvoices, setRompslompPullingInvoices] = useState(false);
   const [rompslompPullingStatus, setRompslompPullingStatus] = useState(false);
+  const [rompslompSyncingQuotes, setRompslompSyncingQuotes] = useState(false);
+  const [rompslompPullingQuotes, setRompslompPullingQuotes] = useState(false);
   const syncContactsRompslomp = useSyncContactsRompslomp();
   const syncInvoicesRompslomp = useSyncInvoicesRompslomp();
   const pullContactsRompslomp = usePullContactsRompslomp();
   const pullInvoicesRompslomp = usePullInvoicesRompslomp();
   const pullInvoiceStatusRompslomp = usePullInvoiceStatusRompslomp();
+  const syncQuotesRompslomp = useSyncQuotesRompslomp();
+  const pullQuotesRompslomp = usePullQuotesRompslomp();
 
   // Team members state
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -1267,6 +1271,23 @@ const SettingsPage = () => {
                         {rompslompSyncingInvoices ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                         Facturen pushen
                       </button>
+                      <button
+                        onClick={async () => {
+                          setRompslompSyncingQuotes(true);
+                          try {
+                            const result = await syncQuotesRompslomp.mutateAsync();
+                            toast({ title: "Offertes gepusht", description: `${result.synced} gesynchroniseerd, ${result.skipped} overgeslagen` });
+                          } catch (err: any) {
+                            toast({ title: "Fout", description: err.message, variant: "destructive" });
+                          }
+                          setRompslompSyncingQuotes(false);
+                        }}
+                        disabled={rompslompSyncingQuotes}
+                        className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {rompslompSyncingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                        Offertes pushen
+                      </button>
                     </div>
                   </div>
 
@@ -1323,6 +1344,23 @@ const SettingsPage = () => {
                       >
                         {rompslompPullingStatus ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>💰</>}
                         Betaalstatus ophalen
+                      </button>
+                      <button
+                        onClick={async () => {
+                          setRompslompPullingQuotes(true);
+                          try {
+                            const result = await pullQuotesRompslomp.mutateAsync();
+                            toast({ title: "Offertes opgehaald", description: `${result.total_in_rompslomp} in Rompslomp, ${result.imported} geïmporteerd` });
+                          } catch (err: any) {
+                            toast({ title: "Fout", description: err.message, variant: "destructive" });
+                          }
+                          setRompslompPullingQuotes(false);
+                        }}
+                        disabled={rompslompPullingQuotes}
+                        className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {rompslompPullingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>}
+                        Offertes ophalen
                       </button>
                     </div>
                   </div>
