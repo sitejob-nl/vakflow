@@ -3,6 +3,7 @@ import { Search, Bell, User, Loader2, CheckCheck } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import logo from "@/assets/logo.png";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNotifications } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
@@ -42,6 +43,7 @@ interface SearchResult {
 
 const Header = () => {
   const { currentPage, navigate } = useNavigation();
+  const { companyLogoUrl } = useAuth();
   const info = pageTitles[currentPage];
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -112,7 +114,7 @@ const Header = () => {
 
   return (
     <header className="min-h-[58px] bg-card border-b border-border flex items-center px-4 md:px-5 lg:px-6 gap-3.5 flex-shrink-0 safe-top">
-      <img src={logo} alt="Vakflow" className="h-7 w-7 object-contain flex-shrink-0" />
+      <img src={companyLogoUrl || logo} alt="Logo" className={`${companyLogoUrl ? "h-7 max-w-[120px]" : "h-7 w-7"} object-contain flex-shrink-0`} />
       <div className="min-w-0">
         <h1 className="text-base md:text-lg font-extrabold tracking-tight truncate">{info.title}</h1>
         <p className="text-[11px] md:text-[12.5px] text-t3 font-medium hidden md:block">{info.sub}</p>

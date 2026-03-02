@@ -58,7 +58,8 @@ const SettingsPage = () => {
   const [outlookConnected, setOutlookConnected] = useState(false);
   const [savingOutlook, setSavingOutlook] = useState(false);
   const [savingProviders, setSavingProviders] = useState(false);
-
+  const [companyLogoPreview, setCompanyLogoPreview] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const tabs = BASE_TABS;
 
   // Services tab state
@@ -293,6 +294,7 @@ const SettingsPage = () => {
         setEbLedgerId(String((companyData as any).eboekhouden_ledger_id ?? ""));
         setEbDebtorLedgerId(String((companyData as any).eboekhouden_debtor_ledger_id ?? ""));
         setEbConnected(!!(companyData as any).eboekhouden_api_token);
+        setCompanyLogoPreview((companyData as any).logo_url ?? null);
       }
       setLoading(false);
     })();
@@ -549,6 +551,91 @@ const SettingsPage = () => {
 
       {activeTab === 1 && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-4">
+          {/* Logo upload */}
+          <div>
+            <label className={labelClass}>Bedrijfslogo</label>
+            <p className="text-[11px] text-t3 mb-2">Dit logo wordt getoond in de sidebar en header van de app.</p>
+            <div className="flex items-center gap-4">
+              {companyLogoPreview ? (
+                <img src={companyLogoPreview} alt="Logo" className="h-14 max-w-[160px] object-contain rounded border border-border p-1" />
+              ) : (
+                <div className="h-14 w-14 rounded border border-dashed border-border flex items-center justify-center text-t3 text-[11px]">
+                  Geen logo
+                </div>
+              )}
+              <div className="flex gap-2">
+                <label className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors cursor-pointer flex items-center gap-1.5">
+                  <Upload className="h-3.5 w-3.5" />
+                  {uploadingLogo ? "Uploaden..." : "Upload logo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingLogo}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file || !user) return;
+                      setUploadingLogo(true);
+                      try {
+                        const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user.id).single();
+                        const cid = profileData?.company_id;
+                        if (!cid) throw new Error("Geen bedrijf gevonden");
+                        const ext = file.name.split(".").pop() || "png";
+                        const path = `${cid}/logo.${ext}`;
+                        // Remove old logo files first
+                        const { data: existing } = await supabase.storage.from("company-logos").list(cid);
+                        if (existing?.length) {
+                          await supabase.storage.from("company-logos").remove(existing.map(f => `${cid}/${f.name}`));
+                        }
+                        const { error: uploadError } = await supabase.storage.from("company-logos").upload(path, file, { upsert: true });
+                        if (uploadError) throw uploadError;
+                        const { data: { publicUrl } } = supabase.storage.from("company-logos").getPublicUrl(path);
+                        // Add cache buster
+                        const logoUrl = `${publicUrl}?t=${Date.now()}`;
+                        await supabase.from("companies").update({ logo_url: logoUrl } as any).eq("id", cid);
+                        setCompanyLogoPreview(logoUrl);
+                        toast({ title: "Logo geüpload" });
+                        // Force page reload to update context
+                        window.location.reload();
+                      } catch (err: any) {
+                        toast({ title: "Fout bij uploaden", description: err.message, variant: "destructive" });
+                      }
+                      setUploadingLogo(false);
+                    }}
+                  />
+                </label>
+                {companyLogoPreview && (
+                  <button
+                    onClick={async () => {
+                      if (!user) return;
+                      setUploadingLogo(true);
+                      try {
+                        const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user.id).single();
+                        const cid = profileData?.company_id;
+                        if (!cid) throw new Error("Geen bedrijf gevonden");
+                        const { data: existing } = await supabase.storage.from("company-logos").list(cid);
+                        if (existing?.length) {
+                          await supabase.storage.from("company-logos").remove(existing.map(f => `${cid}/${f.name}`));
+                        }
+                        await supabase.from("companies").update({ logo_url: null } as any).eq("id", cid);
+                        setCompanyLogoPreview(null);
+                        toast({ title: "Logo verwijderd" });
+                        window.location.reload();
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
+                      }
+                      setUploadingLogo(false);
+                    }}
+                    disabled={uploadingLogo}
+                    className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-destructive hover:bg-bg-hover transition-colors flex items-center gap-1.5"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Verwijderen
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
           <div>
             <label className={labelClass}>Bedrijfsnaam</label>
             <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={inputClass} placeholder="Vakflow" />
