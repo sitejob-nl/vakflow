@@ -168,7 +168,7 @@ const SuperAdminPage = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Bedrijf</TableHead>
-                      <TableHead>Slug</TableHead>
+                      <TableHead>Abonnement</TableHead>
                       <TableHead>KVK</TableHead>
                       <TableHead className="text-center"><Users className="w-4 h-4 inline" /> Users</TableHead>
                       <TableHead className="text-center">Klanten</TableHead>
@@ -183,7 +183,18 @@ const SuperAdminPage = () => {
                     ) : filtered.map(c => (
                       <TableRow key={c.id}>
                         <TableCell className="font-medium">{c.name}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs font-mono">{c.slug}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center rounded-full bg-primary/10 text-primary text-[11px] font-semibold px-2 py-0.5">
+                              {(c as any).max_users ?? 2} users
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {((c as any).enabled_features as string[] | undefined)?.length === ALL_FEATURES.length
+                                ? "Alle modules"
+                                : `${((c as any).enabled_features as string[] | undefined)?.length ?? 0}/${ALL_FEATURES.length} modules`}
+                            </span>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-sm">{c.kvk_number || "—"}</TableCell>
                         <TableCell className="text-center">{stats[c.id]?.user_count ?? 0}</TableCell>
                         <TableCell className="text-center">{stats[c.id]?.customer_count ?? 0}</TableCell>
