@@ -1,6 +1,7 @@
 import { useNavigation } from "@/hooks/useNavigation";
 import { useTodayAppointments, useDashboardStats, useReminders, useRecentWorkOrders } from "@/hooks/useDashboard";
 import TodoWidget from "@/components/TodoWidget";
+import MaintenancePlannerWidget from "@/components/MaintenancePlannerWidget";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { Loader2, CalendarPlus, FileText, Receipt } from "lucide-react";
@@ -173,7 +174,7 @@ const DashboardPage = () => {
       </div>
 
       {/* Bottom grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
         {/* Recent work orders */}
         <div className="bg-card border border-border rounded-lg shadow-card overflow-hidden">
           <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between border-b border-border">
@@ -227,6 +228,8 @@ const DashboardPage = () => {
             </div>
           )}
         </div>
+
+        <MaintenancePlannerWidget />
 
         <TodoWidget />
       </div>

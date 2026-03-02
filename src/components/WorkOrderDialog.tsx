@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react";
 import { useCreateWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
+import { useAssets } from "@/hooks/useAssets";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Tables } from "@/integrations/supabase/types";
@@ -26,6 +27,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
   const isMobile = useIsMobile();
   const { data: customers } = useCustomers();
   const { data: services } = useServices();
+  const { data: allAssets } = useAssets();
   const createWO = useCreateWorkOrder();
   const updateWO = useUpdateWorkOrder();
   const isEdit = !!workOrder;
@@ -33,6 +35,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
   const [form, setForm] = useState({
     customer_id: "",
     service_id: "",
+    asset_id: "",
     status: "open",
     description: "",
     remarks: "",
@@ -44,19 +47,25 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
       setForm({
         customer_id: workOrder.customer_id,
         service_id: workOrder.service_id || "",
+        asset_id: (workOrder as any).asset_id || "",
         status: workOrder.status,
         description: (workOrder as any).description || "",
         remarks: workOrder.remarks || "",
         travel_cost: workOrder.travel_cost ?? 0,
       });
     } else {
-      setForm({ customer_id: "", service_id: "", status: "open", description: "", remarks: "", travel_cost: 0 });
+      setForm({ customer_id: "", service_id: "", asset_id: "", status: "open", description: "", remarks: "", travel_cost: 0 });
     }
   }, [workOrder, open]);
 
   const set = (key: string, value: unknown) => setForm((f) => ({ ...f, [key]: value }));
 
   const selectedService = services?.find((s) => s.id === form.service_id);
+
+  const customerAssets = useMemo(() => {
+    if (!allAssets || !form.customer_id) return [];
+    return allAssets.filter((a) => a.customer_id === form.customer_id && a.status === "actief");
+  }, [allAssets, form.customer_id]);
 
   const groupedServices = useMemo(() => {
     if (!services) return {};
@@ -74,6 +83,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
     const payload: any = {
       customer_id: form.customer_id,
       service_id: form.service_id || null,
+      asset_id: form.asset_id || null,
       status: form.status,
       description: form.description || null,
       remarks: form.remarks || null,
@@ -123,6 +133,21 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
           </SelectContent>
         </Select>
       </div>
+      {customerAssets.length > 0 && (
+        <div className="space-y-1.5">
+          <Label>Object</Label>
+          <Select value={form.asset_id} onValueChange={(v) => set("asset_id", v)}>
+            <SelectTrigger><SelectValue placeholder="Kies object (optioneel)" /></SelectTrigger>
+            <SelectContent>
+              {customerAssets.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.name}{a.brand ? ` — ${a.brand}` : ""}{a.serial_number ? ` (${a.serial_number})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="space-y-1.5">
         <Label>Status</Label>
         <Select value={form.status} onValueChange={(v) => set("status", v)}>
