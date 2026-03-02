@@ -930,6 +930,60 @@ export type Database = {
           },
         ]
       }
+      time_entries: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          is_travel: boolean
+          started_at: string
+          stopped_at: string | null
+          user_id: string
+          work_order_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_travel?: boolean
+          started_at?: string
+          stopped_at?: string | null
+          user_id: string
+          work_order_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_travel?: boolean
+          started_at?: string
+          stopped_at?: string | null
+          user_id?: string
+          work_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       todos: {
         Row: {
           company_id: string | null
