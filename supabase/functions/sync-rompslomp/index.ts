@@ -186,13 +186,13 @@ Deno.serve(async (req) => {
             continue;
           }
 
+          const vatPct = Number(inv.vat_percentage || 21);
           const items = Array.isArray(inv.items) ? inv.items : [];
           const invoiceLines = items.map((item: any) => ({
             description: item.description || "Item",
             quantity: String(item.qty || 1),
-            price_per_unit: String(item.unit_price || 0),
+            price_per_unit: String(Number(item.unit_price || 0) / (1 + vatPct / 100)),
           }));
-
           const invoiceData: any = {
             contact_id: parseInt(customer.rompslomp_contact_id),
             invoice_number: inv.invoice_number,
@@ -281,21 +281,35 @@ Deno.serve(async (req) => {
         page++;
       }
 
+      // Find existing imports — also re-sync ones with subtotal=0 (broken earlier imports)
       const { data: existingInvoices } = await supabaseAdmin
         .from("invoices")
-        .select("rompslomp_id")
+        .select("id, rompslomp_id, subtotal")
         .eq("company_id", company.id)
         .not("rompslomp_id", "is", null);
 
-      const existingIds = new Set((existingInvoices || []).map((i: any) => String(i.rompslomp_id)));
-      const notImported = allInvoices.filter((inv: any) => !existingIds.has(String(inv.id)));
+      const existingMap = new Map<string, { id: string; subtotal: number }>();
+      for (const ei of existingInvoices || []) {
+        existingMap.set(String(ei.rompslomp_id), { id: ei.id, subtotal: Number(ei.subtotal) });
+      }
 
       let imported = 0;
+      let updatedExisting = 0;
       let skippedNoCustomer = 0;
       const errors: string[] = [];
 
-      for (const rInv of notImported) {
+      for (const rInvSummary of allInvoices) {
         try {
+          const rompId = String(rInvSummary.id);
+          const existing = existingMap.get(rompId);
+
+          // Skip if already imported AND has valid amounts
+          if (existing && existing.subtotal > 0) continue;
+
+          // Fetch full invoice detail to get invoice_lines
+          const fullResult = await rompslompGet(rompslompCompanyId, `/sales_invoices/${rInvSummary.id}`, apiToken);
+          const rInv = fullResult?.sales_invoice || fullResult;
+
           const contactId = rInv.contact_id ? String(rInv.contact_id) : null;
           let customer = null;
           if (contactId) {
@@ -313,32 +327,52 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          const subtotal = Number(rInv.total_without_tax || rInv.subtotal || 0);
-          const total = Number(rInv.total_with_tax || rInv.total || 0);
-          const vatAmount = total - subtotal;
+          const subtotal = Number(rInv.price_without_vat ?? rInv.total_without_tax ?? 0);
+          const total = Number(rInv.price_with_vat ?? rInv.total_with_tax ?? 0);
+          const vatAmount = Number(rInv.vat_amount ?? (total - subtotal));
 
-          await supabaseAdmin.from("invoices").insert({
+          // Convert invoice_lines to our items format
+          const rLines = rInv.invoice_lines || rInv.lines || [];
+          const items = Array.isArray(rLines) ? rLines.map((line: any) => ({
+            description: line.description || "Item",
+            qty: Number(line.quantity || 1),
+            unit_price: Number(line.price_per_unit || line.price || 0) * (1 + (Number(line.vat_percentage || 21) / 100)),
+            total: Number(line.price_with_vat || line.total_with_vat || 0),
+          })) : [];
+
+          const isPaid = rInv.payment_status === "paid" || rInv.paid_at;
+          const invoiceData: any = {
             customer_id: customer.id,
             company_id: company.id,
-            rompslomp_id: String(rInv.id),
+            rompslomp_id: rompId,
             invoice_number: rInv.invoice_number || null,
             subtotal,
             total,
             vat_amount: vatAmount,
-            status: rInv.paid_at ? "betaald" : "verzonden",
+            items,
+            status: isPaid ? "betaald" : "verzonden",
             issued_at: rInv.date || rInv.invoice_date || null,
-            paid_at: rInv.paid_at || null,
-          });
-          imported++;
+            paid_at: rInv.paid_at || (isPaid ? new Date().toISOString().split("T")[0] : null),
+          };
+
+          if (existing) {
+            // Update existing broken import
+            await supabaseAdmin.from("invoices").update(invoiceData).eq("id", existing.id);
+            updatedExisting++;
+          } else {
+            await supabaseAdmin.from("invoices").insert(invoiceData);
+            imported++;
+          }
         } catch (err: any) {
-          errors.push(`Invoice ${rInv.id}: ${err.message}`);
+          errors.push(`Invoice ${rInvSummary.id}: ${err.message}`);
         }
       }
 
       return jsonRes({
         total_in_rompslomp: allInvoices.length,
-        already_imported: existingIds.size,
+        already_imported: existingMap.size - updatedExisting,
         imported,
+        updated_existing: updatedExisting,
         skipped_no_customer: skippedNoCustomer,
         errors,
       });
@@ -361,7 +395,7 @@ Deno.serve(async (req) => {
           const rInv = await rompslompGet(rompslompCompanyId, `/sales_invoices/${inv.rompslomp_id}`, apiToken);
           const invoiceData = rInv?.sales_invoice || rInv;
           checked++;
-          if (invoiceData.paid_at || invoiceData.state === "paid") {
+          if (invoiceData.payment_status === "paid" || invoiceData.paid_at) {
             await supabaseAdmin
               .from("invoices")
               .update({ status: "betaald", paid_at: invoiceData.paid_at || new Date().toISOString().split("T")[0] })
