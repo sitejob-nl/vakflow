@@ -193,15 +193,15 @@ Deno.serve(async (req) => {
           const items = Array.isArray(inv.items) ? inv.items : [];
           const invoiceLines = items.map((item: any) => ({
             description: item.description || "Item",
-            quantity: String(item.qty || 1),
+            amount: String(item.qty || 1),
             price_per_unit: String(Number(item.unit_price || 0) / (1 + vatPct / 100)),
           }));
           const invoiceData: any = {
             contact_id: parseInt(customer.rompslomp_contact_id),
             date: inv.issued_at || new Date().toISOString().split("T")[0],
             due_date: inv.due_at || undefined,
-            invoice_lines: invoiceLines,
-            reference: inv.invoice_number || undefined,
+            lines: invoiceLines,
+            api_reference: inv.invoice_number || undefined,
           };
 
           console.log(`Pushing invoice ${inv.invoice_number} to Rompslomp:`, JSON.stringify(invoiceData));
