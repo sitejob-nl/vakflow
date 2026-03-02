@@ -1231,6 +1231,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_company_stats: {
+        Args: never
+        Returns: {
+          company_id: string
+          customer_count: number
+          user_count: number
+          work_order_count: number
+        }[]
+      }
       get_my_company_id: { Args: never; Returns: string }
       has_role: {
         Args: {

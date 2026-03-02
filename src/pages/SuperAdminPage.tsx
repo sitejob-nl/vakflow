@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, Pencil, Trash2, Search, Plus, Save, Loader2, Eye, BarChart3, List } from "lucide-react";
+import { Building2, Users, Pencil, Trash2, Search, Plus, Save, Loader2, Eye, BarChart3, List, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -22,6 +22,8 @@ interface CompanyStats {
   work_order_count: number;
 }
 
+const PAGE_SIZE = 25;
+
 const emptyForm = {
   name: "", slug: "", kvk_number: "", btw_number: "", address: "",
   postal_code: "", city: "", phone: "", iban: "", smtp_email: "",
@@ -39,34 +41,34 @@ const SuperAdminPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
-  const fetchCompanies = async () => {
+  const fetchCompanies = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("companies").select("*").order("created_at", { ascending: false });
+
+    // Paginated companies query
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    const { data, count } = await supabase
+      .from("companies")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
     setCompanies(data ?? []);
+    setTotalCount(count ?? 0);
 
+    // Single RPC call for all company stats
+    const { data: statsData } = await supabase.rpc("get_company_stats") as { data: CompanyStats[] | null };
     const statsMap: Record<string, CompanyStats> = {};
-    if (data) {
-      // Use individual count queries per company — scales beyond 1000 rows
-      await Promise.all(data.map(async (c) => {
-        const [custCount, userCount, woCount] = await Promise.all([
-          supabase.from("customers").select("*", { count: "exact", head: true }).eq("company_id", c.id),
-          supabase.from("profiles").select("*", { count: "exact", head: true }).eq("company_id", c.id),
-          supabase.from("work_orders").select("*", { count: "exact", head: true }).eq("company_id", c.id),
-        ]);
-        statsMap[c.id] = {
-          company_id: c.id,
-          customer_count: custCount.count ?? 0,
-          user_count: userCount.count ?? 0,
-          work_order_count: woCount.count ?? 0,
-        };
-      }));
-    }
+    (statsData ?? []).forEach(s => { statsMap[s.company_id] = s; });
     setStats(statsMap);
-    setLoading(false);
-  };
 
-  useEffect(() => { fetchCompanies(); }, []);
+    setLoading(false);
+  }, [page]);
+
+  useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
 
   const openCreate = () => { setEditCompany(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (c: Company) => {
@@ -106,6 +108,8 @@ const SuperAdminPage = () => {
     c.name.toLowerCase().includes(search.toLowerCase()) || c.slug.toLowerCase().includes(search.toLowerCase())
   );
 
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
   if (role === null) return <div className="p-8 flex items-center gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> Laden...</div>;
   if (!isSuperAdmin) return <div className="p-8 text-muted-foreground">Geen toegang.</div>;
 
@@ -140,46 +144,65 @@ const SuperAdminPage = () => {
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : (
-            <div className="border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Bedrijf</TableHead>
-                    <TableHead>Slug</TableHead>
-                    <TableHead>KVK</TableHead>
-                    <TableHead className="text-center"><Users className="w-4 h-4 inline" /> Users</TableHead>
-                    <TableHead className="text-center">Klanten</TableHead>
-                    <TableHead className="text-center">Werkbonnen</TableHead>
-                    <TableHead className="text-center">Aangemaakt</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Geen bedrijven gevonden</TableCell></TableRow>
-                  ) : filtered.map(c => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-medium">{c.name}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs font-mono">{c.slug}</TableCell>
-                      <TableCell className="text-sm">{c.kvk_number || "—"}</TableCell>
-                      <TableCell className="text-center">{stats[c.id]?.user_count ?? 0}</TableCell>
-                      <TableCell className="text-center">{stats[c.id]?.customer_count ?? 0}</TableCell>
-                      <TableCell className="text-center">{stats[c.id]?.work_order_count ?? 0}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString("nl-NL")}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 justify-end">
-                          <Button variant="ghost" size="icon" title="Bekijk als dit bedrijf" onClick={() => { impersonate(c.id, c.name); toast({ title: `Bekijken als ${c.name}` }); }}>
-                            <Eye className="w-4 h-4 text-primary" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(c.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                        </div>
-                      </TableCell>
+            <>
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Bedrijf</TableHead>
+                      <TableHead>Slug</TableHead>
+                      <TableHead>KVK</TableHead>
+                      <TableHead className="text-center"><Users className="w-4 h-4 inline" /> Users</TableHead>
+                      <TableHead className="text-center">Klanten</TableHead>
+                      <TableHead className="text-center">Werkbonnen</TableHead>
+                      <TableHead className="text-center">Aangemaakt</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.length === 0 ? (
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Geen bedrijven gevonden</TableCell></TableRow>
+                    ) : filtered.map(c => (
+                      <TableRow key={c.id}>
+                        <TableCell className="font-medium">{c.name}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs font-mono">{c.slug}</TableCell>
+                        <TableCell className="text-sm">{c.kvk_number || "—"}</TableCell>
+                        <TableCell className="text-center">{stats[c.id]?.user_count ?? 0}</TableCell>
+                        <TableCell className="text-center">{stats[c.id]?.customer_count ?? 0}</TableCell>
+                        <TableCell className="text-center">{stats[c.id]?.work_order_count ?? 0}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString("nl-NL")}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 justify-end">
+                            <Button variant="ghost" size="icon" title="Bekijk als dit bedrijf" onClick={() => { impersonate(c.id, c.name); toast({ title: `Bekijken als ${c.name}` }); }}>
+                              <Eye className="w-4 h-4 text-primary" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(c.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-2">
+                  <p className="text-sm text-muted-foreground">
+                    {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} van {totalCount} bedrijven
+                  </p>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+                      <ChevronLeft className="w-4 h-4 mr-1" /> Vorige
+                    </Button>
+                    <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>
+                      Volgende <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
       </Tabs>
