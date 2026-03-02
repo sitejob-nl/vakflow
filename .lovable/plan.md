@@ -1,52 +1,47 @@
 
 
-## Verbeterpunten voor de Agenda/Planning
+## Plan: Outlook integratie voltooien (Mail + Agenda)
 
-Na analyse van de huidige code zijn er diverse verbetermogelijkheden. Hier een overzicht:
+### Huidige situatie
+- Edge functions `outlook-callback` en `outlook-send` bestaan al
+- Settings UI heeft Tenant ID en Client ID velden
+- **Ontbrekend**: het secret `OUTLOOK_CLIENT_SECRET` is nog niet geconfigureerd in Supabase
+- OAuth scope is beperkt tot `Mail.Send offline_access` -- agenda ontbreekt
 
-### Wat er al goed werkt
-- Weekweergave (desktop) en dagweergave (mobile)
-- Reistijdberekening met Mapbox
-- Overlapdetectie bij inplannen
-- To-do's en notities per afspraak
-- Automatische werkbon-aanmaak bij afronden
-- Dagomzet-overzicht in het zijpaneel
+### Stappen
 
-### Mogelijke verbeteringen
+#### 1. Secret toevoegen: `OUTLOOK_CLIENT_SECRET`
+Het Client Secret uit de Entra app-registratie moet als Supabase secret worden opgeslagen. Dit is een globaal secret (niet per bedrijf) dat door de edge functions wordt gebruikt.
 
-**1. Drag & drop afspraken verplaatsen**
-Events in de weekkalender verslepen naar een ander tijdslot of dag. Scheelt veel klikken bij herplannen.
+#### 2. OAuth scopes uitbreiden met Calendar
+In `outlook-callback/index.ts` en `SettingsPage.tsx` de scope uitbreiden naar:
+```
+Mail.Send Calendars.ReadWrite offline_access
+```
+Bestaande koppelingen moeten opnieuw geautoriseerd worden voor de nieuwe scope.
 
-**2. Medewerkerfilter / kolommen per medewerker**
-Nu zie je alle afspraken door elkaar. Een filter of aparte kolom per monteur maakt het overzichtelijker voor bedrijven met meerdere medewerkers.
+#### 3. Nieuwe Edge Function: `outlook-calendar`
+CRUD operaties via Microsoft Graph Calendar API:
+- `list`: `GET /me/calendarView?startDateTime=...&endDateTime=...`
+- `create`: `POST /me/events`
+- `update`: `PATCH /me/events/{id}`
+- `delete`: `DELETE /me/events/{id}`
 
-**3. Maandweergave**
-Naast week- en dagweergave een maandoverzicht toevoegen met stippen/kleuren per dag zodat je snel kunt zien welke dagen vol zitten.
+Hergebruikt de decrypt + token-refresh logica uit `outlook-send`.
 
-**4. Terugkerende afspraken**
-Mogelijkheid om een herhaalpatroon in te stellen (elke X weken/maanden) -- sluit aan bij de onderhoudsplanner.
+#### 4. Frontend: Planning-pagina integratie
+- Hook `useOutlookCalendar.ts` die de edge function aanroept
+- Toggle in `PlanningPage.tsx` om Outlook-events te tonen
+- Outlook-events in een andere kleur (bijv. blauw/paars) om ze te onderscheiden van Vakflow-afspraken
+- Alleen-lezen weergave (geen drag & drop voor externe events)
 
-**5. Adres-selectie in afspraakdialog**
-De klant kan meerdere adressen hebben (via de `addresses` tabel). Een selector toevoegen zodat je het specifieke werkadres kiest bij inplannen.
+#### 5. Settings UI uitbreiden
+- Indicator dat agenda ook gekoppeld is na re-autorisatie
+- Melding dat opnieuw koppelen nodig is als de scope is gewijzigd
 
-**6. Slepen om duur aan te passen**
-Onderrand van een event slepen om de duur te verlengen/verkorten.
-
-**7. "Vandaag" indicator-lijn**
-Een rode horizontale lijn op het huidige tijdstip in de kalender, zodat je direct ziet hoe laat het is.
-
-**8. Snelkoppeling "kopieer afspraak"**
-Een "dupliceer" knop in de detail-sheet, zodat je snel dezelfde afspraak voor een andere datum kunt aanmaken.
-
-### Aanbevolen volgorde
-
-| Prioriteit | Verbetering | Complexiteit |
-|---|---|---|
-| 1 | Huidige-tijd indicator | Laag |
-| 2 | Medewerkerfilter | Middel |
-| 3 | Maandweergave | Middel |
-| 4 | Adres-selectie bij afspraak | Laag |
-| 5 | Kopieer afspraak | Laag |
-| 6 | Drag & drop verplaatsen | Hoog |
-| 7 | Terugkerende afspraken | Hoog |
+### Volgorde
+1. Secret `OUTLOOK_CLIENT_SECRET` opvragen en opslaan
+2. Scopes updaten in callback + settings
+3. `outlook-calendar` edge function bouwen
+4. `useOutlookCalendar` hook + planning integratie
 
