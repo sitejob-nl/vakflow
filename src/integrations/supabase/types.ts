@@ -343,6 +343,7 @@ export type Database = {
         Row: {
           accounting_provider: string | null
           address: string | null
+          brand_color: string | null
           btw_number: string | null
           city: string | null
           created_at: string
@@ -371,6 +372,7 @@ export type Database = {
         Insert: {
           accounting_provider?: string | null
           address?: string | null
+          brand_color?: string | null
           btw_number?: string | null
           city?: string | null
           created_at?: string
@@ -399,6 +401,7 @@ export type Database = {
         Update: {
           accounting_provider?: string | null
           address?: string | null
+          brand_color?: string | null
           btw_number?: string | null
           city?: string | null
           created_at?: string

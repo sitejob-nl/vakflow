@@ -60,6 +60,7 @@ const SettingsPage = () => {
   const [savingProviders, setSavingProviders] = useState(false);
   const [companyLogoPreview, setCompanyLogoPreview] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [brandColor, setBrandColor] = useState<string>("");
   const tabs = BASE_TABS;
 
   // Services tab state
@@ -295,6 +296,7 @@ const SettingsPage = () => {
         setEbDebtorLedgerId(String((companyData as any).eboekhouden_debtor_ledger_id ?? ""));
         setEbConnected(!!(companyData as any).eboekhouden_api_token);
         setCompanyLogoPreview((companyData as any).logo_url ?? null);
+        setBrandColor((companyData as any).brand_color ?? "");
       }
       setLoading(false);
     })();
@@ -345,6 +347,7 @@ const SettingsPage = () => {
       city: companyCity,
       phone: companyPhone,
       iban,
+      brand_color: brandColor || null,
     } as any).eq("id", (await supabase.from("profiles").select("company_id").eq("id", user.id).single()).data?.company_id);
     // Also update location on profile
     await supabase.from("profiles").update({ location } as any).eq("id", user.id);
@@ -353,6 +356,8 @@ const SettingsPage = () => {
       toast({ title: "Fout", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Bedrijfsgegevens opgeslagen" });
+      // Reload to apply brand color changes in context
+      if (brandColor !== undefined) window.location.reload();
     }
   };
 
@@ -634,7 +639,41 @@ const SettingsPage = () => {
                   </button>
                 )}
               </div>
+          </div>
+          {/* Brand color */}
+          <div>
+            <label className={labelClass}>Bedrijfskleur</label>
+            <p className="text-[11px] text-t3 mb-2">Deze kleur wordt gebruikt als accentkleur in de hele app.</p>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={brandColor || "#4F46E5"}
+                onChange={(e) => setBrandColor(e.target.value)}
+                className="w-10 h-10 rounded border border-border cursor-pointer p-0.5"
+              />
+              <input
+                value={brandColor}
+                onChange={(e) => setBrandColor(e.target.value)}
+                className={inputClass + " flex-1"}
+                placeholder="#4F46E5"
+                maxLength={7}
+              />
+              {brandColor && (
+                <button
+                  onClick={() => setBrandColor("")}
+                  className="px-3 py-2 text-[12px] font-bold text-destructive border border-border rounded-sm hover:bg-bg-hover transition-colors"
+                >
+                  Reset
+                </button>
+              )}
             </div>
+            {brandColor && (
+              <div className="mt-2 flex items-center gap-2">
+                <div className="h-6 w-6 rounded" style={{ backgroundColor: brandColor }} />
+                <span className="text-[11px] text-t3">Preview van je bedrijfskleur</span>
+              </div>
+            )}
+          </div>
           </div>
           <div>
             <label className={labelClass}>Bedrijfsnaam</label>
