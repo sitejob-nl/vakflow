@@ -36,6 +36,7 @@ const ALL_FEATURES = [
   { slug: "whatsapp", label: "WhatsApp" },
   { slug: "communication", label: "Logboek" },
   { slug: "reminders", label: "Reminders" },
+  { slug: "assets", label: "Objecten" },
 ];
 
 const emptyForm = {
