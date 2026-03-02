@@ -1,51 +1,76 @@
 
 
-## Plan: Abonnementsbeheer per bedrijf (feature flags + gebruikerslimiet)
+## Plan: Rompslomp Boekhoudintegratie via SiteJob Connect
 
-### Wat wordt gebouwd
-Een systeem waarmee de SuperAdmin per bedrijf kan instellen:
-1. **Max aantal gebruikers** (gratis inbegrepen bij hun abonnement)
-2. **Feature toggles** — welke modules beschikbaar zijn (bijv. WhatsApp, Offertes, E-mail, Facturatie, etc.)
+### Overzicht
+Volledige Rompslomp-koppeling implementeren via SiteJob Connect (OAuth token management). Het patroon volgt de bestaande WhatsApp-integratie: een register edge function, config/webhook endpoints, en een sync edge function voor API calls.
 
-De app respecteert deze limieten: geblokkeerde features verdwijnen uit de sidebar/navigatie, en het uitnodigen van teamleden wordt geblokkeerd als het maximum is bereikt.
+### Database
 
----
+**Nieuwe kolommen op `companies` tabel:**
+- `rompslomp_tenant_id` (text, nullable) — tenant ID bij SiteJob Connect
+- `rompslomp_webhook_secret` (text, nullable) — voor token-ophaling
+- `rompslomp_company_id` (text, nullable) — Rompslomp bedrijfs-ID (gepusht via config)
+- `rompslomp_company_name` (text, nullable) — Rompslomp bedrijfsnaam
 
-### Implementatie
+**Nieuwe kolommen op `customers` tabel:**
+- `rompslomp_contact_id` (text, nullable) — relatie-ID in Rompslomp
 
-**Stap 1 — Database: kolommen toevoegen aan `companies`**
+**Nieuwe kolommen op `invoices` tabel:**
+- `rompslomp_id` (text, nullable) — factuur-ID in Rompslomp
 
-Nieuwe kolommen op de `companies` tabel:
-- `max_users` (integer, default 2) — max aantal gebruikers inclusief admin
-- `enabled_features` (text[], default alle features) — lijst van ingeschakelde module-slugs
+### Edge Functions (4 nieuwe)
 
-Mogelijke feature-slugs: `dashboard`, `planning`, `customers`, `workorders`, `invoices`, `quotes`, `email`, `whatsapp`, `communication`, `reminders`
+**1. `rompslomp-register` — Tenant registratie**
+- Authenticatie: JWT (ingelogde admin)
+- Registreert tenant bij SiteJob Connect met `client_id`, `client_secret` uit request body
+- Slaat `tenant_id` + `webhook_secret` op in `companies` tabel
+- Geeft `tenant_id` terug voor de setup-popup
 
-**Stap 2 — SuperAdmin: abonnementsinstellingen per bedrijf**
+**2. `rompslomp-config` — Config push ontvanger**
+- Authenticatie: `X-Webhook-Secret` header (verify_jwt = false)
+- Ontvangt `company_id` + `company_name` na succesvolle OAuth
+- Ontvangt `disconnect` actie bij ontkoppeling
+- Slaat gegevens op in `companies` tabel
 
-In `SuperAdminPage.tsx` het bedrijf-edit-dialog uitbreiden met:
-- Een numeriek veld "Max gebruikers"
-- Een checkbox-grid voor alle features (aan/uit per feature)
+**3. `rompslomp-webhook` — Webhook ontvanger**
+- Authenticatie: `X-Webhook-Secret` header (verify_jwt = false)
+- Ontvangt doorgestuurde Rompslomp events (invoice.created, etc.)
+- Verwerkt relevante events (bijv. betaalstatus bijwerken)
 
-Dit wordt opgeslagen naar de `companies` tabel.
+**4. `sync-rompslomp` — API sync functie**
+- Authenticatie: JWT (ingelogde admin)
+- Haalt verse token op via SiteJob Connect (`rompslomp-token` endpoint)
+- Acties: `test`, `sync-contacts`, `sync-invoices`, `pull-contacts`, `pull-invoices`, `pull-invoice-status`
+- Structuur vergelijkbaar met `sync-invoice-eboekhouden`
 
-**Stap 3 — AuthContext: features + max_users doorgeven**
+### Frontend (SettingsPage.tsx)
 
-`AuthContext` haalt `max_users` en `enabled_features` op bij login en stelt ze beschikbaar als context-waarden. Bij impersonation worden de waarden van het ge-impersoneerde bedrijf gebruikt.
+**Boekhouding tab — Rompslomp sectie (vervangt "binnenkort beschikbaar"):**
+1. **Niet gekoppeld:** "Koppel Rompslomp" knop → registreert tenant → opent popup naar `connect.sitejob.nl/rompslomp-setup?tenant_id=...`
+2. **Gekoppeld:** Status tonen (bedrijfsnaam), sync-knoppen (contacten/facturen pushen/pullen), ontkoppel-knop
+3. PostMessage listener voor `rompslomp-connected` event
 
-**Stap 4 — Sidebar/navigatie: features filteren**
+**Koppelingen tab:**
+- Bij selectie van "rompslomp": velden voor `client_id` en `client_secret` (OAuth credentials per bedrijf)
+- Opslaan naar `companies` tabel
 
-`Sidebar.tsx` en `MobileNav.tsx` filteren navigatie-items op basis van `enabledFeatures` uit de context. Uitgeschakelde modules worden niet getoond.
+### Config (supabase/config.toml)
+```
+[functions.rompslomp-config]
+verify_jwt = false
 
-**Stap 5 — Teamleden: gebruikerslimiet afdwingen**
-
-In `SettingsPage.tsx` bij het Teamleden-tab: controleer of het huidige aantal teamleden < `maxUsers` voordat de uitnodiging verzonden wordt. Toon een melding als het limiet bereikt is.
+[functions.rompslomp-webhook]
+verify_jwt = false
+```
 
 ### Bestanden
-- Nieuwe migratie: `max_users` + `enabled_features` kolommen
-- `src/contexts/AuthContext.tsx` — nieuwe state: `maxUsers`, `enabledFeatures`
-- `src/pages/SuperAdminPage.tsx` — edit-dialog uitbreiden
-- `src/components/Sidebar.tsx` — feature filtering
-- `src/components/MobileNav.tsx` — feature filtering
-- `src/pages/SettingsPage.tsx` — gebruikerslimiet check bij uitnodigen
+- Nieuwe migratie: kolommen op `companies`, `customers`, `invoices`
+- `supabase/functions/rompslomp-register/index.ts`
+- `supabase/functions/rompslomp-config/index.ts`
+- `supabase/functions/rompslomp-webhook/index.ts`
+- `supabase/functions/sync-rompslomp/index.ts`
+- `supabase/config.toml` — verify_jwt = false voor config + webhook
+- `src/pages/SettingsPage.tsx` — Rompslomp UI in Boekhouding + Koppelingen tabs
+- `src/hooks/useInvoices.ts` — Rompslomp sync mutations toevoegen
 
