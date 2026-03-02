@@ -198,10 +198,10 @@ Deno.serve(async (req) => {
           }));
           const invoiceData: any = {
             contact_id: parseInt(customer.rompslomp_contact_id),
-            invoice_number: inv.invoice_number,
             date: inv.issued_at || new Date().toISOString().split("T")[0],
             due_date: inv.due_at || undefined,
             invoice_lines: invoiceLines,
+            reference: inv.invoice_number || undefined,
           };
 
           console.log(`Pushing invoice ${inv.invoice_number} to Rompslomp:`, JSON.stringify(invoiceData));
