@@ -249,3 +249,33 @@ export const usePullInvoiceStatusRompslomp = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
   });
 };
+
+export const useSyncQuotesRompslomp = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-rompslomp", {
+        body: { action: "sync-quotes" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; skipped: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quotes"] }),
+  });
+};
+
+export const usePullQuotesRompslomp = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-rompslomp", {
+        body: { action: "pull-quotes" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total_in_rompslomp: number; already_imported: number; imported: number; skipped_no_customer: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quotes"] }),
+  });
+};

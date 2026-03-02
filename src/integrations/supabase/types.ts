@@ -807,6 +807,7 @@ export type Database = {
           notes: string | null
           optional_items: Json
           quote_number: string | null
+          rompslomp_id: string | null
           status: string
           subtotal: number
           total: number
@@ -825,6 +826,7 @@ export type Database = {
           notes?: string | null
           optional_items?: Json
           quote_number?: string | null
+          rompslomp_id?: string | null
           status?: string
           subtotal?: number
           total?: number
@@ -843,6 +845,7 @@ export type Database = {
           notes?: string | null
           optional_items?: Json
           quote_number?: string | null
+          rompslomp_id?: string | null
           status?: string
           subtotal?: number
           total?: number
