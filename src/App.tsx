@@ -25,6 +25,7 @@ import RemindersPage from "@/pages/RemindersPage";
 import SettingsPage from "@/pages/SettingsPage";
 import CompanySignupPage from "@/pages/CompanySignupPage";
 import SuperAdminPage from "@/pages/SuperAdminPage";
+import ReportsPage from "@/pages/ReportsPage";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,7 @@ const App = () => (
               <Route path="workorders/:id" element={<WorkOrderDetailPage />} />
               <Route path="invoices" element={<AdminRoute><InvoicesPage /></AdminRoute>} />
               <Route path="quotes" element={<AdminRoute><QuotesPage /></AdminRoute>} />
+              <Route path="reports" element={<AdminRoute><ReportsPage /></AdminRoute>} />
               <Route path="communication" element={<AdminRoute><CommunicationPage /></AdminRoute>} />
               <Route path="email" element={<AdminRoute><EmailPage /></AdminRoute>} />
               <Route path="whatsapp" element={<AdminRoute><WhatsAppPage /></AdminRoute>} />

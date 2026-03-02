@@ -18,6 +18,7 @@ const pageTitles: Record<Page, { title: string; sub: string }> = {
   woDetail: { title: "Werkbon", sub: "Werkbondetails" },
   invoices: { title: "Facturatie", sub: "Factuuroverzicht" },
   quotes: { title: "Offertes", sub: "Offerteoverzicht" },
+  reports: { title: "Rapportages", sub: "KPI's & inzichten" },
   communication: { title: "Logboek", sub: "Telefoon & notities" },
   email: { title: "E-mail", sub: "Inbox & verzonden" },
   whatsapp: { title: "WhatsApp", sub: "Gesprekken" },
