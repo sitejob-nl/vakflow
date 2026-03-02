@@ -21,10 +21,17 @@ import type { Tables } from "@/integrations/supabase/types";
 
 const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "Automatiseringen", "Teamleden", "Koppelingen"];
 
+// Map tab names to required feature slugs (tabs not listed here are always shown)
+const TAB_FEATURE_MAP: Record<string, string> = {
+  "E-mail": "email",
+  "WhatsApp": "whatsapp",
+  "Automatiseringen": "whatsapp",
+};
+
 const SettingsPage = () => {
-  const { user } = useAuth();
+  const { user, enabledFeatures, maxUsers } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState("Profiel");
   const [waGuideOpen, setWaGuideOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -61,7 +68,12 @@ const SettingsPage = () => {
   const [companyLogoPreview, setCompanyLogoPreview] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [brandColor, setBrandColor] = useState<string>("");
-  const tabs = BASE_TABS;
+  
+  const tabs = BASE_TABS.filter((tab) => {
+    const requiredFeature = TAB_FEATURE_MAP[tab];
+    if (!requiredFeature) return true;
+    return enabledFeatures.length === 0 || enabledFeatures.includes(requiredFeature);
+  });
 
   // Services tab state
   const { data: services, isLoading: servicesLoading } = useServices();
@@ -129,7 +141,7 @@ const SettingsPage = () => {
   // WhatsApp status
   const queryClient = useQueryClient();
   const { data: waStatus } = useWhatsAppStatus();
-  const { data: waTemplates } = useWhatsAppTemplates(activeTab === 7 && !!waStatus?.connected);
+  const { data: waTemplates } = useWhatsAppTemplates(activeTab === "WhatsApp" && !!waStatus?.connected);
   const deleteWaTemplate = useDeleteWhatsAppTemplate();
   const createWaTemplate = useCreateWhatsAppTemplate();
   const [deletingWaTemplateName, setDeletingWaTemplateName] = useState<string | null>(null);
@@ -145,7 +157,7 @@ const SettingsPage = () => {
   const [newTplHeaderExample, setNewTplHeaderExample] = useState("");
 
   // WhatsApp Business Profile
-  const { data: waProfile, isLoading: waProfileLoading } = useWhatsAppProfile(activeTab === 7 && !!waStatus?.connected);
+  const { data: waProfile, isLoading: waProfileLoading } = useWhatsAppProfile(activeTab === "WhatsApp" && !!waStatus?.connected);
   const updateWaProfile = useUpdateWhatsAppProfile();
   const uploadWaPhoto = useUploadWhatsAppProfilePhoto();
   const [waProfileAbout, setWaProfileAbout] = useState("");
@@ -183,7 +195,7 @@ const SettingsPage = () => {
 
   // Load team members when tab is active
   useEffect(() => {
-    if (activeTab === 9) {
+    if (activeTab === "Teamleden") {
       loadTeamMembers();
     }
   }, [activeTab]);
@@ -201,7 +213,7 @@ const SettingsPage = () => {
     setTeamLoading(false);
   };
 
-  const { maxUsers } = useAuth();
+  
 
   const handleInviteUser = async () => {
     if (!inviteEmail) return;
@@ -510,14 +522,14 @@ const SettingsPage = () => {
   return (
     <div className="max-w-2xl">
       <div className="flex gap-0 border-b-2 border-border mb-5 overflow-x-auto scrollbar-hide">
-        {tabs.map((t, i) => (
-          <button key={t} onClick={() => setActiveTab(i)} className={`px-4 md:px-5 py-2.5 text-[12px] md:text-[13px] font-bold border-b-2 -mb-[2px] transition-colors whitespace-nowrap ${i === activeTab ? "text-primary border-primary" : "text-t3 border-transparent hover:text-secondary-foreground"}`}>
+        {tabs.map((t) => (
+          <button key={t} onClick={() => setActiveTab(t)} className={`px-4 md:px-5 py-2.5 text-[12px] md:text-[13px] font-bold border-b-2 -mb-[2px] transition-colors whitespace-nowrap ${t === activeTab ? "text-primary border-primary" : "text-t3 border-transparent hover:text-secondary-foreground"}`}>
             {t}
           </button>
         ))}
       </div>
 
-      {activeTab === 0 && (
+      {activeTab === "Profiel" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-4">
           <div>
             <label className={labelClass}>Naam</label>
@@ -560,7 +572,7 @@ const SettingsPage = () => {
         </div>
       )}
 
-      {activeTab === 1 && (
+      {activeTab === "Bedrijfsgegevens" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-4">
           {/* Logo upload */}
           <div>
@@ -760,7 +772,7 @@ const SettingsPage = () => {
         </div>
       )}
 
-      {activeTab === 2 && (
+      {activeTab === "App-voorkeuren" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           <div>
             <h3 className="text-[14px] font-bold mb-1">Rondleiding</h3>
@@ -780,7 +792,7 @@ const SettingsPage = () => {
         </div>
       )}
 
-      {activeTab === 3 && (
+      {activeTab === "Diensten" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-[14px] font-bold">Diensten</h3>
@@ -832,7 +844,7 @@ const SettingsPage = () => {
         </div>
       )}
 
-      {activeTab === 4 && (
+      {activeTab === "Sjablonen" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           <div className="flex items-center justify-between">
             <div>
@@ -909,7 +921,7 @@ const SettingsPage = () => {
         </div>
       )}
 
-      {activeTab === 5 && (
+      {activeTab === "Boekhouding" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           {accountingProvider === "eboekhouden" ? (
           <>
@@ -1174,14 +1186,14 @@ const SettingsPage = () => {
             </div>
           ) : (
             <div>
-              <p className="text-[13px] text-muted-foreground">Geen boekhoudpakket geselecteerd. Ga naar het tabblad <button className="text-primary underline" onClick={() => setActiveTab(10)}>Koppelingen</button> om een provider te kiezen.</p>
+              <p className="text-[13px] text-muted-foreground">Geen boekhoudpakket geselecteerd. Ga naar het tabblad <button className="text-primary underline" onClick={() => setActiveTab("Koppelingen")}>Koppelingen</button> om een provider te kiezen.</p>
             </div>
           )}
         </div>
       )}
 
       {/* E-mail tab */}
-      {activeTab === 6 && (
+      {activeTab === "E-mail" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           {emailProvider === "outlook" ? (
             <>
@@ -1271,13 +1283,13 @@ const SettingsPage = () => {
             </>
           ) : (
             <div>
-              <p className="text-[13px] text-muted-foreground">Geen e-mail provider geselecteerd. Ga naar het tabblad <button className="text-primary underline" onClick={() => setActiveTab(10)}>Koppelingen</button> om een provider te kiezen.</p>
+              <p className="text-[13px] text-muted-foreground">Geen e-mail provider geselecteerd. Ga naar het tabblad <button className="text-primary underline" onClick={() => setActiveTab("Koppelingen")}>Koppelingen</button> om een provider te kiezen.</p>
             </div>
           )}
         </div>
       )}
 
-      {activeTab === 7 && (
+      {activeTab === "WhatsApp" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           <div>
             <h3 className="text-[14px] font-bold mb-1 flex items-center gap-1.5">
@@ -1934,7 +1946,7 @@ const SettingsPage = () => {
         </div>
       )}
 
-      {activeTab === 8 && (
+      {activeTab === "Automatiseringen" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           <div>
             <h3 className="text-[14px] font-bold mb-1">WhatsApp Automatiseringen</h3>
@@ -2135,7 +2147,7 @@ const SettingsPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {activeTab === 9 && (
+      {activeTab === "Teamleden" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           <div>
             <h3 className="text-[14px] font-bold mb-1">Teamlid uitnodigen</h3>
@@ -2235,7 +2247,7 @@ const SettingsPage = () => {
       )}
 
       {/* Koppelingen tab */}
-      {activeTab === 10 && (
+      {activeTab === "Koppelingen" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           <div>
             <h3 className="text-[14px] font-bold mb-1">Koppelingen</h3>
