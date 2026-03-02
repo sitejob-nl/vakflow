@@ -1,52 +1,41 @@
 
 
-## Plan: SuperAdmin schaalbaar maken voor 1000+ bedrijven
+## Plan: Bedrijfslogo uploaden en tonen in de app
 
-Het SuperAdmin dashboard is functioneel correct maar heeft twee schaalproblemen die breken bij groei.
+Het doel is dat elk bedrijf een eigen logo kan uploaden dat overal in de app wordt getoond (sidebar, header, login) — zodat het aanvoelt als hun eigen software.
 
-### Probleem 1: N+1 queries in bedrijventabel
-
-`SuperAdminPage.tsx` regels 51-63 doen `Promise.all(data.map(...))` — bij 500 bedrijven zijn dat 1500 parallelle Supabase queries. Daarnaast is er een 1000-rij limiet op de companies query zelf.
-
-**Oplossing**: Maak een database functie `get_company_stats()` die in een enkele query alle counts per company retourneert. Aanroepen via `supabase.rpc("get_company_stats")`.
-
-### Probleem 2: Geen paginatie
-
-Alle bedrijven worden in een keer opgehaald (max 1000 door Supabase limiet).
-
-**Oplossing**: Server-side paginatie met `.range(from, to)` en page state. Toon 25 bedrijven per pagina met vorige/volgende knoppen.
-
-### Probleem 3: SuperAdminStats chart data
-
-`SuperAdminStats.tsx` haalt `created_at` van alle companies/customers/work_orders op voor de groei-chart — breekt bij 1000+ rijen.
-
-**Oplossing**: Gebruik per-maand count queries met `.gte()` en `.lt()` filters (18 head-count queries i.p.v. 3 volledige dataset fetches).
-
----
+### Wat er al is
+- `companies` tabel heeft al een `logo_url` kolom (text, nullable)
+- Geen storage bucket voor logo's nog
 
 ### Implementatie
 
-**Stap 1 — Migratie: `get_company_stats()` functie**
+**1. Storage bucket aanmaken** (migratie)
+- Nieuwe public bucket `company-logos` zodat logo's direct via URL bereikbaar zijn
+- RLS policies: authenticated users mogen uploaden/verwijderen in hun eigen company folder
 
-```sql
-CREATE OR REPLACE FUNCTION get_company_stats()
-RETURNS TABLE(company_id uuid, customer_count bigint, user_count bigint, work_order_count bigint)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
-AS $$
-  SELECT c.id,
-    (SELECT count(*) FROM customers WHERE customers.company_id = c.id),
-    (SELECT count(*) FROM profiles WHERE profiles.company_id = c.id),
-    (SELECT count(*) FROM work_orders WHERE work_orders.company_id = c.id)
-  FROM companies c;
-$$;
-```
+**2. Logo upload in Instellingen** (`src/pages/SettingsPage.tsx`)
+- Bij de tab "Bedrijfsgegevens" een logo upload veld toevoegen
+- Preview van het huidige logo tonen
+- Upload naar `company-logos/{company_id}/logo.png`
+- Na upload: `logo_url` kolom in `companies` bijwerken met de public URL
+- Verwijder-optie om terug te vallen op het standaard Vakflow logo
 
-**Stap 2 — `SuperAdminPage.tsx`**: Vervang de N+1 `Promise.all(data.map(...))` door een enkele `supabase.rpc("get_company_stats")` call. Voeg paginatie toe met `.range()` en pagina-knoppen.
+**3. AuthContext uitbreiden** (`src/contexts/AuthContext.tsx`)
+- `companyLogoUrl` toevoegen aan de context
+- Bij `fetchUserData` de company `logo_url` ophalen en beschikbaar stellen
+- Meenemen bij impersonation (logo van ge-impersoneerd bedrijf tonen)
 
-**Stap 3 — `SuperAdminStats.tsx`**: Vervang de 3x `select("created_at")` calls door 18 head-count queries met datumfilters voor de groei-chart. Vervang `select("status")` door aparte count queries per status.
+**4. Logo tonen in Sidebar** (`src/components/Sidebar.tsx`)
+- Huidige hardcoded `logo-full.png` vervangen door: als `companyLogoUrl` bestaat → bedrijfslogo, anders → Vakflow logo als fallback
+
+**5. Logo tonen in Header** (`src/components/Header.tsx`)
+- Zelfde logica: `companyLogoUrl` → bedrijfslogo, anders → standaard `logo.png`
 
 ### Bestanden
-- Nieuwe migratie: `get_company_stats()` functie
-- `src/pages/SuperAdminPage.tsx` — RPC call + paginatie (25 per pagina)
-- `src/components/SuperAdminStats.tsx` — server-side counts voor charts
+- Nieuwe migratie: bucket `company-logos` + RLS policies
+- `src/contexts/AuthContext.tsx` — `companyLogoUrl` toevoegen
+- `src/pages/SettingsPage.tsx` — upload UI bij Bedrijfsgegevens tab
+- `src/components/Sidebar.tsx` — dynamisch logo
+- `src/components/Header.tsx` — dynamisch logo
 
