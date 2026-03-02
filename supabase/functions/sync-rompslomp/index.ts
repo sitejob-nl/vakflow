@@ -197,14 +197,14 @@ Deno.serve(async (req) => {
           const items = Array.isArray(inv.items) ? inv.items : [];
           const invoiceLines = items.map((item: any) => ({
             description: item.description || "Item",
-            amount: String(item.qty || 1),
+            quantity: String(item.qty || 1),
             price_per_unit: String(Number(item.unit_price || 0) / (1 + vatPct / 100)),
           }));
           const invoiceData: any = {
             contact_id: parseInt(customer.rompslomp_contact_id),
             date: inv.issued_at || new Date().toISOString().split("T")[0],
             due_date: inv.due_at || undefined,
-            lines: invoiceLines,
+            invoice_lines: invoiceLines,
             api_reference: inv.invoice_number || undefined,
           };
 
@@ -346,10 +346,10 @@ Deno.serve(async (req) => {
           const vatAmount = total - subtotal;
 
           // Convert lines to our items format
-          const rLines = rInv.lines || [];
+          const rLines = rInv.invoice_lines || rInv.lines || [];
           const items = Array.isArray(rLines) ? rLines.map((line: any) => ({
             description: line.description || "Item",
-            qty: Number(line.amount || 1),
+            qty: Number(line.quantity || line.amount || 1),
             unit_price: Number(line.price_per_unit || 0) * (1 + (Number(line.vat_percentage || 21) / 100)),
             total: Number(line.price_with_vat || 0),
           })) : [];
@@ -451,13 +451,13 @@ Deno.serve(async (req) => {
           const items = Array.isArray(quote.items) ? quote.items : [];
           const quoteLines = items.map((item: any) => ({
             description: item.description || "Item",
-            amount: String(item.qty || 1),
+            quantity: String(item.qty || 1),
             price_per_unit: String(Number(item.unit_price || 0) / (1 + vatPct / 100)),
           }));
           const quotationData: any = {
             contact_id: parseInt(customer.rompslomp_contact_id),
             date: quote.issued_at || new Date().toISOString().split("T")[0],
-            lines: quoteLines,
+            invoice_lines: quoteLines,
             api_reference: quote.quote_number || undefined,
           };
 
