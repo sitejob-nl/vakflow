@@ -358,6 +358,8 @@ export type Database = {
           kvk_number: string | null
           logo_url: string | null
           max_users: number
+          moneybird_administration_id: string | null
+          moneybird_api_token: string | null
           name: string
           outlook_client_id: string | null
           outlook_email: string | null
@@ -394,6 +396,8 @@ export type Database = {
           kvk_number?: string | null
           logo_url?: string | null
           max_users?: number
+          moneybird_administration_id?: string | null
+          moneybird_api_token?: string | null
           name: string
           outlook_client_id?: string | null
           outlook_email?: string | null
@@ -430,6 +434,8 @@ export type Database = {
           kvk_number?: string | null
           logo_url?: string | null
           max_users?: number
+          moneybird_administration_id?: string | null
+          moneybird_api_token?: string | null
           name?: string
           outlook_client_id?: string | null
           outlook_email?: string | null
@@ -464,6 +470,7 @@ export type Database = {
           interval_months: number
           lat: number | null
           lng: number | null
+          moneybird_contact_id: string | null
           name: string
           notes: string | null
           phone: string | null
@@ -486,6 +493,7 @@ export type Database = {
           interval_months?: number
           lat?: number | null
           lng?: number | null
+          moneybird_contact_id?: string | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -508,6 +516,7 @@ export type Database = {
           interval_months?: number
           lat?: number | null
           lng?: number | null
+          moneybird_contact_id?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -545,6 +554,7 @@ export type Database = {
           invoice_number: string | null
           issued_at: string | null
           items: Json
+          moneybird_id: string | null
           notes: string | null
           optional_items: Json
           paid_at: string | null
@@ -566,6 +576,7 @@ export type Database = {
           invoice_number?: string | null
           issued_at?: string | null
           items?: Json
+          moneybird_id?: string | null
           notes?: string | null
           optional_items?: Json
           paid_at?: string | null
@@ -587,6 +598,7 @@ export type Database = {
           invoice_number?: string | null
           issued_at?: string | null
           items?: Json
+          moneybird_id?: string | null
           notes?: string | null
           optional_items?: Json
           paid_at?: string | null
@@ -804,6 +816,7 @@ export type Database = {
           id: string
           issued_at: string | null
           items: Json
+          moneybird_id: string | null
           notes: string | null
           optional_items: Json
           quote_number: string | null
@@ -823,6 +836,7 @@ export type Database = {
           id?: string
           issued_at?: string | null
           items?: Json
+          moneybird_id?: string | null
           notes?: string | null
           optional_items?: Json
           quote_number?: string | null
@@ -842,6 +856,7 @@ export type Database = {
           id?: string
           issued_at?: string | null
           items?: Json
+          moneybird_id?: string | null
           notes?: string | null
           optional_items?: Json
           quote_number?: string | null

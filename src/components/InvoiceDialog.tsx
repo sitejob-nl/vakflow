@@ -125,20 +125,22 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
       } else {
         const newInvoice = await createInvoice.mutateAsync(payload);
 
-        // Auto-sync to Rompslomp if connected
-        if (accountingProvider === "rompslomp" && newInvoice?.id) {
+        // Auto-sync to accounting provider if connected
+        if ((accountingProvider === "rompslomp" || accountingProvider === "moneybird") && newInvoice?.id) {
           setSyncing(true);
+          const funcName = accountingProvider === "rompslomp" ? "sync-rompslomp" : "sync-moneybird";
+          const providerLabel = accountingProvider === "rompslomp" ? "Rompslomp" : "Moneybird";
           try {
-            const res = await supabase.functions.invoke("sync-rompslomp", {
+            const res = await supabase.functions.invoke(funcName, {
               body: { action: "create-invoice", invoice_id: newInvoice.id },
             });
             if (res.error) throw res.error;
             if (res.data?.error) throw new Error(res.data.error);
             const rNumber = res.data?.invoice_number;
-            toast({ title: `✓ Factuur aangemaakt in Rompslomp`, description: rNumber ? `Factuurnummer: ${rNumber}` : undefined });
+            toast({ title: `✓ Factuur aangemaakt in ${providerLabel}`, description: rNumber ? `Factuurnummer: ${rNumber}` : undefined });
             queryClient.invalidateQueries({ queryKey: ["invoices"] });
           } catch (syncErr: any) {
-            toast({ title: "Rompslomp sync mislukt", description: syncErr.message, variant: "destructive" });
+            toast({ title: `${providerLabel} sync mislukt`, description: syncErr.message, variant: "destructive" });
           } finally {
             setSyncing(false);
           }

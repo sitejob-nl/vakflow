@@ -8,7 +8,7 @@ import { useWhatsAppTemplates, useDeleteWhatsAppTemplate, useCreateWhatsAppTempl
 import { useWhatsAppProfile, useUpdateWhatsAppProfile, useUploadWhatsAppProfilePhoto } from "@/hooks/useWhatsAppProfile";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServices, useDeleteService } from "@/hooks/useCustomers";
-import { useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden, useSyncContactsRompslomp, useSyncInvoicesRompslomp, usePullContactsRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncQuotesRompslomp, usePullQuotesRompslomp } from "@/hooks/useInvoices";
+import { useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden, useSyncContactsRompslomp, useSyncInvoicesRompslomp, usePullContactsRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncQuotesRompslomp, usePullQuotesRompslomp, useSyncContactsMoneybird, usePullContactsMoneybird, useSyncInvoicesMoneybird, usePullInvoicesMoneybird, usePullInvoiceStatusMoneybird, useSyncQuotesMoneybird, usePullQuotesMoneybird } from "@/hooks/useInvoices";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -149,6 +149,29 @@ const SettingsPage = () => {
   const pullInvoiceStatusRompslomp = usePullInvoiceStatusRompslomp();
   const syncQuotesRompslomp = useSyncQuotesRompslomp();
   const pullQuotesRompslomp = usePullQuotesRompslomp();
+
+  // Moneybird state
+  const [moneybirdConnected, setMoneybirdConnected] = useState(false);
+  const [moneybirdApiToken, setMoneybirdApiToken] = useState("");
+  const [moneybirdAdminId, setMoneybirdAdminId] = useState("");
+  const [moneybirdAdminName, setMoneybirdAdminName] = useState("");
+  const [moneybirdTesting, setMoneybirdTesting] = useState(false);
+  const [moneybirdDetecting, setMoneybirdDetecting] = useState(false);
+  const [moneybirdAdmins, setMoneybirdAdmins] = useState<{ id: string; name: string }[]>([]);
+  const [moneybirdSyncingContacts, setMoneybirdSyncingContacts] = useState(false);
+  const [moneybirdSyncingInvoices, setMoneybirdSyncingInvoices] = useState(false);
+  const [moneybirdPullingContacts, setMoneybirdPullingContacts] = useState(false);
+  const [moneybirdPullingInvoices, setMoneybirdPullingInvoices] = useState(false);
+  const [moneybirdPullingStatus, setMoneybirdPullingStatus] = useState(false);
+  const [moneybirdSyncingQuotes, setMoneybirdSyncingQuotes] = useState(false);
+  const [moneybirdPullingQuotes, setMoneybirdPullingQuotes] = useState(false);
+  const syncContactsMoneybird = useSyncContactsMoneybird();
+  const syncInvoicesMoneybird = useSyncInvoicesMoneybird();
+  const pullContactsMoneybird = usePullContactsMoneybird();
+  const pullInvoicesMoneybird = usePullInvoicesMoneybird();
+  const pullInvoiceStatusMoneybird = usePullInvoiceStatusMoneybird();
+  const syncQuotesMoneybird = useSyncQuotesMoneybird();
+  const pullQuotesMoneybird = usePullQuotesMoneybird();
 
   // Team members state
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -343,6 +366,10 @@ const SettingsPage = () => {
         setRompslompCompanyName((companyData as any).rompslomp_company_name ?? "");
         setRompslompApiToken((companyData as any).rompslomp_api_token ?? "");
         setRompslompCompanyId((companyData as any).rompslomp_company_id ?? "");
+        // Moneybird
+        setMoneybirdConnected(!!(companyData as any).moneybird_api_token && !!(companyData as any).moneybird_administration_id);
+        setMoneybirdApiToken((companyData as any).moneybird_api_token ?? "");
+        setMoneybirdAdminId((companyData as any).moneybird_administration_id ?? "");
       }
       setLoading(false);
     })();
@@ -1402,10 +1429,101 @@ const SettingsPage = () => {
               )}
             </div>
           ) : accountingProvider === "moneybird" ? (
-            <div>
+            <div className="space-y-4">
               <h3 className="text-[14px] font-bold mb-1">Moneybird</h3>
-              <p className="text-[12px] text-secondary-foreground mb-3">Moneybird-koppeling wordt binnenkort ondersteund.</p>
-              <p className="text-[12px] text-muted-foreground">🔧 Binnenkort beschikbaar</p>
+              <p className="text-[12px] text-secondary-foreground mb-3">Synchroniseer contacten, facturen en offertes met je Moneybird-account.</p>
+
+              {moneybirdConnected ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-1.5 text-[12px] font-bold text-success">
+                    <CheckCircle className="h-4 w-4" />
+                    Verbonden{moneybirdAdminName ? ` — ${moneybirdAdminName}` : ""}
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      setMoneybirdTesting(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("sync-moneybird", { body: { action: "test" } });
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        toast({ title: "Verbinding geslaagd!", description: "Moneybird API is bereikbaar." });
+                      } catch (err: any) {
+                        toast({ title: "Verbinding mislukt", description: err.message, variant: "destructive" });
+                      }
+                      setMoneybirdTesting(false);
+                    }}
+                    disabled={moneybirdTesting}
+                    className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {moneybirdTesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                    Test verbinding
+                  </button>
+
+                  <div>
+                    <h4 className="text-[13px] font-bold mb-2">Data pushen naar Moneybird</h4>
+                    <div className="flex gap-2 flex-wrap">
+                      <button onClick={async () => { setMoneybirdSyncingContacts(true); try { const r = await syncContactsMoneybird.mutateAsync(); toast({ title: "Contacten gepusht", description: `${r.synced} gesynct${r.errors.length ? `, ${r.errors.length} fouten` : ""}` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdSyncingContacts(false); }} disabled={moneybirdSyncingContacts} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {moneybirdSyncingContacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Contacten pushen
+                      </button>
+                      <button onClick={async () => { setMoneybirdSyncingInvoices(true); try { const r = await syncInvoicesMoneybird.mutateAsync(); toast({ title: "Facturen gepusht", description: `${r.synced} gesynct, ${r.skipped} overgeslagen` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdSyncingInvoices(false); }} disabled={moneybirdSyncingInvoices} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {moneybirdSyncingInvoices ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Facturen pushen
+                      </button>
+                      <button onClick={async () => { setMoneybirdSyncingQuotes(true); try { const r = await syncQuotesMoneybird.mutateAsync(); toast({ title: "Offertes gepusht", description: `${r.synced} gesynct, ${r.skipped} overgeslagen` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdSyncingQuotes(false); }} disabled={moneybirdSyncingQuotes} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {moneybirdSyncingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Offertes pushen
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-[13px] font-bold mb-2">Data ophalen uit Moneybird</h4>
+                    <div className="flex gap-2 flex-wrap">
+                      <button onClick={async () => { setMoneybirdPullingContacts(true); try { const r = await pullContactsMoneybird.mutateAsync(); toast({ title: "Contacten opgehaald", description: `${r.created} nieuw, ${r.updated} bijgewerkt (${r.total} totaal)` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdPullingContacts(false); }} disabled={moneybirdPullingContacts} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {moneybirdPullingContacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Contacten ophalen
+                      </button>
+                      <button onClick={async () => { setMoneybirdPullingInvoices(true); try { const r = await pullInvoicesMoneybird.mutateAsync(); toast({ title: "Facturen opgehaald", description: `${r.total_in_moneybird} in Moneybird, ${r.imported} geïmporteerd` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdPullingInvoices(false); }} disabled={moneybirdPullingInvoices} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {moneybirdPullingInvoices ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Facturen ophalen
+                      </button>
+                      <button onClick={async () => { setMoneybirdPullingStatus(true); try { const r = await pullInvoiceStatusMoneybird.mutateAsync(); toast({ title: "Betaalstatus bijgewerkt", description: `${r.checked} gecontroleerd, ${r.updated} als betaald gemarkeerd` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdPullingStatus(false); }} disabled={moneybirdPullingStatus} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {moneybirdPullingStatus ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>💰</>} Betaalstatus ophalen
+                      </button>
+                      <button onClick={async () => { setMoneybirdPullingQuotes(true); try { const r = await pullQuotesMoneybird.mutateAsync(); toast({ title: "Offertes opgehaald", description: `${r.total_in_moneybird} in Moneybird, ${r.imported} geïmporteerd` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdPullingQuotes(false); }} disabled={moneybirdPullingQuotes} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {moneybirdPullingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Offertes ophalen
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Weet je zeker dat je Moneybird wilt ontkoppelen?")) return;
+                      try {
+                        const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
+                        if (profileData?.company_id) {
+                          await supabase.from("companies").update({ moneybird_api_token: null, moneybird_administration_id: null } as any).eq("id", profileData.company_id);
+                          setMoneybirdConnected(false);
+                          setMoneybirdApiToken("");
+                          setMoneybirdAdminId("");
+                          setMoneybirdAdminName("");
+                          toast({ title: "Moneybird ontkoppeld" });
+                        }
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
+                      }
+                    }}
+                    className="px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-sm text-[12px] font-bold text-destructive hover:bg-destructive/20 transition-colors"
+                  >
+                    ❌ Ontkoppelen
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5 text-[12px] font-bold text-muted-foreground">
+                    <XCircle className="h-4 w-4" />
+                    Niet verbonden
+                  </div>
+                  <p className="text-[12px] text-muted-foreground">Vul je API token in bij het tabblad <button className="text-primary underline" onClick={() => setActiveTab("Koppelingen")}>Koppelingen</button> om de koppeling te activeren.</p>
+                </div>
+              )}
             </div>
           ) : (
             <div>
@@ -2571,6 +2689,69 @@ const SettingsPage = () => {
                 )}
               </div>
             )}
+            {accountingProvider === "moneybird" && (
+              <div className="border-t border-border pt-4 space-y-3">
+                <h4 className="text-[13px] font-bold">Moneybird API-koppeling</h4>
+                <p className="text-[11px] text-secondary-foreground">Ga naar <a href="https://moneybird.com/user/applications/new" target="_blank" rel="noopener noreferrer" className="text-primary underline">Moneybird</a> → Instellingen → Ontwikkelaars → Personal API token om een token aan te maken.</p>
+                <div>
+                  <label className={labelClass}>API Token</label>
+                  <input value={moneybirdApiToken} onChange={(e) => { setMoneybirdApiToken(e.target.value); setMoneybirdAdmins([]); setMoneybirdAdminId(""); setMoneybirdAdminName(""); }} className={inputClass} placeholder="Jouw Moneybird Personal API token" type="password" />
+                </div>
+                {moneybirdApiToken && !moneybirdAdminId && moneybirdAdmins.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setMoneybirdDetecting(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+                          body: { action: "auto-detect", token: moneybirdApiToken },
+                        });
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        const admins = data?.administrations || [];
+                        if (admins.length === 0) {
+                          toast({ title: "Geen administraties gevonden", description: "Controleer je API token.", variant: "destructive" });
+                        } else if (admins.length === 1) {
+                          setMoneybirdAdminId(admins[0].id);
+                          setMoneybirdAdminName(admins[0].name);
+                          toast({ title: "Administratie gedetecteerd", description: admins[0].name });
+                        } else {
+                          setMoneybirdAdmins(admins);
+                        }
+                      } catch (err: any) {
+                        toast({ title: "Detectie mislukt", description: err.message, variant: "destructive" });
+                      }
+                      setMoneybirdDetecting(false);
+                    }}
+                    disabled={moneybirdDetecting}
+                    className="px-4 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                  >
+                    {moneybirdDetecting ? <><Loader2 className="inline w-3 h-3 mr-1 animate-spin" /> Detecteren...</> : "Detecteer administratie"}
+                  </button>
+                )}
+                {moneybirdAdmins.length > 1 && !moneybirdAdminId && (
+                  <div>
+                    <label className={labelClass}>Kies een administratie</label>
+                    <Select value="" onValueChange={(v) => {
+                      const chosen = moneybirdAdmins.find(a => a.id === v);
+                      if (chosen) { setMoneybirdAdminId(chosen.id); setMoneybirdAdminName(chosen.name); setMoneybirdAdmins([]); }
+                    }}>
+                      <SelectTrigger><SelectValue placeholder="Selecteer administratie..." /></SelectTrigger>
+                      <SelectContent>
+                        {moneybirdAdmins.map(a => (<SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {moneybirdAdminId && (
+                  <div className="flex items-center gap-2 text-[12px] text-muted-foreground bg-muted/50 p-2 rounded">
+                    <CheckCircle className="w-4 h-4 text-success" />
+                    <span><strong>{moneybirdAdminName || `Administratie`}</strong> (ID: {moneybirdAdminId})</span>
+                    <button type="button" onClick={() => { setMoneybirdAdminId(""); setMoneybirdAdminName(""); setMoneybirdAdmins([]); }} className="ml-auto text-destructive text-[11px] underline">Wijzigen</button>
+                  </div>
+                )}
+              </div>
+            )}
             <button
               onClick={async () => {
                 setSavingProviders(true);
@@ -2586,9 +2767,16 @@ const SettingsPage = () => {
                       updateData.rompslomp_company_id = rompslompCompanyId || null;
                       updateData.rompslomp_company_name = rompslompCompanyName || null;
                     }
+                    if (accountingProvider === "moneybird") {
+                      updateData.moneybird_api_token = moneybirdApiToken || null;
+                      updateData.moneybird_administration_id = moneybirdAdminId || null;
+                    }
                     await supabase.from("companies").update(updateData).eq("id", profileData.company_id);
                     if (accountingProvider === "rompslomp") {
                       setRompslompConnected(!!rompslompApiToken && !!rompslompCompanyId);
+                    }
+                    if (accountingProvider === "moneybird") {
+                      setMoneybirdConnected(!!moneybirdApiToken && !!moneybirdAdminId);
                     }
                     toast({ title: "Koppelingen opgeslagen" });
                   }
