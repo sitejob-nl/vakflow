@@ -1470,6 +1470,7 @@ export type Database = {
         Row: {
           address_id: string | null
           appointment_id: string | null
+          asset_id: string | null
           checklist: Json | null
           company_id: string | null
           completed_at: string | null
@@ -1493,6 +1494,7 @@ export type Database = {
         Insert: {
           address_id?: string | null
           appointment_id?: string | null
+          asset_id?: string | null
           checklist?: Json | null
           company_id?: string | null
           completed_at?: string | null
@@ -1516,6 +1518,7 @@ export type Database = {
         Update: {
           address_id?: string | null
           appointment_id?: string | null
+          asset_id?: string | null
           checklist?: Json | null
           company_id?: string | null
           completed_at?: string | null
@@ -1549,6 +1552,13 @@ export type Database = {
             columns: ["appointment_id"]
             isOneToOne: false
             referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
             referencedColumns: ["id"]
           },
           {
