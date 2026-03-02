@@ -14,3 +14,15 @@ verify_jwt = false
 
 [functions.outlook-callback]
 verify_jwt = false
+
+[functions.rompslomp-register]
+verify_jwt = false
+
+[functions.rompslomp-config]
+verify_jwt = false
+
+[functions.rompslomp-webhook]
+verify_jwt = false
+
+[functions.sync-rompslomp]
+verify_jwt = false

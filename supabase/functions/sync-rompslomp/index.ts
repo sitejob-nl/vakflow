@@ -1,0 +1,388 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const CONNECT_TOKEN_URL = "https://xeshjkznwdrxjjhbpisn.supabase.co/functions/v1/rompslomp-token";
+
+function jsonRes(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function getRompslompToken(tenantId: string, webhookSecret: string) {
+  const res = await fetch(CONNECT_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tenant_id: tenantId, secret: webhookSecret }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Token ophalen mislukt" }));
+    if (err.needs_reauth) {
+      throw new Error("Re-authenticatie nodig — open de Rompslomp setup opnieuw");
+    }
+    throw new Error(err.error || "Token ophalen mislukt");
+  }
+  return res.json() as Promise<{
+    access_token: string;
+    company_id: string;
+    api_base_url: string;
+    expires_at: string;
+  }>;
+}
+
+async function rompslompGet(baseUrl: string, companyId: string, path: string, token: string) {
+  const url = `${baseUrl}/${companyId}${path}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Rompslomp GET ${path}: ${res.status} ${errText}`);
+  }
+  return res.json();
+}
+
+async function rompslompPost(baseUrl: string, companyId: string, path: string, token: string, body: unknown) {
+  const url = `${baseUrl}/${companyId}${path}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Rompslomp POST ${path}: ${res.status} ${errText}`);
+  }
+  return res.json();
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+  if (req.method !== "POST") {
+    return jsonRes({ error: "Method not allowed" }, 405);
+  }
+
+  try {
+    // Authenticate user via JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return jsonRes({ error: "Niet ingelogd" }, 401);
+    }
+
+    const supabaseUser = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return jsonRes({ error: "Niet ingelogd" }, 401);
+    }
+    const userId = claimsData.claims.sub;
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Get company with rompslomp config
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("company_id")
+      .eq("id", userId)
+      .single();
+
+    if (!profile?.company_id) {
+      return jsonRes({ error: "Geen bedrijf gevonden" }, 400);
+    }
+
+    const { data: company } = await supabaseAdmin
+      .from("companies")
+      .select("id, rompslomp_tenant_id, rompslomp_webhook_secret, rompslomp_company_id")
+      .eq("id", profile.company_id)
+      .single();
+
+    if (!company?.rompslomp_tenant_id || !company?.rompslomp_webhook_secret) {
+      return jsonRes({ error: "Rompslomp is niet gekoppeld" }, 400);
+    }
+
+    const body = await req.json();
+    const { action } = body;
+
+    // Get fresh token from SiteJob Connect
+    const tokenData = await getRompslompToken(company.rompslomp_tenant_id, company.rompslomp_webhook_secret);
+    const { access_token, company_id: rompslompCompanyId, api_base_url } = tokenData;
+
+    // Action: test connection
+    if (action === "test") {
+      await rompslompGet(api_base_url, rompslompCompanyId, "/contacts?page=1&per_page=1", access_token);
+      return jsonRes({ success: true });
+    }
+
+    // Action: sync contacts (push to Rompslomp)
+    if (action === "sync-contacts") {
+      const { data: customers } = await supabaseAdmin
+        .from("customers")
+        .select("*")
+        .eq("company_id", company.id)
+        .is("rompslomp_contact_id", null);
+
+      let synced = 0;
+      const errors: string[] = [];
+
+      for (const cust of customers || []) {
+        try {
+          const contactData: any = {
+            company_name: cust.type === "zakelijk" ? cust.name : undefined,
+            first_name: cust.contact_person || cust.name,
+            email: cust.email || undefined,
+            phone: cust.phone || undefined,
+            address: cust.address || undefined,
+            zipcode: cust.postal_code || undefined,
+            city: cust.city || undefined,
+          };
+          const result = await rompslompPost(api_base_url, rompslompCompanyId, "/contacts", access_token, { contact: contactData });
+          const contactId = result?.id || result?.contact?.id;
+          if (contactId) {
+            await supabaseAdmin.from("customers").update({ rompslomp_contact_id: String(contactId) }).eq("id", cust.id);
+            synced++;
+          }
+        } catch (err: any) {
+          errors.push(`${cust.name}: ${err.message}`);
+        }
+      }
+
+      return jsonRes({ synced, skipped: 0, errors });
+    }
+
+    // Action: sync invoices (push to Rompslomp)
+    if (action === "sync-invoices") {
+      const { data: invoices } = await supabaseAdmin
+        .from("invoices")
+        .select("*, customers(id, name, rompslomp_contact_id)")
+        .eq("company_id", company.id)
+        .is("rompslomp_id", null);
+
+      let synced = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      for (const inv of invoices || []) {
+        try {
+          const customer = inv.customers as any;
+          if (!customer?.rompslomp_contact_id) {
+            skipped++;
+            continue;
+          }
+
+          const items = Array.isArray(inv.items) ? inv.items : [];
+          const invoiceLines = items.map((item: any) => ({
+            description: item.description || "Item",
+            quantity: Number(item.qty || 1),
+            price: Number(item.unit_price || 0),
+            tax_rate_id: null, // Will use default
+          }));
+
+          const invoiceData: any = {
+            contact_id: parseInt(customer.rompslomp_contact_id),
+            invoice_number: inv.invoice_number,
+            date: inv.issued_at || new Date().toISOString().split("T")[0],
+            due_date: inv.due_at || undefined,
+            invoice_lines_attributes: invoiceLines,
+          };
+
+          const result = await rompslompPost(api_base_url, rompslompCompanyId, "/invoices", access_token, { invoice: invoiceData });
+          const rompslompId = result?.id || result?.invoice?.id;
+          if (rompslompId) {
+            await supabaseAdmin.from("invoices").update({ rompslomp_id: String(rompslompId) }).eq("id", inv.id);
+            synced++;
+          }
+        } catch (err: any) {
+          errors.push(`${inv.invoice_number || inv.id}: ${err.message}`);
+        }
+      }
+
+      return jsonRes({ synced, skipped, errors });
+    }
+
+    // Action: pull contacts (from Rompslomp)
+    if (action === "pull-contacts") {
+      let page = 1;
+      let allContacts: any[] = [];
+      while (true) {
+        const result = await rompslompGet(api_base_url, rompslompCompanyId, `/contacts?page=${page}&per_page=100`, access_token);
+        const contacts = result?.contacts || result || [];
+        if (!Array.isArray(contacts) || contacts.length === 0) break;
+        allContacts = allContacts.concat(contacts);
+        if (contacts.length < 100) break;
+        page++;
+      }
+
+      let created = 0, updated = 0;
+      const errors: string[] = [];
+
+      for (const contact of allContacts) {
+        try {
+          const contactId = String(contact.id);
+          const customerData: any = {
+            name: contact.company_name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || `Contact ${contactId}`,
+            contact_person: contact.first_name ? `${contact.first_name} ${contact.last_name || ""}`.trim() : null,
+            email: contact.email || null,
+            phone: contact.phone || null,
+            address: contact.address || null,
+            postal_code: contact.zipcode || null,
+            city: contact.city || null,
+            rompslomp_contact_id: contactId,
+          };
+
+          const { data: existing } = await supabaseAdmin
+            .from("customers")
+            .select("id")
+            .eq("rompslomp_contact_id", contactId)
+            .eq("company_id", company.id)
+            .maybeSingle();
+
+          if (existing) {
+            await supabaseAdmin.from("customers").update(customerData).eq("id", existing.id);
+            updated++;
+          } else {
+            customerData.company_id = company.id;
+            await supabaseAdmin.from("customers").insert(customerData);
+            created++;
+          }
+        } catch (err: any) {
+          errors.push(`Contact ${contact.id}: ${err.message}`);
+        }
+      }
+
+      return jsonRes({ total: allContacts.length, created, updated, errors });
+    }
+
+    // Action: pull invoices (from Rompslomp)
+    if (action === "pull-invoices") {
+      let page = 1;
+      let allInvoices: any[] = [];
+      while (true) {
+        const result = await rompslompGet(api_base_url, rompslompCompanyId, `/invoices?page=${page}&per_page=100`, access_token);
+        const invoices = result?.invoices || result || [];
+        if (!Array.isArray(invoices) || invoices.length === 0) break;
+        allInvoices = allInvoices.concat(invoices);
+        if (invoices.length < 100) break;
+        page++;
+      }
+
+      const { data: existingInvoices } = await supabaseAdmin
+        .from("invoices")
+        .select("rompslomp_id")
+        .eq("company_id", company.id)
+        .not("rompslomp_id", "is", null);
+
+      const existingIds = new Set((existingInvoices || []).map((i: any) => String(i.rompslomp_id)));
+      const notImported = allInvoices.filter((inv: any) => !existingIds.has(String(inv.id)));
+
+      let imported = 0;
+      let skippedNoCustomer = 0;
+      const errors: string[] = [];
+
+      for (const rInv of notImported) {
+        try {
+          const contactId = rInv.contact_id ? String(rInv.contact_id) : null;
+          let customer = null;
+          if (contactId) {
+            const { data } = await supabaseAdmin
+              .from("customers")
+              .select("id")
+              .eq("rompslomp_contact_id", contactId)
+              .eq("company_id", company.id)
+              .maybeSingle();
+            customer = data;
+          }
+
+          if (!customer) {
+            skippedNoCustomer++;
+            continue;
+          }
+
+          const subtotal = Number(rInv.total_without_tax || rInv.subtotal || 0);
+          const total = Number(rInv.total_with_tax || rInv.total || 0);
+          const vatAmount = total - subtotal;
+
+          await supabaseAdmin.from("invoices").insert({
+            customer_id: customer.id,
+            company_id: company.id,
+            rompslomp_id: String(rInv.id),
+            invoice_number: rInv.invoice_number || null,
+            subtotal,
+            total,
+            vat_amount: vatAmount,
+            status: rInv.paid_at ? "betaald" : "verzonden",
+            issued_at: rInv.date || rInv.invoice_date || null,
+            paid_at: rInv.paid_at || null,
+          });
+          imported++;
+        } catch (err: any) {
+          errors.push(`Invoice ${rInv.id}: ${err.message}`);
+        }
+      }
+
+      return jsonRes({
+        total_in_rompslomp: allInvoices.length,
+        already_imported: existingIds.size,
+        imported,
+        skipped_no_customer: skippedNoCustomer,
+        errors,
+      });
+    }
+
+    // Action: pull invoice status
+    if (action === "pull-invoice-status") {
+      const { data: unpaid } = await supabaseAdmin
+        .from("invoices")
+        .select("id, rompslomp_id")
+        .eq("company_id", company.id)
+        .not("rompslomp_id", "is", null)
+        .neq("status", "betaald");
+
+      let checked = 0, updated = 0;
+      const errors: string[] = [];
+
+      for (const inv of unpaid || []) {
+        try {
+          const rInv = await rompslompGet(api_base_url, rompslompCompanyId, `/invoices/${inv.rompslomp_id}`, access_token);
+          const invoiceData = rInv?.invoice || rInv;
+          checked++;
+          if (invoiceData.paid_at || invoiceData.state === "paid") {
+            await supabaseAdmin
+              .from("invoices")
+              .update({ status: "betaald", paid_at: invoiceData.paid_at || new Date().toISOString().split("T")[0] })
+              .eq("id", inv.id);
+            updated++;
+          }
+        } catch (err: any) {
+          errors.push(`Invoice ${inv.rompslomp_id}: ${err.message}`);
+        }
+      }
+
+      return jsonRes({ checked, updated, errors });
+    }
+
+    return jsonRes({ error: `Onbekende actie: ${action}` }, 400);
+  } catch (err: any) {
+    console.error("sync-rompslomp error:", err.message);
+    return jsonRes({ error: err.message }, 500);
+  }
+});

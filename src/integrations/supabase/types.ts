@@ -365,6 +365,10 @@ export type Database = {
           outlook_tenant_id: string | null
           phone: string | null
           postal_code: string | null
+          rompslomp_company_id: string | null
+          rompslomp_company_name: string | null
+          rompslomp_tenant_id: string | null
+          rompslomp_webhook_secret: string | null
           slug: string
           smtp_email: string | null
           smtp_host: string | null
@@ -396,6 +400,10 @@ export type Database = {
           outlook_tenant_id?: string | null
           phone?: string | null
           postal_code?: string | null
+          rompslomp_company_id?: string | null
+          rompslomp_company_name?: string | null
+          rompslomp_tenant_id?: string | null
+          rompslomp_webhook_secret?: string | null
           slug: string
           smtp_email?: string | null
           smtp_host?: string | null
@@ -427,6 +435,10 @@ export type Database = {
           outlook_tenant_id?: string | null
           phone?: string | null
           postal_code?: string | null
+          rompslomp_company_id?: string | null
+          rompslomp_company_name?: string | null
+          rompslomp_tenant_id?: string | null
+          rompslomp_webhook_secret?: string | null
           slug?: string
           smtp_email?: string | null
           smtp_host?: string | null
@@ -453,6 +465,7 @@ export type Database = {
           notes: string | null
           phone: string | null
           postal_code: string | null
+          rompslomp_contact_id: string | null
           type: string
           updated_at: string
           whatsapp_optin: boolean
@@ -474,6 +487,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           postal_code?: string | null
+          rompslomp_contact_id?: string | null
           type?: string
           updated_at?: string
           whatsapp_optin?: boolean
@@ -495,6 +509,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           postal_code?: string | null
+          rompslomp_contact_id?: string | null
           type?: string
           updated_at?: string
           whatsapp_optin?: boolean
@@ -530,6 +545,7 @@ export type Database = {
           notes: string | null
           optional_items: Json
           paid_at: string | null
+          rompslomp_id: string | null
           status: string
           subtotal: number
           total: number
@@ -550,6 +566,7 @@ export type Database = {
           notes?: string | null
           optional_items?: Json
           paid_at?: string | null
+          rompslomp_id?: string | null
           status?: string
           subtotal?: number
           total?: number
@@ -570,6 +587,7 @@ export type Database = {
           notes?: string | null
           optional_items?: Json
           paid_at?: string | null
+          rompslomp_id?: string | null
           status?: string
           subtotal?: number
           total?: number
