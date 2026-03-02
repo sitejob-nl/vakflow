@@ -643,7 +643,38 @@ const SettingsPage = () => {
           {/* Brand color */}
           <div>
             <label className={labelClass}>Bedrijfskleur</label>
-            <p className="text-[11px] text-t3 mb-2">Deze kleur wordt gebruikt als accentkleur in de hele app.</p>
+            <p className="text-[11px] text-t3 mb-2">Kies een voorgedefinieerd thema of stel een eigen kleur in.</p>
+            {/* Preset palettes */}
+            <div className="grid grid-cols-5 sm:grid-cols-8 gap-2 mb-3">
+              {[
+                { name: "Indigo", color: "#4F46E5" },
+                { name: "Blauw", color: "#2563EB" },
+                { name: "Cyaan", color: "#0891B2" },
+                { name: "Groen", color: "#16A34A" },
+                { name: "Emerald", color: "#059669" },
+                { name: "Oranje", color: "#EA580C" },
+                { name: "Rood", color: "#DC2626" },
+                { name: "Roze", color: "#DB2777" },
+                { name: "Paars", color: "#9333EA" },
+                { name: "Violet", color: "#7C3AED" },
+                { name: "Slate", color: "#475569" },
+                { name: "Teal", color: "#0D9488" },
+                { name: "Amber", color: "#D97706" },
+                { name: "Lime", color: "#65A30D" },
+                { name: "Sky", color: "#0284C7" },
+                { name: "Fuchsia", color: "#C026D3" },
+              ].map((preset) => (
+                <button
+                  key={preset.color}
+                  type="button"
+                  onClick={() => setBrandColor(preset.color)}
+                  className={`group flex flex-col items-center gap-1 p-1.5 rounded-md border transition-all ${brandColor === preset.color ? "border-primary ring-2 ring-primary/30 bg-primary-muted" : "border-border hover:border-muted-foreground/40 hover:bg-bg-hover"}`}
+                >
+                  <div className="w-7 h-7 rounded-full shadow-sm" style={{ backgroundColor: preset.color }} />
+                  <span className="text-[10px] text-muted-foreground leading-tight">{preset.name}</span>
+                </button>
+              ))}
+            </div>
             <div className="flex items-center gap-3">
               <input
                 type="color"
