@@ -15,6 +15,7 @@ export type Page =
   | "email"
   | "whatsapp"
   | "reminders"
+  | "assets"
   | "settings"
   | "superadmin";
 
@@ -32,6 +33,7 @@ const routeMap: Record<Page, string> = {
   email: "/email",
   whatsapp: "/whatsapp",
   reminders: "/reminders",
+  assets: "/assets",
   settings: "/settings",
   superadmin: "/superadmin",
 };
@@ -50,6 +52,7 @@ const pathToPage: [RegExp, Page][] = [
   [/^\/email\/?$/, "email"],
   [/^\/whatsapp\/?$/, "whatsapp"],
   [/^\/reminders\/?$/, "reminders"],
+  [/^\/assets\/?$/, "assets"],
   [/^\/settings\/?$/, "settings"],
   [/^\/superadmin\/?$/, "superadmin"],
   [/^\/$/, "dashboard"],
