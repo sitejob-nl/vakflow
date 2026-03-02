@@ -1,7 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useAppointments, useUpdateAppointment, useDeleteAppointment, type Appointment } from "@/hooks/useAppointments";
 import { useCreateWorkOrder, useWorkOrders } from "@/hooks/useWorkOrders";
 import { useServices } from "@/hooks/useCustomers";
+import { useOutlookCalendar, type OutlookEvent } from "@/hooks/useOutlookCalendar";
+import { useAuth } from "@/contexts/AuthContext";
 import { buildWorkOrderPayload } from "@/utils/createWorkOrderFromAppointment";
 import { Loader2, Plus, Trash2, CheckCircle2, Navigation, ExternalLink, FileText, ChevronLeft, ChevronRight, Users, Calendar as CalendarIcon } from "lucide-react";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, isSameDay, subDays, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
@@ -15,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useDirections } from "@/hooks/useMapbox";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -80,6 +85,19 @@ const PlanningPage = () => {
   const [filterEmployee, setFilterEmployee] = useState<string>("all");
   const { data: teamMembers } = useTeamMembers();
 
+  // Outlook calendar integration
+  const [showOutlook, setShowOutlook] = useState(false);
+  const { companyId } = useAuth();
+  const { data: outlookConfig } = useQuery({
+    queryKey: ["outlook-config", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data } = await supabase.from("companies").select("outlook_refresh_token").eq("id", companyId!).single();
+      return data;
+    },
+  });
+  const outlookConnected = !!outlookConfig?.outlook_refresh_token;
+
   // For mobile, fetch a wider range around mobileDay
   const weekEnd = addDays(currentWeekStart, 8);
   const mobileStart = isMobile ? startOfWeek(mobileDay, { weekStartsOn: 1 }) : currentWeekStart;
@@ -93,6 +111,7 @@ const PlanningPage = () => {
   const fetchEnd = viewMode === "month" && !isMobile ? monthEnd : (isMobile ? mobileEnd : weekEnd);
 
   const { data: rawAppointments, isLoading } = useAppointments(fetchStart, fetchEnd);
+  const { data: outlookEvents } = useOutlookCalendar(fetchStart, fetchEnd, showOutlook && outlookConnected);
 
   // Filter appointments by employee
   const appointments = useMemo(() => {
@@ -100,6 +119,15 @@ const PlanningPage = () => {
     if (filterEmployee === "all") return rawAppointments;
     return rawAppointments.filter((a) => a.assigned_to === filterEmployee);
   }, [rawAppointments, filterEmployee]);
+
+  // Convert Outlook events to renderable items for the calendar grid
+  const getOutlookEventsForHour = (day: Date, hour: number) => {
+    if (!outlookEvents || !showOutlook) return [];
+    return outlookEvents.filter((ev) => {
+      const d = new Date(ev.start.dateTime + (ev.start.timeZone === "UTC" ? "Z" : ""));
+      return isSameDay(d, day) && d.getHours() === hour;
+    });
+  };
 
   const deleteAppointment = useDeleteAppointment();
   const updateAppointment = useUpdateAppointment();
@@ -273,6 +301,13 @@ const PlanningPage = () => {
                 </SelectContent>
               </Select>
             )}
+            {/* Outlook toggle */}
+            {outlookConnected && (
+              <label className="flex items-center gap-1.5 text-[12px] font-bold text-secondary-foreground cursor-pointer">
+                <Switch checked={showOutlook} onCheckedChange={setShowOutlook} className="scale-75" />
+                Outlook
+              </label>
+            )}
             <div className="flex-1" />
             <button
               onClick={() => { setEditAppointment(null); setDefaultDate(undefined); setDialogOpen(true); }}
@@ -420,6 +455,38 @@ const PlanningPage = () => {
                                   </span>
                                   <span className="truncate">{ev.customers?.name ?? "Onbekend"}</span>
                                   {hasWorkOrder && <FileText className="h-2.5 w-2.5 opacity-60 flex-shrink-0" />}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {/* Outlook events */}
+                        {slot.minute === 0 && getOutlookEventsForHour(day, slot.hour).map((oev) => {
+                          const outlookColor = "#7c3aed";
+                          const startDate = new Date(oev.start.dateTime + (oev.start.timeZone === "UTC" ? "Z" : ""));
+                          const endDate = new Date(oev.end.dateTime + (oev.end.timeZone === "UTC" ? "Z" : ""));
+                          const startMinuteOffset = startDate.getMinutes();
+                          const durationMin = Math.max((endDate.getTime() - startDate.getTime()) / 60000, 15);
+                          const durationSlots = durationMin / 15;
+                          const topOffset = (startMinuteOffset / 15) * SLOT_HEIGHT;
+                          const eventHeight = Math.max(durationSlots * SLOT_HEIGHT - 2, SLOT_HEIGHT - 2);
+                          return (
+                            <div key={`outlook-${oev.id}`} className="absolute left-[2px] right-[2px] z-[1]" style={{ top: `${topOffset}px` }} title={oev.subject}>
+                              <div
+                                className="rounded-md px-1.5 py-[2px] text-[10px] font-bold overflow-hidden opacity-70 border-l-[3px]"
+                                style={{
+                                  height: `${eventHeight}px`,
+                                  backgroundColor: `${outlookColor}20`,
+                                  color: outlookColor,
+                                  borderLeftColor: outlookColor,
+                                }}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] font-medium opacity-70 font-mono">
+                                    {format(startDate, "HH:mm")}
+                                  </span>
+                                  <CalendarIcon className="h-2.5 w-2.5 opacity-60 flex-shrink-0" />
+                                  <span className="truncate">{oev.subject || "Outlook"}</span>
                                 </div>
                               </div>
                             </div>

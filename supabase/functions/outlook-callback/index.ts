@@ -90,7 +90,7 @@ serve(async (req) => {
         code,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
-        scope: "https://graph.microsoft.com/Mail.Send offline_access",
+        scope: "https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite offline_access",
       }),
     });
 

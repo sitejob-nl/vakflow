@@ -1569,7 +1569,7 @@ const SettingsPage = () => {
                       if (outlookTenantId && outlookClientId) {
                         const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
                         const redirectUri = encodeURIComponent(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/outlook-callback`);
-                        const scope = encodeURIComponent("https://graph.microsoft.com/Mail.Send offline_access");
+                        const scope = encodeURIComponent("https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite offline_access");
                         const authUrl = `https://login.microsoftonline.com/${outlookTenantId}/oauth2/v2.0/authorize?client_id=${outlookClientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scope}&state=${profileData?.company_id}&response_mode=query`;
                         window.open(authUrl, "outlook-auth", "width=600,height=700");
                       }

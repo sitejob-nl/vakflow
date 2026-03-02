@@ -75,15 +75,7 @@ serve(async (req) => {
       });
     }
 
-    const { to, subject, body, html, attachments } = await req.json();
-
-    // Validate inputs
-    if (!to || !subject || !body) {
-      return new Response(JSON.stringify({ error: "Verplichte velden ontbreken" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const { action, startDateTime, endDateTime, event, eventId } = await req.json();
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -120,7 +112,7 @@ serve(async (req) => {
 
     const { data: company } = await supabaseAdmin
       .from("companies")
-      .select("outlook_tenant_id, outlook_client_id, outlook_refresh_token, outlook_email")
+      .select("outlook_tenant_id, outlook_client_id, outlook_refresh_token")
       .eq("id", profile.company_id)
       .single();
 
@@ -131,7 +123,6 @@ serve(async (req) => {
       });
     }
 
-    // Decrypt refresh token and get access token
     const refreshToken = await decrypt(company.outlook_refresh_token);
     const accessToken = await getAccessToken(
       company.outlook_tenant_id,
@@ -139,57 +130,122 @@ serve(async (req) => {
       refreshToken
     );
 
-    // Build Graph API email payload
-    const toAddresses = to.split(",").map((e: string) => ({
-      emailAddress: { address: e.trim() },
-    }));
-
-    const message: any = {
-      subject,
-      body: {
-        contentType: html ? "HTML" : "Text",
-        content: html || body,
-      },
-      toRecipients: toAddresses,
+    const graphHeaders = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
     };
 
-    // Add attachments if provided
-    if (attachments && Array.isArray(attachments)) {
-      message.attachments = attachments.map((att: any) => ({
-        "@odata.type": "#microsoft.graph.fileAttachment",
-        name: att.filename,
-        contentType: att.contentType || "application/octet-stream",
-        contentBytes: att.content, // already base64
-      }));
+    let result: any;
+
+    switch (action) {
+      case "list": {
+        if (!startDateTime || !endDateTime) {
+          return new Response(JSON.stringify({ error: "startDateTime en endDateTime zijn verplicht" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const url = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${encodeURIComponent(startDateTime)}&endDateTime=${encodeURIComponent(endDateTime)}&$orderby=start/dateTime&$top=200&$select=id,subject,start,end,location,bodyPreview,isAllDay,showAs,categories`;
+        const res = await fetch(url, { headers: graphHeaders });
+        if (!res.ok) {
+          const errBody = await res.text();
+          console.error("Graph calendarView error:", errBody);
+          return new Response(JSON.stringify({ error: "Kan agenda niet ophalen", details: errBody }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const data = await res.json();
+        result = data.value || [];
+        break;
+      }
+
+      case "create": {
+        if (!event) {
+          return new Response(JSON.stringify({ error: "Event data is verplicht" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const res = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+          method: "POST",
+          headers: graphHeaders,
+          body: JSON.stringify(event),
+        });
+        if (!res.ok) {
+          const errBody = await res.text();
+          console.error("Graph create event error:", errBody);
+          return new Response(JSON.stringify({ error: "Kan event niet aanmaken", details: errBody }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        result = await res.json();
+        break;
+      }
+
+      case "update": {
+        if (!eventId || !event) {
+          return new Response(JSON.stringify({ error: "eventId en event data zijn verplicht" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const res = await fetch(`https://graph.microsoft.com/v1.0/me/events/${eventId}`, {
+          method: "PATCH",
+          headers: graphHeaders,
+          body: JSON.stringify(event),
+        });
+        if (!res.ok) {
+          const errBody = await res.text();
+          console.error("Graph update event error:", errBody);
+          return new Response(JSON.stringify({ error: "Kan event niet bijwerken", details: errBody }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        result = await res.json();
+        break;
+      }
+
+      case "delete": {
+        if (!eventId) {
+          return new Response(JSON.stringify({ error: "eventId is verplicht" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const res = await fetch(`https://graph.microsoft.com/v1.0/me/events/${eventId}`, {
+          method: "DELETE",
+          headers: graphHeaders,
+        });
+        if (!res.ok) {
+          const errBody = await res.text();
+          console.error("Graph delete event error:", errBody);
+          return new Response(JSON.stringify({ error: "Kan event niet verwijderen", details: errBody }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        result = { deleted: true };
+        break;
+      }
+
+      default:
+        return new Response(JSON.stringify({ error: "Ongeldige action. Gebruik: list, create, update, delete" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
     }
 
-    // Send via Microsoft Graph
-    const graphRes = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ message, saveToSentItems: true }),
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
-    if (!graphRes.ok) {
-      const errBody = await graphRes.text();
-      console.error("Graph API error:", errBody);
-      return new Response(
-        JSON.stringify({ error: "Outlook verzending mislukt", details: errBody }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    return new Response(
-      JSON.stringify({ success: true }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
   } catch (error: any) {
-    console.error("Outlook send error:", error);
+    console.error("Outlook calendar error:", error);
     return new Response(
-      JSON.stringify({ error: "Fout bij het versturen via Outlook", code: "OUTLOOK_SEND_FAILED" }),
+      JSON.stringify({ error: "Fout bij agenda-operatie", code: "OUTLOOK_CALENDAR_FAILED" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
