@@ -32,6 +32,7 @@ const ALL_FEATURES = [
   { slug: "workorders", label: "Werkbonnen" },
   { slug: "invoices", label: "Facturatie" },
   { slug: "quotes", label: "Offertes" },
+  { slug: "reports", label: "Rapportages" },
   { slug: "email", label: "E-mail" },
   { slug: "whatsapp", label: "WhatsApp" },
   { slug: "communication", label: "Logboek" },
