@@ -2173,10 +2173,15 @@ const SettingsPage = () => {
             </button>
           </div>
 
-          <div className="border-t border-border pt-5">
-            <h3 className="text-[14px] font-bold mb-3 flex items-center gap-1.5">
-              <Users className="h-4 w-4" /> Teamleden
-            </h3>
+           <div className="border-t border-border pt-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[14px] font-bold flex items-center gap-1.5">
+                <Users className="h-4 w-4" /> Teamleden
+              </h3>
+              <span className={`text-[12px] font-semibold px-2.5 py-1 rounded-full ${teamMembers.length >= maxUsers ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
+                {teamMembers.length} van {maxUsers} gebruikers
+              </span>
+            </div>
             {teamLoading ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
             ) : !teamMembers.length ? (
