@@ -352,10 +352,12 @@ export type Database = {
           eboekhouden_ledger_id: number | null
           eboekhouden_template_id: number | null
           email_provider: string | null
+          enabled_features: string[]
           iban: string | null
           id: string
           kvk_number: string | null
           logo_url: string | null
+          max_users: number
           name: string
           outlook_client_id: string | null
           outlook_email: string | null
@@ -381,10 +383,12 @@ export type Database = {
           eboekhouden_ledger_id?: number | null
           eboekhouden_template_id?: number | null
           email_provider?: string | null
+          enabled_features?: string[]
           iban?: string | null
           id?: string
           kvk_number?: string | null
           logo_url?: string | null
+          max_users?: number
           name: string
           outlook_client_id?: string | null
           outlook_email?: string | null
@@ -410,10 +414,12 @@ export type Database = {
           eboekhouden_ledger_id?: number | null
           eboekhouden_template_id?: number | null
           email_provider?: string | null
+          enabled_features?: string[]
           iban?: string | null
           id?: string
           kvk_number?: string | null
           logo_url?: string | null
+          max_users?: number
           name?: string
           outlook_client_id?: string | null
           outlook_email?: string | null

@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Users, Pencil, Trash2, Search, Plus, Save, Loader2, Eye, BarChart3, List, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -24,9 +25,24 @@ interface CompanyStats {
 
 const PAGE_SIZE = 25;
 
+const ALL_FEATURES = [
+  { slug: "dashboard", label: "Dashboard" },
+  { slug: "planning", label: "Planning" },
+  { slug: "customers", label: "Klanten" },
+  { slug: "workorders", label: "Werkbonnen" },
+  { slug: "invoices", label: "Facturatie" },
+  { slug: "quotes", label: "Offertes" },
+  { slug: "email", label: "E-mail" },
+  { slug: "whatsapp", label: "WhatsApp" },
+  { slug: "communication", label: "Logboek" },
+  { slug: "reminders", label: "Reminders" },
+];
+
 const emptyForm = {
   name: "", slug: "", kvk_number: "", btw_number: "", address: "",
   postal_code: "", city: "", phone: "", iban: "", smtp_email: "",
+  max_users: 2,
+  enabled_features: ALL_FEATURES.map(f => f.slug),
 };
 
 const SuperAdminPage = () => {
@@ -77,6 +93,8 @@ const SuperAdminPage = () => {
       name: c.name || "", slug: c.slug || "", kvk_number: c.kvk_number || "",
       btw_number: c.btw_number || "", address: c.address || "", postal_code: c.postal_code || "",
       city: c.city || "", phone: c.phone || "", iban: c.iban || "", smtp_email: c.smtp_email || "",
+      max_users: (c as any).max_users ?? 2,
+      enabled_features: (c as any).enabled_features ?? ALL_FEATURES.map(f => f.slug),
     });
     setDialogOpen(true);
   };
@@ -253,6 +271,36 @@ const SuperAdminPage = () => {
             <div>
               <Label>SMTP e-mail</Label>
               <Input value={form.smtp_email} onChange={e => setForm(f => ({ ...f, smtp_email: e.target.value }))} />
+            </div>
+
+            {/* Subscription settings */}
+            <div className="col-span-2 border-t pt-3 mt-1">
+              <p className="text-sm font-semibold mb-2">Abonnement</p>
+            </div>
+            <div>
+              <Label>Max gebruikers</Label>
+              <Input type="number" min={1} value={form.max_users} onChange={e => setForm(f => ({ ...f, max_users: parseInt(e.target.value) || 1 }))} />
+            </div>
+            <div className="col-span-2">
+              <Label className="mb-2 block">Beschikbare modules</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {ALL_FEATURES.map(feat => (
+                  <label key={feat.slug} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={form.enabled_features.includes(feat.slug)}
+                      onCheckedChange={(checked) => {
+                        setForm(f => ({
+                          ...f,
+                          enabled_features: checked
+                            ? [...f.enabled_features, feat.slug]
+                            : f.enabled_features.filter(s => s !== feat.slug),
+                        }));
+                      }}
+                    />
+                    {feat.label}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>

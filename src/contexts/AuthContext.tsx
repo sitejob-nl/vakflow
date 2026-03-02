@@ -18,6 +18,8 @@ interface AuthContextType {
   onboardingCompleted: boolean | null;
   impersonatedCompanyName: string | null;
   isImpersonating: boolean;
+  maxUsers: number;
+  enabledFeatures: string[];
   impersonate: (companyId: string, companyName: string) => void;
   stopImpersonating: () => void;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -38,8 +40,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [impersonatedCompanyName, setImpersonatedCompanyName] = useState<string | null>(null);
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
   const [companyBrandColor, setCompanyBrandColor] = useState<string | null>(null);
+  const [maxUsersState, setMaxUsersState] = useState<number>(2);
+  const [enabledFeaturesState, setEnabledFeaturesState] = useState<string[]>([]);
   const [impersonatedLogoUrl, setImpersonatedLogoUrl] = useState<string | null>(null);
   const [impersonatedBrandColor, setImpersonatedBrandColor] = useState<string | null>(null);
+  const [impersonatedMaxUsers, setImpersonatedMaxUsers] = useState<number | null>(null);
+  const [impersonatedEnabledFeatures, setImpersonatedEnabledFeatures] = useState<string[] | null>(null);
   const fetchedForRef = useRef<string | null>(null);
 
   const fetchUserData = async (userId: string) => {
@@ -60,9 +66,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Fetch company logo
     if (cid) {
-      const { data: companyData } = await supabase.from("companies").select("logo_url, brand_color").eq("id", cid).single();
+      const { data: companyData } = await supabase.from("companies").select("logo_url, brand_color, max_users, enabled_features").eq("id", cid).single();
       setCompanyLogoUrl(companyData?.logo_url ?? null);
       setCompanyBrandColor((companyData as any)?.brand_color ?? null);
+      setMaxUsersState((companyData as any)?.max_users ?? 2);
+      setEnabledFeaturesState((companyData as any)?.enabled_features ?? []);
     }
   };
 
@@ -124,9 +132,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const impersonate = async (companyId: string, companyName: string) => {
     setImpersonatedCompanyId(companyId);
     setImpersonatedCompanyName(companyName);
-    const { data } = await supabase.from("companies").select("logo_url, brand_color").eq("id", companyId).single();
+    const { data } = await supabase.from("companies").select("logo_url, brand_color, max_users, enabled_features").eq("id", companyId).single();
     setImpersonatedLogoUrl(data?.logo_url ?? null);
     setImpersonatedBrandColor((data as any)?.brand_color ?? null);
+    setImpersonatedMaxUsers((data as any)?.max_users ?? 2);
+    setImpersonatedEnabledFeatures((data as any)?.enabled_features ?? []);
   };
 
   const stopImpersonating = () => {
@@ -134,18 +144,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setImpersonatedCompanyName(null);
     setImpersonatedLogoUrl(null);
     setImpersonatedBrandColor(null);
+    setImpersonatedMaxUsers(null);
+    setImpersonatedEnabledFeatures(null);
   };
 
   const companyId = impersonatedCompanyId ?? realCompanyId;
   const isImpersonating = !!impersonatedCompanyId;
   const activeLogoUrl = impersonatedLogoUrl ?? companyLogoUrl;
   const activeBrandColor = impersonatedBrandColor ?? companyBrandColor;
+  const maxUsers = impersonatedMaxUsers ?? maxUsersState;
+  const enabledFeatures = impersonatedEnabledFeatures ?? enabledFeaturesState;
 
   return (
     <AuthContext.Provider value={{
       session, user, loading, role, isAdmin, isSuperAdmin,
       companyId, realCompanyId, companyLogoUrl: activeLogoUrl, companyBrandColor: activeBrandColor,
       onboardingCompleted, impersonatedCompanyName, isImpersonating,
+      maxUsers, enabledFeatures,
       impersonate, stopImpersonating,
       signIn, signUp, signOut,
     }}>

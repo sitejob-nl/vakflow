@@ -201,8 +201,14 @@ const SettingsPage = () => {
     setTeamLoading(false);
   };
 
+  const { maxUsers } = useAuth();
+
   const handleInviteUser = async () => {
     if (!inviteEmail) return;
+    if (teamMembers.length >= maxUsers) {
+      toast({ title: "Gebruikerslimiet bereikt", description: `Je abonnement staat maximaal ${maxUsers} gebruikers toe.`, variant: "destructive" });
+      return;
+    }
     setInviting(true);
     try {
       const { data, error } = await supabase.functions.invoke("invite-user", {
