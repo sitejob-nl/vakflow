@@ -8,10 +8,13 @@ import CustomerCombobox from "@/components/CustomerCombobox";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useCreateInvoice, useUpdateInvoice } from "@/hooks/useInvoices";
 import type { Invoice } from "@/hooks/useInvoices";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { useCombinedTemplates } from "@/hooks/useQuoteTemplates";
 import type { QuoteItem, OptionalItem } from "@/hooks/useQuotes";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
   open: boolean;
@@ -28,6 +31,17 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
   const createInvoice = useCreateInvoice();
   const updateInvoice = useUpdateInvoice();
   const { toast } = useToast();
+  const { companyId } = useAuth();
+  const queryClient = useQueryClient();
+  const [syncing, setSyncing] = useState(false);
+  const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!companyId) return;
+    supabase.from("companies").select("accounting_provider").eq("id", companyId).single().then(({ data }) => {
+      setAccountingProvider(data?.accounting_provider ?? null);
+    });
+  }, [companyId]);
 
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [customerId, setCustomerId] = useState("");
@@ -109,8 +123,28 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
         await updateInvoice.mutateAsync({ id: editInvoice.id, ...payload });
         toast({ title: "Factuur bijgewerkt" });
       } else {
-        await createInvoice.mutateAsync(payload);
-        toast({ title: "Factuur aangemaakt" });
+        const newInvoice = await createInvoice.mutateAsync(payload);
+
+        // Auto-sync to Rompslomp if connected
+        if (accountingProvider === "rompslomp" && newInvoice?.id) {
+          setSyncing(true);
+          try {
+            const res = await supabase.functions.invoke("sync-rompslomp", {
+              body: { action: "create-invoice", invoice_id: newInvoice.id },
+            });
+            if (res.error) throw res.error;
+            if (res.data?.error) throw new Error(res.data.error);
+            const rNumber = res.data?.invoice_number;
+            toast({ title: `✓ Factuur aangemaakt in Rompslomp`, description: rNumber ? `Factuurnummer: ${rNumber}` : undefined });
+            queryClient.invalidateQueries({ queryKey: ["invoices"] });
+          } catch (syncErr: any) {
+            toast({ title: "Rompslomp sync mislukt", description: syncErr.message, variant: "destructive" });
+          } finally {
+            setSyncing(false);
+          }
+        } else {
+          toast({ title: "Factuur aangemaakt" });
+        }
       }
       onOpenChange(false);
     } catch (err: any) {
@@ -221,8 +255,8 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
-            <Button onClick={handleSave} disabled={createInvoice.isPending || updateInvoice.isPending}>
-              {editInvoice ? "Opslaan" : "Aanmaken"}
+            <Button onClick={handleSave} disabled={createInvoice.isPending || updateInvoice.isPending || syncing}>
+              {syncing ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Synchroniseren...</> : editInvoice ? "Opslaan" : "Aanmaken"}
             </Button>
           </div>
         </div>

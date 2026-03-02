@@ -596,6 +596,101 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Action: create-invoice (push single invoice to Rompslomp, get back invoice number)
+    if (action === "create-invoice") {
+      const { invoice_id } = body;
+      if (!invoice_id) {
+        return jsonRes({ error: "invoice_id is verplicht" }, 400);
+      }
+
+      // Fetch invoice with customer
+      const { data: inv, error: invErr } = await supabaseAdmin
+        .from("invoices")
+        .select("*, customers(id, name, rompslomp_contact_id, email, address, postal_code, city, contact_person, phone, type)")
+        .eq("id", invoice_id)
+        .single();
+      if (invErr || !inv) {
+        return jsonRes({ error: `Factuur niet gevonden: ${invErr?.message}` }, 400);
+      }
+
+      const customer = inv.customers as any;
+
+      // Auto-create contact in Rompslomp if needed
+      let contactId = customer?.rompslomp_contact_id;
+      if (!contactId && customer) {
+        const isIndividual = customer.type === "particulier";
+        const contactData: any = {
+          is_individual: isIndividual,
+          is_supplier: false,
+          company_name: !isIndividual ? customer.name : undefined,
+          contact_person_name: isIndividual ? customer.name : (customer.contact_person || undefined),
+          contact_person_email_address: customer.email || undefined,
+          contact_number: customer.phone || undefined,
+          address: customer.address || undefined,
+          zipcode: customer.postal_code || undefined,
+          city: customer.city || undefined,
+          api_reference: customer.id,
+        };
+        const contactResult = await rompslompPost(rompslompCompanyId, "/contacts", apiToken, { contact: contactData });
+        contactId = String(contactResult?.id || contactResult?.contact?.id);
+        if (contactId) {
+          await supabaseAdmin.from("customers").update({ rompslomp_contact_id: contactId }).eq("id", customer.id);
+        }
+      }
+
+      if (!contactId) {
+        return jsonRes({ error: "Kan geen Rompslomp contact aanmaken voor deze klant" }, 400);
+      }
+
+      // Build invoice lines
+      const vatPct = Number(inv.vat_percentage || 21);
+      const items = Array.isArray(inv.items) ? inv.items : [];
+      const invoiceLines = (items as any[]).map((item: any) => ({
+        description: item.description || "Item",
+        quantity: String(item.qty || 1),
+        price_per_unit: String(Number(item.unit_price || 0) / (1 + vatPct / 100)),
+      }));
+
+      const invoiceData: any = {
+        contact_id: parseInt(contactId),
+        date: inv.issued_at || new Date().toISOString().split("T")[0],
+        due_date: inv.due_at || undefined,
+        invoice_lines: invoiceLines,
+        api_reference: inv.invoice_number || undefined,
+        _publish: true,
+      };
+
+      console.log(`create-invoice: pushing to Rompslomp`, JSON.stringify(invoiceData));
+      const result = await rompslompPost(rompslompCompanyId, "/sales_invoices", apiToken, { sales_invoice: invoiceData });
+      const rompslompId = result?.id || result?.sales_invoice?.id;
+
+      if (!rompslompId) {
+        return jsonRes({ error: "Geen ID terug van Rompslomp", result }, 500);
+      }
+
+      // Fetch full invoice to get the Rompslomp invoice number
+      const fullInvoice = await rompslompGet(rompslompCompanyId, `/sales_invoices/${rompslompId}`, apiToken);
+      const rInv = fullInvoice?.sales_invoice || fullInvoice;
+      const rompslompInvoiceNumber = rInv?.invoice_number || null;
+
+      // Update Vakflow invoice with rompslomp data
+      const updateData: any = {
+        rompslomp_id: String(rompslompId),
+        status: "verzonden",
+      };
+      if (rompslompInvoiceNumber) {
+        updateData.invoice_number = rompslompInvoiceNumber;
+      }
+      await supabaseAdmin.from("invoices").update(updateData).eq("id", invoice_id);
+
+      console.log(`create-invoice: success, rompslomp_id=${rompslompId}, invoice_number=${rompslompInvoiceNumber}`);
+      return jsonRes({
+        success: true,
+        rompslomp_id: String(rompslompId),
+        invoice_number: rompslompInvoiceNumber,
+      });
+    }
+
     // Action: download PDF from Rompslomp
     if (action === "download-pdf") {
       const { rompslomp_id } = body;
