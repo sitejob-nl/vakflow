@@ -1,33 +1,52 @@
 
 
-## Plan: SuperAdmin dashboard omzetten naar SaaS-schaal
+## Plan: SuperAdmin schaalbaar maken voor 1000+ bedrijven
 
-Het huidige dashboard haalt **alle data client-side** op en doet client-side filtering — dat schaalt niet naar 1000+ bedrijven. Daarnaast toont het financiele data (omzet, facturen) die niet relevant is voor platformbeheer.
+Het SuperAdmin dashboard is functioneel correct maar heeft twee schaalproblemen die breken bij groei.
 
-### Wijzigingen in `src/components/SuperAdminStats.tsx`
+### Probleem 1: N+1 queries in bedrijventabel
 
-1. **Verwijder alle financiele data**:
-   - Verwijder `invoices` query uit `Promise.all`
-   - Verwijder `totalInvoices`, `totalRevenue`, `revenue` uit interface en state
-   - Verwijder KPI's "Facturen" en "Omzet (betaald)"
-   - Verwijder "Omzet per bedrijf" bar chart
-   - Verwijder "Facturen" en "Omzet" kolommen uit per-bedrijf tabel
+`SuperAdminPage.tsx` regels 51-63 doen `Promise.all(data.map(...))` — bij 500 bedrijven zijn dat 1500 parallelle Supabase queries. Daarnaast is er een 1000-rij limiet op de companies query zelf.
 
-2. **Schaalbaarheid fixes**:
-   - Gebruik `.select("company_id", { count: "exact", head: true })` voor totalen in plaats van alle rijen ophalen en client-side tellen (Supabase 1000 row limit)
-   - Gebruik `count` queries per tabel voor KPI's
-   - Verwijder de per-bedrijf breakdown tabel (dupliceert de Bedrijven-tab en schaalt niet)
+**Oplossing**: Maak een database functie `get_company_stats()` die in een enkele query alle counts per company retourneert. Aanroepen via `supabase.rpc("get_company_stats")`.
 
-3. **KPI grid**: van 6 naar 4 kolommen (`lg:grid-cols-4`): Bedrijven, Gebruikers, Klanten, Werkbonnen
+### Probleem 2: Geen paginatie
 
-4. **Groei-chart aanpassen**: voeg "Nieuwe bedrijven" als lijn toe (belangrijkste SaaS metric)
+Alle bedrijven worden in een keer opgehaald (max 1000 door Supabase limiet).
 
-### Wijzigingen in `src/pages/SuperAdminPage.tsx`
+**Oplossing**: Server-side paginatie met `.range(from, to)` en page state. Toon 25 bedrijven per pagina met vorige/volgende knoppen.
 
-5. **Bedrijventabel schaalbaarheid**: de `fetchCompanies` functie haalt ook alle customers/profiles/work_orders op en filtert client-side — vervang door `count` queries met `.eq("company_id", id)` per bedrijf, of gebruik de bestaande head-count pattern
+### Probleem 3: SuperAdminStats chart data
 
-### Resultaat
-- Geen financiele bedrijfsdata meer zichtbaar
-- Dashboard werkt met 1000+ bedrijven door server-side counts
-- Focus op platformmetrics: groei, adoptie, activiteit
+`SuperAdminStats.tsx` haalt `created_at` van alle companies/customers/work_orders op voor de groei-chart — breekt bij 1000+ rijen.
+
+**Oplossing**: Gebruik per-maand count queries met `.gte()` en `.lt()` filters (18 head-count queries i.p.v. 3 volledige dataset fetches).
+
+---
+
+### Implementatie
+
+**Stap 1 — Migratie: `get_company_stats()` functie**
+
+```sql
+CREATE OR REPLACE FUNCTION get_company_stats()
+RETURNS TABLE(company_id uuid, customer_count bigint, user_count bigint, work_order_count bigint)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT c.id,
+    (SELECT count(*) FROM customers WHERE customers.company_id = c.id),
+    (SELECT count(*) FROM profiles WHERE profiles.company_id = c.id),
+    (SELECT count(*) FROM work_orders WHERE work_orders.company_id = c.id)
+  FROM companies c;
+$$;
+```
+
+**Stap 2 — `SuperAdminPage.tsx`**: Vervang de N+1 `Promise.all(data.map(...))` door een enkele `supabase.rpc("get_company_stats")` call. Voeg paginatie toe met `.range()` en pagina-knoppen.
+
+**Stap 3 — `SuperAdminStats.tsx`**: Vervang de 3x `select("created_at")` calls door 18 head-count queries met datumfilters voor de groei-chart. Vervang `select("status")` door aparte count queries per status.
+
+### Bestanden
+- Nieuwe migratie: `get_company_stats()` functie
+- `src/pages/SuperAdminPage.tsx` — RPC call + paginatie (25 per pagina)
+- `src/components/SuperAdminStats.tsx` — server-side counts voor charts
 
