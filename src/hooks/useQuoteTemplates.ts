@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { quoteTemplates as hardcodedTemplates } from "@/data/quoteTemplates";
 import type { QuoteItem, OptionalItem } from "@/hooks/useQuotes";
 
 export interface QuoteTemplateDB {
@@ -45,22 +44,13 @@ export const useQuoteTemplatesDB = () => {
 export const useCombinedTemplates = () => {
   const { data: dbTemplates, isLoading } = useQuoteTemplatesDB();
 
-  const combined: CombinedTemplate[] = [
-    ...hardcodedTemplates.map((t) => ({
-      id: `hardcoded:${t.name}`,
-      name: t.name,
-      items: t.items,
-      optionalItems: t.optionalItems,
-      isCustom: false,
-    })),
-    ...(dbTemplates ?? []).map((t) => ({
-      id: t.id,
-      name: t.name,
-      items: t.items,
-      optionalItems: t.optional_items,
-      isCustom: true,
-    })),
-  ];
+  const combined: CombinedTemplate[] = (dbTemplates ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    items: t.items,
+    optionalItems: t.optional_items,
+    isCustom: true,
+  }));
 
   return { data: combined, isLoading };
 };
