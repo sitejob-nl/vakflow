@@ -20,6 +20,8 @@ const COLORS = [
   "hsl(0, 86%, 60%)", "hsl(263, 83%, 58%)", "hsl(160, 94%, 30%)",
 ];
 
+const KNOWN_STATUSES = ["open", "in_behandeling", "afgerond", "gefactureerd"];
+
 const SuperAdminStats = () => {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,33 +38,42 @@ const SuperAdminStats = () => {
         supabase.from("work_orders").select("*", { count: "exact", head: true }),
       ]);
 
-      // Work orders by status — we need the actual status values, but use minimal select
-      const { data: woStatusData } = await supabase.from("work_orders").select("status");
-      const statusMap: Record<string, number> = {};
-      (woStatusData ?? []).forEach(wo => { statusMap[wo.status] = (statusMap[wo.status] || 0) + 1; });
-      const workOrdersByStatus = Object.entries(statusMap).map(([name, value]) => ({ name, value }));
+      // Work orders by status — individual count queries per status (no row limit)
+      const statusCounts = await Promise.all(
+        KNOWN_STATUSES.map(async (status) => {
+          const { count } = await supabase
+            .from("work_orders")
+            .select("*", { count: "exact", head: true })
+            .eq("status", status);
+          return { name: status, value: count ?? 0 };
+        })
+      );
+      const workOrdersByStatus = statusCounts.filter(s => s.value > 0);
 
-      // Monthly growth (last 6 months) — fetch only created_at for each table
-      const [companiesDateRes, customersDateRes, woDateRes] = await Promise.all([
-        supabase.from("companies").select("created_at"),
-        supabase.from("customers").select("created_at"),
-        supabase.from("work_orders").select("created_at"),
-      ]);
-
-      const companiesData = companiesDateRes.data ?? [];
-      const customersData = customersDateRes.data ?? [];
-      const woData = woDateRes.data ?? [];
-
+      // Monthly growth (last 6 months) — per-month count queries with date filters
       const monthlyGrowth: PlatformStats["monthlyGrowth"] = [];
+      const monthRanges = [];
       for (let i = 5; i >= 0; i--) {
         const start = startOfMonth(subMonths(new Date(), i));
         const end = startOfMonth(subMonths(new Date(), i - 1));
-        const label = format(start, "MMM yy", { locale: nl });
+        monthRanges.push({ start: start.toISOString(), end: end.toISOString(), label: format(start, "MMM yy", { locale: nl }) });
+      }
+
+      // 18 head-count queries in parallel instead of 3 full dataset fetches
+      const monthResults = await Promise.all(
+        monthRanges.flatMap(({ start, end }) => [
+          supabase.from("companies").select("*", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
+          supabase.from("customers").select("*", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
+          supabase.from("work_orders").select("*", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
+        ])
+      );
+
+      for (let i = 0; i < monthRanges.length; i++) {
         monthlyGrowth.push({
-          month: label,
-          companies: companiesData.filter(c => new Date(c.created_at) >= start && new Date(c.created_at) < end).length,
-          customers: customersData.filter(c => new Date(c.created_at) >= start && new Date(c.created_at) < end).length,
-          work_orders: woData.filter(w => new Date(w.created_at) >= start && new Date(w.created_at) < end).length,
+          month: monthRanges[i].label,
+          companies: monthResults[i * 3].count ?? 0,
+          customers: monthResults[i * 3 + 1].count ?? 0,
+          work_orders: monthResults[i * 3 + 2].count ?? 0,
         });
       }
 
