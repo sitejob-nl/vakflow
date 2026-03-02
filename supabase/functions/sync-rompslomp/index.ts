@@ -105,6 +105,25 @@ Deno.serve(async (req) => {
     const apiToken = company.rompslomp_api_token;
     const rompslompCompanyId = company.rompslomp_company_id;
 
+    // Action: auto-detect companies (token provided in body, not yet saved)
+    if (action === "auto-detect") {
+      const tokenToUse = body.token || apiToken;
+      if (!tokenToUse) {
+        return jsonRes({ error: "Geen API token opgegeven" }, 400);
+      }
+      const url = `${ROMPSLOMP_BASE}/companies`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${tokenToUse}`, Accept: "application/json" },
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        return jsonRes({ error: `Rompslomp API fout: ${res.status} ${errText}` }, 400);
+      }
+      const result = await res.json();
+      const companies = Array.isArray(result) ? result : (result?.companies || result?.data || []);
+      return jsonRes({ companies: companies.map((c: any) => ({ id: String(c.id), name: c.name || c.company_name || `Bedrijf ${c.id}` })) });
+    }
+
     // Action: test connection
     if (action === "test") {
       await rompslompGet(rompslompCompanyId, "/contacts?page=1&per_page=1", apiToken);
