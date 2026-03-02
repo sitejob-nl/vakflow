@@ -11,6 +11,7 @@ import { Loader2, Navigation, MapPin, ExternalLink, Plus, AlertTriangle } from "
 import { useCreateAppointment, useUpdateAppointment, useAppointmentsForDay } from "@/hooks/useAppointments";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
+import { useAddresses } from "@/hooks/useAddresses";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -47,7 +48,8 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
   const createAppointment = useCreateAppointment();
   const updateAppointment = useUpdateAppointment();
   const { result: travelInfo, loading: travelLoading, calculate: calcTravel } = useDirections();
-  const isEdit = !!appointment;
+  const isDuplicate = appointment?.id === "__duplicate__";
+  const isEdit = !!appointment && !isDuplicate;
 
   // Determine the assigned_to for filtering: use existing appointment's value or current user
   const assignedTo = appointment?.assigned_to || user?.id || null;
@@ -63,11 +65,15 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
   const [form, setForm] = useState({
     customer_id: "",
     service_id: "",
+    address_id: "",
     scheduled_at: "",
     duration_minutes: 60,
     status: "gepland",
     notes: "",
   });
+
+  // Fetch addresses for the selected customer
+  const { data: customerAddresses } = useAddresses(form.customer_id || undefined);
 
   const [startLocationLabel, setStartLocationLabel] = useState(DEFAULT_START_LABEL);
   const [startCoords, setStartCoords] = useState<[number, number]>(DEFAULT_START);
@@ -110,12 +116,16 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
 
   useEffect(() => {
     if (appointment) {
+      const scheduledAt = isDuplicate && defaultDate
+        ? formatDateTimeLocal(defaultDate)
+        : formatDateTimeLocal(new Date(appointment.scheduled_at));
       setForm({
         customer_id: appointment.customer_id,
         service_id: appointment.service_id || "",
-        scheduled_at: formatDateTimeLocal(new Date(appointment.scheduled_at)),
+        address_id: appointment.address_id || "",
+        scheduled_at: scheduledAt,
         duration_minutes: appointment.duration_minutes ?? 60,
-        status: appointment.status,
+        status: isDuplicate ? "gepland" : appointment.status,
         notes: appointment.notes || "",
       });
       setStartLocationLabel((appointment as any).start_location_label || DEFAULT_START_LABEL);
@@ -124,6 +134,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
       setForm({
         customer_id: "",
         service_id: "",
+        address_id: "",
         scheduled_at: formatDateTimeLocal(dt),
         duration_minutes: 60,
         status: "gepland",
@@ -186,6 +197,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
     const payload: any = {
       customer_id: form.customer_id,
       service_id: form.service_id || null,
+      address_id: form.address_id || null,
       scheduled_at: new Date(form.scheduled_at).toISOString(),
       duration_minutes: form.duration_minutes,
       status: form.status,
@@ -265,6 +277,30 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
         </div>
       </div>
 
+      {/* Address selector */}
+      {customerAddresses && customerAddresses.length > 0 && (
+        <div className="space-y-1.5">
+          <Label>Werkadres</Label>
+          <Select value={form.address_id} onValueChange={(v) => set("address_id", v === "none" ? "" : v)}>
+            <SelectTrigger>
+              <MapPin className="h-3.5 w-3.5 mr-1 flex-shrink-0 text-muted-foreground" />
+              <SelectValue placeholder="Klantadres (standaard)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Klantadres (standaard)</SelectItem>
+              {customerAddresses.map((addr) => {
+                const line = [addr.street, addr.house_number].filter(Boolean).join(" ");
+                const line2 = [addr.postal_code, addr.city].filter(Boolean).join(" ");
+                return (
+                  <SelectItem key={addr.id} value={addr.id}>
+                    {line}{addr.apartment ? ` (${addr.apartment})` : ""}{line2 ? ` — ${line2}` : ""}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label>Datum & tijd *</Label>
@@ -377,7 +413,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
     </form>
   );
 
-  const titleText = isEdit ? "Afspraak bewerken" : "Nieuwe afspraak";
+  const titleText = isEdit ? "Afspraak bewerken" : isDuplicate ? "Afspraak kopiëren" : "Nieuwe afspraak";
 
   return (
     <>
