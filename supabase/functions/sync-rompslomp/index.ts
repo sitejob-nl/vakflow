@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const CONNECT_TOKEN_URL = "https://xeshjkznwdrxjjhbpisn.supabase.co/functions/v1/rompslomp-token";
+const ROMPSLOMP_BASE = "https://api.rompslomp.nl/api/v1";
 
 function jsonRes(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -15,29 +15,8 @@ function jsonRes(data: unknown, status = 200) {
   });
 }
 
-async function getRompslompToken(tenantId: string, webhookSecret: string) {
-  const res = await fetch(CONNECT_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tenant_id: tenantId, secret: webhookSecret }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Token ophalen mislukt" }));
-    if (err.needs_reauth) {
-      throw new Error("Re-authenticatie nodig — open de Rompslomp setup opnieuw");
-    }
-    throw new Error(err.error || "Token ophalen mislukt");
-  }
-  return res.json() as Promise<{
-    access_token: string;
-    company_id: string;
-    api_base_url: string;
-    expires_at: string;
-  }>;
-}
-
-async function rompslompGet(baseUrl: string, companyId: string, path: string, token: string) {
-  const url = `${baseUrl}/${companyId}${path}`;
+async function rompslompGet(companyId: string, path: string, token: string) {
+  const url = `${ROMPSLOMP_BASE}/companies/${companyId}${path}`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
   });
@@ -48,8 +27,8 @@ async function rompslompGet(baseUrl: string, companyId: string, path: string, to
   return res.json();
 }
 
-async function rompslompPost(baseUrl: string, companyId: string, path: string, token: string, body: unknown) {
-  const url = `${baseUrl}/${companyId}${path}`;
+async function rompslompPost(companyId: string, path: string, token: string, body: unknown) {
+  const url = `${ROMPSLOMP_BASE}/companies/${companyId}${path}`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -112,24 +91,23 @@ Deno.serve(async (req) => {
 
     const { data: company } = await supabaseAdmin
       .from("companies")
-      .select("id, rompslomp_tenant_id, rompslomp_webhook_secret, rompslomp_company_id")
+      .select("id, rompslomp_api_token, rompslomp_company_id")
       .eq("id", profile.company_id)
       .single();
 
-    if (!company?.rompslomp_tenant_id || !company?.rompslomp_webhook_secret) {
-      return jsonRes({ error: "Rompslomp is niet gekoppeld" }, 400);
+    if (!company?.rompslomp_api_token || !company?.rompslomp_company_id) {
+      return jsonRes({ error: "Rompslomp is niet gekoppeld — vul API token en Company ID in bij Instellingen > Koppelingen" }, 400);
     }
 
     const body = await req.json();
     const { action } = body;
 
-    // Get fresh token from SiteJob Connect
-    const tokenData = await getRompslompToken(company.rompslomp_tenant_id, company.rompslomp_webhook_secret);
-    const { access_token, company_id: rompslompCompanyId, api_base_url } = tokenData;
+    const apiToken = company.rompslomp_api_token;
+    const rompslompCompanyId = company.rompslomp_company_id;
 
     // Action: test connection
     if (action === "test") {
-      await rompslompGet(api_base_url, rompslompCompanyId, "/contacts?page=1&per_page=1", access_token);
+      await rompslompGet(rompslompCompanyId, "/contacts?page=1&per_page=1", apiToken);
       return jsonRes({ success: true });
     }
 
@@ -155,7 +133,7 @@ Deno.serve(async (req) => {
             zipcode: cust.postal_code || undefined,
             city: cust.city || undefined,
           };
-          const result = await rompslompPost(api_base_url, rompslompCompanyId, "/contacts", access_token, { contact: contactData });
+          const result = await rompslompPost(rompslompCompanyId, "/contacts", apiToken, { contact: contactData });
           const contactId = result?.id || result?.contact?.id;
           if (contactId) {
             await supabaseAdmin.from("customers").update({ rompslomp_contact_id: String(contactId) }).eq("id", cust.id);
@@ -192,9 +170,8 @@ Deno.serve(async (req) => {
           const items = Array.isArray(inv.items) ? inv.items : [];
           const invoiceLines = items.map((item: any) => ({
             description: item.description || "Item",
-            quantity: Number(item.qty || 1),
-            price: Number(item.unit_price || 0),
-            tax_rate_id: null, // Will use default
+            quantity: String(item.qty || 1),
+            price_per_unit: String(item.unit_price || 0),
           }));
 
           const invoiceData: any = {
@@ -202,11 +179,11 @@ Deno.serve(async (req) => {
             invoice_number: inv.invoice_number,
             date: inv.issued_at || new Date().toISOString().split("T")[0],
             due_date: inv.due_at || undefined,
-            invoice_lines_attributes: invoiceLines,
+            invoice_lines: invoiceLines,
           };
 
-          const result = await rompslompPost(api_base_url, rompslompCompanyId, "/invoices", access_token, { invoice: invoiceData });
-          const rompslompId = result?.id || result?.invoice?.id;
+          const result = await rompslompPost(rompslompCompanyId, "/sales_invoices", apiToken, { sales_invoice: invoiceData });
+          const rompslompId = result?.id || result?.sales_invoice?.id;
           if (rompslompId) {
             await supabaseAdmin.from("invoices").update({ rompslomp_id: String(rompslompId) }).eq("id", inv.id);
             synced++;
@@ -224,7 +201,7 @@ Deno.serve(async (req) => {
       let page = 1;
       let allContacts: any[] = [];
       while (true) {
-        const result = await rompslompGet(api_base_url, rompslompCompanyId, `/contacts?page=${page}&per_page=100`, access_token);
+        const result = await rompslompGet(rompslompCompanyId, `/contacts?page=${page}&per_page=100`, apiToken);
         const contacts = result?.contacts || result || [];
         if (!Array.isArray(contacts) || contacts.length === 0) break;
         allContacts = allContacts.concat(contacts);
@@ -277,8 +254,8 @@ Deno.serve(async (req) => {
       let page = 1;
       let allInvoices: any[] = [];
       while (true) {
-        const result = await rompslompGet(api_base_url, rompslompCompanyId, `/invoices?page=${page}&per_page=100`, access_token);
-        const invoices = result?.invoices || result || [];
+        const result = await rompslompGet(rompslompCompanyId, `/sales_invoices?page=${page}&per_page=100`, apiToken);
+        const invoices = result?.sales_invoices || result || [];
         if (!Array.isArray(invoices) || invoices.length === 0) break;
         allInvoices = allInvoices.concat(invoices);
         if (invoices.length < 100) break;
@@ -362,8 +339,8 @@ Deno.serve(async (req) => {
 
       for (const inv of unpaid || []) {
         try {
-          const rInv = await rompslompGet(api_base_url, rompslompCompanyId, `/invoices/${inv.rompslomp_id}`, access_token);
-          const invoiceData = rInv?.invoice || rInv;
+          const rInv = await rompslompGet(rompslompCompanyId, `/sales_invoices/${inv.rompslomp_id}`, apiToken);
+          const invoiceData = rInv?.sales_invoice || rInv;
           checked++;
           if (invoiceData.paid_at || invoiceData.state === "paid") {
             await supabaseAdmin
