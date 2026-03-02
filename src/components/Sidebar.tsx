@@ -36,7 +36,7 @@ const allSections = [
 
 const Sidebar = () => {
   const { currentPage, navigate } = useNavigation();
-  const { signOut, isAdmin, isSuperAdmin } = useAuth();
+  const { signOut, isAdmin, isSuperAdmin, companyLogoUrl } = useAuth();
 
   const handleNav = (page: Page) => {
     navigate(page);
@@ -53,7 +53,7 @@ const Sidebar = () => {
     <>
       {/* Logo */}
       <div className="px-5 py-[18px] flex items-center justify-center border-b border-border">
-        <img src={logoFull} alt="Vakflow" className="h-10 object-contain" />
+        <img src={companyLogoUrl || logoFull} alt="Logo" className="h-10 object-contain max-w-[180px]" />
       </div>
 
       {/* Navigation */}

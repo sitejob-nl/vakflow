@@ -13,6 +13,7 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   companyId: string | null;
   realCompanyId: string | null;
+  companyLogoUrl: string | null;
   onboardingCompleted: boolean | null;
   impersonatedCompanyName: string | null;
   isImpersonating: boolean;
@@ -34,6 +35,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
   const [impersonatedCompanyId, setImpersonatedCompanyId] = useState<string | null>(null);
   const [impersonatedCompanyName, setImpersonatedCompanyName] = useState<string | null>(null);
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [impersonatedLogoUrl, setImpersonatedLogoUrl] = useState<string | null>(null);
   const fetchedForRef = useRef<string | null>(null);
 
   const fetchUserData = async (userId: string) => {
@@ -49,7 +52,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const bestRole: AppRole | null = roles.includes("super_admin") ? "super_admin" : roles.includes("admin") ? "admin" : roles[0] ?? null;
     setRole(bestRole);
     setOnboardingCompleted(profileRes.data?.onboarding_completed ?? null);
-    setRealCompanyId(profileRes.data?.company_id ?? null);
+    const cid = profileRes.data?.company_id ?? null;
+    setRealCompanyId(cid);
+
+    // Fetch company logo
+    if (cid) {
+      const { data: companyData } = await supabase.from("companies").select("logo_url").eq("id", cid).single();
+      setCompanyLogoUrl(companyData?.logo_url ?? null);
+    }
   };
 
   useEffect(() => {
@@ -107,23 +117,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isAdmin = role === "admin" || role === "super_admin";
   const isSuperAdmin = role === "super_admin";
 
-  const impersonate = (companyId: string, companyName: string) => {
+  const impersonate = async (companyId: string, companyName: string) => {
     setImpersonatedCompanyId(companyId);
     setImpersonatedCompanyName(companyName);
+    // Fetch impersonated company logo
+    const { data } = await supabase.from("companies").select("logo_url").eq("id", companyId).single();
+    setImpersonatedLogoUrl(data?.logo_url ?? null);
   };
 
   const stopImpersonating = () => {
     setImpersonatedCompanyId(null);
     setImpersonatedCompanyName(null);
+    setImpersonatedLogoUrl(null);
   };
 
   const companyId = impersonatedCompanyId ?? realCompanyId;
   const isImpersonating = !!impersonatedCompanyId;
+  const activeLogoUrl = impersonatedLogoUrl ?? companyLogoUrl;
 
   return (
     <AuthContext.Provider value={{
       session, user, loading, role, isAdmin, isSuperAdmin,
-      companyId, realCompanyId, onboardingCompleted,
+      companyId, realCompanyId, companyLogoUrl: activeLogoUrl, onboardingCompleted,
       impersonatedCompanyName, isImpersonating,
       impersonate, stopImpersonating,
       signIn, signUp, signOut,
