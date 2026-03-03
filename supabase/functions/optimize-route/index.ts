@@ -133,9 +133,9 @@ Deno.serve(async (req) => {
     }));
 
     const routeRequest = {
-      origin: { waypoint: origin },
-      destination: { waypoint: destination },
-      intermediates: intermediates.map((i) => ({ waypoint: i })),
+      origin,
+      destination,
+      intermediates,
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_AWARE",
       optimizeWaypointOrder: true,
