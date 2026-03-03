@@ -2021,6 +2021,7 @@ export type Database = {
           address_id: string | null
           appointment_id: string | null
           asset_id: string | null
+          assigned_to: string | null
           checklist: Json | null
           company_id: string | null
           completed_at: string | null
@@ -2045,6 +2046,7 @@ export type Database = {
           address_id?: string | null
           appointment_id?: string | null
           asset_id?: string | null
+          assigned_to?: string | null
           checklist?: Json | null
           company_id?: string | null
           completed_at?: string | null
@@ -2069,6 +2071,7 @@ export type Database = {
           address_id?: string | null
           appointment_id?: string | null
           asset_id?: string | null
+          assigned_to?: string | null
           checklist?: Json | null
           company_id?: string | null
           completed_at?: string | null
@@ -2109,6 +2112,13 @@ export type Database = {
             columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {

@@ -12,18 +12,21 @@ export type WorkOrder = Tables<"work_orders"> & {
 
 const WO_QUERY_KEYS = ["work_orders", "work_orders-paginated"];
 
-export const useWorkOrders = () => {
-  const { companyId } = useAuth();
+export const useWorkOrders = (assignedToFilter?: string | null) => {
+  const { companyId, user, role } = useAuth();
+  const isMonteur = role === "monteur";
+  const effectiveAssignedTo = isMonteur ? user?.id : assignedToFilter;
   const keys = useMemo(() => WO_QUERY_KEYS, []);
   useRealtimeSubscription("work_orders", keys, companyId);
   return useQuery({
-    queryKey: ["work_orders", companyId],
+    queryKey: ["work_orders", companyId, effectiveAssignedTo],
     queryFn: async () => {
       let q = supabase
         .from("work_orders")
         .select("*, customers(name, address, city), services(name, color, price, category)")
         .order("created_at", { ascending: false });
       if (companyId) q = q.eq("company_id", companyId);
+      if (effectiveAssignedTo) q = q.eq("assigned_to", effectiveAssignedTo);
       const { data, error } = await q;
       if (error) throw error;
       return data as WorkOrder[];
@@ -35,14 +38,17 @@ export interface PaginatedWorkOrdersParams {
   page: number;
   pageSize: number;
   statusFilter?: string | null;
+  assignedToFilter?: string | null;
 }
 
 export const usePaginatedWorkOrders = (params: PaginatedWorkOrdersParams) => {
-  const { companyId } = useAuth();
-  const { page, pageSize, statusFilter } = params;
+  const { companyId, user, role } = useAuth();
+  const isMonteur = role === "monteur";
+  const { page, pageSize, statusFilter, assignedToFilter } = params;
+  const effectiveAssignedTo = isMonteur ? user?.id : assignedToFilter;
 
   return useQuery({
-    queryKey: ["work_orders-paginated", companyId, page, pageSize, statusFilter],
+    queryKey: ["work_orders-paginated", companyId, page, pageSize, statusFilter, effectiveAssignedTo],
     queryFn: async () => {
       const from = page * pageSize;
       const to = from + pageSize - 1;
@@ -54,6 +60,7 @@ export const usePaginatedWorkOrders = (params: PaginatedWorkOrdersParams) => {
 
       if (companyId) q = q.eq("company_id", companyId);
       if (statusFilter) q = q.eq("status", statusFilter);
+      if (effectiveAssignedTo) q = q.eq("assigned_to", effectiveAssignedTo);
 
       q = q.range(from, to);
 

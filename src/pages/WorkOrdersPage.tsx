@@ -1,14 +1,17 @@
 import { useNavigation } from "@/hooks/useNavigation";
 import { useState, useCallback } from "react";
-import { Check, Clock, Calendar, Loader2, Plus, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, Clock, Calendar, Loader2, Plus, RefreshCw, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePaginatedWorkOrders } from "@/hooks/useWorkOrders";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { useAuth } from "@/contexts/AuthContext";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useQueryClient } from "@tanstack/react-query";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const tabs = ["Alle", "Open", "Bezig", "Afgerond"];
 const PAGE_SIZE = 25;
@@ -27,10 +30,13 @@ const statusLabel: Record<string, string> = {
 
 const WorkOrdersPage = () => {
   const { navigate } = useNavigation();
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
+  const [filterEmployee, setFilterEmployee] = useState<string>("all");
   const queryClient = useQueryClient();
+  const { data: teamMembers } = useTeamMembers();
 
   const statusFilter = activeTab === 0 ? null : ["open", "bezig", "afgerond"][activeTab - 1];
 
@@ -38,6 +44,7 @@ const WorkOrdersPage = () => {
     page,
     pageSize: PAGE_SIZE,
     statusFilter,
+    assignedToFilter: filterEmployee !== "all" ? filterEmployee : null,
   });
 
   const workOrders = result?.data ?? [];
@@ -76,6 +83,21 @@ const WorkOrdersPage = () => {
             </button>
           ))}
         </div>
+        {/* Monteur filter - alleen voor admins */}
+        {isAdmin && teamMembers && teamMembers.length > 1 && (
+          <Select value={filterEmployee} onValueChange={(v) => { setFilterEmployee(v); setPage(0); }}>
+            <SelectTrigger className="w-[160px] h-8 text-[12px] flex-shrink-0">
+              <Users className="h-3.5 w-3.5 mr-1 flex-shrink-0" />
+              <SelectValue placeholder="Alle medewerkers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle medewerkers</SelectItem>
+              {teamMembers.map((m) => (
+                <SelectItem key={m.id} value={m.id}>{m.full_name ?? "Onbekend"}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <button
           onClick={() => setDialogOpen(true)}
           className="hidden lg:flex ml-3 px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors items-center gap-1 flex-shrink-0"
