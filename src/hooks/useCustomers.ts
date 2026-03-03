@@ -7,15 +7,32 @@ export type Customer = Tables<"customers"> & {
   services?: { name: string; color: string | null } | null;
 };
 
-// Fire-and-forget sync customer to e-Boekhouden
-const syncCustomerToEboekhouden = async (customerId: string) => {
+// Fire-and-forget sync customer to accounting provider
+const syncCustomerToProvider = async (customerId: string, companyId: string | null) => {
+  if (!companyId) return;
   try {
-    const { error } = await supabase.functions.invoke("sync-invoice-eboekhouden", {
+    const { data: company } = await supabase
+      .from("companies_safe")
+      .select("accounting_provider")
+      .eq("id", companyId)
+      .maybeSingle();
+
+    const provider = company?.accounting_provider;
+    if (!provider) return;
+
+    let functionName: string | null = null;
+    if (provider === "eboekhouden") functionName = "sync-invoice-eboekhouden";
+    else if (provider === "rompslomp") functionName = "sync-rompslomp";
+    else if (provider === "moneybird") functionName = "sync-moneybird";
+
+    if (!functionName) return;
+
+    const { error } = await supabase.functions.invoke(functionName, {
       body: { action: "sync-customer", customer_id: customerId },
     });
-    if (error) console.warn("e-Boekhouden klant sync mislukt:", error.message);
+    if (error) console.warn(`${provider} klant sync mislukt:`, error.message);
   } catch (err: any) {
-    console.warn("e-Boekhouden klant sync mislukt:", err.message);
+    console.warn("Klant sync mislukt:", err.message);
   }
 };
 
@@ -107,7 +124,7 @@ export const useCreateCustomer = () => {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["customers"] });
-      syncCustomerToEboekhouden(data.id);
+      syncCustomerToProvider(data.id, companyId ?? null);
     },
   });
 };
@@ -122,7 +139,7 @@ export const useUpdateCustomer = () => {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["customers"] });
-      syncCustomerToEboekhouden(data.id);
+      syncCustomerToProvider(data.id, data.company_id ?? null);
     },
   });
 };
