@@ -1,48 +1,43 @@
 
 
-## Plan: Migreer naar Google APIs, verwijder Mapbox
+## Probleem
 
-### Overzicht
+De `optimize-route` edge function retourneert `appointments_count: 0` omdat:
 
-Drie Edge Functions worden aangepast: `geocode-customers` migreert van Mapbox naar Google Geocoding API, `mapbox-proxy` wordt vervangen door een nieuwe `google-maps-proxy` met dezelfde interface (geocode + directions acties), en de `mapbox-proxy` function wordt verwijderd.
+1. **`assigned_to` filter is te strikt**: Wanneer de employee filter op "all" staat, stuurt de frontend `assigned_to: undefined`. De edge function valt dan terug op `userId` (de ingelogde gebruiker). Als de afspraken niet aan jou persoonlijk zijn toegewezen, worden ze niet gevonden.
 
-### Stap 1: Nieuwe `google-maps-proxy` Edge Function
+2. **Tijdzone mismatch**: De afspraken worden in UTC opgeslagen. De edge function zoekt op `2026-03-04T00:00:00` t/m `2026-03-04T23:59:59` (UTC), maar Nederlandse tijd is UTC+1. Afspraken gepland rond middernacht lokale tijd vallen buiten het bereik.
 
-Vervangt `mapbox-proxy` met dezelfde action-interface (`geocode`, `directions`) maar nu via Google APIs:
+## Plan
 
-- **`geocode` action**: Roept `https://maps.googleapis.com/maps/api/geocode/json` aan met `address={query}&region=nl&language=nl&key={GOOGLE_ROUTES_API_KEY}`
-  - Parsed de `address_components` om `street`, `house_number`, `postal_code`, `city` te extraheren
-  - Retourneert exact hetzelfde `GeocodeSuggestion[]` formaat als voorheen
-- **`directions` action**: Roept `https://routes.googleapis.com/directions/v2:computeRoutes` aan
-  - Retourneert hetzelfde `{ duration_minutes, distance_km }` formaat
+### 1. Edge function `optimize-route` aanpassen
+- Wanneer `assigned_to` niet is meegegeven, de `.eq("assigned_to", ...)` filter weglaten zodat alle afspraken van het bedrijf op die dag worden meegenomen
+- Tijdzone-proof maken door het datumbereik te verruimen: `T00:00:00+01:00` of simpelweg een dag breder zoeken (`dayStart = ${date}T00:00:00+01:00`)
 
-Dezelfde auth via `authenticateRequest()`, dezelfde input validatie.
+### 2. Frontend `PlanningPage.tsx`
+- Geen wijziging nodig; de `undefined` waarde voor `assigned_to` is correct. De edge function moet dit beter afhandelen.
 
-### Stap 2: `geocode-customers` migreren
+### Concrete wijzigingen
 
-Vervangt de Mapbox geocoding call door Google Geocoding API. Zelfde structuur (batch 50 klanten, kleine delay), alleen de API call en response parsing verandert.
+**`supabase/functions/optimize-route/index.ts`** (regels 21-36):
+```typescript
+const targetUser = assigned_to || null; // null = alle medewerkers
+const dayStart = `${date}T00:00:00+01:00`;
+const dayEnd = `${date}T23:59:59+01:00`;
 
-### Stap 3: Frontend aanpassen
+let query = admin
+  .from("appointments")
+  .select("id, scheduled_at, duration_minutes, address_id, customer_id, status")
+  .eq("company_id", companyId)
+  .gte("scheduled_at", dayStart)
+  .lte("scheduled_at", dayEnd)
+  .neq("status", "geannuleerd")
+  .order("scheduled_at");
 
-Drie bestanden refereren naar `"mapbox-proxy"`:
-- `src/hooks/useMapbox.ts` — `useGeocode` en `useDirections` → invoke `"google-maps-proxy"`
-- `src/components/CustomerDialog.tsx` — auto-geocode bij opslaan → invoke `"google-maps-proxy"`
+if (targetUser) {
+  query = query.eq("assigned_to", targetUser);
+}
+```
 
-De hook-file hernoemen naar `useGoogleMaps.ts` (of de import alias behouden). De interfaces en return types blijven identiek.
-
-### Stap 4: Opruimen
-
-- **Verwijder** `supabase/functions/mapbox-proxy/index.ts`
-- **Verwijder** de deployed `mapbox-proxy` function via delete tool
-- Geen wijziging nodig in `config.toml` (mapbox-proxy had geen entry)
-
-### Bestanden
-
-| Bestand | Actie |
-|---|---|
-| `supabase/functions/google-maps-proxy/index.ts` | Nieuw — vervangt mapbox-proxy |
-| `supabase/functions/geocode-customers/index.ts` | Wijzigen — Google Geocoding API |
-| `supabase/functions/mapbox-proxy/index.ts` | Verwijderen |
-| `src/hooks/useMapbox.ts` | Wijzigen — invoke `google-maps-proxy` |
-| `src/components/CustomerDialog.tsx` | Wijzigen — invoke `google-maps-proxy` |
+Daarna de edge function opnieuw deployen.
 
