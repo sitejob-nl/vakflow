@@ -1,18 +1,35 @@
 
 
-## Plan
+## Probleem
 
-Twee fixes in de Outlook edge functions:
+De `fetch-emails` edge function heeft geen Outlook-ondersteuning. Het controleert niet de `email_provider` van het bedrijf en probeert altijd via IMAP te verbinden met SMTP-credentials. Voor een Outlook-gekoppeld bedrijf (zoals SiteJob met kas@sitejob.nl) zijn die SMTP-credentials er niet, waardoor het faalt.
 
-### 1. `outlook-auth-url/index.ts` — App origin meesturen in state
-De `state` parameter wordt nu `companyId|https://app.vakflow.nl` zodat de callback weet waarheen te redirecten.
+Ter vergelijking: `send-email` checkt wél `email_provider === "outlook"` en stuurt dan door naar `outlook-send`. Dezelfde logica ontbreekt bij fetch.
 
-- Regel 69: state wijzigen van `${profile.company_id}` naar `${profile.company_id}|https://app.vakflow.nl`
+## Oplossing
 
-### 2. `outlook-callback/index.ts` — State parsen + email_provider + redirect fix
-- State splitsen op `|` om `companyId` en `appOrigin` te extraheren (met fallback `https://app.vakflow.nl`)
-- `email_provider: "outlook"` toevoegen aan de company update (regel 115-118)
-- Redirect URL gebruiken op basis van de `appOrigin` uit de state, niet `req.headers.get("origin")`
+De `fetch-emails` edge function aanpassen om:
 
-Beide functions worden opnieuw gedeployed.
+1. **Company data ophalen** inclusief `email_provider`, `outlook_refresh_token`, `outlook_email`
+2. **Als `email_provider === "outlook"`**: Microsoft Graph API gebruiken om e-mails op te halen via `GET /me/messages` met de access token (verkregen door de refresh token te decrypten en te refreshen)
+3. **Anders**: bestaande IMAP-logica gebruiken (ongewijzigd)
+
+### Technisch detail: Outlook e-mail ophalen via Graph API
+
+De Graph API call:
+```
+GET https://graph.microsoft.com/v1.0/me/messages?$filter=isRead eq false&$top=50&$select=id,subject,from,receivedDateTime,body,isRead
+```
+
+Na het ophalen: berichten markeren als gelezen via `PATCH /me/messages/{id}` met `{ isRead: true }`.
+
+De token-refresh logica is identiek aan wat `outlook-send` al doet (refresh token decrypten → token endpoint aanroepen → access token gebruiken).
+
+### Aanpassing in `supabase/functions/fetch-emails/index.ts`
+
+- Na de auth check: company data ophalen met `email_provider`, `outlook_refresh_token`
+- Als outlook: decrypt refresh token → get access token → fetch via Graph API → insert in `communication_logs` → mark as read
+- Als SMTP: bestaande IMAP-logica (ongewijzigd)
+
+Eén bestand, één edge function, opnieuw deployen.
 
