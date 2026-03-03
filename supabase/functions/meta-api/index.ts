@@ -212,6 +212,17 @@ Deno.serve(async (req) => {
       const result = await graphPost(`${config.page_id}/feed`, config.page_access_token, {
         message: postMessage,
       });
+      console.log("publish-post result:", JSON.stringify(result));
+      if (result.error) {
+        return jsonRes({ error: result.error.message || "Facebook error", details: result.error }, 400);
+      }
+      // Save post locally
+      await supabaseAdmin.from("meta_page_posts").insert({
+        company_id: companyId,
+        post_id: result.id,
+        message: postMessage,
+        created_time: new Date().toISOString(),
+      });
       return jsonRes(result);
     }
 
