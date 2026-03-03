@@ -34,8 +34,6 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { code, redirect_uri, state } = body;
 
-    if (!code) return jsonRes({ error: "Missing code" }, 400);
-
     // Parse state to get company_id
     let companyId: string;
     try {
@@ -44,6 +42,67 @@ Deno.serve(async (req) => {
     } catch {
       return jsonRes({ error: "Invalid state" }, 400);
     }
+
+    // Handle select-page action BEFORE code exchange (code is single-use and already consumed)
+    if (body.action === "select-page" && body.page_id) {
+      const pageAccessToken = body.page_access_token;
+      if (!pageAccessToken) return jsonRes({ error: "Missing page_access_token" }, 400);
+
+      const { data: configRow } = await supabaseAdmin
+        .from("meta_config")
+        .select("user_access_token")
+        .eq("company_id", companyId)
+        .single();
+
+      const userAccessTokenStored = configRow?.user_access_token;
+      if (!userAccessTokenStored) return jsonRes({ error: "No stored user_access_token found. Please restart the OAuth flow." }, 400);
+
+      const selectedPage = { id: body.page_id, access_token: pageAccessToken };
+
+      let pageName = body.page_id;
+      try {
+        const pageInfoRes = await fetch(`https://graph.facebook.com/v21.0/${selectedPage.id}?fields=name&access_token=${selectedPage.access_token}`);
+        const pageInfo = await pageInfoRes.json();
+        if (pageInfo.name) pageName = pageInfo.name;
+      } catch { /* fallback */ }
+
+      let instagramAccountId = null;
+      try {
+        const igRes = await fetch(`https://graph.facebook.com/v21.0/${selectedPage.id}?fields=instagram_business_account&access_token=${selectedPage.access_token}`);
+        const igData = await igRes.json();
+        instagramAccountId = igData.instagram_business_account?.id || null;
+      } catch { /* optional */ }
+
+      const webhookVerifyToken = crypto.randomUUID();
+
+      const { error: upsertErr } = await supabaseAdmin.from("meta_config").upsert(
+        {
+          company_id: companyId,
+          page_id: selectedPage.id,
+          page_name: pageName,
+          page_access_token: selectedPage.access_token,
+          user_access_token: userAccessTokenStored,
+          instagram_account_id: instagramAccountId,
+          webhook_verify_token: webhookVerifyToken,
+        },
+        { onConflict: "company_id" }
+      );
+
+      if (upsertErr) {
+        console.error("Upsert error:", upsertErr);
+        return jsonRes({ error: upsertErr.message }, 500);
+      }
+
+      return jsonRes({
+        success: true,
+        page_id: selectedPage.id,
+        page_name: pageName,
+        instagram_account_id: instagramAccountId,
+      });
+    }
+
+    // For initial code exchange flow
+    if (!code) return jsonRes({ error: "Missing code" }, 400);
 
     const appId = Deno.env.get("META_APP_ID")!;
     const appSecret = Deno.env.get("META_APP_SECRET")!;
@@ -90,51 +149,6 @@ Deno.serve(async (req) => {
     // If action is "list-pages", return the pages for selection
     if (body.action === "list-pages") {
       return jsonRes({ pages });
-    }
-
-    // If action is "select-page", save the selected page
-    if (body.action === "select-page" && body.page_id) {
-      const selectedPage = pages.find((p: any) => p.id === body.page_id);
-      if (!selectedPage) return jsonRes({ error: "Page not found" }, 400);
-
-      // Try to get Instagram account ID linked to the page
-      let instagramAccountId = null;
-      try {
-        const igRes = await fetch(`https://graph.facebook.com/v21.0/${selectedPage.id}?fields=instagram_business_account&access_token=${selectedPage.access_token}`);
-        const igData = await igRes.json();
-        instagramAccountId = igData.instagram_business_account?.id || null;
-      } catch {
-        // Instagram account is optional
-      }
-
-      // Generate a random webhook verify token
-      const webhookVerifyToken = crypto.randomUUID();
-
-      // Upsert meta_config
-      const { error: upsertErr } = await supabaseAdmin.from("meta_config").upsert(
-        {
-          company_id: companyId,
-          page_id: selectedPage.id,
-          page_name: selectedPage.name,
-          page_access_token: selectedPage.access_token,
-          user_access_token: userAccessToken,
-          instagram_account_id: instagramAccountId,
-          webhook_verify_token: webhookVerifyToken,
-        },
-        { onConflict: "company_id" }
-      );
-
-      if (upsertErr) {
-        console.error("Upsert error:", upsertErr);
-        return jsonRes({ error: upsertErr.message }, 500);
-      }
-
-      return jsonRes({
-        success: true,
-        page_id: selectedPage.id,
-        page_name: selectedPage.name,
-        instagram_account_id: instagramAccountId,
-      });
     }
 
     // Default: exchange code and return pages for selection

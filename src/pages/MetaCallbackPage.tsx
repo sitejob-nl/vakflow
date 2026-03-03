@@ -61,13 +61,13 @@ const MetaCallbackPage = () => {
   const selectPage = async (pageId: string) => {
     setStatus("saving");
     try {
+      const selectedPage = pages.find((p) => p.id === pageId);
       const { data, error: fnError } = await supabase.functions.invoke("meta-oauth-callback", {
         body: {
-          code,
           state,
-          redirect_uri: `${window.location.origin}/meta-callback`,
           action: "select-page",
           page_id: pageId,
+          page_access_token: selectedPage?.access_token,
         },
       });
 
