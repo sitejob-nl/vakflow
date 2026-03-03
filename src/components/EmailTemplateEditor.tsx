@@ -173,7 +173,7 @@ export default function EmailTemplateEditor({
   const [blocks, setBlocks] = useState<EmailBlock[]>(() => createDefaultBlocks());
   const [mode, setMode] = useState<"builder" | "preview" | "html">("builder");
   const [isLegacyHtml, setIsLegacyHtml] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  
   const initialized = useRef(false);
 
   // Sync blocks → HTML on every block change
@@ -200,13 +200,6 @@ export default function EmailTemplateEditor({
     }
   }, []);
 
-  // Preview iframe
-  useEffect(() => {
-    if (mode === "preview" && iframeRef.current) {
-      const doc = iframeRef.current.contentDocument;
-      if (doc) { doc.open(); doc.write(htmlBody); doc.close(); }
-    }
-  }, [mode, htmlBody]);
 
   const updateBlock = (id: string, patch: Partial<EmailBlock>) => {
     setBlocks((prev) => {
@@ -441,7 +434,7 @@ export default function EmailTemplateEditor({
 
         <TabsContent value="preview">
           <div className="border border-border rounded-sm bg-background overflow-hidden">
-            <iframe ref={iframeRef} title="E-mail preview" sandbox="allow-same-origin"
+            <iframe srcDoc={htmlBody} title="E-mail preview" sandbox="allow-same-origin"
               className="w-full min-h-[400px] border-0" />
           </div>
         </TabsContent>
