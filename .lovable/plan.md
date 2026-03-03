@@ -2,27 +2,35 @@
 
 ## Probleem
 
-De `syncCustomerToEboekhouden` functie in `useCustomers.ts` wordt **altijd** aangeroepen bij het aanmaken/bijwerken van een klant, ongeacht of het bedrijf e-Boekhouden als boekhoudprovider gebruikt. Dit veroorzaakt een 400-fout wanneer er geen e-Boekhouden API-token is ingesteld.
+De `syncCustomerToProvider` in `useCustomers.ts` stuurt `action: "sync-customer"` naar alle providers, maar alleen `sync-invoice-eboekhouden` heeft deze actie geimplementeerd. Rompslomp en Moneybird retourneren een fout omdat ze de actie niet kennen.
 
-De fout in de console: `e-Boekhouden klant sync mislukt: Edge Function returned a non-2xx status code`
+De client-side code is correct - hij checkt al de `accounting_provider` en stuurt alleen naar het gekoppelde pakket. Het probleem zit in de edge functions.
 
 ## Oplossing
 
-De `syncCustomerToEboekhouden` functie moet alleen worden aangeroepen wanneer `accounting_provider === "eboekhouden"` op het bedrijf is ingesteld.
+Voeg een `sync-customer` actie toe aan beide edge functions, gemodelleerd op de bestaande bulk `sync-contacts` logica (die al werkt).
 
-### Aanpak
+### 1. `supabase/functions/sync-rompslomp/index.ts`
 
-1. **`useCustomers.ts` aanpassen**: De `useCreateCustomer` en `useUpdateCustomer` hooks moeten eerst de `accounting_provider` van het bedrijf opvragen (via de `companies_safe` view of een aparte query) voordat ze de sync triggeren.
+Voeg een `sync-customer` handler toe (na de `test` actie, rond regel 143):
+- Haal de klant op via `customer_id`
+- Als `rompslomp_contact_id` al bestaat: skip (contact bestaat al)
+- Zo niet: map de klantdata naar Rompslomp formaat (hergebruik de mapping uit regels 158-170 van `sync-contacts`)
+- POST naar `/contacts`
+- Schrijf het `rompslomp_contact_id` terug naar de `customers` tabel
 
-2. **Concrete implementatie**: 
-   - Maak een helper die de `accounting_provider` checkt voordat de sync wordt aangeroepen
-   - Gebruik de bestaande `companies_safe` view (die al beschikbaar is zonder admin-rechten) om de `accounting_provider` op te halen
-   - Roep `syncCustomerToEboekhouden` alleen aan als `provider === "eboekhouden"`
-   - Voeg ook een Rompslomp sync toe als `provider === "rompslomp"` en een Moneybird sync als `provider === "moneybird"` (optioneel, voor consistentie)
+### 2. `supabase/functions/sync-moneybird/index.ts`
 
-3. **Alternatief (eenvoudiger)**: Haal de `accounting_provider` op uit de `companies_safe` view in de `onSuccess` callback, en call de sync alleen conditioneel. Dit voorkomt onnodige edge function calls.
+Voeg een vergelijkbare `sync-customer` handler toe (na de `test` actie, rond regel 161):
+- Haal de klant op via `customer_id`
+- Als `moneybird_contact_id` al bestaat: skip
+- Zo niet: map naar Moneybird formaat (hergebruik mapping uit regels 177-188 van `sync-contacts`)
+- POST naar `contacts`
+- Schrijf het `moneybird_contact_id` terug
 
 ### Bestanden te wijzigen
+- `supabase/functions/sync-rompslomp/index.ts` - sync-customer actie toevoegen
+- `supabase/functions/sync-moneybird/index.ts` - sync-customer actie toevoegen
 
-- **`src/hooks/useCustomers.ts`**: Conditionele sync op basis van `accounting_provider`
+Geen wijzigingen nodig in `useCustomers.ts` - de client-side code is al correct.
 
