@@ -100,8 +100,25 @@ export const useUpdateWorkOrder = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: TablesUpdate<"work_orders"> & { id: string }) => {
-      const { data, error } = await supabase.from("work_orders").update(updates).eq("id", id).select().single();
+      const { data, error } = await supabase.from("work_orders").update(updates).eq("id", id).select("*, customers(name, email), services(name)").single();
       if (error) throw error;
+
+      // Trigger email automation when work order is completed
+      if (updates.status === "afgerond" && data.customer_id) {
+        const wo = data as any;
+        supabase.functions.invoke("trigger-email-automation", {
+          body: {
+            trigger_type: "work_order_completed",
+            customer_id: data.customer_id,
+            context: {
+              werkbonnummer: wo.work_order_number || "",
+              bedrag: wo.total_amount ? `€${Number(wo.total_amount).toFixed(2)}` : "",
+              work_order_id: id,
+            },
+          },
+        }).catch((err) => console.error("Email automation trigger failed:", err));
+      }
+
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["work_orders"] }),

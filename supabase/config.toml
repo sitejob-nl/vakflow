@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.meta-oauth-callback]
 verify_jwt = false
+
+[functions.trigger-email-automation]
+verify_jwt = false

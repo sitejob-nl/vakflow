@@ -105,6 +105,21 @@ export const useUpdateInvoice = () => {
     mutationFn: async ({ id, ...updates }: TablesUpdate<"invoices"> & { id: string }) => {
       const { data, error } = await supabase.from("invoices").update(updates).eq("id", id).select().single();
       if (error) throw error;
+
+      // Trigger email automation when invoice is sent
+      if (updates.status === "verzonden" && data.customer_id) {
+        supabase.functions.invoke("trigger-email-automation", {
+          body: {
+            trigger_type: "invoice_sent",
+            customer_id: data.customer_id,
+            context: {
+              factuurnummer: data.invoice_number || "",
+              bedrag: data.total ? `€${Number(data.total).toFixed(2)}` : "",
+            },
+          },
+        }).catch((err) => console.error("Email automation trigger failed:", err));
+      }
+
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
