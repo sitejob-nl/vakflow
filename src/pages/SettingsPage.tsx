@@ -2,7 +2,10 @@ import { useState, useEffect, FormEvent } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Upload, UserPlus, Users, MessageSquare, ChevronDown, ChevronUp, BookOpen, AlertTriangle, HelpCircle } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Upload, UserPlus, Users, MessageSquare, ChevronDown, ChevronUp, BookOpen, AlertTriangle, HelpCircle, Mail, Eye } from "lucide-react";
+import { useEmailTemplates, useCreateEmailTemplate, useUpdateEmailTemplate, useDeleteEmailTemplate, type EmailTemplate } from "@/hooks/useEmailTemplates";
+import EmailTemplateEditor, { DEFAULT_TEMPLATE } from "@/components/EmailTemplateEditor";
+import { useAutoMessageSettings, useUpsertAutoMessageSetting, MESSAGE_TYPES, LABELS } from "@/hooks/useAutoMessageSettings";
 import { useWhatsAppStatus } from "@/hooks/useWhatsAppStatus";
 import { useWhatsAppTemplates, useDeleteWhatsAppTemplate, useCreateWhatsAppTemplate } from "@/hooks/useWhatsAppTemplates";
 import { useWhatsAppProfile, useUpdateWhatsAppProfile, useUploadWhatsAppProfilePhoto } from "@/hooks/useWhatsAppProfile";
@@ -21,7 +24,7 @@ import { useWhatsAppAutomations, useCreateAutomation, useUpdateAutomation, useDe
 import type { Tables } from "@/integrations/supabase/types";
 import MetaSettingsTab from "@/components/MetaSettingsTab";
 
-const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "Automatiseringen", "Teamleden", "Koppelingen", "Meta"];
+const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates", "Automatiseringen", "Teamleden", "Koppelingen", "Meta"];
 
 // Map tab names to required feature slugs (tabs not listed here are always shown)
 const TAB_FEATURE_MAP: Record<string, string> = {
@@ -226,6 +229,22 @@ const SettingsPage = () => {
       setWaProfileVertical(waProfile.vertical || "");
     }
   }, [waProfile]);
+
+  // Email templates state
+  const { data: emailTemplates, isLoading: emailTemplatesLoading } = useEmailTemplates();
+  const createEmailTemplate = useCreateEmailTemplate();
+  const updateEmailTemplate = useUpdateEmailTemplate();
+  const deleteEmailTemplate = useDeleteEmailTemplate();
+  const [editingEmailTemplate, setEditingEmailTemplate] = useState<EmailTemplate | null>(null);
+  const [showEmailTemplateEditor, setShowEmailTemplateEditor] = useState(false);
+  const [etName, setEtName] = useState("");
+  const [etSubject, setEtSubject] = useState("");
+  const [etHtmlBody, setEtHtmlBody] = useState("");
+  const [deletingEmailTemplateId, setDeletingEmailTemplateId] = useState<string | null>(null);
+
+  // Email automations state
+  const { data: autoMessageSettings } = useAutoMessageSettings();
+  const upsertAutoMessage = useUpsertAutoMessageSetting();
 
   // Automations state
   const { data: automations, isLoading: automationsLoading } = useWhatsAppAutomations();
@@ -2331,6 +2350,110 @@ const SettingsPage = () => {
         </div>
       )}
 
+      {/* E-mail Templates tab */}
+      {activeTab === "E-mail Templates" && (
+        <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
+          <div>
+            <h3 className="text-[14px] font-bold mb-1">E-mail Templates</h3>
+            <p className="text-[12px] text-secondary-foreground mb-3">Maak herbruikbare HTML e-mailtemplates met variabelen voor automatische berichten.</p>
+          </div>
+
+          {showEmailTemplateEditor ? (
+            <EmailTemplateEditor
+              name={etName}
+              subject={etSubject}
+              htmlBody={etHtmlBody}
+              onNameChange={setEtName}
+              onSubjectChange={setEtSubject}
+              onHtmlBodyChange={setEtHtmlBody}
+              inputClass={inputClass}
+              labelClass={labelClass}
+              saving={createEmailTemplate.isPending || updateEmailTemplate.isPending}
+              onSave={async () => {
+                try {
+                  if (editingEmailTemplate) {
+                    await updateEmailTemplate.mutateAsync({ id: editingEmailTemplate.id, name: etName, subject: etSubject, html_body: etHtmlBody });
+                  } else {
+                    await createEmailTemplate.mutateAsync({ name: etName, subject: etSubject, html_body: etHtmlBody, variables: [] });
+                  }
+                  toast({ title: editingEmailTemplate ? "Template bijgewerkt" : "Template aangemaakt" });
+                  setShowEmailTemplateEditor(false);
+                  setEditingEmailTemplate(null);
+                } catch (err: any) {
+                  toast({ title: "Fout", description: err.message, variant: "destructive" });
+                }
+              }}
+              onCancel={() => { setShowEmailTemplateEditor(false); setEditingEmailTemplate(null); }}
+            />
+          ) : (
+            <>
+              <Button
+                onClick={() => {
+                  setEditingEmailTemplate(null);
+                  setEtName("");
+                  setEtSubject("");
+                  setEtHtmlBody("");
+                  setShowEmailTemplateEditor(true);
+                }}
+                className="flex items-center gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" /> Nieuw template
+              </Button>
+
+              {emailTemplatesLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              ) : !emailTemplates?.length ? (
+                <p className="text-[13px] text-muted-foreground text-center py-6">Nog geen e-mail templates. Maak er een aan om te beginnen.</p>
+              ) : (
+                <div className="space-y-2">
+                  {emailTemplates.map((tpl) => (
+                    <div key={tpl.id} className="flex items-center gap-3 p-3 border border-border rounded-md bg-background">
+                      <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-bold truncate">{tpl.name}</p>
+                        <p className="text-[11px] text-secondary-foreground truncate">{tpl.subject || "Geen onderwerp"}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => {
+                          setEditingEmailTemplate(tpl);
+                          setEtName(tpl.name);
+                          setEtSubject(tpl.subject || "");
+                          setEtHtmlBody(tpl.html_body);
+                          setShowEmailTemplateEditor(true);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setDeletingEmailTemplateId(tpl.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      <AlertDialog open={!!deletingEmailTemplateId} onOpenChange={(open) => !open && setDeletingEmailTemplateId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>E-mail template verwijderen?</AlertDialogTitle>
+            <AlertDialogDescription>Dit template wordt permanent verwijderd.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuleren</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => { await deleteEmailTemplate.mutateAsync(deletingEmailTemplateId!); setDeletingEmailTemplateId(null); toast({ title: "Template verwijderd" }); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Verwijderen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {activeTab === "Automatiseringen" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           <div>
@@ -2514,6 +2637,87 @@ const SettingsPage = () => {
               </div>
             </div>
           )}
+
+          {/* Email Automations Section */}
+          <div className="border-t border-border pt-5 mt-5">
+            <h3 className="text-[14px] font-bold mb-1 flex items-center gap-1.5">
+              <Mail className="h-4 w-4" /> E-mail Automatiseringen
+            </h3>
+            <p className="text-[12px] text-secondary-foreground mb-3">Stel in welke e-mails automatisch verstuurd worden bij bepaalde gebeurtenissen.</p>
+
+            {!emailTemplates?.length ? (
+              <p className="text-[13px] text-muted-foreground text-center py-4 bg-muted/30 rounded-md">
+                Maak eerst een e-mail template aan in het tabblad "E-mail Templates" om automatiseringen in te stellen.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {MESSAGE_TYPES.map((type) => {
+                  const setting = autoMessageSettings?.find((s) => s.message_type === type);
+                  const isEnabled = setting?.enabled && (setting?.channel === "email" || setting?.channel === "both");
+                  const selectedTemplateId = (setting as any)?.email_template_id || "";
+
+                  return (
+                    <div key={type} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 border border-border rounded-md bg-background">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-bold">{LABELS[type]}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={selectedTemplateId}
+                          onValueChange={async (templateId) => {
+                            try {
+                              await upsertAutoMessage.mutateAsync({
+                                message_type: type,
+                                enabled: true,
+                                channel: setting?.channel === "whatsapp" ? "both" : "email",
+                                template_name: setting?.template_name || null,
+                                custom_text: setting?.custom_text || null,
+                                delay_hours: setting?.delay_hours || 0,
+                                email_template_id: templateId,
+                              } as any);
+                              toast({ title: "E-mail automatisering opgeslagen" });
+                            } catch (err: any) {
+                              toast({ title: "Fout", description: err.message, variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-[200px] h-8 text-[12px]">
+                            <SelectValue placeholder="Kies template..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {emailTemplates.map((tpl) => (
+                              <SelectItem key={tpl.id} value={tpl.id}>{tpl.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <button
+                          onClick={async () => {
+                            const newChannel = isEnabled
+                              ? (setting?.channel === "both" ? "whatsapp" : "whatsapp")
+                              : (setting?.channel === "whatsapp" ? "both" : "email");
+                            try {
+                              await upsertAutoMessage.mutateAsync({
+                                message_type: type,
+                                enabled: !isEnabled || newChannel !== "whatsapp",
+                                channel: isEnabled ? (setting?.channel === "both" ? "whatsapp" : "whatsapp") : (setting?.channel === "whatsapp" ? "both" : "email"),
+                                template_name: setting?.template_name || null,
+                                custom_text: setting?.custom_text || null,
+                                delay_hours: setting?.delay_hours || 0,
+                                email_template_id: (setting as any)?.email_template_id || null,
+                              } as any);
+                            } catch {}
+                          }}
+                          className={`px-2.5 py-1 rounded-sm text-[11px] font-bold transition-colors ${isEnabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+                        >
+                          {isEnabled ? "Aan" : "Uit"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
