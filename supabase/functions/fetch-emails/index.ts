@@ -63,6 +63,21 @@ async function decryptPassword(encryptedStr: string): Promise<string> {
   return new TextDecoder().decode(decrypted);
 }
 
+function stripHtmlTags(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 async function getOutlookAccessToken(refreshToken: string): Promise<string> {
   const clientId = Deno.env.get("OUTLOOK_CLIENT_ID");
   const tenantId = Deno.env.get("OUTLOOK_TENANT_ID") || "organizations";
@@ -98,8 +113,8 @@ async function fetchOutlookEmails(
   const refreshToken = await decryptPassword(company.outlook_refresh_token);
   const accessToken = await getOutlookAccessToken(refreshToken);
 
-  // Fetch unread messages
-  const graphUrl = `https://graph.microsoft.com/v1.0/me/messages?$filter=isRead eq false&$top=50&$select=id,subject,from,receivedDateTime,body,internetMessageId&$orderby=receivedDateTime desc`;
+  // Fetch unread messages with bodyPreview for plain text
+  const graphUrl = `https://graph.microsoft.com/v1.0/me/messages?$filter=isRead eq false&$top=50&$select=id,subject,from,receivedDateTime,body,bodyPreview,internetMessageId&$orderby=receivedDateTime desc`;
   const graphRes = await fetch(graphUrl, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -125,9 +140,14 @@ async function fetchOutlookEmails(
     try {
       const messageId = msg.internetMessageId || msg.id;
       const fromEmail = msg.from?.emailAddress?.address?.toLowerCase() || "";
+      const fromName = msg.from?.emailAddress?.name || "";
       const subject = msg.subject || "(geen onderwerp)";
       const sentDate = msg.receivedDateTime || new Date().toISOString();
-      const body = (msg.body?.content || "").substring(0, 10000);
+      
+      const rawBody = msg.body?.content || "";
+      const isHtml = msg.body?.contentType === "html";
+      const htmlBody = isHtml ? rawBody.substring(0, 50000) : null;
+      const plainBody = msg.bodyPreview || (isHtml ? stripHtmlTags(rawBody) : rawBody);
 
       // Skip duplicates
       if (messageId) {
@@ -148,8 +168,11 @@ async function fetchOutlookEmails(
       const insertData: Record<string, any> = {
         channel: "email",
         direction: "inbound",
-        subject: customerId ? subject : (fromEmail ? `${subject} [van: ${fromEmail}]` : subject),
-        body: body || null,
+        subject,
+        body: plainBody.substring(0, 10000) || null,
+        html_body: htmlBody,
+        sender_email: fromEmail || null,
+        sender_name: fromName || null,
         sent_at: sentDate,
         status: "sent",
         is_automated: false,
@@ -371,19 +394,26 @@ serve(async (req) => {
         const fromEmail = from
           ? (from.mailbox && from.host ? `${from.mailbox}@${from.host}`.toLowerCase() : "")
           : "";
+        const fromName = from?.name || "";
         const subject = env?.subject || "(geen onderwerp)";
         const sentDate = env?.date ? new Date(env.date).toISOString() : new Date().toISOString();
 
         const bodyContent = msg.body?.["1"] || "";
-        const body = typeof bodyContent === "string" ? bodyContent.substring(0, 10000) : "";
+        const rawBody = typeof bodyContent === "string" ? bodyContent : "";
+        const isHtml = rawBody.includes("<html") || rawBody.includes("<div") || rawBody.includes("<p>");
+        const htmlBody = isHtml ? rawBody.substring(0, 50000) : null;
+        const plainBody = isHtml ? stripHtmlTags(rawBody) : rawBody;
 
         const customerId = customerMap.get(fromEmail) || null;
 
         const insertData: Record<string, any> = {
           channel: "email",
           direction: "inbound",
-          subject: fromEmail ? `${subject} [van: ${fromEmail}]` : subject,
-          body: body || null,
+          subject,
+          body: plainBody.substring(0, 10000) || null,
+          html_body: htmlBody,
+          sender_email: fromEmail || null,
+          sender_name: fromName || null,
           sent_at: sentDate,
           status: "sent",
           is_automated: false,
@@ -393,7 +423,6 @@ serve(async (req) => {
 
         if (customerId) {
           insertData.customer_id = customerId;
-          insertData.subject = subject;
         } else {
           console.log(`No customer match for ${fromEmail}, saving without customer link`);
         }

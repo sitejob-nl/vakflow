@@ -415,9 +415,12 @@ export type Database = {
           created_at: string
           customer_id: string | null
           direction: string
+          html_body: string | null
           id: string
           is_automated: boolean
           message_id: string | null
+          sender_email: string | null
+          sender_name: string | null
           sent_at: string | null
           status: string
           subject: string | null
@@ -431,9 +434,12 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           direction?: string
+          html_body?: string | null
           id?: string
           is_automated?: boolean
           message_id?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
           sent_at?: string | null
           status?: string
           subject?: string | null
@@ -447,9 +453,12 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           direction?: string
+          html_body?: string | null
           id?: string
           is_automated?: boolean
           message_id?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
           sent_at?: string | null
           status?: string
           subject?: string | null
