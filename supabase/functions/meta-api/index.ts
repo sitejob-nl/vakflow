@@ -230,9 +230,14 @@ Deno.serve(async (req) => {
     if (action === "page-insights") {
       const config = await getConfig(supabaseAdmin, companyId);
       const result = await graphGet(
-        `${config.page_id}/insights?metric=page_impressions,page_engaged_users,page_fans&period=day&date_preset=last_30d`,
+        `${config.page_id}/insights?metric=page_impressions_unique,page_post_engagements,page_fans&period=day&date_preset=last_30d`,
         config.page_access_token
       );
+      // If Facebook returns an error, return empty data instead of propagating
+      if (result.error) {
+        console.warn("page-insights error:", JSON.stringify(result.error));
+        return jsonRes({ data: [], error: result.error.message });
+      }
       return jsonRes(result);
     }
 
