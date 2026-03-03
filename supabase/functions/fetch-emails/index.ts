@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { ImapClient, fetchUnreadMessages, markMessagesAsRead } from "jsr:@workingdevshero/deno-imap";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,27 +56,139 @@ async function decryptPassword(encryptedStr: string): Promise<string> {
   return new TextDecoder().decode(decrypted);
 }
 
-function extractEmail(fromHeader: string): string {
-  const match = fromHeader.match(/<([^>]+)>/);
-  if (match) return match[1].toLowerCase();
-  return fromHeader.trim().toLowerCase();
+async function getOutlookAccessToken(refreshToken: string): Promise<string> {
+  const clientId = Deno.env.get("OUTLOOK_CLIENT_ID");
+  const tenantId = Deno.env.get("OUTLOOK_TENANT_ID") || "organizations";
+  const clientSecret = Deno.env.get("OUTLOOK_CLIENT_SECRET");
+  if (!clientId || !clientSecret) throw new Error("Outlook credentials not configured");
+
+  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+  const res = await fetch(tokenUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+      scope: "https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite offline_access",
+    }),
+  });
+
+  const data = await res.json();
+  if (data.error) throw new Error(`Token refresh failed: ${data.error_description}`);
+  return data.access_token;
 }
 
-function decodeBody(bodyParts: any): string {
-  if (!bodyParts) return "";
-  if (typeof bodyParts === "string") return bodyParts;
+async function fetchOutlookEmails(
+  supabaseAdmin: any,
+  userCompanyId: string,
+  company: any,
+  customerMap: Map<string, string>
+): Promise<{ fetched: number; total_unread: number; errors: string[] }> {
+  console.log("Using Outlook/Graph API to fetch emails");
 
-  // Try to extract text from fetched message body
-  if (bodyParts.text) return bodyParts.text;
-  if (bodyParts.html) return bodyParts.html;
+  const refreshToken = await decryptPassword(company.outlook_refresh_token);
+  const accessToken = await getOutlookAccessToken(refreshToken);
 
-  // If it's an object with numbered keys (BODY sections)
-  for (const key of Object.keys(bodyParts)) {
-    const val = bodyParts[key];
-    if (typeof val === "string" && val.length > 0) return val;
+  // Fetch unread messages
+  const graphUrl = `https://graph.microsoft.com/v1.0/me/messages?$filter=isRead eq false&$top=50&$select=id,subject,from,receivedDateTime,body,internetMessageId&$orderby=receivedDateTime desc`;
+  const graphRes = await fetch(graphUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!graphRes.ok) {
+    const errText = await graphRes.text();
+    console.error("Graph API error:", errText);
+    throw new Error(`Graph API fout: ${graphRes.status}`);
   }
 
-  return JSON.stringify(bodyParts);
+  const graphData = await graphRes.json();
+  const messages = graphData.value || [];
+  console.log(`Found ${messages.length} unread Outlook messages`);
+
+  if (messages.length === 0) {
+    return { fetched: 0, total_unread: 0, errors: [] };
+  }
+
+  let fetched = 0;
+  const errors: string[] = [];
+
+  for (const msg of messages) {
+    try {
+      const messageId = msg.internetMessageId || msg.id;
+      const fromEmail = msg.from?.emailAddress?.address?.toLowerCase() || "";
+      const subject = msg.subject || "(geen onderwerp)";
+      const sentDate = msg.receivedDateTime || new Date().toISOString();
+      const body = (msg.body?.content || "").substring(0, 10000);
+
+      // Skip duplicates
+      if (messageId) {
+        const { data: existing } = await supabaseAdmin
+          .from("communication_logs")
+          .select("id")
+          .eq("message_id", messageId)
+          .maybeSingle();
+
+        if (existing) {
+          console.log(`Skipping duplicate: ${messageId}`);
+          continue;
+        }
+      }
+
+      const customerId = customerMap.get(fromEmail) || null;
+
+      const insertData: Record<string, any> = {
+        channel: "email",
+        direction: "inbound",
+        subject: customerId ? subject : (fromEmail ? `${subject} [van: ${fromEmail}]` : subject),
+        body: body || null,
+        sent_at: sentDate,
+        status: "sent",
+        is_automated: false,
+        message_id: messageId,
+        company_id: userCompanyId,
+      };
+
+      if (customerId) {
+        insertData.customer_id = customerId;
+      }
+
+      const { error: insertError } = await supabaseAdmin
+        .from("communication_logs")
+        .insert(insertData);
+
+      if (insertError) {
+        if (insertError.code === "23505") {
+          console.log(`Duplicate message_id, skipping`);
+        } else {
+          console.error("Insert error:", insertError);
+          errors.push(insertError.message);
+        }
+      } else {
+        fetched++;
+      }
+
+      // Mark as read in Outlook
+      try {
+        await fetch(`https://graph.microsoft.com/v1.0/me/messages/${msg.id}`, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ isRead: true }),
+        });
+      } catch (markErr) {
+        console.error("Mark read error:", markErr);
+      }
+    } catch (msgErr) {
+      console.error("Message processing error:", msgErr);
+      errors.push(String(msgErr));
+    }
+  }
+
+  return { fetched, total_unread: messages.length, errors };
 }
 
 serve(async (req) => {
@@ -94,7 +205,6 @@ serve(async (req) => {
       });
     }
 
-    // Auth check
     const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -109,13 +219,12 @@ serve(async (req) => {
       });
     }
 
-    // Get SMTP credentials from profile
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: profile, error: profileError } = await supabaseAdmin
+    const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("smtp_email, smtp_password, company_id")
       .eq("id", user.id)
@@ -123,80 +232,18 @@ serve(async (req) => {
 
     const userCompanyId = profile?.company_id ?? null;
 
-    // Try company SMTP creds first, fallback to profile
-    let smtpEmail = profile?.smtp_email;
-    let smtpPassword = profile?.smtp_password;
-
+    // Get company data including email_provider and outlook credentials
+    let company: any = null;
     if (userCompanyId) {
-      const { data: companyCreds } = await supabaseAdmin
+      const { data: companyData } = await supabaseAdmin
         .from("companies")
-        .select("smtp_email, smtp_password")
+        .select("email_provider, outlook_refresh_token, outlook_email, smtp_email, smtp_password")
         .eq("id", userCompanyId)
         .single();
-      if (companyCreds?.smtp_email && companyCreds?.smtp_password) {
-        smtpEmail = companyCreds.smtp_email;
-        smtpPassword = companyCreds.smtp_password;
-      }
+      company = companyData;
     }
 
-    if (!smtpEmail || !smtpPassword) {
-      return new Response(
-        JSON.stringify({ error: "SMTP/IMAP-gegevens niet ingesteld. Ga naar Instellingen." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Decrypt password
-    let password: string;
-    try {
-      password = await decryptPassword(smtpPassword);
-    } catch {
-      password = smtpPassword;
-    }
-
-    // Connect to IMAP
-    console.log("Connecting to IMAP server...");
-    const client = new ImapClient({
-      host: "imap.transip.email",
-      port: 993,
-      tls: true,
-      username: smtpEmail,
-      password: password,
-    });
-
-    await client.connect();
-    console.log("Connected to IMAP server");
-
-    // Select INBOX
-    const inbox = await client.selectMailbox("INBOX");
-    console.log(`INBOX has ${inbox.exists} messages`);
-
-    // Search for unseen messages
-    const unreadIds = await client.search("UNSEEN");
-    console.log(`Found ${unreadIds.length} unread messages`);
-
-    if (unreadIds.length === 0) {
-      await client.disconnect();
-      return new Response(
-        JSON.stringify({ fetched: 0, message: "Geen nieuwe e-mails" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Limit to 50 messages per fetch
-    const idsToFetch = unreadIds.slice(0, 50);
-    const fetchRange = idsToFetch.join(",");
-
-    // Fetch message details
-    const messages = await client.fetch(fetchRange, {
-      envelope: true,
-      bodyStructure: true,
-      body: ["HEADER.FIELDS (MESSAGE-ID)", "1"],
-    });
-
-    console.log(`Fetched ${messages.length} messages`);
-
-    // Get all customers for email matching (scoped to company)
+    // Build customer map for email matching
     const custQuery = supabaseAdmin
       .from("customers")
       .select("id, email")
@@ -209,19 +256,96 @@ serve(async (req) => {
       if (c.email) customerMap.set(c.email.toLowerCase(), c.id);
     }
 
+    // ---- OUTLOOK PATH ----
+    if (company?.email_provider === "outlook" && company?.outlook_refresh_token) {
+      console.log("Email provider is Outlook, using Graph API");
+      const result = await fetchOutlookEmails(supabaseAdmin, userCompanyId, company, customerMap);
+      console.log(`Done. Fetched ${result.fetched} new Outlook emails.`);
+      return new Response(
+        JSON.stringify({
+          fetched: result.fetched,
+          total_unread: result.total_unread,
+          errors: result.errors.length > 0 ? result.errors : undefined,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ---- IMAP/SMTP PATH (existing logic) ----
+    console.log("Email provider is SMTP, using IMAP");
+
+    let smtpEmail = profile?.smtp_email;
+    let smtpPassword = profile?.smtp_password;
+
+    if (company?.smtp_email && company?.smtp_password) {
+      smtpEmail = company.smtp_email;
+      smtpPassword = company.smtp_password;
+    }
+
+    if (!smtpEmail || !smtpPassword) {
+      return new Response(
+        JSON.stringify({ error: "SMTP/IMAP-gegevens niet ingesteld. Ga naar Instellingen." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let password: string;
+    try {
+      password = await decryptPassword(smtpPassword);
+    } catch {
+      password = smtpPassword;
+    }
+
+    const { ImapClient } = await import("jsr:@workingdevshero/deno-imap");
+
+    console.log("Connecting to IMAP server...");
+    const client = new ImapClient({
+      host: "imap.transip.email",
+      port: 993,
+      tls: true,
+      username: smtpEmail,
+      password: password,
+    });
+
+    await client.connect();
+    console.log("Connected to IMAP server");
+
+    const inbox = await client.selectMailbox("INBOX");
+    console.log(`INBOX has ${inbox.exists} messages`);
+
+    const unreadIds = await client.search("UNSEEN");
+    console.log(`Found ${unreadIds.length} unread messages`);
+
+    if (unreadIds.length === 0) {
+      await client.disconnect();
+      return new Response(
+        JSON.stringify({ fetched: 0, message: "Geen nieuwe e-mails" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const idsToFetch = unreadIds.slice(0, 50);
+    const fetchRange = idsToFetch.join(",");
+
+    const messages = await client.fetch(fetchRange, {
+      envelope: true,
+      bodyStructure: true,
+      body: ["HEADER.FIELDS (MESSAGE-ID)", "1"],
+    });
+
+    console.log(`Fetched ${messages.length} messages`);
+
     let fetched = 0;
     const errors: string[] = [];
 
     for (const msg of messages) {
       try {
-        // Extract message-id from headers
         const headerData = msg.body?.["HEADER.FIELDS (MESSAGE-ID)"] || "";
         const msgIdMatch = typeof headerData === "string"
           ? headerData.match(/Message-ID:\s*<?([^>\r\n]+)>?/i)
           : null;
         const messageId = msgIdMatch ? msgIdMatch[1].trim() : null;
 
-        // Skip if already imported
         if (messageId) {
           const { data: existing } = await supabaseAdmin
             .from("communication_logs")
@@ -235,7 +359,6 @@ serve(async (req) => {
           }
         }
 
-        // Extract envelope data
         const env = msg.envelope;
         const from = env?.from?.[0];
         const fromEmail = from
@@ -244,14 +367,11 @@ serve(async (req) => {
         const subject = env?.subject || "(geen onderwerp)";
         const sentDate = env?.date ? new Date(env.date).toISOString() : new Date().toISOString();
 
-        // Extract body
         const bodyContent = msg.body?.["1"] || "";
         const body = typeof bodyContent === "string" ? bodyContent.substring(0, 10000) : "";
 
-        // Match customer
         const customerId = customerMap.get(fromEmail) || null;
 
-        // Insert into communication_logs
         const insertData: Record<string, any> = {
           channel: "email",
           direction: "inbound",
@@ -264,7 +384,6 @@ serve(async (req) => {
           company_id: userCompanyId,
         };
 
-        // Link to customer if matched, otherwise save without
         if (customerId) {
           insertData.customer_id = customerId;
           insertData.subject = subject;
@@ -277,7 +396,6 @@ serve(async (req) => {
           .insert(insertData);
 
         if (insertError) {
-          // Likely duplicate message_id constraint
           if (insertError.code === "23505") {
             console.log(`Duplicate message_id, skipping`);
           } else {
@@ -288,7 +406,6 @@ serve(async (req) => {
           fetched++;
         }
 
-        // Mark as read on server
         try {
           await client.setFlags(String(msg.seq || msg.uid), ["\\Seen"], "add");
         } catch (flagErr) {
