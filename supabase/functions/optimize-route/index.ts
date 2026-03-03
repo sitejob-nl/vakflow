@@ -18,22 +18,27 @@ Deno.serve(async (req) => {
 
     if (!date) return jsonRes({ error: "date is verplicht" }, 400);
 
-    const targetUser = assigned_to || userId;
-    const dayStart = `${date}T00:00:00`;
-    const dayEnd = `${date}T23:59:59`;
+    const targetUser = assigned_to || null;
+    const dayStart = `${date}T00:00:00+01:00`;
+    const dayEnd = `${date}T23:59:59+01:00`;
 
     const admin = createAdminClient();
 
-    // Fetch appointments for that day/user
-    const { data: appointments, error: apptErr } = await admin
+    // Fetch appointments for that day (optionally filtered by employee)
+    let query = admin
       .from("appointments")
       .select("id, scheduled_at, duration_minutes, address_id, customer_id, status")
       .eq("company_id", companyId)
-      .eq("assigned_to", targetUser)
       .gte("scheduled_at", dayStart)
       .lte("scheduled_at", dayEnd)
       .neq("status", "geannuleerd")
       .order("scheduled_at");
+
+    if (targetUser) {
+      query = query.eq("assigned_to", targetUser);
+    }
+
+    const { data: appointments, error: apptErr } = await query;
 
     if (apptErr) throw apptErr;
     if (!appointments || appointments.length < 2) {
