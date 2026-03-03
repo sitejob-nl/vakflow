@@ -74,3 +74,62 @@ export const useDirections = () => {
 
   return { result, loading, calculate };
 };
+
+export interface OptimizedStop {
+  appointment_id: string;
+  label: string;
+  lat: number;
+  lng: number;
+  travel_time_minutes: number;
+  distance_km: number;
+  original_index: number;
+}
+
+export interface OptimizeRouteResult {
+  stops: OptimizedStop[];
+  skipped: string[];
+  summary: {
+    total_travel_minutes: number;
+    total_distance_km: number;
+    return_leg: { travel_time_minutes: number; distance_km: number } | null;
+    waypoint_count: number;
+    skipped_count: number;
+  };
+  company_origin: string | null;
+}
+
+export const useOptimizeRoute = () => {
+  const [result, setResult] = useState<OptimizeRouteResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const optimize = useCallback(
+    async (params: { date: string; assigned_to?: string; round_trip?: boolean }) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke("optimize-route", {
+          body: params,
+        });
+        if (fnError) throw fnError;
+        if (data?.error) throw new Error(data.error);
+        setResult(data as OptimizeRouteResult);
+        return data as OptimizeRouteResult;
+      } catch (err: any) {
+        setError(err.message ?? "Onbekende fout");
+        setResult(null);
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const reset = useCallback(() => {
+    setResult(null);
+    setError(null);
+  }, []);
+
+  return { result, loading, error, optimize, reset };
+};
