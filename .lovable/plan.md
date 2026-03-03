@@ -1,44 +1,38 @@
 
 
-## Probleem
+## Analyse
 
-De `outlook-send` edge function crasht met `DataError: Invalid key length` bij het ontsleutelen van het Outlook refresh token. Dit komt omdat de `decrypt` functie in `outlook-send` een simplere versie is dan die in `fetch-emails`.
+Drie problemen gevonden:
 
-`fetch-emails` heeft een fallback: als de `SMTP_ENCRYPTION_KEY` geen geldige 32-byte hex of base64 is, wordt de key door SHA-256 gehasht tot exact 32 bytes. `outlook-send` mist deze fallback en crasht.
+### 1. Verzonden mails belanden in "Inbox" map
+Bij het versturen via de compose dialog wordt `folder_name` niet meegegeven in de `createLog.mutateAsync()` call (regel 196-205). De database default is `'inbox'`, dus verzonden mails verschijnen in de Inbox-map in plaats van Verzonden.
 
-Hetzelfde probleem bestaat in `send-email` (die dezelfde simpele decrypt gebruikt).
+### 2. Mailmappen worden WEL opgehaald
+De `fetch-emails` edge function haalt correct `inbox`, `sentitems` en `drafts` op via de Graph API `mailFolders` endpoint en slaat `folder_name` correct op. Dit werkt dus al goed.
+
+### 3. Geen automatische verversing
+Er is geen Supabase Realtime subscription op `communication_logs`. Nieuwe mails verschijnen pas na handmatig "Ophalen" klikken.
+
+---
 
 ## Oplossing
 
-De `decrypt`/`decryptPassword` functie in **2 bestanden** updaten met dezelfde fallback-logica als `fetch-emails`:
+### A. Fix folder_name bij verzenden (EmailPage.tsx)
+In de `handleSend` functie `folder_name: "sent"` meezetten bij het aanmaken van de communication_log.
+
+### B. Visueel onderscheid verbeteren (EmailPage.tsx)
+- Inbound mails: blauw/primary bolletje + pijl-icoon
+- Outbound mails: grijs bolletje + ander icoon of "Aan:" prefix (dit zit er al deels in)
+- Folder tabs duidelijker markeren welke actief is
+
+### C. Realtime subscription toevoegen (EmailPage.tsx)
+- `useEffect` met Supabase `.channel('communication_logs').on('postgres_changes', ...)` subscription
+- Bij `INSERT` event automatisch `queryClient.invalidateQueries(["communication_logs"])` aanroepen
+- Zo verschijnen nieuw opgehaalde mails direct zonder herladen
+
+### Bestanden die wijzigen
 
 | Bestand | Wijziging |
 |---------|-----------|
-| `supabase/functions/outlook-send/index.ts` | Fallback toevoegen: als base64 key niet 32 bytes is, hash met SHA-256 |
-| `supabase/functions/send-email/index.ts` | Zelfde fallback toevoegen |
-
-De gewijzigde decrypt functie wordt:
-```typescript
-async function decrypt(encryptedStr: string): Promise<string> {
-  const keyHex = Deno.env.get("SMTP_ENCRYPTION_KEY");
-  if (!keyHex) throw new Error("SMTP_ENCRYPTION_KEY not configured");
-
-  let keyBytes: Uint8Array;
-  if (keyHex.length === 64 && /^[0-9a-fA-F]+$/.test(keyHex)) {
-    keyBytes = hexToBytes(keyHex);
-  } else {
-    try {
-      keyBytes = base64ToBytes(keyHex);
-      if (keyBytes.length !== 32) throw new Error("not 32 bytes");
-    } catch {
-      keyBytes = new Uint8Array(
-        await crypto.subtle.digest("SHA-256", new TextEncoder().encode(keyHex))
-      );
-    }
-  }
-  // ... rest unchanged
-}
-```
-
-Beide functies worden opnieuw gedeployed.
+| `src/pages/EmailPage.tsx` | folder_name fix, realtime subscription, visueel onderscheid |
 
