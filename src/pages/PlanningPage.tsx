@@ -5,6 +5,9 @@ import { useAppointments, useUpdateAppointment, useDeleteAppointment, type Appoi
 import { useCreateWorkOrder, useWorkOrders } from "@/hooks/useWorkOrders";
 import { useServices } from "@/hooks/useCustomers";
 import { useOutlookCalendar, type OutlookEvent } from "@/hooks/useOutlookCalendar";
+import OutlookEventSheet from "@/components/OutlookEventSheet";
+import { useOutlookOverrides } from "@/hooks/useOutlookOverrides";
+import { usePersonalOutlookToken } from "@/hooks/useOutlookOverrides";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildWorkOrderPayload } from "@/utils/createWorkOrderFromAppointment";
 import { Loader2, Plus, Trash2, CheckCircle2, Navigation, ExternalLink, FileText, ChevronLeft, ChevronRight, Users, Calendar as CalendarIcon, Route } from "lucide-react";
@@ -78,7 +81,8 @@ const PlanningPage = () => {
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
   const [detailAppointment, setDetailAppointment] = useState<Appointment | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-
+  const [outlookDetailEvent, setOutlookDetailEvent] = useState<OutlookEvent | null>(null);
+  const [outlookDetailOpen, setOutlookDetailOpen] = useState(false);
   // View mode: week or month
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
@@ -100,8 +104,10 @@ const PlanningPage = () => {
   }, [isMonteur, user?.id]);
 
   // Outlook calendar integration
-  const [showOutlook, setShowOutlook] = useState(false);
+  const [showOutlook, setShowOutlook] = useState(true); // default ON
   const { companyId } = useAuth();
+  const { data: personalOutlookToken } = usePersonalOutlookToken();
+  const { data: outlookOverrides } = useOutlookOverrides();
   const { data: outlookConfig } = useQuery({
     queryKey: ["outlook-config", companyId],
     enabled: !!companyId,
@@ -110,7 +116,7 @@ const PlanningPage = () => {
       return data;
     },
   });
-  const outlookConnected = !!outlookConfig?.outlook_refresh_token;
+  const outlookConnected = !!outlookConfig?.outlook_refresh_token || !!personalOutlookToken;
 
   // For mobile, fetch a wider range around mobileDay
   const weekEnd = addDays(currentWeekStart, 8);
@@ -125,7 +131,7 @@ const PlanningPage = () => {
   const fetchEnd = viewMode === "month" && !isMobile ? monthEnd : (isMobile ? mobileEnd : weekEnd);
 
   const { data: rawAppointments, isLoading } = useAppointments(fetchStart, fetchEnd);
-  const { data: outlookEvents } = useOutlookCalendar(fetchStart, fetchEnd, showOutlook && outlookConnected);
+  const { data: outlookEvents } = useOutlookCalendar(fetchStart, fetchEnd, showOutlook && outlookConnected, "all");
 
   // Filter appointments by employee
   const appointments = useMemo(() => {
@@ -584,7 +590,8 @@ const PlanningPage = () => {
                         })}
                         {/* Outlook events */}
                         {slot.minute === 0 && getOutlookEventsForHour(day, slot.hour).map((oev) => {
-                          const outlookColor = "#7c3aed";
+                          const isPersonal = oev._source === "personal";
+                          const outlookColor = isPersonal ? "#2563eb" : "#7c3aed";
                           const startDate = new Date(oev.start.dateTime + (oev.start.timeZone === "UTC" ? "Z" : ""));
                           const endDate = new Date(oev.end.dateTime + (oev.end.timeZone === "UTC" ? "Z" : ""));
                           const startMinuteOffset = startDate.getMinutes();
@@ -592,10 +599,11 @@ const PlanningPage = () => {
                           const durationSlots = durationMin / 15;
                           const topOffset = (startMinuteOffset / 15) * SLOT_HEIGHT;
                           const eventHeight = Math.max(durationSlots * SLOT_HEIGHT - 2, SLOT_HEIGHT - 2);
+                          const isPinned = outlookOverrides?.some((o) => o.outlook_event_id === oev.id && o.pinned);
                           return (
-                            <div key={`outlook-${oev.id}`} className="absolute left-[2px] right-[2px] z-[1]" style={{ top: `${topOffset}px` }} title={oev.subject}>
+                            <div key={`outlook-${oev.id}`} className="absolute left-[2px] right-[2px] z-[1] cursor-pointer" style={{ top: `${topOffset}px` }} onClick={(e) => { e.stopPropagation(); setOutlookDetailEvent(oev); setOutlookDetailOpen(true); }}>
                               <div
-                                className="rounded-md px-1.5 py-[2px] text-[10px] font-bold overflow-hidden opacity-70 border-l-[3px]"
+                                className="rounded-md px-1.5 py-[2px] text-[10px] font-bold overflow-hidden opacity-80 border-l-[3px] hover:opacity-100 transition-opacity"
                                 style={{
                                   height: `${eventHeight}px`,
                                   backgroundColor: `${outlookColor}20`,
@@ -607,6 +615,7 @@ const PlanningPage = () => {
                                   <span className="text-[9px] font-medium opacity-70 font-mono">
                                     {format(startDate, "HH:mm")}
                                   </span>
+                                  {isPinned && <span className="text-[8px]">📌</span>}
                                   <CalendarIcon className="h-2.5 w-2.5 opacity-60 flex-shrink-0" />
                                   <span className="truncate">{oev.subject || "Outlook"}</span>
                                 </div>

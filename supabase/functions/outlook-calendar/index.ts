@@ -8,9 +8,16 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function jsonRes(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 async function getAccessToken(refreshToken: string): Promise<string> {
   const clientId = Deno.env.get("OUTLOOK_CLIENT_ID");
-  const tenantId = Deno.env.get("OUTLOOK_TENANT_ID") || "organizations";
+  const tenantId = Deno.env.get("OUTLOOK_TENANT_ID") || "common";
   const clientSecret = Deno.env.get("OUTLOOK_CLIENT_SECRET");
   if (!clientId || !clientSecret) throw new Error("Outlook credentials not configured");
 
@@ -32,6 +39,60 @@ async function getAccessToken(refreshToken: string): Promise<string> {
   return data.access_token;
 }
 
+async function getAccessTokenForUser(supabaseAdmin: any, userId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from("user_outlook_tokens")
+    .select("outlook_refresh_token")
+    .eq("user_id", userId)
+    .single();
+
+  if (!data?.outlook_refresh_token) return null;
+
+  const refreshToken = await decrypt(data.outlook_refresh_token);
+  return getAccessToken(refreshToken);
+}
+
+async function getAccessTokenForCompany(supabaseAdmin: any, companyId: string): Promise<string | null> {
+  const { data: company } = await supabaseAdmin
+    .from("companies")
+    .select("outlook_refresh_token")
+    .eq("id", companyId)
+    .single();
+
+  if (!company?.outlook_refresh_token) return null;
+
+  const refreshToken = await decrypt(company.outlook_refresh_token);
+  return getAccessToken(refreshToken);
+}
+
+async function graphRequest(accessToken: string, method: string, url: string, body?: any): Promise<any> {
+  const graphHeaders: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+
+  const res = await fetch(url, {
+    method,
+    headers: graphHeaders,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (method === "DELETE") {
+    if (!res.ok) {
+      const errBody = await res.text();
+      throw new Error(`Graph API error: ${errBody}`);
+    }
+    return { deleted: true };
+  }
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Graph API error: ${errBody}`);
+  }
+
+  return res.json();
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -40,13 +101,11 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Niet ingelogd" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonRes({ error: "Niet ingelogd" }, 401);
     }
 
-    const { action, startDateTime, endDateTime, event, eventId } = await req.json();
+    const body = await req.json();
+    const { action, startDateTime, endDateTime, event, eventId, source, targetUserId } = body;
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -61,10 +120,7 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Ongeldige sessie" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonRes({ error: "Ongeldige sessie" }, 401);
     }
 
     const { data: profile } = await supabaseAdmin
@@ -74,145 +130,153 @@ serve(async (req) => {
       .single();
 
     if (!profile?.company_id) {
-      return new Response(JSON.stringify({ error: "Geen bedrijf gevonden" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonRes({ error: "Geen bedrijf gevonden" }, 400);
     }
 
-    const { data: company } = await supabaseAdmin
-      .from("companies")
-      .select("outlook_refresh_token")
-      .eq("id", profile.company_id)
-      .single();
+    const companyId = profile.company_id;
 
-    if (!company?.outlook_refresh_token) {
-      return new Response(JSON.stringify({ error: "Outlook niet geconfigureerd" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const refreshToken = await decrypt(company.outlook_refresh_token);
-    const accessToken = await getAccessToken(refreshToken);
-
-    const graphHeaders = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    };
+    // Determine which token source to use
+    // source: "company" (default), "personal", "all", or "target_user" (for sync to specific user)
+    const effectiveSource = source || "company";
 
     let result: any;
 
     switch (action) {
       case "list": {
         if (!startDateTime || !endDateTime) {
-          return new Response(JSON.stringify({ error: "startDateTime en endDateTime zijn verplicht" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return jsonRes({ error: "startDateTime en endDateTime zijn verplicht" }, 400);
         }
-        const url = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${encodeURIComponent(startDateTime)}&endDateTime=${encodeURIComponent(endDateTime)}&$orderby=start/dateTime&$top=200&$select=id,subject,start,end,location,bodyPreview,isAllDay,showAs,categories`;
-        const res = await fetch(url, { headers: graphHeaders });
-        if (!res.ok) {
-          const errBody = await res.text();
-          console.error("Graph calendarView error:", errBody);
-          return new Response(JSON.stringify({ error: "Kan agenda niet ophalen", details: errBody }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+
+        const calendarUrl = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${encodeURIComponent(startDateTime)}&endDateTime=${encodeURIComponent(endDateTime)}&$orderby=start/dateTime&$top=200&$select=id,subject,start,end,location,bodyPreview,isAllDay,showAs,categories`;
+
+        if (effectiveSource === "all") {
+          // Fetch from both company and personal tokens, merge results
+          const results: any[] = [];
+
+          // Company events
+          try {
+            const companyToken = await getAccessTokenForCompany(supabaseAdmin, companyId);
+            if (companyToken) {
+              const data = await graphRequest(companyToken, "GET", calendarUrl);
+              (data.value || []).forEach((ev: any) => {
+                ev._source = "company";
+                results.push(ev);
+              });
+            }
+          } catch (e) {
+            console.error("Company calendar fetch error:", e);
+          }
+
+          // Personal events
+          try {
+            const personalToken = await getAccessTokenForUser(supabaseAdmin, user.id);
+            if (personalToken) {
+              const data = await graphRequest(personalToken, "GET", calendarUrl);
+              (data.value || []).forEach((ev: any) => {
+                ev._source = "personal";
+                results.push(ev);
+              });
+            }
+          } catch (e) {
+            console.error("Personal calendar fetch error:", e);
+          }
+
+          result = results;
+        } else if (effectiveSource === "personal") {
+          const personalToken = await getAccessTokenForUser(supabaseAdmin, user.id);
+          if (!personalToken) {
+            return jsonRes({ error: "Geen persoonlijke Outlook gekoppeld" }, 400);
+          }
+          const data = await graphRequest(personalToken, "GET", calendarUrl);
+          result = (data.value || []).map((ev: any) => ({ ...ev, _source: "personal" }));
+        } else {
+          // company (default)
+          const companyToken = await getAccessTokenForCompany(supabaseAdmin, companyId);
+          if (!companyToken) {
+            return jsonRes({ error: "Outlook niet geconfigureerd" }, 400);
+          }
+          const data = await graphRequest(companyToken, "GET", calendarUrl);
+          result = (data.value || []).map((ev: any) => ({ ...ev, _source: "company" }));
         }
-        const data = await res.json();
-        result = data.value || [];
         break;
       }
 
       case "create": {
         if (!event) {
-          return new Response(JSON.stringify({ error: "Event data is verplicht" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return jsonRes({ error: "Event data is verplicht" }, 400);
         }
-        const res = await fetch("https://graph.microsoft.com/v1.0/me/events", {
-          method: "POST",
-          headers: graphHeaders,
-          body: JSON.stringify(event),
-        });
-        if (!res.ok) {
-          const errBody = await res.text();
-          console.error("Graph create event error:", errBody);
-          return new Response(JSON.stringify({ error: "Kan event niet aanmaken", details: errBody }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+
+        // Determine whose calendar to create in
+        const createUserId = targetUserId || user.id;
+        let accessToken: string | null = null;
+
+        // Try personal token of target user first
+        accessToken = await getAccessTokenForUser(supabaseAdmin, createUserId);
+
+        // Fallback to company token if no personal token
+        if (!accessToken) {
+          accessToken = await getAccessTokenForCompany(supabaseAdmin, companyId);
         }
-        result = await res.json();
+
+        if (!accessToken) {
+          return jsonRes({ error: "Geen Outlook token beschikbaar voor deze gebruiker" }, 400);
+        }
+
+        result = await graphRequest(accessToken, "POST", "https://graph.microsoft.com/v1.0/me/events", event);
         break;
       }
 
       case "update": {
         if (!eventId || !event) {
-          return new Response(JSON.stringify({ error: "eventId en event data zijn verplicht" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return jsonRes({ error: "eventId en event data zijn verplicht" }, 400);
         }
-        const res = await fetch(`https://graph.microsoft.com/v1.0/me/events/${eventId}`, {
-          method: "PATCH",
-          headers: graphHeaders,
-          body: JSON.stringify(event),
-        });
-        if (!res.ok) {
-          const errBody = await res.text();
-          console.error("Graph update event error:", errBody);
-          return new Response(JSON.stringify({ error: "Kan event niet bijwerken", details: errBody }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        result = await res.json();
+
+        const updateUserId = targetUserId || user.id;
+        let accessToken = await getAccessTokenForUser(supabaseAdmin, updateUserId);
+        if (!accessToken) accessToken = await getAccessTokenForCompany(supabaseAdmin, companyId);
+        if (!accessToken) return jsonRes({ error: "Geen Outlook token" }, 400);
+
+        result = await graphRequest(accessToken, "PATCH", `https://graph.microsoft.com/v1.0/me/events/${eventId}`, event);
         break;
       }
 
       case "delete": {
         if (!eventId) {
-          return new Response(JSON.stringify({ error: "eventId is verplicht" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return jsonRes({ error: "eventId is verplicht" }, 400);
         }
-        const res = await fetch(`https://graph.microsoft.com/v1.0/me/events/${eventId}`, {
-          method: "DELETE",
-          headers: graphHeaders,
-        });
-        if (!res.ok) {
-          const errBody = await res.text();
-          console.error("Graph delete event error:", errBody);
-          return new Response(JSON.stringify({ error: "Kan event niet verwijderen", details: errBody }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        result = { deleted: true };
+
+        const deleteUserId = targetUserId || user.id;
+        let accessToken = await getAccessTokenForUser(supabaseAdmin, deleteUserId);
+        if (!accessToken) accessToken = await getAccessTokenForCompany(supabaseAdmin, companyId);
+        if (!accessToken) return jsonRes({ error: "Geen Outlook token" }, 400);
+
+        result = await graphRequest(accessToken, "DELETE", `https://graph.microsoft.com/v1.0/me/events/${eventId}`);
+        break;
+      }
+
+      case "check_user_token": {
+        // Check if a specific user has a personal Outlook token
+        const checkUserId = targetUserId || user.id;
+        const { data: tokenData } = await supabaseAdmin
+          .from("user_outlook_tokens")
+          .select("outlook_email")
+          .eq("user_id", checkUserId)
+          .single();
+
+        result = {
+          has_token: !!tokenData,
+          outlook_email: tokenData?.outlook_email || null,
+        };
         break;
       }
 
       default:
-        return new Response(JSON.stringify({ error: "Ongeldige action. Gebruik: list, create, update, delete" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonRes({ error: "Ongeldige action. Gebruik: list, create, update, delete, check_user_token" }, 400);
     }
 
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonRes(result);
   } catch (error: any) {
     console.error("Outlook calendar error:", error);
-    return new Response(
-      JSON.stringify({ error: "Fout bij agenda-operatie", code: "OUTLOOK_CALENDAR_FAILED" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonRes({ error: error.message || "Fout bij agenda-operatie", code: "OUTLOOK_CALENDAR_FAILED" }, 500);
   }
 });

@@ -94,6 +94,7 @@ export type Database = {
           duration_minutes: number
           id: string
           notes: string | null
+          outlook_event_id: string | null
           scheduled_at: string
           service_id: string | null
           start_location_label: string | null
@@ -110,6 +111,7 @@ export type Database = {
           duration_minutes?: number
           id?: string
           notes?: string | null
+          outlook_event_id?: string | null
           scheduled_at: string
           service_id?: string | null
           start_location_label?: string | null
@@ -126,6 +128,7 @@ export type Database = {
           duration_minutes?: number
           id?: string
           notes?: string | null
+          outlook_event_id?: string | null
           scheduled_at?: string
           service_id?: string | null
           start_location_label?: string | null
@@ -1294,6 +1297,57 @@ export type Database = {
           },
         ]
       }
+      outlook_event_overrides: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          lat: number | null
+          lng: number | null
+          location_override: string | null
+          outlook_event_id: string
+          pinned: boolean
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          location_override?: string | null
+          outlook_event_id: string
+          pinned?: boolean
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          location_override?: string | null
+          outlook_event_id?: string
+          pinned?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outlook_event_overrides_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outlook_event_overrides_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           btw_number: string | null
@@ -1722,6 +1776,48 @@ export type Database = {
           },
           {
             foreignKeyName: "usage_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_outlook_tokens: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          outlook_email: string | null
+          outlook_refresh_token: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          outlook_email?: string | null
+          outlook_refresh_token: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          outlook_email?: string | null
+          outlook_refresh_token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_outlook_tokens_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_outlook_tokens_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_safe"

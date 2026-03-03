@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
       return new Response("Missing code or state parameter", { status: 400 });
     }
 
-    // Parse and verify HMAC-signed state: "companyId|appOrigin|hmac"
+    // Parse and verify HMAC-signed state: "scope|companyId|userId|appOrigin|hmac"
     const parts = rawState.split("|");
     if (parts.length < 3) {
       return new Response("Invalid state format", { status: 400 });
@@ -30,11 +30,27 @@ Deno.serve(async (req) => {
       return new Response("Invalid state signature", { status: 403 });
     }
 
-    const [companyId, ...originParts] = parts;
-    const appOrigin = originParts.join("|") || "https://app.vakflow.nl";
+    // New format: scope|companyId|userId|appOrigin
+    // Old format: companyId|appOrigin (backwards compatible)
+    let scope = "company";
+    let companyId: string;
+    let userId: string | null = null;
+    let appOrigin = "https://app.vakflow.nl";
+
+    if (parts[0] === "company" || parts[0] === "personal") {
+      // New format
+      scope = parts[0];
+      companyId = parts[1];
+      userId = parts[2] || null;
+      appOrigin = parts.slice(3).join("|") || "https://app.vakflow.nl";
+    } else {
+      // Old format: companyId|appOrigin
+      companyId = parts[0];
+      appOrigin = parts.slice(1).join("|") || "https://app.vakflow.nl";
+    }
 
     const clientId = Deno.env.get("OUTLOOK_CLIENT_ID");
-    const tenantId = Deno.env.get("OUTLOOK_TENANT_ID") || "organizations";
+    const tenantId = Deno.env.get("OUTLOOK_TENANT_ID") || "common";
     const clientSecret = Deno.env.get("OUTLOOK_CLIENT_SECRET");
 
     if (!clientId || !clientSecret) {
@@ -78,19 +94,37 @@ Deno.serve(async (req) => {
       outlookEmail = "";
     }
 
-    await supabaseAdmin
-      .from("companies")
-      .update({
-        outlook_refresh_token: encryptedRefreshToken,
-        outlook_email: outlookEmail,
-        email_provider: "outlook",
-      } as any)
-      .eq("id", companyId);
+    if (scope === "personal" && userId) {
+      // Store in user_outlook_tokens table
+      const { error: upsertErr } = await supabaseAdmin
+        .from("user_outlook_tokens")
+        .upsert({
+          user_id: userId,
+          company_id: companyId,
+          outlook_refresh_token: encryptedRefreshToken,
+          outlook_email: outlookEmail,
+        }, { onConflict: "user_id" });
+
+      if (upsertErr) {
+        console.error("Error storing personal token:", upsertErr);
+      }
+    } else {
+      // Store in companies table (company-wide)
+      await supabaseAdmin
+        .from("companies")
+        .update({
+          outlook_refresh_token: encryptedRefreshToken,
+          outlook_email: outlookEmail,
+          email_provider: "outlook",
+        } as any)
+        .eq("id", companyId);
+    }
 
     const redirectUrl = `${appOrigin}/settings`;
+    const messageType = scope === "personal" ? "outlook-personal-connected" : "outlook-connected";
 
     return new Response(
-      `<html><body><script>window.opener ? (window.opener.postMessage('outlook-connected','*'), window.close()) : (window.location.href = '${redirectUrl}')</script><p>Outlook gekoppeld! Je kunt dit venster sluiten.</p></body></html>`,
+      `<html><body><script>window.opener ? (window.opener.postMessage('${messageType}','*'), window.close()) : (window.location.href = '${redirectUrl}')</script><p>Outlook gekoppeld! Je kunt dit venster sluiten.</p></body></html>`,
       { headers: { "Content-Type": "text/html" } }
     );
   } catch (error: any) {
