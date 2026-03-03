@@ -1,17 +1,9 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// whatsapp-webhook/index.ts — GEFIXED: multi-tenant lookup + signature verificatie + shared imports
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-secret",
-};
-
-function normalizePhone(phone: string): string {
-  let cleaned = phone.replace(/[^0-9+]/g, "");
-  if (cleaned.startsWith("06")) cleaned = "316" + cleaned.slice(2);
-  if (cleaned.startsWith("00")) cleaned = cleaned.slice(2);
-  if (cleaned.startsWith("+")) cleaned = cleaned.slice(1);
-  return cleaned;
-}
+import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
+import { createAdminClient } from "../_shared/supabase.ts";
+import { verifyMetaSignature } from "../_shared/webhook-verify.ts";
+import { findCustomerByPhone } from "../_shared/phone.ts";
 
 const MEDIA_TYPES = ["image", "video", "audio", "document", "sticker"];
 
@@ -43,10 +35,9 @@ async function downloadAndStoreMedia(
   mediaId: string,
   mimeType: string,
   msgType: string,
-  filename?: string,
+  _filename?: string,
 ): Promise<string | null> {
   try {
-    // Step 1: Get the download URL from Meta
     const metaRes = await fetch(`https://graph.facebook.com/v25.0/${mediaId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -58,7 +49,6 @@ async function downloadAndStoreMedia(
     const downloadUrl = metaData.url;
     if (!downloadUrl) return null;
 
-    // Step 2: Download the actual binary
     const fileRes = await fetch(downloadUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -68,7 +58,6 @@ async function downloadAndStoreMedia(
     }
     const fileBuffer = await fileRes.arrayBuffer();
 
-    // Step 3: Upload to Supabase Storage
     const ext = extFromMime(mimeType);
     const storagePath = `${msgType}/${crypto.randomUUID()}.${ext}`;
 
@@ -84,8 +73,6 @@ async function downloadAndStoreMedia(
       return null;
     }
 
-    // Step 4: Return the storage path (not a public URL - bucket is private)
-    // The frontend will generate signed URLs when displaying media
     return `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/whatsapp-media/${storagePath}`;
   } catch (err) {
     console.error("downloadAndStoreMedia error:", err);
@@ -93,7 +80,7 @@ async function downloadAndStoreMedia(
   }
 }
 
-function extractContent(msg: any, mediaUrl?: string | null): string | null {
+function extractContent(msg: any): string | null {
   switch (msg.type) {
     case "text":
       return msg.text?.body || null;
@@ -130,56 +117,98 @@ function extractContent(msg: any, mediaUrl?: string | null): string | null {
   }
 }
 
+// ─── MULTI-TENANT: Zoek company config op basis van phone_number_id ───
+async function findConfigByPhoneNumberId(
+  supabase: any,
+  phoneNumberId: string
+): Promise<{ company_id: string; access_token: string; webhook_secret?: string } | null> {
+  // Eerst: probeer match op whatsapp_phone_number_id
+  const { data } = await supabase
+    .from("whatsapp_config")
+    .select("company_id, access_token, webhook_secret")
+    .eq("phone_number_id", phoneNumberId)
+    .maybeSingle();
+
+  if (data) return data;
+
+  // Fallback voor legacy single-tenant: pak eerste config
+  // TODO: verwijder deze fallback zodra alle tenants phone_number_id hebben
+  console.warn(`No config for phone_number_id ${phoneNumberId}, falling back to first config`);
+  const { data: fallback } = await supabase
+    .from("whatsapp_config")
+    .select("company_id, access_token, webhook_secret")
+    .limit(1)
+    .maybeSingle();
+
+  return fallback;
+}
+
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return optionsResponse();
 
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  const supabase = createAdminClient();
 
-  // Verify webhook secret against stored value (fallback to env var)
-  const incomingSecret = req.headers.get("X-Webhook-Secret");
-  const { data: configForSecret } = await supabase
-    .from("whatsapp_config")
-    .select("webhook_secret")
-    .limit(1)
-    .maybeSingle();
+  // ─── Stap 1: Lees raw body voor signature verificatie ───
+  const rawBody = await req.text();
 
-  const storedSecret = configForSecret?.webhook_secret || Deno.env.get("WHATSAPP_WEBHOOK_SECRET");
-  if (!incomingSecret || incomingSecret !== storedSecret) {
-    console.error("Webhook secret mismatch");
+  // ─── Stap 2: Bepaal verificatiemethode ───
+  // Optie A: Meta native webhook → X-Hub-Signature-256
+  // Optie B: SiteJob Connect proxy → X-Webhook-Secret
+  const hubSignature = req.headers.get("X-Hub-Signature-256");
+  const customSecret = req.headers.get("X-Webhook-Secret");
+
+  if (hubSignature) {
+    // Meta native: verifieer met app secret
+    const appSecret = Deno.env.get("META_APP_SECRET");
+    if (!appSecret) {
+      console.error("META_APP_SECRET not configured");
+      return new Response("Server misconfigured", { status: 500, headers: corsHeaders });
+    }
+    const isValid = await verifyMetaSignature(rawBody, hubSignature, appSecret);
+    if (!isValid) {
+      console.error("WhatsApp webhook: Meta signature verification failed");
+      return new Response("Invalid signature", { status: 403, headers: corsHeaders });
+    }
+  } else if (customSecret) {
+    // SiteJob Connect proxy: verifieer met stored/env secret
+    // We checken tegen alle configs (multi-tenant) of env fallback
+    const envSecret = Deno.env.get("WHATSAPP_WEBHOOK_SECRET");
+    const { data: configs } = await supabase
+      .from("whatsapp_config")
+      .select("webhook_secret")
+      .not("webhook_secret", "is", null);
+
+    const validSecrets = [
+      envSecret,
+      ...(configs || []).map((c: any) => c.webhook_secret),
+    ].filter(Boolean);
+
+    if (!validSecrets.includes(customSecret)) {
+      console.error("WhatsApp webhook: secret mismatch");
+      return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+    }
+  } else {
+    console.error("WhatsApp webhook: no signature or secret header");
     return new Response("Unauthorized", { status: 401, headers: corsHeaders });
   }
 
-  // Fetch access token and company_id once for media downloads
-  let accessToken: string | null = null;
-  let webhookCompanyId: string | null = null;
-  const { data: configRow } = await supabase
-    .from("whatsapp_config")
-    .select("access_token, company_id")
-    .limit(1)
-    .single();
-  if (configRow) {
-    accessToken = configRow.access_token;
-    webhookCompanyId = configRow.company_id;
+  // ─── Stap 3: Parse en verwerk ───
+  let body: any;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    return new Response("Invalid JSON", { status: 400, headers: corsHeaders });
   }
 
-  const body = await req.json();
-
-  // Normalize: SiteJob Connect sends { id, changes: [...] }
-  // Meta native format sends { entry: [{ id, changes: [...] }] }
+  // Normalize: SiteJob Connect format vs Meta native format
   let entries: any[];
   if (Array.isArray(body.entry)) {
     entries = body.entry;
   } else if (Array.isArray(body.changes)) {
-    // SiteJob Connect format: the body IS the entry object
     entries = [body];
   } else {
     entries = [];
@@ -187,55 +216,29 @@ Deno.serve(async (req) => {
 
   for (const entry of entries) {
     for (const change of entry.changes || []) {
-      // Inkomende berichten
+      // ─── MULTI-TENANT: Zoek config op basis van phone_number_id uit payload ───
+      const phoneNumberId = change.value?.metadata?.phone_number_id;
+      let config: { company_id: string; access_token: string } | null = null;
+
+      if (phoneNumberId) {
+        config = await findConfigByPhoneNumberId(supabase, phoneNumberId);
+      }
+
+      if (!config) {
+        console.warn("Could not determine company for webhook event, skipping");
+        continue;
+      }
+
+      const companyId = config.company_id;
+      const accessToken = config.access_token;
+
+      // ─── Inkomende berichten ───
       if (change.value?.messages) {
         for (const msg of change.value.messages) {
-          const fromNumber = normalizePhone(msg.from);
+          // Zoek customer via shared phone helper
+          const customer = await findCustomerByPhone(supabase, msg.from, companyId);
 
-          // Strict validation: fromNumber must only contain digits
-          if (!/^\d+$/.test(fromNumber)) {
-            console.warn("Invalid phone number skipped:", msg.from);
-            continue;
-          }
-
-          // Try to match customer by phone (scoped to company if known)
-          let customer: { id: string } | null = null;
-
-          // Try exact match
-          let custQuery = supabase
-            .from("customers")
-            .select("id")
-            .eq("phone", fromNumber)
-            .limit(1);
-          if (webhookCompanyId) custQuery = custQuery.eq("company_id", webhookCompanyId);
-          const { data: c1 } = await custQuery.maybeSingle();
-          customer = c1;
-
-          // Try with + prefix
-          if (!customer) {
-            let q2 = supabase
-              .from("customers")
-              .select("id")
-              .eq("phone", `+${fromNumber}`)
-              .limit(1);
-            if (webhookCompanyId) q2 = q2.eq("company_id", webhookCompanyId);
-            const { data: c2 } = await q2.maybeSingle();
-            customer = c2;
-          }
-
-          // Try Dutch local format (0x instead of 31x)
-          if (!customer && fromNumber.startsWith("316")) {
-            let q3 = supabase
-              .from("customers")
-              .select("id")
-              .eq("phone", `0${fromNumber.slice(2)}`)
-              .limit(1);
-            if (webhookCompanyId) q3 = q3.eq("company_id", webhookCompanyId);
-            const { data: c3 } = await q3.maybeSingle();
-            customer = c3;
-          }
-
-          // Download & store media if applicable
+          // Download & store media als van toepassing
           let mediaUrl: string | null = null;
           if (MEDIA_TYPES.includes(msg.type) && accessToken) {
             const mediaMeta = getMediaMeta(msg);
@@ -251,15 +254,15 @@ Deno.serve(async (req) => {
             }
           }
 
-          const content = extractContent(msg, mediaUrl);
-
-          // Store media_url in metadata alongside the raw message
+          const content = extractContent(msg);
           const metadata = {
             ...msg,
             ...(mediaUrl ? { storage_url: mediaUrl } : {}),
           };
 
-          await supabase.from("whatsapp_messages").upsert(
+          const fromNumber = msg.from.replace(/[^0-9]/g, "");
+
+          const { error } = await supabase.from("whatsapp_messages").upsert(
             {
               wamid: msg.id,
               direction: "incoming",
@@ -268,15 +271,17 @@ Deno.serve(async (req) => {
               type: msg.type,
               status: "received",
               customer_id: customer?.id || null,
-              company_id: webhookCompanyId,
+              company_id: companyId,
               metadata,
             },
             { onConflict: "wamid" }
           );
+
+          if (error) console.error(`Message save error: ${error.message}`);
         }
       }
 
-      // Status updates (delivered, read, failed)
+      // ─── Status updates (delivered, read, failed) ───
       if (change.value?.statuses) {
         for (const status of change.value.statuses) {
           const updateData: Record<string, unknown> = { status: status.status };
