@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, FormEvent } from "react";
+import { usePersonalOutlookToken, useDeletePersonalOutlookToken } from "@/hooks/useOutlookOverrides";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -80,6 +81,78 @@ const LocationAutocomplete = ({ value, onChange, inputClass, labelClass }: { val
             </button>
           ))}
         </div>
+      )}
+    </div>
+  );
+};
+
+const PersonalOutlookSection = ({ inputClass, labelClass }: { inputClass: string; labelClass: string }) => {
+  const { toast } = useToast();
+  const { data: personalToken, isLoading: tokenLoading } = usePersonalOutlookToken();
+  const deleteToken = useDeletePersonalOutlookToken();
+  const [connecting, setConnecting] = useState(false);
+
+  // Listen for personal outlook connected message
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data === "outlook-personal-connected") {
+        toast({ title: "Persoonlijke Outlook gekoppeld!" });
+        // Refetch token
+        window.location.reload();
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  const handleConnect = async () => {
+    setConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("outlook-auth-url", {
+        body: { scope: "personal" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      window.open(data.url, "outlook-personal-auth", "width=600,height=700");
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+    setConnecting(false);
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await deleteToken.mutateAsync();
+      toast({ title: "Persoonlijke Outlook ontkoppeld" });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="border-t border-border pt-5 mt-5">
+      <h3 className="text-[14px] font-bold mb-1">Jouw Outlook Agenda</h3>
+      <p className="text-[12px] text-secondary-foreground mb-3">
+        Koppel je persoonlijke Outlook-agenda zodat je eigen afspraken zichtbaar zijn in de planning. Vakflow-afspraken die aan jou worden toegewezen worden ook automatisch in je Outlook gezet.
+      </p>
+      {tokenLoading ? (
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      ) : personalToken ? (
+        <div className="space-y-2">
+          <p className="text-[11px] text-success font-bold">✓ Outlook gekoppeld{personalToken.outlook_email ? ` — ${personalToken.outlook_email}` : ""}</p>
+          <div className="flex gap-2">
+            <button onClick={handleConnect} disabled={connecting} className="px-4 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50">
+              {connecting ? "Bezig..." : "Opnieuw koppelen"}
+            </button>
+            <button onClick={handleDisconnect} disabled={deleteToken.isPending} className="px-4 py-2 bg-destructive/10 text-destructive rounded-sm text-[12px] font-medium hover:bg-destructive/20 transition-colors">
+              Ontkoppelen
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={handleConnect} disabled={connecting} className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
+          {connecting ? "Bezig..." : "Koppel je Outlook"}
+        </button>
       )}
     </div>
   );
@@ -331,7 +404,7 @@ const SettingsPage = () => {
     setTeamLoading(false);
   };
 
-  
+
 
   const handleInviteUser = async () => {
     if (!inviteEmail) return;
@@ -711,8 +784,11 @@ const SettingsPage = () => {
               >
                 {changingPassword ? "Wijzigen..." : "Wachtwoord wijzigen"}
               </button>
-            </div>
           </div>
+
+          {/* Persoonlijke Outlook koppeling */}
+          <PersonalOutlookSection inputClass={inputClass} labelClass={labelClass} />
+        </div>
         </div>
       )}
 

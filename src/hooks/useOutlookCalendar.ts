@@ -12,13 +12,14 @@ export interface OutlookEvent {
   isAllDay?: boolean;
   showAs?: string;
   categories?: string[];
+  _source?: "company" | "personal";
 }
 
-export const useOutlookCalendar = (startDate: Date, endDate: Date, enabled: boolean) => {
+export const useOutlookCalendar = (startDate: Date, endDate: Date, enabled: boolean, source: "company" | "personal" | "all" = "all") => {
   const { companyId } = useAuth();
 
   return useQuery({
-    queryKey: ["outlook-calendar", startDate.toISOString(), endDate.toISOString(), companyId],
+    queryKey: ["outlook-calendar", startDate.toISOString(), endDate.toISOString(), companyId, source],
     enabled: enabled && !!companyId,
     staleTime: 5 * 60 * 1000, // 5 min cache
     queryFn: async () => {
@@ -27,6 +28,7 @@ export const useOutlookCalendar = (startDate: Date, endDate: Date, enabled: bool
           action: "list",
           startDateTime: startDate.toISOString(),
           endDateTime: endDate.toISOString(),
+          source,
         },
       });
       if (error) throw error;
