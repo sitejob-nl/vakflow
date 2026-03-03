@@ -26,15 +26,17 @@ export const useWorkOrders = () => {
 };
 
 export const useWorkOrder = (id: string | undefined) => {
+  const { companyId } = useAuth();
   return useQuery({
-    queryKey: ["work_orders", id],
+    queryKey: ["work_orders", id, companyId],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("work_orders")
         .select("*, customers(name, address, city, contact_person, phone, email), services(name, color, price, category)")
-        .eq("id", id!)
-        .maybeSingle();
+        .eq("id", id!);
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q.maybeSingle();
       if (error) throw error;
       return data as WorkOrder & { customers: { name: string; address: string | null; city: string | null; contact_person: string | null; phone: string | null; email: string | null } | null } | null;
     },

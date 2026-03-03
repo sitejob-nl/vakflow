@@ -43,10 +43,12 @@ export const useAssets = () => {
   return useQuery({
     queryKey: ["assets", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("assets" as any)
         .select("*, customer:customers(id, name), address:addresses(id, street, house_number, city)")
         .order("name");
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as unknown as Asset[];
     },
@@ -72,14 +74,17 @@ export const useAsset = (id: string | undefined) => {
 };
 
 export const useMaintenanceLogs = (assetId: string | undefined) => {
+  const { companyId } = useAuth();
   return useQuery({
-    queryKey: ["maintenance_logs", assetId],
+    queryKey: ["maintenance_logs", assetId, companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("asset_maintenance_logs" as any)
         .select("*, profile:profiles(full_name), work_order:work_orders(work_order_number)")
         .eq("asset_id", assetId!)
         .order("maintenance_date", { ascending: false });
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as unknown as MaintenanceLog[];
     },

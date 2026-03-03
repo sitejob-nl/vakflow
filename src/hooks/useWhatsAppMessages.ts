@@ -18,7 +18,7 @@ export type WhatsAppMessage = {
   customers?: { name: string } | null;
 };
 
-export const useWhatsAppMessages = (customerId?: string) => {
+export const useWhatsAppMessages = (customerId?: string, companyId?: string | null) => {
   const queryClient = useQueryClient();
 
   // Realtime subscription
@@ -35,7 +35,7 @@ export const useWhatsAppMessages = (customerId?: string) => {
         },
         () => {
           queryClient.invalidateQueries({
-            queryKey: ["whatsapp-messages", customerId ?? "all"],
+            queryKey: ["whatsapp-messages", customerId ?? "all", companyId ?? "none"],
           });
         }
       )
@@ -44,15 +44,19 @@ export const useWhatsAppMessages = (customerId?: string) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [customerId, queryClient]);
+  }, [customerId, companyId, queryClient]);
 
   return useQuery({
-    queryKey: ["whatsapp-messages", customerId ?? "all"],
+    queryKey: ["whatsapp-messages", customerId ?? "all", companyId ?? "none"],
     queryFn: async () => {
       let query = supabase
         .from("whatsapp_messages")
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (companyId) {
+        query = query.eq("company_id", companyId);
+      }
 
       if (customerId) {
         query = query.eq("customer_id", customerId);

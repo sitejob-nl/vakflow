@@ -45,11 +45,12 @@ export const useAppointments = (weekStart: Date, weekEnd: Date) => {
 };
 
 export const useAppointmentsForDay = (date: Date | null, assignedTo?: string | null) => {
+  const { companyId } = useAuth();
   const dayStart = date ? new Date(date.getFullYear(), date.getMonth(), date.getDate()) : null;
   const dayEnd = dayStart ? new Date(dayStart.getTime() + 86400000) : null;
 
   return useQuery({
-    queryKey: ["appointments-day", dayStart?.toISOString(), assignedTo],
+    queryKey: ["appointments-day", dayStart?.toISOString(), assignedTo, companyId],
     enabled: !!dayStart,
     queryFn: async () => {
       let q = supabase
@@ -58,6 +59,7 @@ export const useAppointmentsForDay = (date: Date | null, assignedTo?: string | n
         .gte("scheduled_at", dayStart!.toISOString())
         .lt("scheduled_at", dayEnd!.toISOString())
         .order("scheduled_at");
+      if (companyId) q = q.eq("company_id", companyId);
       if (assignedTo) {
         q = q.eq("assigned_to", assignedTo);
       }

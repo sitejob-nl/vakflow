@@ -4,6 +4,7 @@ import { useWhatsAppMessages } from "@/hooks/useWhatsAppMessages";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useWhatsAppStatus } from "@/hooks/useWhatsAppStatus";
 import { useWhatsAppTemplates } from "@/hooks/useWhatsAppTemplates";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -44,7 +45,8 @@ const StatusIcon = ({ status }: { status: string | null }) => {
 };
 
 export default function WhatsAppChat({ customerId, customerPhone, customerName }: WhatsAppChatProps) {
-  const { data: messages, isLoading } = useWhatsAppMessages(customerId);
+  const { companyId } = useAuth();
+  const { data: messages, isLoading } = useWhatsAppMessages(customerId, companyId);
   const { data: waStatus } = useWhatsAppStatus();
   const { data: templates } = useWhatsAppTemplates(!!waStatus?.connected);
   const sendWhatsApp = useWhatsApp();
