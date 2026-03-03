@@ -151,7 +151,7 @@ serve(async (req) => {
     if (userProfile?.company_id) {
       const { data: companyData } = await supabaseAdmin
         .from("companies")
-        .select("smtp_email, smtp_password, smtp_host, smtp_port, email_provider, outlook_refresh_token, outlook_tenant_id, outlook_client_id, outlook_email")
+        .select("smtp_email, smtp_password, smtp_host, smtp_port, email_provider, outlook_refresh_token, outlook_email")
         .eq("id", userProfile.company_id)
         .single();
 

@@ -56,36 +56,28 @@ serve(async (req) => {
       return new Response("Missing code or state parameter", { status: 400 });
     }
 
+    const clientId = Deno.env.get("OUTLOOK_CLIENT_ID");
+    const tenantId = Deno.env.get("OUTLOOK_TENANT_ID") || "organizations";
+    const clientSecret = Deno.env.get("OUTLOOK_CLIENT_SECRET");
+
+    if (!clientId || !clientSecret) {
+      return new Response("Outlook credentials not configured", { status: 500 });
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get company's Outlook config
-    const { data: company } = await supabaseAdmin
-      .from("companies")
-      .select("outlook_tenant_id, outlook_client_id")
-      .eq("id", state)
-      .single();
-
-    if (!company?.outlook_tenant_id || !company?.outlook_client_id) {
-      return new Response("Outlook not configured for this company", { status: 400 });
-    }
-
-    const clientSecret = Deno.env.get("OUTLOOK_CLIENT_SECRET");
-    if (!clientSecret) {
-      return new Response("OUTLOOK_CLIENT_SECRET not configured", { status: 500 });
-    }
-
     // Exchange code for tokens
-    const tokenUrl = `https://login.microsoftonline.com/${company.outlook_tenant_id}/oauth2/v2.0/token`;
+    const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
     const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/outlook-callback`;
 
     const tokenRes = await fetch(tokenUrl, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: company.outlook_client_id,
+        client_id: clientId,
         client_secret: clientSecret,
         code,
         redirect_uri: redirectUri,

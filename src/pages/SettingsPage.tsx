@@ -60,11 +60,10 @@ const SettingsPage = () => {
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
   const [emailProvider, setEmailProvider] = useState<string | null>("smtp");
-  const [outlookTenantId, setOutlookTenantId] = useState("");
-  const [outlookClientId, setOutlookClientId] = useState("");
+  const [connectingOutlook, setConnectingOutlook] = useState(false);
   const [outlookEmail, setOutlookEmail] = useState("");
   const [outlookConnected, setOutlookConnected] = useState(false);
-  const [savingOutlook, setSavingOutlook] = useState(false);
+  
   const [savingProviders, setSavingProviders] = useState(false);
   const [companyLogoPreview, setCompanyLogoPreview] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -352,8 +351,7 @@ const SettingsPage = () => {
         setSmtpHasCredentials(!!(companyData as any).smtp_email && !!(companyData as any).smtp_password);
         setAccountingProvider((companyData as any).accounting_provider ?? null);
         setEmailProvider((companyData as any).email_provider ?? "smtp");
-        setOutlookTenantId((companyData as any).outlook_tenant_id ?? "");
-        setOutlookClientId((companyData as any).outlook_client_id ?? "");
+        // outlook_tenant_id and outlook_client_id no longer per-company
         setOutlookEmail((companyData as any).outlook_email ?? "");
         setOutlookConnected(!!(companyData as any).outlook_refresh_token);
         setEbTemplateId(String((companyData as any).eboekhouden_template_id ?? ""));
@@ -375,6 +373,22 @@ const SettingsPage = () => {
       setLoading(false);
     })();
   }, [user]);
+
+  // Listen for outlook-connected message from popup
+  useEffect(() => {
+    const handler = async (e: MessageEvent) => {
+      if (e.data === "outlook-connected") {
+        const { data: companyData } = await supabase.from("companies").select("outlook_email, outlook_refresh_token").limit(1).single();
+        if (companyData) {
+          setOutlookEmail((companyData as any).outlook_email ?? "");
+          setOutlookConnected(!!(companyData as any).outlook_refresh_token);
+        }
+        toast({ title: "Outlook gekoppeld!" });
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -1546,45 +1560,70 @@ const SettingsPage = () => {
                 <p className="text-[12px] text-secondary-foreground mb-3">Koppel je Outlook-account om e-mails te versturen via Microsoft Graph.</p>
               </div>
               <div className="space-y-3">
-                <div>
-                  <label className={labelClass}>Tenant ID</label>
-                  <input value={outlookTenantId} onChange={(e) => setOutlookTenantId(e.target.value)} className={inputClass} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-                </div>
-                <div>
-                  <label className={labelClass}>Client ID (Application ID)</label>
-                  <input value={outlookClientId} onChange={(e) => setOutlookClientId(e.target.value)} className={inputClass} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-                </div>
-                <button
-                  onClick={async () => {
-                    setSavingOutlook(true);
-                    try {
-                      const res = await supabase.functions.invoke("save-smtp-credentials", {
-                        body: { outlook_tenant_id: outlookTenantId, outlook_client_id: outlookClientId },
-                      });
-                      if (res.error) throw res.error;
-                      if (res.data?.error) throw new Error(res.data.error);
-                      toast({ title: "Outlook configuratie opgeslagen" });
-
-                      // Open OAuth consent popup
-                      if (outlookTenantId && outlookClientId) {
-                        const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
-                        const redirectUri = encodeURIComponent(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/outlook-callback`);
-                        const scope = encodeURIComponent("https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite offline_access");
-                        const authUrl = `https://login.microsoftonline.com/${outlookTenantId}/oauth2/v2.0/authorize?client_id=${outlookClientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scope}&state=${profileData?.company_id}&response_mode=query`;
-                        window.open(authUrl, "outlook-auth", "width=600,height=700");
+                {outlookConnected ? (
+                  <>
+                    <p className="text-[11px] text-success font-bold">✓ Outlook gekoppeld{outlookEmail ? ` — ${outlookEmail}` : ""}</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          setConnectingOutlook(true);
+                          try {
+                            const { data, error } = await supabase.functions.invoke("outlook-auth-url");
+                            if (error) throw error;
+                            if (data?.error) throw new Error(data.error);
+                            window.open(data.url, "outlook-auth", "width=600,height=700");
+                          } catch (err: any) {
+                            toast({ title: "Fout", description: err.message, variant: "destructive" });
+                          }
+                          setConnectingOutlook(false);
+                        }}
+                        disabled={connectingOutlook}
+                        className="px-5 py-2.5 bg-secondary text-secondary-foreground rounded-sm text-[13px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                      >
+                        {connectingOutlook ? "Bezig..." : "Opnieuw koppelen"}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
+                            if (profileData?.company_id) {
+                              await supabase.from("companies").update({
+                                outlook_refresh_token: null,
+                                outlook_email: null,
+                              } as any).eq("id", profileData.company_id);
+                              setOutlookConnected(false);
+                              setOutlookEmail("");
+                              toast({ title: "Outlook ontkoppeld" });
+                            }
+                          } catch (err: any) {
+                            toast({ title: "Fout", description: err.message, variant: "destructive" });
+                          }
+                        }}
+                        className="px-5 py-2.5 bg-destructive/10 text-destructive rounded-sm text-[13px] font-medium hover:bg-destructive/20 transition-colors"
+                      >
+                        Ontkoppelen
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      setConnectingOutlook(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("outlook-auth-url");
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        window.open(data.url, "outlook-auth", "width=600,height=700");
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
                       }
-                    } catch (err: any) {
-                      toast({ title: "Fout", description: err.message, variant: "destructive" });
-                    }
-                    setSavingOutlook(false);
-                  }}
-                  disabled={savingOutlook || !outlookTenantId || !outlookClientId}
-                  className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
-                >
-                  {savingOutlook ? "Opslaan..." : outlookConnected ? "Opnieuw koppelen" : "Opslaan & Koppelen"}
-                </button>
-                {outlookConnected && (
-                  <p className="text-[11px] text-success font-bold">✓ Outlook gekoppeld{outlookEmail ? ` — ${outlookEmail}` : ""}</p>
+                      setConnectingOutlook(false);
+                    }}
+                    disabled={connectingOutlook}
+                    className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
+                  >
+                    {connectingOutlook ? "Bezig..." : "Koppel Outlook"}
+                  </button>
                 )}
               </div>
             </>
