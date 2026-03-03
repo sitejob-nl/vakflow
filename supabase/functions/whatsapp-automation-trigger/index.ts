@@ -1,25 +1,6 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-function jsonRes(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function normalizePhone(phone: string): string {
-  let cleaned = phone.replace(/[^0-9+]/g, "");
-  if (cleaned.startsWith("06")) cleaned = "316" + cleaned.slice(2);
-  if (cleaned.startsWith("00")) cleaned = cleaned.slice(2);
-  if (cleaned.startsWith("+")) cleaned = cleaned.slice(1);
-  return cleaned;
-}
+import { jsonRes, optionsResponse } from "../_shared/cors.ts";
+import { createAdminClient, createUserClient } from "../_shared/supabase.ts";
+import { normalizePhone } from "../_shared/phone.ts";
 
 /** Resolve a dotted path like "customer.name" against the context */
 function resolveField(path: string, context: Record<string, any>): string {
@@ -33,27 +14,22 @@ function resolveField(path: string, context: Record<string, any>): string {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return optionsResponse();
   if (req.method !== "POST") return jsonRes({ error: "Method not allowed" }, 405);
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const supabase = createAdminClient();
 
     // Accept either authenticated user call or internal service call
     const authHeader = req.headers.get("Authorization");
     let userId: string | null = null;
 
     if (authHeader?.startsWith("Bearer ")) {
-      const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data, error } = await supabaseUser.auth.getClaims(authHeader.replace("Bearer ", ""));
-      if (!error && data?.claims) {
-        userId = data.claims.sub as string;
+      const supabaseUser = createUserClient(authHeader);
+      const { data: { user }, error } = await supabaseUser.auth.getUser();
+      if (!error && user) {
+        userId = user.id;
       }
     }
 
@@ -86,7 +62,7 @@ Deno.serve(async (req) => {
       return jsonRes({ skipped: true, reason: "No WhatsApp opt-in" });
     }
 
-    // Fetch active automations for this trigger type (scoped to customer's company)
+    // Fetch active automations for this trigger type
     const automationQuery = supabase
       .from("whatsapp_automations")
       .select("*")
@@ -100,18 +76,12 @@ Deno.serve(async (req) => {
       return jsonRes({ skipped: true, reason: "No matching automations" });
     }
 
-    // Build full context object for variable resolution
-    const fullContext: Record<string, any> = {
-      customer,
-      ...(ctx || {}),
-    };
-
+    const fullContext: Record<string, any> = { customer, ...(ctx || {}) };
     const results: any[] = [];
 
     for (const automation of automations) {
       try {
-        // Anti-spam check: look for recent sends within cooldown period
-        const cooldownHours = automation.cooldown_hours ?? 720; // default 30 days
+        const cooldownHours = automation.cooldown_hours ?? 720;
         const cooldownCutoff = new Date(Date.now() - cooldownHours * 3600 * 1000).toISOString();
 
         const { count: recentCount } = await supabase
@@ -122,20 +92,17 @@ Deno.serve(async (req) => {
           .gte("sent_at", cooldownCutoff);
 
         if ((recentCount ?? 0) > 0) {
-          console.log(`Automation ${automation.name}: skipped (cooldown, sent within ${cooldownHours}h)`);
+          console.log(`Automation ${automation.name}: skipped (cooldown)`);
           results.push({ automation: automation.name, skipped: true, reason: "cooldown" });
           continue;
         }
 
-        // Check conditions
         const conditions = automation.conditions || {};
         if (conditions.customer_type && conditions.customer_type !== customer.type) {
-          console.log(`Automation ${automation.name}: customer_type mismatch`);
           results.push({ automation: automation.name, skipped: true, reason: "condition_mismatch" });
           continue;
         }
 
-        // Build template parameters from variable mapping
         const mapping = automation.variable_mapping || {};
         const isNamed = Object.keys(mapping).some((k) => isNaN(Number(k)));
 
@@ -150,11 +117,8 @@ Deno.serve(async (req) => {
         }
 
         const components: any[] = [];
-        if (parameters.length > 0) {
-          components.push({ type: "body", parameters });
-        }
+        if (parameters.length > 0) components.push({ type: "body", parameters });
 
-        // Send via whatsapp-send (internal call with service role)
         const sendResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
           method: "POST",
           headers: {
@@ -176,7 +140,6 @@ Deno.serve(async (req) => {
         const sendResult = await sendResponse.json();
         console.log(`Automation ${automation.name} result:`, JSON.stringify(sendResult));
 
-        // Log the send for anti-spam tracking
         await supabase.from("automation_send_log").insert({
           automation_id: automation.id,
           customer_id: customer_id,
