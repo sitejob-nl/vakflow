@@ -1,38 +1,39 @@
 
 
-## Analyse
+## Probleem
 
-Drie problemen gevonden:
+De oorzaak is gevonden. Het zit in twee lagen:
 
-### 1. Verzonden mails belanden in "Inbox" map
-Bij het versturen via de compose dialog wordt `folder_name` niet meegegeven in de `createLog.mutateAsync()` call (regel 196-205). De database default is `'inbox'`, dus verzonden mails verschijnen in de Inbox-map in plaats van Verzonden.
+### 1. RLS laat super_admins alles zien
+De SELECT policy op `communication_logs` bevat `OR is_super_admin()`. Hierdoor ziet een super_admin **alle** e-mails van **alle** bedrijven.
 
-### 2. Mailmappen worden WEL opgehaald
-De `fetch-emails` edge function haalt correct `inbox`, `sentitems` en `drafts` op via de Graph API `mailFolders` endpoint en slaat `folder_name` correct op. Dit werkt dus al goed.
+### 2. Frontend filtert niet op company_id
+De `useCommunicationLogs` hook doet geen `.eq("company_id", ...)` filter. Bij normale gebruikers vangt RLS dit op, maar bij super_admins (en bij impersonatie) worden alle bedrijfsmails getoond.
 
-### 3. Geen automatische verversing
-Er is geen Supabase Realtime subscription op `communication_logs`. Nieuwe mails verschijnen pas na handmatig "Ophalen" klikken.
+Dit geldt trouwens voor **alle** tabellen met `OR is_super_admin()` in de SELECT policy, maar bij e-mail valt het het meest op.
 
 ---
 
 ## Oplossing
 
-### A. Fix folder_name bij verzenden (EmailPage.tsx)
-In de `handleSend` functie `folder_name: "sent"` meezetten bij het aanmaken van de communication_log.
+### A. Frontend filter toevoegen (`useCommunicationLogs.ts`)
+De query uitbreiden met een expliciete `.eq("company_id", companyId)` filter zodat alleen mails van het actieve bedrijf (inclusief impersonatie) worden opgehaald:
 
-### B. Visueel onderscheid verbeteren (EmailPage.tsx)
-- Inbound mails: blauw/primary bolletje + pijl-icoon
-- Outbound mails: grijs bolletje + ander icoon of "Aan:" prefix (dit zit er al deels in)
-- Folder tabs duidelijker markeren welke actief is
+```typescript
+if (companyId) {
+  query = query.eq("company_id", companyId);
+}
+```
 
-### C. Realtime subscription toevoegen (EmailPage.tsx)
-- `useEffect` met Supabase `.channel('communication_logs').on('postgres_changes', ...)` subscription
-- Bij `INSERT` event automatisch `queryClient.invalidateQueries(["communication_logs"])` aanroepen
-- Zo verschijnen nieuw opgehaalde mails direct zonder herladen
+De hook krijgt `companyId` als parameter vanuit de `useAuth()` context.
+
+### B. EmailPage.tsx aanpassen
+`companyId` doorgeven aan `useCommunicationLogs()` zodat het filter actief is.
 
 ### Bestanden die wijzigen
 
 | Bestand | Wijziging |
 |---------|-----------|
-| `src/pages/EmailPage.tsx` | folder_name fix, realtime subscription, visueel onderscheid |
+| `src/hooks/useCommunicationLogs.ts` | `companyId` parameter toevoegen + `.eq("company_id", companyId)` filter |
+| `src/pages/EmailPage.tsx` | `companyId` uit `useAuth()` doorgeven aan de hook |
 
