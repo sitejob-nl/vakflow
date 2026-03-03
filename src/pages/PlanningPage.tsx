@@ -83,6 +83,9 @@ const PlanningPage = () => {
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
 
+  // Selected day for desktop (route optimization target)
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+
   // Employee filter
   const [filterEmployee, setFilterEmployee] = useState<string>("all");
   const { data: teamMembers } = useTeamMembers();
@@ -143,7 +146,7 @@ const PlanningPage = () => {
   const [applyingOptimize, setApplyingOptimize] = useState(false);
 
   // Determine if optimize button should show (≥2 appointments on selected day with coords)
-  const optimizeTargetDate = isMobile ? mobileDay : (viewMode === "week" ? new Date() : null);
+  const optimizeTargetDate = isMobile ? mobileDay : (selectedDay ?? null);
   const optimizeTargetAssignedTo = filterEmployee !== "all" ? filterEmployee : undefined;
 
   const canOptimize = useMemo(() => {
@@ -398,14 +401,14 @@ const PlanningPage = () => {
               </label>
             )}
             <div className="flex-1" />
-            {canOptimize && (
+            {canOptimize && optimizeTargetDate && (
               <button
                 onClick={handleOptimize}
                 disabled={optimizeLoading}
                 className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors flex items-center gap-1 disabled:opacity-50"
               >
                 {optimizeLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Route className="h-3.5 w-3.5" />}
-                Optimaliseer route
+                Route {format(optimizeTargetDate, "EEEE d MMM", { locale: nl })}
               </button>
             )}
             <button
@@ -496,7 +499,18 @@ const PlanningPage = () => {
             <div className={`relative grid ${showWeekend ? "grid-cols-[58px_repeat(7,1fr)]" : "grid-cols-[58px_repeat(5,1fr)]"}`}>
               <div className="sticky top-0 bg-card z-10 p-2.5 border-b border-border" />
               {days.map((d) => (
-                <div key={d.toISOString()} className={`sticky top-0 z-10 p-2.5 text-center text-[11px] font-bold uppercase tracking-wide border-b border-border ${isToday(d) ? "text-primary bg-primary-muted" : "text-t3 bg-card"}`}>
+                <div
+                  key={d.toISOString()}
+                  className={`sticky top-0 z-10 p-2.5 text-center text-[11px] font-bold uppercase tracking-wide border-b border-border cursor-pointer transition-colors ${
+                    selectedDay && isSameDay(d, selectedDay)
+                      ? "text-primary bg-primary-muted ring-2 ring-primary/30 ring-inset"
+                      : isToday(d)
+                        ? "text-primary bg-primary-muted"
+                        : "text-t3 bg-card hover:bg-muted/50"
+                  }`}
+                  onClick={() => setSelectedDay((prev) => prev && isSameDay(prev, d) ? null : d)}
+                  title="Klik om dag te selecteren voor route optimalisatie"
+                >
                   {format(d, "EEE d", { locale: nl })}
                 </div>
               ))}
