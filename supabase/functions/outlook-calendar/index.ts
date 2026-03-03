@@ -1,43 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decrypt } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-function base64ToBytes(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
-  return bytes;
-}
-
-async function decrypt(encryptedStr: string): Promise<string> {
-  const keyHex = Deno.env.get("SMTP_ENCRYPTION_KEY");
-  if (!keyHex) throw new Error("SMTP_ENCRYPTION_KEY not configured");
-
-  let keyBytes: Uint8Array;
-  if (keyHex.length === 64 && /^[0-9a-fA-F]+$/.test(keyHex)) {
-    keyBytes = hexToBytes(keyHex);
-  } else {
-    keyBytes = base64ToBytes(keyHex);
-  }
-
-  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
-  const [ivB64, ctB64] = encryptedStr.split(":");
-  const iv = base64ToBytes(ivB64);
-  const ciphertext = base64ToBytes(ctB64);
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
-  return new TextDecoder().decode(decrypted);
-}
 
 async function getAccessToken(refreshToken: string): Promise<string> {
   const clientId = Deno.env.get("OUTLOOK_CLIENT_ID");
