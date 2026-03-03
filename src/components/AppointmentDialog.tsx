@@ -184,16 +184,15 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
     }
   }, [appointment, open, defaultDate]);
 
-  // Auto-fill previous appointment location
+  // Auto-fill previous appointment location as start point
   useEffect(() => {
-    if (previousAppointment && !isEdit) {
-      const c = previousAppointment.customers as any;
-      if (c?.lat && c?.lng) {
-        setStartCoords([c.lat, c.lng]);
-        setStartLocationLabel(`${c.name} — ${c.city || ""}`.trim());
-      }
+    if (!previousAppointment) return;
+    const c = previousAppointment.customers as any;
+    if (c?.lat && c?.lng) {
+      setStartCoords([c.lat, c.lng]);
+      setStartLocationLabel(`${c.name} — ${c.city || ""}`.trim());
     }
-  }, [previousAppointment, isEdit]);
+  }, [previousAppointment?.id]);
 
   const set = (key: string, value: unknown) => setForm((f) => ({ ...f, [key]: value }));
 
