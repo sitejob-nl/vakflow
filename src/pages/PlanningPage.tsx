@@ -472,9 +472,20 @@ const PlanningPage = () => {
                         const durationSlots = (ev.duration_minutes ?? 60) / 15;
                         const topOffset = (startMinuteOffset / 15) * SLOT_HEIGHT;
                         const eventHeight = Math.max(durationSlots * SLOT_HEIGHT - 2, SLOT_HEIGHT - 2);
+                        const travelMin = (ev as any).travel_time_minutes;
+                        const travelBlockPx = travelMin ? Math.max(Math.round((travelMin / 15) * SLOT_HEIGHT), 14) : 0;
                         const hasWorkOrder = appointmentWoMap.has(ev.id);
                         return (
                           <div key={ev.id} className="absolute left-[2px] right-[2px] z-[2]" style={{ top: `${topOffset}px` }} onClick={(e) => handleEventClick(e, ev)}>
+                            {travelMin > 0 && (
+                              <div
+                                className="flex items-center gap-1 text-[8px] text-muted-foreground bg-muted/60 rounded-t-md px-1 border border-border/40 border-b-0"
+                                style={{ height: `${travelBlockPx}px`, marginTop: `-${travelBlockPx}px` }}
+                              >
+                                <Navigation className="h-2.5 w-2.5 flex-shrink-0" />
+                                <span className="truncate">{travelMin} min</span>
+                              </div>
+                            )}
                             <div
                               className="rounded-md px-2 py-[3px] text-[12px] font-bold cursor-pointer overflow-hidden hover:shadow-card-hover transition-all relative border-l-[3px]"
                               style={{
