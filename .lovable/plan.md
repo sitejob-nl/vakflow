@@ -1,59 +1,64 @@
 
 
-## Analyse: Wat werkt er niet en waarom
+## E-mail Templates & Automatiseringen
 
-Ik heb alle relevante code, network requests en edge function logs doorgenomen. Hier is de status per onderdeel:
+### Wat wordt gebouwd
 
-### 1. Posts (Pagina tab) -- Permissie-probleem
-- **Fout**: `OAuthException code 200, subcode 1340002` = "Permissions error"
-- **Oorzaak**: Het Page Access Token mist de `pages_manage_posts` permissie. Dit is een Meta App configuratie-issue -- de app moet in Development mode staan met jou als Tester, of de permissie moet goedgekeurd zijn via App Review.
-- **Geen code-aanpassing nodig**, alleen Meta Developer Portal configuratie.
+1. **Nieuwe tabel `email_templates`** — Opslaan van herbruikbare HTML e-mailtemplates per bedrijf
+2. **HTML E-mail Template Builder** — Een visuele editor in de Instellingen pagina waar gebruikers templates kunnen maken met bedrijfslogo, kleuren, en variabelen (bijv. `{{klantnaam}}`, `{{werkbonnummer}}`)
+3. **E-mail Automatiseringen** — Uitbreiding van het bestaande "Automatiseringen" tabblad in Instellingen zodat naast WhatsApp ook e-mail automatiseringen ingesteld kunnen worden (bijv. bij afgeronde werkbon, factuur verzonden, etc.)
 
-### 2. Messenger & Instagram -- Geen berichten
-- **Status**: Queries retourneren lege arrays (`[]`)
-- **Oorzaak**: Berichten komen alleen binnen via de **meta-webhook** Edge Function. Deze moet geconfigureerd zijn in het Meta Developer Portal als callback URL. Zonder webhook ontvangt de app geen berichten.
-- **Geen code-aanpassing nodig**, alleen webhook configuratie in Meta.
+### Database
 
-### 3. Leads -- Geen leads
-- **Status**: Lege array
-- **Oorzaak**: Zelfde als Messenger -- leads komen binnen via de webhook (`leadgen` events). Daarnaast mist de `leadsQuery` een `company_id` filter.
-- **Code-fix nodig**: voeg `.eq("company_id", companyId)` toe aan `useMetaLeads`.
+**Nieuwe tabel: `email_templates`**
 
-### 4. Page Insights -- Foutmelding
-- **Fout**: `(#100) The value must be a valid insights metric`
-- **Oorzaak**: De metrics `page_impressions`, `page_engaged_users`, `page_fans` zijn deprecated/gewijzigd in Graph API v21.0. De API verwacht nu andere metric-namen.
-- **Code-fix nodig**: update de metrics naar geldige v21.0 waarden.
+| Kolom | Type | Omschrijving |
+|-------|------|-------------|
+| id | uuid PK | |
+| company_id | uuid NOT NULL | |
+| name | text NOT NULL | Templatenaaam |
+| subject | text | Standaard onderwerp |
+| html_body | text NOT NULL | HTML-inhoud met variabelen |
+| variables | jsonb | Lijst beschikbare variabelen |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
 
----
+Met RLS-policies op basis van `company_id = get_my_company_id()`.
 
-## Plan
+**Uitbreiding `auto_message_settings`**: bestaande tabel ondersteunt al `channel: "email" | "whatsapp" | "both"` en `custom_text`. We voegen een kolom `email_template_id uuid` toe die verwijst naar `email_templates`.
 
-### Stap 1: Fix `useMetaLeads` -- voeg company_id filter toe
-Voeg `.eq("company_id", companyId)` toe aan de leadsQuery, net als bij conversations en posts.
+### Frontend componenten
 
-### Stap 2: Fix page-insights metrics in edge function
-Update de `page-insights` action in `meta-api/index.ts` om geldige Graph API v21.0 metrics te gebruiken. De huidige deprecated metrics worden vervangen door:
-- `page_impressions_unique` (bereik)
-- `page_post_engagements` (engagement)  
-- `page_fans` (volgers -- deze bestaat nog steeds maar vereist `read_insights` permissie)
+**1. E-mail Template Builder** (nieuw component `EmailTemplateEditor.tsx`)
+- Bewerkbare secties: header (met bedrijfslogo upload), body (rich text met variabelen), footer
+- Live preview via sandboxed iframe (patroon bestaat al in `EmailPage.tsx`)
+- Variabelen invoegen via knoppen: `{{klantnaam}}`, `{{werkbonnummer}}`, `{{factuurnummer}}`, `{{bedrag}}`, `{{datum}}`
+- Bedrijfslogo wordt automatisch ingeladen vanuit `companies.logo_url`
+- Kleurthema gebaseerd op `companies.brand_color`
 
-Alternatief: als de permissie `read_insights` niet beschikbaar is, kan de insights-sectie graceful een lege state tonen in plaats van een error.
+**2. E-mail Templates tab** (in SettingsPage, nieuw tabblad "E-mail Templates")
+- Lijst van bestaande templates met preview
+- CRUD: aanmaken, bewerken, verwijderen
+- Standaard starttemplates (bijv. "Werkbon afgerond", "Factuur bijgevoegd")
 
-### Stap 3: Betere error handling voor insights in frontend
-In `useMetaPagePosts.ts` retourneert `pageInsights` al `null` bij errors, maar de edge function geeft een 200 terug met een error-body. De frontend moet dit ook als "geen data" behandelen.
+**3. Automatiseringen tab uitbreiden**
+- Huidige tab toont alleen WhatsApp automatiseringen
+- Twee secties toevoegen: "WhatsApp Automatiseringen" (bestaand) en "E-mail Automatiseringen" (nieuw)
+- E-mail automatisering: kies trigger (zelfde `TRIGGER_TYPES` als WhatsApp) → kies e-mail template → aan/uit
+- Opslaan in `auto_message_settings` met `channel: "email"` en `email_template_id`
 
-### Handmatige stappen (geen code)
-Je moet deze stappen zelf doen in het Meta Developer Portal:
+### Hooks
 
-1. **Voeg je Facebook-account toe als Tester/Developer** in je Meta App → App Roles
-2. **Ontkoppel en koppel opnieuw** in Vakflow → Instellingen → Meta tab (zodat het token de juiste scopes krijgt)
-3. **Configureer de webhook** in Meta Developer Portal:
-   - Callback URL: `https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/meta-webhook`
-   - Verify Token: `2320c88c-df58-4940-b6a6-f3dd38ad440d`
-   - Subscriptions: `messages`, `messaging_postbacks`, `leadgen`
+- `useEmailTemplates.ts` — CRUD hook voor `email_templates` tabel
+- Uitbreiding `useAutoMessageSettings.ts` — ondersteuning voor `email_template_id`
 
-| Bestand | Wijziging |
-|---------|-----------|
-| `src/hooks/useMetaLeads.ts` | Voeg `company_id` filter toe |
-| `supabase/functions/meta-api/index.ts` | Fix page-insights metrics, voeg error check toe |
+### Bestanden
+
+| Bestand | Actie |
+|---------|-------|
+| Migration SQL | Maak `email_templates` tabel + voeg `email_template_id` kolom toe aan `auto_message_settings` |
+| `src/hooks/useEmailTemplates.ts` | Nieuw — CRUD voor email templates |
+| `src/components/EmailTemplateEditor.tsx` | Nieuw — HTML template builder met logo, variabelen, preview |
+| `src/pages/SettingsPage.tsx` | Voeg "E-mail Templates" tab toe + breid "Automatiseringen" tab uit met e-mail sectie |
+| `src/hooks/useAutoMessageSettings.ts` | Voeg `email_template_id` toe aan interface |
 
