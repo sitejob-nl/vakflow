@@ -1,14 +1,15 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+const AdminRoute = ({ children, fallback }: { children: React.ReactNode; fallback?: React.ReactNode }) => {
   const { isAdmin, role } = useAuth();
 
   // Still loading role
   if (role === null) return null;
 
   if (!isAdmin) {
-    return <Navigate to="/planning" replace />;
+    if (fallback) return <>{fallback}</>;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

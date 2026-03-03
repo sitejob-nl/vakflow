@@ -4,7 +4,7 @@ import { LayoutGrid, Calendar, Users, FileText, DollarSign, Mail, MessageSquare 
 import { useAuth } from "@/contexts/AuthContext";
 
 const allItems = [
-  { id: "dashboard" as Page, icon: LayoutGrid, label: "Home", adminOnly: true },
+  { id: "dashboard" as Page, icon: LayoutGrid, label: "Home", adminOnly: false },
   { id: "planning" as Page, icon: Calendar, label: "Planning", adminOnly: false },
   { id: "workorders" as Page, icon: FileText, label: "Bonnen", adminOnly: false },
   { id: "email" as Page, icon: Mail, label: "E-mail", adminOnly: true },
