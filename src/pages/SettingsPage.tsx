@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useRef, FormEvent } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,7 @@ import { useQuoteTemplatesDB, useDeleteQuoteTemplate, useCombinedTemplates, type
 import { useWhatsAppAutomations, useCreateAutomation, useUpdateAutomation, useDeleteAutomation, TRIGGER_TYPES, AVAILABLE_VARIABLES } from "@/hooks/useWhatsAppAutomations";
 import type { Tables } from "@/integrations/supabase/types";
 import MetaSettingsTab from "@/components/MetaSettingsTab";
+import { useGeocode } from "@/hooks/useMapbox";
 
 const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates", "Automatiseringen", "Teamleden", "Koppelingen", "Meta"];
 
@@ -32,6 +33,56 @@ const TAB_FEATURE_MAP: Record<string, string> = {
   "WhatsApp": "whatsapp",
   "Automatiseringen": "whatsapp",
   "Meta": "marketing",
+};
+
+const LocationAutocomplete = ({ value, onChange, inputClass, labelClass }: { value: string; onChange: (v: string) => void; inputClass: string; labelClass: string }) => {
+  const { suggestions, loading, search, clear } = useGeocode();
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <label className={labelClass}>Vestigingsplaats (voor routeberekening)</label>
+      <input
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          search(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => { if (suggestions.length) setOpen(true); }}
+        className={inputClass}
+        placeholder="Bijv. Hoofdstraat 1, Heemskerk"
+      />
+      {open && suggestions.length > 0 && (
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-[200px] overflow-y-auto">
+          {suggestions.map((s, i) => (
+            <button
+              key={i}
+              type="button"
+              className="w-full text-left px-3 py-2 text-[13px] hover:bg-accent/10 transition-colors border-b border-border last:border-b-0"
+              onClick={() => {
+                onChange(s.place_name);
+                setOpen(false);
+                clear();
+              }}
+            >
+              <span className="font-medium">{s.street} {s.house_number}</span>
+              {s.postal_code && <span className="text-muted-foreground ml-1">· {s.postal_code} {s.city}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const SettingsPage = () => {
@@ -855,10 +906,12 @@ const SettingsPage = () => {
               <input value={iban} onChange={(e) => setIban(e.target.value)} className={inputClass} placeholder="NL00BANK0123456789" />
             </div>
           </div>
-          <div>
-            <label className={labelClass}>Vestigingsplaats (voor routeberekening)</label>
-            <input value={location} onChange={(e) => setLocation(e.target.value)} className={inputClass} placeholder="Heemskerk" />
-          </div>
+          <LocationAutocomplete
+            value={location}
+            onChange={setLocation}
+            inputClass={inputClass}
+            labelClass={labelClass}
+          />
           <button onClick={handleSaveCompany} disabled={saving} className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
             {saving ? "Opslaan..." : "Opslaan"}
           </button>
