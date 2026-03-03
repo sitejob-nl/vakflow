@@ -13,6 +13,7 @@ export function useMetaLeads() {
       const { data, error } = await supabase
         .from("meta_leads")
         .select("*")
+        .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
