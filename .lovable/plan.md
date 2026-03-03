@@ -1,39 +1,41 @@
 
 
-## Probleem analyse
+## Analyse
 
-Er zijn **drie problemen** gevonden:
+De `publish-post` actie in de edge function stuurt de post naar Facebook via de Graph API, maar:
 
-### 1. Facebook pagina is gekoppeld aan het verkeerde bedrijf
-De `meta_config` tabel toont dat je Facebook pagina ("Kas van de Meulengraaf") is gekoppeld aan `company_id: 2a5c7a99...` terwijl je ingelogd bent bij bedrijf `company_id: 62ab95a0...`. Dit betekent dat de OAuth-flow het verkeerde company_id heeft meegegeven in de state parameter. Alle berichten die via de webhook binnenkomen worden dus aan het verkeerde bedrijf gekoppeld, en door RLS zie je ze niet.
+1. **De response van Facebook wordt niet gecontroleerd** -- als Facebook een error teruggeeft (bijv. onvoldoende permissies, verlopen token), toont de frontend toch "Post gepubliceerd" omdat `supabase.functions.invoke` geen error gooit bij een 200 response van de edge function (zelfs als de body een Facebook error bevat).
 
-**Oplossing**: Update de `meta_config` rij zodat het `company_id` overeenkomt met je huidige bedrijf, OF ontkoppel en koppel opnieuw.
+2. **De post wordt niet opgeslagen** in `meta_page_posts` na publicatie.
 
-### 2. Webhook ontvangt geen berichten van Meta
-Er zijn **nul logs** voor de `meta-webhook` Edge Function. Dit betekent dat Meta geen events naar de webhook stuurt. Mogelijke oorzaken:
-- De webhook URL is niet (correct) geconfigureerd in het Meta Developer Portal
-- De webhook verificatie is niet geslaagd
-- De webhook subscriptions (messages, messaging_postbacks) zijn niet ingeschakeld voor je pagina
+3. **Mogelijke oorzaak**: De Facebook Page Access Token heeft mogelijk niet de `pages_manage_posts` of `publish_pages` permissie. Of het token is verlopen. De `publish-post` actie doet een `graphPost` maar controleert niet of `result.id` aanwezig is (succes) of `result.error` (fout).
 
-**Handmatige actie vereist in Meta for Developers**:
-1. Ga naar je app → Webhooks
-2. Stel de Callback URL in: `https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/meta-webhook`
-3. Vul het Verify Token in (de waarde van je `META_WEBHOOK_VERIFY_TOKEN` secret)
-4. Abonneer op de velden: `messages`, `messaging_postbacks`, `feed` (voor Messenger) en `messages` onder Instagram
-5. Ga naar je Facebook Page Settings → koppel de webhook aan je pagina
+## Oplossing
 
-### 3. Company ID fix via database
-De snelste fix is om de bestaande `meta_config` rij te updaten naar het juiste company_id.
+| Bestand | Wijziging |
+|---------|-----------|
+| `supabase/functions/meta-api/index.ts` | `publish-post`: controleer of Facebook `result.id` teruggeeft (succes) of `result.error` (fout). Bij succes: sla post op in `meta_page_posts`. Bij fout: return de error met status 400. |
+| `supabase/functions/meta-api/index.ts` | `publish-post`: voeg logging toe zodat we het Graph API resultaat kunnen zien |
+| `src/hooks/useMetaPagePosts.ts` | Voeg `.eq("company_id", companyId)` filter toe aan `postsQuery` |
+| `src/hooks/useMetaPagePosts.ts` | `publishPost.onSuccess`: roep `fetchPosts.mutateAsync()` aan om bestaande posts van Facebook op te halen |
 
-### Aanpassingen
+### Edge function `publish-post` actie (nieuw)
+```
+// Na graphPost:
+console.log("publish-post result:", JSON.stringify(result));
+if (result.error) {
+  return jsonRes({ error: result.error.message || "Facebook error" }, 400);
+}
+// Sla op in meta_page_posts
+await supabaseAdmin.from("meta_page_posts").insert({
+  company_id: companyId,
+  post_id: result.id,
+  message: postMessage,
+  created_time: new Date().toISOString(),
+});
+```
 
-| Wijziging | Beschrijving |
-|-----------|-------------|
-| Database migration | Update `meta_config.company_id` van `2a5c7a99...` naar `62ab95a0...` |
-| `useMetaConversations.ts` | Voeg `company_id` filter toe aan de query (extra beveiliging naast RLS) |
-
-### Handmatige stappen (voor jou)
-1. Configureer de webhook URL in Meta Developer Portal (zie hierboven)
-2. Controleer dat de webhook verificatie slaagt (test via de "Test" knop in het portal)
-3. Abonneer je pagina op messaging events
+Dit lost twee dingen op:
+- Posts worden opgeslagen en zijn zichtbaar in de app
+- Fouten van Facebook worden doorgestuurd naar de frontend in plaats van stilzwijgend genegeerd
 
