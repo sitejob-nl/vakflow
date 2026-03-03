@@ -1,38 +1,24 @@
 
 
-## Plan: Outlook vereenvoudigen — globale credentials
+## Probleem: `Invalid key length` in `outlook-callback`
 
-Je hebt gelijk, het is onnodig complex. Eén Entra-app met de credentials als secrets, en elk bedrijf klikt gewoon op "Koppel Outlook". Geen Tenant ID of Client ID velden meer.
+De `SMTP_ENCRYPTION_KEY` secret heeft geen geldige lengte voor AES-256-GCM. De `encrypt()` functie verwacht:
+- **64 hex karakters** (= 32 bytes = 256 bits), of
+- **Base64-encoded 32 bytes** (= 44 karakters)
 
-### Wat verandert
+Als de key een ander formaat of lengte heeft, faalt `crypto.subtle.importKey` met "Invalid key length".
 
-**1. Twee secrets toevoegen**
-- `OUTLOOK_CLIENT_ID` — de Application (client) ID van jouw Entra-app
-- `OUTLOOK_TENANT_ID` — stel in op `organizations` (of `common`) zodat elk Microsoft-account kan inloggen
+Dit werkt waarschijnlijk al langer niet — de `send-email` functie gebruikt dezelfde key voor **decryptie** van SMTP-wachtwoorden, dus als die wel werkt, is de key waarschijnlijk correct maar in een onverwacht formaat.
 
-**2. Edge functions aanpassen (4 bestanden)**
-Alle functies lezen `client_id` en `tenant_id` uit `Deno.env.get()` i.p.v. uit de `companies` tabel:
-- `outlook-callback` — token exchange gebruikt secrets
-- `outlook-send` — token refresh gebruikt secrets  
-- `outlook-calendar` — token refresh gebruikt secrets
-- `send-email` — stopt met ophalen van `outlook_tenant_id`/`outlook_client_id`
+### Oplossing
 
-**3. SettingsPage.tsx vereenvoudigen**
-- Verwijder de invoervelden voor Tenant ID en Client ID
-- Verwijder de state variabelen `outlookTenantId` en `outlookClientId`
-- Eén knop: **"Koppel Outlook"** die de OAuth URL opbouwt met een call naar een simpele edge function die de auth URL teruggeeft (zodat de client_id niet in de frontend staat)
-- Als gekoppeld: toon het e-mailadres + "Ontkoppel" knop
+De `encrypt()` functie robuuster maken met een SHA-256 hash als fallback. Als de key niet exact 32 bytes oplevert via hex of base64, hashen we de ruwe key-string naar exact 32 bytes met SHA-256. Dit is veilig en zorgt dat elke willekeurige string als key werkt.
 
-**4. Nieuwe edge function: `outlook-auth-url`**
-Simpele authenticated function die de OAuth authorize URL retourneert met de globale credentials. De frontend opent die URL in een popup.
+**Bestanden:**
+- `supabase/functions/outlook-callback/index.ts` — encrypt functie aanpassen
+- `supabase/functions/save-smtp-credentials/index.ts` — zelfde encrypt functie, ook aanpassen voor consistentie
 
-**5. save-smtp-credentials aanpassen**
-Verwijder de `outlook_tenant_id` en `outlook_client_id` velden — die worden niet meer per bedrijf opgeslagen.
+De `decrypt` functies in `send-email`, `outlook-send`, en `outlook-calendar` moeten **niet** aangepast worden — die werken al correct met de huidige key (omdat bestaande encrypted data met het huidige formaat is opgeslagen).
 
-### Volgorde
-1. Secrets `OUTLOOK_CLIENT_ID` en `OUTLOOK_TENANT_ID` opvragen
-2. Edge functions updaten (callback, send, calendar, send-email)
-3. Nieuwe `outlook-auth-url` function
-4. SettingsPage UI vereenvoudigen
-5. save-smtp-credentials opschonen
+De aanpassing: als de key niet precies 64 hex chars is en ook niet valid base64 van 32 bytes oplevert, gebruik `SHA-256(keyString)` om altijd 32 bytes te krijgen.
 
