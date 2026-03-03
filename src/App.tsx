@@ -28,6 +28,7 @@ import CompanySignupPage from "@/pages/CompanySignupPage";
 import SuperAdminPage from "@/pages/SuperAdminPage";
 import ReportsPage from "@/pages/ReportsPage";
 import AssetsPage from "@/pages/AssetsPage";
+import MarketingPage from "@/pages/MarketingPage";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,7 @@ const App = () => (
               <Route path="whatsapp" element={<AdminRoute><WhatsAppPage /></AdminRoute>} />
               <Route path="reminders" element={<AdminRoute><RemindersPage /></AdminRoute>} />
               <Route path="assets" element={<AdminRoute><AssetsPage /></AdminRoute>} />
+              <Route path="marketing" element={<AdminRoute><MarketingPage /></AdminRoute>} />
               <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
               <Route path="superadmin" element={<SuperAdminPage />} />
             </Route>

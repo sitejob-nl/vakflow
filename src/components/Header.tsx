@@ -24,6 +24,7 @@ const pageTitles: Record<Page, { title: string; sub: string }> = {
   whatsapp: { title: "WhatsApp", sub: "Gesprekken" },
   reminders: { title: "Reminders", sub: "Herinneringen" },
   assets: { title: "Objecten", sub: "Objectbeheer" },
+  marketing: { title: "Marketing", sub: "Meta leads & berichten" },
   settings: { title: "Instellingen", sub: "Profiel & voorkeuren" },
   superadmin: { title: "Super Admin", sub: "Bedrijvenbeheer" },
 };

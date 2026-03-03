@@ -1,7 +1,7 @@
 import { useNavigation, type Page } from "@/hooks/useNavigation";
 import {
   LayoutGrid, Calendar, Users, FileText, DollarSign,
-  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box
+  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone
 } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,6 +37,7 @@ const allSections = [
     label: "Beheer",
     items: [
       { id: "assets" as Page, icon: Box, label: "Objecten", adminOnly: true },
+      { id: "marketing" as Page, icon: Megaphone, label: "Marketing", adminOnly: true },
     ],
   },
 ];
