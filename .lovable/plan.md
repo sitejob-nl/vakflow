@@ -1,40 +1,85 @@
 
 
-## Plan: pg_cron job aanmaken voor reminder-scan
+## Analyse van het SaaS-Gereedheidsrapport
 
-Het `CRON_SECRET` secret staat al ingesteld. Nu moet er een `pg_cron` job aangemaakt worden die de `reminder-scan` function periodiek aanroept met de `X-Cron-Secret` header.
+### Wat is al opgelost (vorige iteratie)
+- Edge Functions JWT-validatie: `authenticateRequest()` gestandaardiseerd, `getClaims()` verwijderd
+- Shared crypto module (`_shared/crypto.ts`) met AES-256-GCM + HMAC
+- OAuth state HMAC-signing (Outlook)
+- Multi-tenant scoping fixes (whatsapp-config, whatsapp-send)
+- `CRON_SECRET` voor reminder-scan
 
-### Wat er gebeurt
+### Wat nu nog actie vereist
 
-Een SQL statement via `cron.schedule()` dat dagelijks (bijv. 08:00 UTC) een HTTP POST doet naar `reminder-scan` met:
-- `Authorization: Bearer <ANON_KEY>` (nodig om door de gateway te komen)
-- `X-Cron-Secret: <CRON_SECRET>` (wordt in de function gevalideerd)
+---
 
-### Technische details
+#### Stap 1: RLS-policies van `public` naar `authenticated` role (KRITIEK)
 
-Dit wordt uitgevoerd als directe SQL query (niet als migratie, want het bevat project-specifieke waarden):
+**12 tabellen** hebben policies op de `public` role in plaats van `authenticated`. Dit moet per policy: drop + recreate met `TO authenticated`.
 
+Betreffende tabellen:
+- `asset_maintenance_logs` (4 policies)
+- `assets` (4 policies)
+- `companies` (2 policies: SELECT + Super admin UPDATE)
+- `email_templates` (4 policies)
+- `materials` (4 policies)
+- `meta_config` (4 policies)
+- `meta_conversations` (3 policies)
+- `meta_leads` (4 policies)
+- `meta_page_posts` (4 policies)
+- `time_entries` (4 policies)
+- `work_order_materials` (policies op public)
+- Mogelijk `whatsapp_messages`, `work_orders` (moet geverifieerd worden)
+
+**Aanpak**: Eén migratie die alle betrokken policies dropt en opnieuw aanmaakt met `TO authenticated`.
+
+---
+
+#### Stap 2: RLS InitPlan-optimalisatie (HOOG)
+
+Alle policies die `get_my_company_id()`, `auth.uid()`, `has_role(auth.uid(), ...)`, of `is_super_admin()` gebruiken moeten gewrapped worden met `(select ...)` om per-row evaluatie te voorkomen.
+
+Voorbeeld:
 ```sql
-select cron.schedule(
-  'reminder-scan-daily',
-  '0 8 * * *',  -- elke dag om 08:00 UTC
-  $$
-  select net.http_post(
-    url := '<SUPABASE_URL>/functions/v1/reminder-scan',
-    headers := '{"Content-Type":"application/json","Authorization":"Bearer <ANON_KEY>","X-Cron-Secret":"<CRON_SECRET_VALUE>"}'::jsonb,
-    body := '{}'::jsonb
-  ) as request_id;
-  $$
-);
+-- Was:
+company_id = get_my_company_id()
+-- Wordt:
+company_id = (select get_my_company_id())
+
+-- Was:
+has_role(auth.uid(), 'admin'::app_role)
+-- Wordt:
+has_role((select auth.uid()), 'admin'::app_role)
 ```
 
-### Belangrijk
+Dit raakt **alle ~120 policies** over alle 30 tabellen. Wordt gecombineerd met Stap 1 in dezelfde migratie.
 
-Ik heb de **waarde** van `CRON_SECRET` nodig om deze in de cron job header te plaatsen. Secrets zijn encrypted en ik kan ze niet uitlezen. Je moet me de waarde van `CRON_SECRET` geven zodat ik de cron job kan aanmaken, of je kunt de SQL zelf uitvoeren in de Supabase SQL Editor met de juiste waarde ingevuld.
+---
 
-Hetzelfde geldt voor de `SUPABASE_ANON_KEY` — die staat als secret maar de waarde is nodig in de SQL.
+#### Stap 3: Dubbele UPDATE-policies op `companies` samenvoegen (HOOG)
 
-### Alternatief
+Twee permissive UPDATE-policies:
+1. "Admins can update own company" — `id = get_my_company_id() AND has_role(auth.uid(), 'admin')`
+2. "Super admins can update companies" — `is_super_admin()`
 
-Als je liever niet de secret waarden deelt: ik kan je het exacte SQL template geven dat je zelf in de Supabase SQL Editor plakt met de waarden ingevuld.
+Samenvoegen tot één policy met OR-conditie.
+
+---
+
+#### Stap 4: Leaked Password Protection (WAARSCHUWING)
+
+Dit is een **Supabase Dashboard-instelling**, geen code-wijziging. Ik geef je de link om dit in te schakelen.
+
+---
+
+### Buiten scope (handmatig / later)
+- **Auth DB connection strategy** (percentage-based): Supabase Pro plan instelling, niet via migratie
+- **Credentials encryptie in companies-tabel**: De `_shared/crypto.ts` module is er al. De Edge Functions die credentials lezen (send-email, outlook-*, rompslomp-*, etc.) gebruiken al decrypt. Verdere verplaatsing naar een apart model is een grotere refactor voor later.
+- **Rate limiting op Edge Functions**: Vereist externe tooling (Cloudflare, custom middleware)
+
+### Uitvoering
+
+Eén grote migratie die stap 1, 2 en 3 combineert: alle ~120 policies worden gedropt en opnieuw aangemaakt met:
+- `TO authenticated` (i.p.v. `public`)
+- `(select ...)` wrappers rond alle function calls
 
