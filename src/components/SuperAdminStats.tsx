@@ -32,7 +32,7 @@ const SuperAdminStats = () => {
 
       // Server-side counts — no 1000-row limit issue
       const [companiesCount, usersCount, customersCount, workOrdersCount] = await Promise.all([
-        supabase.from("companies").select("*", { count: "exact", head: true }),
+        supabase.from("companies_safe" as any).select("*", { count: "exact", head: true }),
         supabase.from("profiles").select("*", { count: "exact", head: true }),
         supabase.from("customers").select("*", { count: "exact", head: true }),
         supabase.from("work_orders").select("*", { count: "exact", head: true }),
@@ -62,7 +62,7 @@ const SuperAdminStats = () => {
       // 18 head-count queries in parallel instead of 3 full dataset fetches
       const monthResults = await Promise.all(
         monthRanges.flatMap(({ start, end }) => [
-          supabase.from("companies").select("*", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
+          supabase.from("companies_safe" as any).select("*", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
           supabase.from("customers").select("*", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
           supabase.from("work_orders").select("*", { count: "exact", head: true }).gte("created_at", start).lt("created_at", end),
         ])
