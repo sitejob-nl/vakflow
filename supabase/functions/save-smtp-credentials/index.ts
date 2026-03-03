@@ -32,11 +32,16 @@ async function encryptPassword(plainPassword: string): Promise<string> {
   if (keyHex.length === 64 && /^[0-9a-fA-F]+$/.test(keyHex)) {
     keyBytes = hexToBytes(keyHex);
   } else {
-    // Try base64
-    const binary = atob(keyHex);
-    keyBytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      keyBytes[i] = binary.charCodeAt(i);
+    try {
+      const binary = atob(keyHex);
+      keyBytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        keyBytes[i] = binary.charCodeAt(i);
+      }
+      if (keyBytes.length !== 32) throw new Error("not 32 bytes");
+    } catch {
+      // Fallback: SHA-256 hash of the raw key string to get exactly 32 bytes
+      keyBytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(keyHex)));
     }
   }
 
