@@ -4,6 +4,7 @@ import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient } from "../_shared/supabase.ts";
 import { verifyMetaSignature } from "../_shared/webhook-verify.ts";
 import { findCustomerByPhone } from "../_shared/phone.ts";
+import { logUsage } from "../_shared/usage.ts";
 
 const MEDIA_TYPES = ["image", "video", "audio", "document", "sticker"];
 
@@ -35,6 +36,7 @@ async function downloadAndStoreMedia(
   mediaId: string,
   mimeType: string,
   msgType: string,
+  companyId: string,
   _filename?: string,
 ): Promise<string | null> {
   try {
@@ -59,7 +61,8 @@ async function downloadAndStoreMedia(
     const fileBuffer = await fileRes.arrayBuffer();
 
     const ext = extFromMime(mimeType);
-    const storagePath = `${msgType}/${crypto.randomUUID()}.${ext}`;
+    // Tenant-isolated path: {companyId}/{msgType}/{uuid}.{ext}
+    const storagePath = `${companyId}/${msgType}/${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("whatsapp-media")
@@ -249,6 +252,7 @@ Deno.serve(async (req) => {
                 mediaMeta.mediaId,
                 mediaMeta.mimeType,
                 msg.type,
+                companyId,
                 mediaMeta.filename,
               );
             }
@@ -278,6 +282,7 @@ Deno.serve(async (req) => {
           );
 
           if (error) console.error(`Message save error: ${error.message}`);
+          else await logUsage(supabase, companyId, "whatsapp_received", { from: fromNumber, type: msg.type });
         }
       }
 

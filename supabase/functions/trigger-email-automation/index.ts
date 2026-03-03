@@ -1,5 +1,6 @@
 import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, createUserClient } from "../_shared/supabase.ts";
+import { logUsage } from "../_shared/usage.ts";
 
 /** Replace {{variable}} placeholders in a string */
 function replaceVariables(text: string, vars: Record<string, string>): string {
@@ -130,6 +131,9 @@ Deno.serve(async (req) => {
         });
 
         results.push({ message_type: setting.message_type, success: sendResponse.ok, template: template.name });
+        if (sendResponse.ok) {
+          await logUsage(supabase, companyId, "email_automation_sent", { customer_id: customer.id, template: template.name });
+        }
       } catch (err) {
         console.error(`Email automation error:`, err);
         results.push({ message_type: setting.message_type, success: false, error: (err as Error).message });
