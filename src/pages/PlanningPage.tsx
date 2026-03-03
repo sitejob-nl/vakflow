@@ -335,7 +335,7 @@ const PlanningPage = () => {
         {/* Toolbar */}
         {isMobile ? (
           /* Mobile toolbar: day navigation */
-          <div className="px-3 py-3 flex items-center gap-2 border-b border-border">
+          <div className="px-3 py-3 flex items-center gap-2 border-b border-border flex-wrap">
             <button onClick={() => setMobileDay((d) => subDays(d, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -350,6 +350,12 @@ const PlanningPage = () => {
               <button onClick={() => setMobileDay(new Date())} className="px-2.5 py-1 bg-card border border-border rounded-sm text-[11px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors">
                 Vandaag
               </button>
+            )}
+            {outlookConnected && (
+              <label className="flex items-center gap-1 text-[11px] font-bold text-secondary-foreground cursor-pointer">
+                <Switch checked={showOutlook} onCheckedChange={setShowOutlook} className="scale-[0.65]" />
+                <CalendarIcon className="h-3 w-3" />
+              </label>
             )}
             {canOptimize && (
               <button
@@ -490,6 +496,41 @@ const PlanningPage = () => {
                                   {ev.services?.name} · {ev.customers?.city}
                                 </div>
                               )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {/* Outlook events on mobile */}
+                      {slot.minute === 0 && getOutlookEventsForHour(mobileDay, slot.hour).map((oev) => {
+                        const isPersonal = oev._source === "personal";
+                        const outlookColor = isPersonal ? "#2563eb" : "#7c3aed";
+                        const startDate = new Date(oev.start.dateTime + (oev.start.timeZone === "UTC" ? "Z" : ""));
+                        const endDate = new Date(oev.end.dateTime + (oev.end.timeZone === "UTC" ? "Z" : ""));
+                        const startMinuteOffset = startDate.getMinutes();
+                        const durationMin = Math.max((endDate.getTime() - startDate.getTime()) / 60000, 15);
+                        const durationSlots = durationMin / 15;
+                        const topOffset = (startMinuteOffset / 15) * SLOT_HEIGHT;
+                        const eventHeight = Math.max(durationSlots * SLOT_HEIGHT - 2, SLOT_HEIGHT - 2);
+                        const isPinned = outlookOverrides?.some((o) => o.outlook_event_id === oev.id && o.pinned);
+                        return (
+                          <div key={`outlook-${oev.id}`} className="absolute left-[2px] right-[2px] z-[1] cursor-pointer" style={{ top: `${topOffset}px` }} onClick={(e) => { e.stopPropagation(); setOutlookDetailEvent(oev); setOutlookDetailOpen(true); }}>
+                            <div
+                              className="rounded-md px-1.5 py-[2px] text-[10px] font-bold overflow-hidden opacity-80 border-l-[3px] hover:opacity-100 transition-opacity"
+                              style={{
+                                height: `${eventHeight}px`,
+                                backgroundColor: `${outlookColor}20`,
+                                color: outlookColor,
+                                borderLeftColor: outlookColor,
+                              }}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span className="text-[9px] font-medium opacity-70 font-mono">
+                                  {format(startDate, "HH:mm")}
+                                </span>
+                                {isPinned && <span className="text-[8px]">📌</span>}
+                                <CalendarIcon className="h-2.5 w-2.5 opacity-60 flex-shrink-0" />
+                                <span className="truncate">{oev.subject || "Outlook"}</span>
+                              </div>
                             </div>
                           </div>
                         );
