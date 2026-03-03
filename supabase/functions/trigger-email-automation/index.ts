@@ -38,13 +38,11 @@ Deno.serve(async (req) => {
     const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: claimsData, error: claimsErr } = await supabaseUser.auth.getClaims(
-      authHeader.replace("Bearer ", "")
-    );
-    if (claimsErr || !claimsData?.claims) {
+    const { data: { user }, error: userErr } = await supabaseUser.auth.getUser();
+    if (userErr || !user) {
       return jsonRes({ error: "Invalid session" }, 401);
     }
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
 
     const { trigger_type, customer_id, context: ctx } = await req.json();
     console.log(`Email automation trigger: ${trigger_type} for customer ${customer_id}`);
@@ -78,12 +76,8 @@ Deno.serve(async (req) => {
       return jsonRes({ skipped: true, reason: "No email address" });
     }
 
-    // Map trigger_type to message_type in auto_message_settings
-    const messageTypeMap: Record<string, string> = {
-      work_order_completed: "work_order_summary",
-      invoice_sent: "appointment_confirmation", // reuse or create new
-    };
-    const messageType = messageTypeMap[trigger_type] || trigger_type;
+    // Use trigger_type directly as message_type (they match in auto_message_settings)
+    const messageType = trigger_type;
 
     // Fetch auto_message_settings for this company/user where channel includes email
     const { data: settings } = await supabase
