@@ -142,6 +142,45 @@ Deno.serve(async (req) => {
       return jsonRes({ success: true });
     }
 
+    // Action: sync single customer (push to Rompslomp)
+    if (action === "sync-customer") {
+      const { customer_id } = body;
+      if (!customer_id) return jsonRes({ error: "customer_id is verplicht" }, 400);
+
+      const { data: cust, error: custErr } = await supabaseAdmin
+        .from("customers")
+        .select("*")
+        .eq("id", customer_id)
+        .single();
+      if (custErr || !cust) return jsonRes({ error: `Klant niet gevonden: ${custErr?.message}` }, 400);
+
+      if (cust.rompslomp_contact_id) {
+        return jsonRes({ success: true, skipped: true, message: "Contact bestaat al in Rompslomp" });
+      }
+
+      const isIndividual = cust.type === "particulier";
+      const contactData: any = {
+        is_individual: isIndividual,
+        is_supplier: false,
+        company_name: !isIndividual ? cust.name : undefined,
+        contact_person_name: isIndividual ? cust.name : (cust.contact_person || undefined),
+        contact_person_email_address: cust.email || undefined,
+        contact_number: cust.phone || undefined,
+        address: cust.address || undefined,
+        zipcode: cust.postal_code || undefined,
+        city: cust.city || undefined,
+        api_reference: cust.id,
+      };
+
+      const result = await rompslompPost(rompslompCompanyId, "/contacts", apiToken, { contact: contactData });
+      const contactId = result?.id || result?.contact?.id;
+      if (contactId) {
+        await supabaseAdmin.from("customers").update({ rompslomp_contact_id: String(contactId) }).eq("id", cust.id);
+      }
+
+      return jsonRes({ success: true, rompslomp_contact_id: contactId ? String(contactId) : null });
+    }
+
     // Action: sync contacts (push to Rompslomp)
     if (action === "sync-contacts") {
       const { data: customers } = await supabaseAdmin

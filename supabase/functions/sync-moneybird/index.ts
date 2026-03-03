@@ -161,6 +161,44 @@ Deno.serve(async (req) => {
       return jsonRes({ success: true });
     }
 
+    // Action: sync single customer (push to Moneybird)
+    if (action === "sync-customer") {
+      const { customer_id } = body;
+      if (!customer_id) return jsonRes({ error: "customer_id is verplicht" }, 400);
+
+      const { data: cust, error: custErr } = await supabaseAdmin
+        .from("customers")
+        .select("*")
+        .eq("id", customer_id)
+        .single();
+      if (custErr || !cust) return jsonRes({ error: `Klant niet gevonden: ${custErr?.message}` }, 400);
+
+      if (cust.moneybird_contact_id) {
+        return jsonRes({ success: true, skipped: true, message: "Contact bestaat al in Moneybird" });
+      }
+
+      const isIndividual = cust.type === "particulier";
+      const nameParts = (cust.name || "").split(" ");
+      const contactData: any = {
+        company_name: !isIndividual ? cust.name : undefined,
+        firstname: isIndividual ? nameParts[0] : (cust.contact_person?.split(" ")[0] || undefined),
+        lastname: isIndividual ? nameParts.slice(1).join(" ") || cust.name : (cust.contact_person?.split(" ").slice(1).join(" ") || undefined),
+        email: cust.email || undefined,
+        phone: cust.phone || undefined,
+        address1: cust.address || undefined,
+        zipcode: cust.postal_code || undefined,
+        city: cust.city || undefined,
+      };
+
+      const result = await mbPost(adminId, "contacts", apiToken, { contact: contactData });
+      const contactId = result?.id;
+      if (contactId) {
+        await supabaseAdmin.from("customers").update({ moneybird_contact_id: String(contactId) }).eq("id", cust.id);
+      }
+
+      return jsonRes({ success: true, moneybird_contact_id: contactId ? String(contactId) : null });
+    }
+
     // Action: sync contacts (push to Moneybird)
     if (action === "sync-contacts") {
       const { data: customers } = await supabaseAdmin
