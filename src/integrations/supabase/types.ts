@@ -898,6 +898,239 @@ export type Database = {
           },
         ]
       }
+      meta_config: {
+        Row: {
+          app_id: string | null
+          app_secret: string | null
+          company_id: string
+          created_at: string
+          id: string
+          instagram_account_id: string | null
+          page_access_token: string | null
+          page_id: string | null
+          updated_at: string
+          webhook_verify_token: string | null
+        }
+        Insert: {
+          app_id?: string | null
+          app_secret?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          instagram_account_id?: string | null
+          page_access_token?: string | null
+          page_id?: string | null
+          updated_at?: string
+          webhook_verify_token?: string | null
+        }
+        Update: {
+          app_id?: string | null
+          app_secret?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          instagram_account_id?: string | null
+          page_access_token?: string | null
+          page_id?: string | null
+          updated_at?: string
+          webhook_verify_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_conversations: {
+        Row: {
+          company_id: string
+          content: string | null
+          created_at: string
+          customer_id: string | null
+          direction: string
+          id: string
+          message_id: string | null
+          metadata: Json | null
+          platform: string
+          sender_id: string | null
+          sender_name: string | null
+        }
+        Insert: {
+          company_id: string
+          content?: string | null
+          created_at?: string
+          customer_id?: string | null
+          direction?: string
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          platform?: string
+          sender_id?: string | null
+          sender_name?: string | null
+        }
+        Update: {
+          company_id?: string
+          content?: string | null
+          created_at?: string
+          customer_id?: string | null
+          direction?: string
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          platform?: string
+          sender_id?: string | null
+          sender_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_conversations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_conversations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_conversations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_leads: {
+        Row: {
+          company_id: string
+          created_at: string
+          customer_data: Json | null
+          customer_id: string | null
+          form_id: string | null
+          form_name: string | null
+          id: string
+          lead_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          customer_data?: Json | null
+          customer_id?: string | null
+          form_id?: string | null
+          form_name?: string | null
+          id?: string
+          lead_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          customer_data?: Json | null
+          customer_id?: string | null
+          form_id?: string | null
+          form_name?: string | null
+          id?: string
+          lead_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_leads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_leads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_leads_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_page_posts: {
+        Row: {
+          comments: number | null
+          company_id: string
+          created_time: string | null
+          id: string
+          likes: number | null
+          message: string | null
+          metadata: Json | null
+          post_id: string
+          shares: number | null
+          synced_at: string
+        }
+        Insert: {
+          comments?: number | null
+          company_id: string
+          created_time?: string | null
+          id?: string
+          likes?: number | null
+          message?: string | null
+          metadata?: Json | null
+          post_id: string
+          shares?: number | null
+          synced_at?: string
+        }
+        Update: {
+          comments?: number | null
+          company_id?: string
+          created_time?: string | null
+          id?: string
+          likes?: number | null
+          message?: string | null
+          metadata?: Json | null
+          post_id?: string
+          shares?: number | null
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_page_posts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_page_posts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
