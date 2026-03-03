@@ -24,18 +24,8 @@ Deno.serve(async (req) => {
     const challenge = url.searchParams.get("hub.challenge");
 
     if (mode === "subscribe") {
-      // Look up verify token from meta_config
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
-      const { data: configs } = await supabase
-        .from("meta_config")
-        .select("webhook_verify_token")
-        .not("webhook_verify_token", "is", null);
-
-      const match = configs?.find((c: any) => c.webhook_verify_token === token);
-      if (match) {
+      const expectedToken = Deno.env.get("META_WEBHOOK_VERIFY_TOKEN");
+      if (token === expectedToken) {
         return new Response(challenge, { status: 200, headers: corsHeaders });
       }
       return jsonRes({ error: "Verification failed" }, 403);

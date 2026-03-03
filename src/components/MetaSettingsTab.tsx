@@ -116,21 +116,11 @@ const MetaSettingsTab = ({ inputClass, labelClass }: Props) => {
         </p>
       </div>
 
-      {connected && configQuery.data?.webhook_verify_token && (
+      {connected && (
         <div className="space-y-2">
           <label className={labelClass}>Webhook Verify Token</label>
-          <div className="flex items-center gap-2">
-            <input value={configQuery.data.webhook_verify_token} readOnly className={inputClass + " bg-muted"} />
-            <button
-              type="button"
-              onClick={() => { navigator.clipboard.writeText(configQuery.data.webhook_verify_token); toast({ title: "Gekopieerd" }); }}
-              className="px-3 py-2.5 bg-secondary text-secondary-foreground rounded-sm text-[12px] hover:bg-secondary/80 transition-colors"
-            >
-              <Copy className="w-4 h-4" />
-            </button>
-          </div>
           <p className="text-[10px] text-muted-foreground">
-            Vul dit token in bij Meta for Developers → Webhooks → Verify Token.
+            Het verify token is ingesteld als systeemgeheim (META_WEBHOOK_VERIFY_TOKEN). Kopieer deze waarde uit je Supabase Secrets en vul het in bij Meta for Developers → Webhooks → Verify Token.
           </p>
         </div>
       )}
