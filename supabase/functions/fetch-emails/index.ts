@@ -102,6 +102,20 @@ async function getOutlookAccessToken(refreshToken: string): Promise<string> {
   return data.access_token;
 }
 
+// Map Graph API well-known folder names to our folder_name values
+function mapFolderName(wellKnownName: string | null, displayName: string): string {
+  if (!wellKnownName) return displayName.toLowerCase();
+  switch (wellKnownName.toLowerCase()) {
+    case "inbox": return "inbox";
+    case "sentitems": return "sent";
+    case "drafts": return "drafts";
+    case "deleteditems": return "trash";
+    case "junkemail": return "junk";
+    case "archive": return "archive";
+    default: return wellKnownName.toLowerCase();
+  }
+}
+
 async function fetchOutlookEmails(
   supabaseAdmin: any,
   userCompanyId: string,
@@ -113,21 +127,83 @@ async function fetchOutlookEmails(
   const refreshToken = await decryptPassword(company.outlook_refresh_token);
   const accessToken = await getOutlookAccessToken(refreshToken);
 
-  // Fetch unread messages with bodyPreview for plain text
-  const graphUrl = `https://graph.microsoft.com/v1.0/me/messages?$filter=isRead eq false&$top=50&$select=id,subject,from,receivedDateTime,body,bodyPreview,internetMessageId&$orderby=receivedDateTime desc`;
+  // Fetch mailbox folders first
+  const foldersRes = await fetch(
+    `https://graph.microsoft.com/v1.0/me/mailFolders?$top=50`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+
+  if (!foldersRes.ok) {
+    console.error("Failed to fetch mail folders:", await foldersRes.text());
+    // Fallback to just inbox
+    return await fetchOutlookFolder(supabaseAdmin, userCompanyId, accessToken, customerMap, "inbox", "inbox");
+  }
+
+  const foldersData = await foldersRes.json();
+  const folders = foldersData.value || [];
+  console.log(`Found ${folders.length} mail folders`);
+
+  // Fetch from key folders: Inbox, SentItems, Drafts
+  const targetFolders = folders.filter((f: any) => 
+    ["inbox", "sentitems", "drafts"].includes((f.wellKnownName || "").toLowerCase())
+  );
+
+  if (targetFolders.length === 0) {
+    console.log("No matching folders found, fetching inbox only");
+    return await fetchOutlookFolder(supabaseAdmin, userCompanyId, accessToken, customerMap, "inbox", "inbox");
+  }
+
+  let totalFetched = 0;
+  let totalUnread = 0;
+  const allErrors: string[] = [];
+
+  for (const folder of targetFolders) {
+    const folderName = mapFolderName(folder.wellKnownName, folder.displayName);
+    console.log(`Fetching from folder: ${folder.displayName} (${folderName}), unread: ${folder.unreadItemCount}`);
+    
+    try {
+      const result = await fetchOutlookFolder(
+        supabaseAdmin, userCompanyId, accessToken, customerMap,
+        folder.id, folderName
+      );
+      totalFetched += result.fetched;
+      totalUnread += result.total_unread;
+      allErrors.push(...result.errors);
+    } catch (err) {
+      console.error(`Error fetching folder ${folderName}:`, err);
+      allErrors.push(String(err));
+    }
+  }
+
+  return { fetched: totalFetched, total_unread: totalUnread, errors: allErrors };
+}
+
+async function fetchOutlookFolder(
+  supabaseAdmin: any,
+  userCompanyId: string,
+  accessToken: string,
+  customerMap: Map<string, string>,
+  folderId: string,
+  folderName: string
+): Promise<{ fetched: number; total_unread: number; errors: string[] }> {
+  // For inbox: fetch unread only. For sent/drafts: fetch recent messages
+  const isInbox = folderName === "inbox";
+  const filter = isInbox ? "&$filter=isRead eq false" : "";
+  const graphUrl = `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages?$top=30&$select=id,subject,from,toRecipients,receivedDateTime,body,bodyPreview,internetMessageId,isDraft${filter}&$orderby=receivedDateTime desc`;
+
   const graphRes = await fetch(graphUrl, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   if (!graphRes.ok) {
     const errText = await graphRes.text();
-    console.error("Graph API error:", errText);
-    throw new Error(`Graph API fout: ${graphRes.status}`);
+    console.error(`Graph API error for folder ${folderName}:`, errText);
+    throw new Error(`Graph API fout voor ${folderName}: ${graphRes.status}`);
   }
 
   const graphData = await graphRes.json();
   const messages = graphData.value || [];
-  console.log(`Found ${messages.length} unread Outlook messages`);
+  console.log(`Found ${messages.length} messages in ${folderName}`);
 
   if (messages.length === 0) {
     return { fetched: 0, total_unread: 0, errors: [] };
@@ -143,7 +219,7 @@ async function fetchOutlookEmails(
       const fromName = msg.from?.emailAddress?.name || "";
       const subject = msg.subject || "(geen onderwerp)";
       const sentDate = msg.receivedDateTime || new Date().toISOString();
-      
+
       const rawBody = msg.body?.content || "";
       const isHtml = msg.body?.contentType === "html";
       const htmlBody = isHtml ? rawBody.substring(0, 50000) : null;
@@ -158,30 +234,43 @@ async function fetchOutlookEmails(
           .maybeSingle();
 
         if (existing) {
-          console.log(`Skipping duplicate: ${messageId}`);
           continue;
         }
       }
 
       const customerId = customerMap.get(fromEmail) || null;
+      const direction = folderName === "sent" ? "outbound" : "inbound";
 
       const insertData: Record<string, any> = {
         channel: "email",
-        direction: "inbound",
+        direction,
         subject,
         body: plainBody.substring(0, 10000) || null,
         html_body: htmlBody,
         sender_email: fromEmail || null,
         sender_name: fromName || null,
         sent_at: sentDate,
-        status: "sent",
+        status: msg.isDraft ? "draft" : "sent",
         is_automated: false,
         message_id: messageId,
         company_id: userCompanyId,
+        folder_name: folderName,
       };
 
       if (customerId) {
         insertData.customer_id = customerId;
+      }
+
+      // For sent items, try matching recipient to customer
+      if (folderName === "sent" && !customerId && msg.toRecipients?.length > 0) {
+        const toEmail = msg.toRecipients[0].emailAddress?.address?.toLowerCase();
+        if (toEmail) {
+          const toCustomerId = customerMap.get(toEmail) || null;
+          if (toCustomerId) insertData.customer_id = toCustomerId;
+          // Store recipient info as sender_email for sent items display
+          insertData.sender_email = toEmail;
+          insertData.sender_name = msg.toRecipients[0].emailAddress?.name || "";
+        }
       }
 
       const { error: insertError } = await supabaseAdmin
@@ -190,7 +279,7 @@ async function fetchOutlookEmails(
 
       if (insertError) {
         if (insertError.code === "23505") {
-          console.log(`Duplicate message_id, skipping`);
+          // duplicate
         } else {
           console.error("Insert error:", insertError);
           errors.push(insertError.message);
@@ -199,18 +288,20 @@ async function fetchOutlookEmails(
         fetched++;
       }
 
-      // Mark as read in Outlook
-      try {
-        await fetch(`https://graph.microsoft.com/v1.0/me/messages/${msg.id}`, {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ isRead: true }),
-        });
-      } catch (markErr) {
-        console.error("Mark read error:", markErr);
+      // Mark as read in Outlook (inbox only)
+      if (isInbox) {
+        try {
+          await fetch(`https://graph.microsoft.com/v1.0/me/messages/${msg.id}`, {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ isRead: true }),
+          });
+        } catch (markErr) {
+          console.error("Mark read error:", markErr);
+        }
       }
     } catch (msgErr) {
       console.error("Message processing error:", msgErr);
@@ -262,7 +353,6 @@ serve(async (req) => {
 
     const userCompanyId = profile?.company_id ?? null;
 
-    // Get company data including email_provider and outlook credentials
     let company: any = null;
     if (userCompanyId) {
       const { data: companyData } = await supabaseAdmin
@@ -273,7 +363,7 @@ serve(async (req) => {
       company = companyData;
     }
 
-    // Build customer map for email matching
+    // Build customer map
     const custQuery = supabaseAdmin
       .from("customers")
       .select("id, email")
@@ -301,7 +391,7 @@ serve(async (req) => {
       );
     }
 
-    // ---- IMAP/SMTP PATH (existing logic) ----
+    // ---- IMAP/SMTP PATH ----
     console.log("Email provider is SMTP, using IMAP");
 
     let smtpEmail = profile?.smtp_email;
@@ -384,7 +474,6 @@ serve(async (req) => {
             .maybeSingle();
 
           if (existing) {
-            console.log(`Skipping duplicate: ${messageId}`);
             continue;
           }
         }
@@ -419,12 +508,11 @@ serve(async (req) => {
           is_automated: false,
           message_id: messageId,
           company_id: userCompanyId,
+          folder_name: "inbox",
         };
 
         if (customerId) {
           insertData.customer_id = customerId;
-        } else {
-          console.log(`No customer match for ${fromEmail}, saving without customer link`);
         }
 
         const { error: insertError } = await supabaseAdmin
@@ -433,7 +521,7 @@ serve(async (req) => {
 
         if (insertError) {
           if (insertError.code === "23505") {
-            console.log(`Duplicate message_id, skipping`);
+            // duplicate
           } else {
             console.error("Insert error:", insertError);
             errors.push(insertError.message);
