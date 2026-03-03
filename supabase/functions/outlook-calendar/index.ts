@@ -54,7 +54,7 @@ async function getAccessToken(refreshToken: string): Promise<string> {
       client_secret: clientSecret,
       refresh_token: refreshToken,
       grant_type: "refresh_token",
-      scope: "https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite offline_access",
+      scope: "https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite offline_access",
     }),
   });
 

@@ -64,7 +64,7 @@ serve(async (req) => {
     }
 
     const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/outlook-callback`;
-    const scope = "https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite offline_access";
+    const scope = "https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite offline_access";
 
     const stateParam = `${profile.company_id}|https://app.vakflow.nl`;
     const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(stateParam)}&response_mode=query`;
