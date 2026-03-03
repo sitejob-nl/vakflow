@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_edge_function_errors_company_id ON public.edge_function_errors (company_id);

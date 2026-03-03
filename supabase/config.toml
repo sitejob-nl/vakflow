@@ -1,49 +1,37 @@
 project_id = "sigzpqwnavfxtvbyqvzj"
 
+# --- Public / webhook endpoints (no JWT required) ---
+
 [functions.whatsapp-webhook]
-verify_jwt = false
-
-[functions.whatsapp-config]
-verify_jwt = false
-
-[functions.whatsapp-register]
-verify_jwt = false
-
-[functions.company-signup]
-verify_jwt = false
-
-[functions.outlook-callback]
-verify_jwt = false
-
-[functions.rompslomp-config]
-verify_jwt = false
-
-[functions.rompslomp-webhook]
-verify_jwt = false
-
-[functions.sync-rompslomp]
-verify_jwt = false
-
-[functions.sync-moneybird]
-verify_jwt = false
-
-[functions.outlook-calendar]
-verify_jwt = false
-
-[functions.outlook-auth-url]
 verify_jwt = false
 
 [functions.meta-webhook]
 verify_jwt = false
 
-[functions.meta-oauth-url]
+[functions.rompslomp-webhook]
+verify_jwt = false
+
+[functions.outlook-callback]
 verify_jwt = false
 
 [functions.meta-oauth-callback]
 verify_jwt = false
 
-[functions.trigger-email-automation]
+[functions.company-signup]
 verify_jwt = false
 
+# --- Webhook-secret verified endpoints ---
+
+[functions.whatsapp-config]
+verify_jwt = false
+
+[functions.rompslomp-config]
+verify_jwt = false
+
+# --- Cron / internal endpoints ---
+
 [functions.reminder-scan]
+verify_jwt = false
+
+[functions.trigger-email-automation]
 verify_jwt = false
