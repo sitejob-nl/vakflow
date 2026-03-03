@@ -13,6 +13,7 @@ export function useMetaConversations(platform?: "messenger" | "instagram") {
       let query = supabase
         .from("meta_conversations")
         .select("*")
+        .eq("company_id", companyId)
         .order("created_at", { ascending: false })
         .limit(100);
       if (platform) query = query.eq("platform", platform);
