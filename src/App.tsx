@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminRoute from "@/components/AdminRoute";
 import AppLayout from "@/components/AppLayout";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
@@ -45,7 +46,9 @@ const App = () => (
               path="/"
               element={
                 <ProtectedRoute>
-                  <AppLayout />
+                  <ErrorBoundary>
+                    <AppLayout />
+                  </ErrorBoundary>
                 </ProtectedRoute>
               }
             >
