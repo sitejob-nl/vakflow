@@ -109,13 +109,13 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
         const newQuote = await createQuote.mutateAsync(payload);
 
         // Auto-sync to accounting provider if connected
-        if ((accountingProvider === "rompslomp" || accountingProvider === "moneybird") && newQuote?.id) {
+        if ((accountingProvider === "rompslomp" || accountingProvider === "moneybird" || accountingProvider === "eboekhouden") && newQuote?.id) {
           setSyncing(true);
-          const funcName = accountingProvider === "rompslomp" ? "sync-rompslomp" : "sync-moneybird";
-          const providerLabel = accountingProvider === "rompslomp" ? "Rompslomp" : "Moneybird";
+          const funcName = accountingProvider === "rompslomp" ? "sync-rompslomp" : accountingProvider === "moneybird" ? "sync-moneybird" : "sync-invoice-eboekhouden";
+          const providerLabel = accountingProvider === "rompslomp" ? "Rompslomp" : accountingProvider === "moneybird" ? "Moneybird" : "e-Boekhouden";
           try {
             const res = await supabase.functions.invoke(funcName, {
-              body: { action: accountingProvider === "rompslomp" ? "sync-quote" : "create-quote", quote_id: newQuote.id },
+              body: { action: "create-quote", quote_id: newQuote.id },
             });
             if (res.error) throw res.error;
             if (res.data?.error) throw new Error(res.data.error);

@@ -126,10 +126,10 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
         const newInvoice = await createInvoice.mutateAsync(payload);
 
         // Auto-sync to accounting provider if connected
-        if ((accountingProvider === "rompslomp" || accountingProvider === "moneybird") && newInvoice?.id) {
+        if ((accountingProvider === "rompslomp" || accountingProvider === "moneybird" || accountingProvider === "eboekhouden") && newInvoice?.id) {
           setSyncing(true);
-          const funcName = accountingProvider === "rompslomp" ? "sync-rompslomp" : "sync-moneybird";
-          const providerLabel = accountingProvider === "rompslomp" ? "Rompslomp" : "Moneybird";
+          const funcName = accountingProvider === "rompslomp" ? "sync-rompslomp" : accountingProvider === "moneybird" ? "sync-moneybird" : "sync-invoice-eboekhouden";
+          const providerLabel = accountingProvider === "rompslomp" ? "Rompslomp" : accountingProvider === "moneybird" ? "Moneybird" : "e-Boekhouden";
           try {
             const res = await supabase.functions.invoke(funcName, {
               body: { action: "create-invoice", invoice_id: newInvoice.id },
