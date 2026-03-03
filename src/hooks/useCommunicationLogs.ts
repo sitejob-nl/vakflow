@@ -7,15 +7,19 @@ export type CommunicationLog = Tables<"communication_logs"> & {
   customers?: { name: string } | null;
 };
 
-export const useCommunicationLogs = (customerId?: string) => {
+export const useCommunicationLogs = (customerId?: string, companyId?: string | null) => {
   return useQuery({
-    queryKey: ["communication_logs", customerId ?? "all"],
+    queryKey: ["communication_logs", customerId ?? "all", companyId ?? "none"],
     queryFn: async () => {
       let query = supabase
         .from("communication_logs")
         .select("*, customers:customer_id(name)")
         .order("sent_at", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false });
+
+      if (companyId) {
+        query = query.eq("company_id", companyId);
+      }
 
       if (customerId) {
         query = query.eq("customer_id", customerId);
