@@ -28,8 +28,6 @@ export function useMetaConfig() {
 
   const saveConfig = useMutation({
     mutationFn: async (config: {
-      app_id?: string;
-      app_secret?: string;
       page_access_token?: string;
       page_id?: string;
       instagram_account_id?: string;

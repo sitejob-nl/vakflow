@@ -908,7 +908,9 @@ export type Database = {
           instagram_account_id: string | null
           page_access_token: string | null
           page_id: string | null
+          page_name: string | null
           updated_at: string
+          user_access_token: string | null
           webhook_verify_token: string | null
         }
         Insert: {
@@ -920,7 +922,9 @@ export type Database = {
           instagram_account_id?: string | null
           page_access_token?: string | null
           page_id?: string | null
+          page_name?: string | null
           updated_at?: string
+          user_access_token?: string | null
           webhook_verify_token?: string | null
         }
         Update: {
@@ -932,7 +936,9 @@ export type Database = {
           instagram_account_id?: string | null
           page_access_token?: string | null
           page_id?: string | null
+          page_name?: string | null
           updated_at?: string
+          user_access_token?: string | null
           webhook_verify_token?: string | null
         }
         Relationships: [
