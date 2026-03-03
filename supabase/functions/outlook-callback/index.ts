@@ -56,11 +56,15 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state"); // contains company_id
+    const rawState = url.searchParams.get("state");
 
-    if (!code || !state) {
+    if (!code || !rawState) {
       return new Response("Missing code or state parameter", { status: 400 });
     }
+
+    const [companyId, appOrigin] = rawState.includes("|")
+      ? [rawState.split("|")[0], rawState.split("|").slice(1).join("|")]
+      : [rawState, "https://app.vakflow.nl"];
 
     const clientId = Deno.env.get("OUTLOOK_CLIENT_ID");
     const tenantId = Deno.env.get("OUTLOOK_TENANT_ID") || "organizations";
@@ -115,15 +119,14 @@ serve(async (req) => {
       .update({
         outlook_refresh_token: encryptedRefreshToken,
         outlook_email: outlookEmail,
+        email_provider: "outlook",
       } as any)
-      .eq("id", state);
+      .eq("id", companyId);
 
-    // Redirect back to settings page
-    const appUrl = req.headers.get("origin") || req.headers.get("referer") || "";
-    const baseUrl = appUrl ? new URL(appUrl).origin : "";
+    const redirectUrl = `${appOrigin}/settings`;
     
     return new Response(
-      `<html><body><script>window.opener ? (window.opener.postMessage('outlook-connected','*'), window.close()) : (window.location.href = '${baseUrl}/settings')</script><p>Outlook gekoppeld! Je kunt dit venster sluiten.</p></body></html>`,
+      `<html><body><script>window.opener ? (window.opener.postMessage('outlook-connected','*'), window.close()) : (window.location.href = '${redirectUrl}')</script><p>Outlook gekoppeld! Je kunt dit venster sluiten.</p></body></html>`,
       { headers: { "Content-Type": "text/html" } }
     );
   } catch (error: any) {
