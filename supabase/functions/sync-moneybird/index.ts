@@ -1,6 +1,7 @@
 import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { logEdgeFunctionError } from "../_shared/error-logger.ts";
+import { decrypt } from "../_shared/crypto.ts";
 
 async function mbGet(adminId: string, path: string, token: string) {
   const url = `${MB_BASE}/${adminId}/${path}.json`;
@@ -81,7 +82,16 @@ Deno.serve(async (req) => {
 
     // Action: auto-detect administrations (token provided in body, not yet saved)
     if (action === "auto-detect") {
-      const tokenToUse = body.token || company?.moneybird_api_token;
+      let tokenToUse = body.token;
+      if (!tokenToUse && company?.moneybird_api_token) {
+        try {
+          tokenToUse = company.moneybird_api_token.includes(":")
+            ? await decrypt(company.moneybird_api_token)
+            : company.moneybird_api_token;
+        } catch {
+          tokenToUse = company.moneybird_api_token;
+        }
+      }
       if (!tokenToUse) {
         return jsonRes({ error: "Geen API token opgegeven" }, 400);
       }
@@ -105,7 +115,15 @@ Deno.serve(async (req) => {
       return jsonRes({ error: "Moneybird is niet gekoppeld — vul API token en administratie in bij Instellingen > Koppelingen" }, 400);
     }
 
-    const apiToken = company.moneybird_api_token;
+    // Decrypt stored token (may be encrypted or plaintext for legacy data)
+    let apiToken: string;
+    try {
+      apiToken = company.moneybird_api_token.includes(":")
+        ? await decrypt(company.moneybird_api_token)
+        : company.moneybird_api_token;
+    } catch {
+      apiToken = company.moneybird_api_token;
+    }
     const adminId = company.moneybird_administration_id;
 
     // Action: test connection

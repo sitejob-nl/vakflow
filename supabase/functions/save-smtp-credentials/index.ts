@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
       return jsonRes({ error: "Niet ingelogd" }, 401);
     }
 
-    const { smtp_email, smtp_password, eboekhouden_api_token, smtp_host, smtp_port } = await req.json();
+    const { smtp_email, smtp_password, eboekhouden_api_token, smtp_host, smtp_port, rompslomp_api_token, moneybird_api_token } = await req.json();
 
     // Verify user
     const supabaseUser = createUserClient(authHeader);
@@ -56,6 +56,18 @@ Deno.serve(async (req) => {
     }
     if (smtp_host !== undefined) updateData.smtp_host = smtp_host;
     if (smtp_port !== undefined) updateData.smtp_port = smtp_port;
+
+    // Encrypt accounting provider tokens
+    if (rompslomp_api_token !== undefined) {
+      updateData.rompslomp_api_token = rompslomp_api_token
+        ? await encrypt(rompslomp_api_token)
+        : null;
+    }
+    if (moneybird_api_token !== undefined) {
+      updateData.moneybird_api_token = moneybird_api_token
+        ? await encrypt(moneybird_api_token)
+        : null;
+    }
 
     // Save to companies table
     const { error: updateError } = await supabaseAdmin

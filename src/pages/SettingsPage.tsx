@@ -384,11 +384,13 @@ const SettingsPage = () => {
         // Rompslomp
         setRompslompConnected(!!(companyData as any).rompslomp_api_token && !!(companyData as any).rompslomp_company_id);
         setRompslompCompanyName((companyData as any).rompslomp_company_name ?? "");
-        setRompslompApiToken((companyData as any).rompslomp_api_token ?? "");
+        // Don't show encrypted token value — show placeholder if set
+        setRompslompApiToken((companyData as any).rompslomp_api_token ? "••••••••" : "");
         setRompslompCompanyId((companyData as any).rompslomp_company_id ?? "");
         // Moneybird
         setMoneybirdConnected(!!(companyData as any).moneybird_api_token && !!(companyData as any).moneybird_administration_id);
-        setMoneybirdApiToken((companyData as any).moneybird_api_token ?? "");
+        // Don't show encrypted token value — show placeholder if set
+        setMoneybirdApiToken((companyData as any).moneybird_api_token ? "••••••••" : "");
         setMoneybirdAdminId((companyData as any).moneybird_administration_id ?? "");
       }
       setLoading(false);
@@ -1436,6 +1438,8 @@ const SettingsPage = () => {
                       try {
                         const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
                         if (profileData?.company_id) {
+                          // Clear token via edge function (sets encrypted value to null)
+                          await supabase.functions.invoke("save-smtp-credentials", { body: { rompslomp_api_token: null } });
                           await supabase.from("companies").update({
                             rompslomp_api_token: null,
                             rompslomp_company_id: null,
@@ -1537,6 +1541,7 @@ const SettingsPage = () => {
                       try {
                         const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
                         if (profileData?.company_id) {
+                          await supabase.functions.invoke("save-smtp-credentials", { body: { moneybird_api_token: null } });
                           await supabase.from("companies").update({ moneybird_api_token: null, moneybird_administration_id: null } as any).eq("id", profileData.company_id);
                           setMoneybirdConnected(false);
                           setMoneybirdApiToken("");
@@ -3011,15 +3016,26 @@ const SettingsPage = () => {
                       email_provider: emailProvider,
                     };
                     if (accountingProvider === "rompslomp") {
-                      updateData.rompslomp_api_token = rompslompApiToken || null;
                       updateData.rompslomp_company_id = rompslompCompanyId || null;
                       updateData.rompslomp_company_name = rompslompCompanyName || null;
                     }
                     if (accountingProvider === "moneybird") {
-                      updateData.moneybird_api_token = moneybirdApiToken || null;
                       updateData.moneybird_administration_id = moneybirdAdminId || null;
                     }
                     await supabase.from("companies").update(updateData).eq("id", profileData.company_id);
+
+                    // Encrypt tokens via edge function (only if user entered a new value)
+                    const tokenPayload: any = {};
+                    if (accountingProvider === "rompslomp" && rompslompApiToken && rompslompApiToken !== "••••••••") {
+                      tokenPayload.rompslomp_api_token = rompslompApiToken;
+                    }
+                    if (accountingProvider === "moneybird" && moneybirdApiToken && moneybirdApiToken !== "••••••••") {
+                      tokenPayload.moneybird_api_token = moneybirdApiToken;
+                    }
+                    if (Object.keys(tokenPayload).length > 0) {
+                      const { error: encErr } = await supabase.functions.invoke("save-smtp-credentials", { body: tokenPayload });
+                      if (encErr) console.error("Token encryption save error:", encErr);
+                    }
                     if (accountingProvider === "rompslomp") {
                       setRompslompConnected(!!rompslompApiToken && !!rompslompCompanyId);
                     }
