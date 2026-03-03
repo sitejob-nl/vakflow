@@ -76,7 +76,7 @@ const CommunicationPage = () => {
 
   const { companyId } = useAuth();
   const { data: logs, isLoading } = useCommunicationLogs(undefined, companyId);
-  const { data: waMessages, isLoading: waLoading } = useWhatsAppMessages();
+  const { data: waMessages, isLoading: waLoading } = useWhatsAppMessages(undefined, companyId);
   const { data: customers } = useCustomers();
   const { data: waStatus } = useWhatsAppStatus();
   const createLog = useCreateCommunicationLog();

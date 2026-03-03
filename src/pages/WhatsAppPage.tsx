@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useWhatsAppMessages } from "@/hooks/useWhatsAppMessages";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useWhatsAppStatus } from "@/hooks/useWhatsAppStatus";
+import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
@@ -13,7 +14,8 @@ import WhatsAppChat from "@/components/WhatsAppChat";
 import ComposeWhatsAppDialog from "@/components/ComposeWhatsAppDialog";
 
 const WhatsAppPage = () => {
-  const { data: waMessages, isLoading } = useWhatsAppMessages();
+  const { companyId } = useAuth();
+  const { data: waMessages, isLoading } = useWhatsAppMessages(undefined, companyId);
   const { data: customers } = useCustomers();
   const { data: waStatus } = useWhatsAppStatus();
 

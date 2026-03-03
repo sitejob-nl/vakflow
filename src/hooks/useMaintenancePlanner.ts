@@ -22,11 +22,13 @@ export const useMaintenancePlanner = () => {
   return useQuery({
     queryKey: ["maintenance-planner", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("assets" as any)
         .select("id, name, asset_type, brand, next_maintenance_date, last_maintenance_date, customer_id, customer:customers(id, name, city)")
         .eq("status", "actief")
         .order("next_maintenance_date", { ascending: true, nullsFirst: false });
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
       if (error) throw error;
 
       const today = new Date();
