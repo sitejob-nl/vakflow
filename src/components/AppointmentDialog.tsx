@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
@@ -37,8 +37,8 @@ const statusOptions = [
   { value: "geannuleerd", label: "Geannuleerd" },
 ];
 
-const DEFAULT_START: [number, number] = [52.507, 4.678];
-const DEFAULT_START_LABEL = "Heemskerk (standaard)";
+const FALLBACK_START: [number, number] = [52.507, 4.678];
+const FALLBACK_START_LABEL = "Heemskerk (standaard)";
 
 const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Props) => {
   const { toast } = useToast();
@@ -50,6 +50,45 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
   const { result: travelInfo, loading: travelLoading, calculate: calcTravel } = useDirections();
   const isDuplicate = appointment?.id === "__duplicate__";
   const isEdit = !!appointment && !isDuplicate;
+
+  // Fetch company start location from profile
+  const defaultStartRef = useRef<{ coords: [number, number]; label: string }>({
+    coords: FALLBACK_START,
+    label: FALLBACK_START_LABEL,
+  });
+  const [defaultStartLoaded, setDefaultStartLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id || defaultStartLoaded) return;
+    let cancelled = false;
+    (async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("location")
+        .eq("id", user.id)
+        .maybeSingle();
+      const loc = profile?.location;
+      if (!loc || cancelled) { setDefaultStartLoaded(true); return; }
+
+      // Geocode the location string to get coordinates
+      const { data } = await supabase.functions.invoke("google-maps-proxy", {
+        body: { action: "geocode", query: loc },
+      });
+      if (cancelled) return;
+      const first = data?.[0];
+      if (first?.lat && first?.lng) {
+        defaultStartRef.current = {
+          coords: [first.lat, first.lng],
+          label: loc,
+        };
+      }
+      setDefaultStartLoaded(true);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, defaultStartLoaded]);
+
+  const DEFAULT_START = defaultStartRef.current.coords;
+  const DEFAULT_START_LABEL = defaultStartRef.current.label;
 
   // Determine the assigned_to for filtering: use existing appointment's value or current user
   const assignedTo = appointment?.assigned_to || user?.id || null;
@@ -328,7 +367,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
         />
         <div className="flex gap-2 flex-wrap">
           <Button type="button" variant="outline" size="sm" className="text-[11px] h-7" onClick={handleUseDefault}>
-            <MapPin className="h-3 w-3 mr-1" /> Heemskerk
+            <MapPin className="h-3 w-3 mr-1" /> {DEFAULT_START_LABEL}
           </Button>
           {previousAppointment && (
             <Button type="button" variant="outline" size="sm" className="text-[11px] h-7" onClick={handleUsePrevious}>
