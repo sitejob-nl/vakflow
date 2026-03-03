@@ -14,6 +14,7 @@ import AppointmentDialog from "@/components/AppointmentDialog";
 import AppointmentDetailSheet from "@/components/AppointmentDetailSheet";
 import CurrentTimeIndicator from "@/components/planning/CurrentTimeIndicator";
 import MonthView from "@/components/planning/MonthView";
+import RouteMap from "@/components/planning/RouteMap";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useToast } from "@/hooks/use-toast";
 import { useDirections, useOptimizeRoute, type OptimizedStop } from "@/hooks/useMapbox";
@@ -786,7 +787,7 @@ const PlanningPage = () => {
                         <span>Start: {optimizeResult.company_origin}</span>
                       </div>
                     )}
-                    <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
                       {optimizeResult.stops.map((stop, idx) => (
                         <div key={stop.appointment_id} className="flex items-center gap-2 text-sm py-1.5 px-2 bg-muted/50 rounded-md">
                           <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center flex-shrink-0">
@@ -799,6 +800,7 @@ const PlanningPage = () => {
                         </div>
                       ))}
                     </div>
+                    <RouteMap stops={optimizeResult.stops} companyOrigin={optimizeResult.company_origin} />
                     <div className="flex justify-between text-sm font-bold pt-2 border-t border-border">
                       <span>Totaal rijtijd</span>
                       <span>{optimizeResult.summary.total_travel_minutes} min · {optimizeResult.summary.total_distance_km} km</span>
