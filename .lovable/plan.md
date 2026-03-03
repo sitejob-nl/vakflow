@@ -1,34 +1,42 @@
 
 
-## Plan: Fix e-mail template preview
+## Plan: Security hardening — 3 bevindingen
 
-### Probleem
+### Bevinding 1: Edge Functions JWT-validatie audit
 
-De preview-tab in `EmailTemplateEditor` gebruikt `doc.write()` via een `useEffect` om HTML in een iframe te schrijven. Dit heeft twee problemen:
+Na grondige analyse van alle 31+ Edge Functions is de conclusie dat **alle functies al correct authenticatie implementeren in de code zelf**:
 
-1. **Timing issue**: Radix `TabsContent` mount de inhoud lazy. De `useEffect` kan vuren voordat de iframe's `contentDocument` beschikbaar is.
-2. **`doc.write()` is verouderd**: Moderne browsers behandelen dit steeds restrictiever in sandboxed iframes.
+| Function | Auth methode | Status |
+|---|---|---|
+| `whatsapp-send`, `sync-rompslomp`, `sync-moneybird`, `meta-api`, `meta-oauth-url`, `meta-oauth-callback`, `whatsapp-register`, `whatsapp-templates`, `whatsapp-business-profile`, `outlook-auth-url`, `mapbox-proxy` | `authenticateRequest()` (shared helper) | OK |
+| `invite-user`, `save-smtp-credentials`, `send-email`, `generate-invoice-pdf`, `generate-quote-pdf`, `generate-workorder-pdf`, `outlook-send`, `outlook-calendar`, `fetch-emails`, `trigger-email-automation`, `geocode-customers` | Eigen `authHeader` + `getUser()` check | OK |
+| `sync-invoice-eboekhouden` | `authHeader` + `getUser()` voor handmatige acties; `auto-sync` branch werkt server-side | OK |
+| `reminder-scan` | `CRON_SECRET` header of JWT | OK |
+| `whatsapp-automation-trigger` | Optionele auth (wordt intern aangeroepen) | OK |
+| `whatsapp-webhook`, `meta-webhook`, `rompslomp-webhook` | Webhook signature verificatie | OK — geen JWT nodig |
+| `outlook-callback` | OAuth callback — geen JWT nodig | OK |
+| `whatsapp-config`, `rompslomp-config` | `X-Webhook-Secret` verificatie | OK |
+| `company-signup` | Publiek endpoint voor registratie | OK — opzettelijk open |
 
-### Oplossing
+**Conclusie**: Geen code-wijziging nodig. Alle functies valideren de caller intern. De `verify_jwt = false` in config.toml is correct omdat de signing-keys architectuur van Supabase dit vereist — JWT-validatie gebeurt in de function code via `getUser()` of `authenticateRequest()`.
 
-Vervang de iframe + `useEffect` + `doc.write()` aanpak door het `srcDoc` attribuut op de iframe. Dit is declaratief, heeft geen timing-issues, en werkt betrouwbaar in alle browsers.
+Wel verwijder ik de onnodige entries uit `config.toml` voor functies die niet expliciet `verify_jwt = false` nodig hebben (standaard is al `false` bij signing-keys). De entries voor de webhook/callback functies houden we voor documentatiedoeleinden.
 
-### Wijziging in `src/components/EmailTemplateEditor.tsx`
+### Bevinding 2: Plaintext credentials
 
-**Verwijderen:**
-- De `iframeRef` (regel 176)
-- De `useEffect` voor preview (regels 204-208)
+Dit is een grotere refactor die buiten de scope van deze actie valt. De huidige situatie:
+- `smtp_password` en `eboekhouden_api_token` worden al **versleuteld opgeslagen** via `encrypt()` in `save-smtp-credentials`
+- `outlook_refresh_token` wordt opgeslagen door `outlook-callback`
+- `rompslomp_api_token` en `moneybird_api_token` worden via de UI opgeslagen
 
-**Aanpassen (regels 442-447):**
-```tsx
-// Was:
-<iframe ref={iframeRef} title="E-mail preview" sandbox="allow-same-origin"
-  className="w-full min-h-[400px] border-0" />
+De kolommen die nog plaintext zijn: `outlook_refresh_token`, `rompslomp_api_token`, `rompslomp_webhook_secret`, `moneybird_api_token`. Dit vereist het updaten van alle lees- en schrijf-functions voor deze tokens — een aparte taak.
 
-// Wordt:
-<iframe srcDoc={htmlBody} title="E-mail preview" sandbox="allow-same-origin"
-  className="w-full min-h-[400px] border-0" />
-```
+### Bevinding 3: Ontbrekende index op `edge_function_errors.company_id`
 
-Dit is een eenregelige fix die het hele timing-probleem elimineert.
+Eenvoudige migratie: één `CREATE INDEX` statement.
+
+### Uitvoering
+
+1. **Migratie**: Index toevoegen op `edge_function_errors.company_id`
+2. **Config cleanup**: `config.toml` opschonen — alleen de functies die echt publiek moeten zijn behouden
 
