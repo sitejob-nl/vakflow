@@ -39,9 +39,11 @@ async function decrypt(encryptedStr: string): Promise<string> {
   return new TextDecoder().decode(decrypted);
 }
 
-async function getAccessToken(tenantId: string, clientId: string, refreshToken: string): Promise<string> {
+async function getAccessToken(refreshToken: string): Promise<string> {
+  const clientId = Deno.env.get("OUTLOOK_CLIENT_ID");
+  const tenantId = Deno.env.get("OUTLOOK_TENANT_ID") || "organizations";
   const clientSecret = Deno.env.get("OUTLOOK_CLIENT_SECRET");
-  if (!clientSecret) throw new Error("OUTLOOK_CLIENT_SECRET not configured");
+  if (!clientId || !clientSecret) throw new Error("Outlook credentials not configured");
 
   const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
   const res = await fetch(tokenUrl, {
@@ -77,7 +79,6 @@ serve(async (req) => {
 
     const { to, subject, body, html, attachments } = await req.json();
 
-    // Validate inputs
     if (!to || !subject || !body) {
       return new Response(JSON.stringify({ error: "Verplichte velden ontbreken" }), {
         status: 400,
@@ -104,7 +105,6 @@ serve(async (req) => {
       });
     }
 
-    // Get company with Outlook config
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("company_id")
@@ -120,24 +120,19 @@ serve(async (req) => {
 
     const { data: company } = await supabaseAdmin
       .from("companies")
-      .select("outlook_tenant_id, outlook_client_id, outlook_refresh_token, outlook_email")
+      .select("outlook_refresh_token, outlook_email")
       .eq("id", profile.company_id)
       .single();
 
-    if (!company?.outlook_refresh_token || !company?.outlook_tenant_id || !company?.outlook_client_id) {
+    if (!company?.outlook_refresh_token) {
       return new Response(JSON.stringify({ error: "Outlook niet geconfigureerd" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Decrypt refresh token and get access token
     const refreshToken = await decrypt(company.outlook_refresh_token);
-    const accessToken = await getAccessToken(
-      company.outlook_tenant_id,
-      company.outlook_client_id,
-      refreshToken
-    );
+    const accessToken = await getAccessToken(refreshToken);
 
     // Build Graph API email payload
     const toAddresses = to.split(",").map((e: string) => ({
@@ -153,17 +148,15 @@ serve(async (req) => {
       toRecipients: toAddresses,
     };
 
-    // Add attachments if provided
     if (attachments && Array.isArray(attachments)) {
       message.attachments = attachments.map((att: any) => ({
         "@odata.type": "#microsoft.graph.fileAttachment",
         name: att.filename,
         contentType: att.contentType || "application/octet-stream",
-        contentBytes: att.content, // already base64
+        contentBytes: att.content,
       }));
     }
 
-    // Send via Microsoft Graph
     const graphRes = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
       method: "POST",
       headers: {

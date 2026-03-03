@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.outlook-calendar]
 verify_jwt = false
+
+[functions.outlook-auth-url]
+verify_jwt = false

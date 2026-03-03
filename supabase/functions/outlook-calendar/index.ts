@@ -39,9 +39,11 @@ async function decrypt(encryptedStr: string): Promise<string> {
   return new TextDecoder().decode(decrypted);
 }
 
-async function getAccessToken(tenantId: string, clientId: string, refreshToken: string): Promise<string> {
+async function getAccessToken(refreshToken: string): Promise<string> {
+  const clientId = Deno.env.get("OUTLOOK_CLIENT_ID");
+  const tenantId = Deno.env.get("OUTLOOK_TENANT_ID") || "organizations";
   const clientSecret = Deno.env.get("OUTLOOK_CLIENT_SECRET");
-  if (!clientSecret) throw new Error("OUTLOOK_CLIENT_SECRET not configured");
+  if (!clientId || !clientSecret) throw new Error("Outlook credentials not configured");
 
   const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
   const res = await fetch(tokenUrl, {
@@ -96,7 +98,6 @@ serve(async (req) => {
       });
     }
 
-    // Get company with Outlook config
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("company_id")
@@ -112,11 +113,11 @@ serve(async (req) => {
 
     const { data: company } = await supabaseAdmin
       .from("companies")
-      .select("outlook_tenant_id, outlook_client_id, outlook_refresh_token")
+      .select("outlook_refresh_token")
       .eq("id", profile.company_id)
       .single();
 
-    if (!company?.outlook_refresh_token || !company?.outlook_tenant_id || !company?.outlook_client_id) {
+    if (!company?.outlook_refresh_token) {
       return new Response(JSON.stringify({ error: "Outlook niet geconfigureerd" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -124,11 +125,7 @@ serve(async (req) => {
     }
 
     const refreshToken = await decrypt(company.outlook_refresh_token);
-    const accessToken = await getAccessToken(
-      company.outlook_tenant_id,
-      company.outlook_client_id,
-      refreshToken
-    );
+    const accessToken = await getAccessToken(refreshToken);
 
     const graphHeaders = {
       Authorization: `Bearer ${accessToken}`,
