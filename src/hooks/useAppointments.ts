@@ -13,6 +13,67 @@ export type Appointment = Tables<"appointments"> & {
   start_location_label?: string | null;
 };
 
+// Helper: sync appointment to assigned user's Outlook calendar
+async function syncToOutlook(appointment: any, action: "create" | "update" | "delete", customers?: any[], services?: any[]) {
+  if (!appointment.assigned_to) return null;
+
+  try {
+    if (action === "delete") {
+      if (!appointment.outlook_event_id) return null;
+      await supabase.functions.invoke("outlook-calendar", {
+        body: {
+          action: "delete",
+          eventId: appointment.outlook_event_id,
+          targetUserId: appointment.assigned_to,
+        },
+      });
+      return null;
+    }
+
+    // Build Outlook event object
+    const scheduledAt = new Date(appointment.scheduled_at);
+    const endAt = new Date(scheduledAt.getTime() + (appointment.duration_minutes || 60) * 60 * 1000);
+
+    const customer = customers?.find((c: any) => c.id === appointment.customer_id);
+    const service = services?.find((s: any) => s.id === appointment.service_id);
+
+    const subject = [service?.name, customer?.name].filter(Boolean).join(" — ") || "Vakflow afspraak";
+    const location = customer ? [customer.address, customer.postal_code, customer.city].filter(Boolean).join(", ") : "";
+
+    const event = {
+      subject,
+      start: { dateTime: scheduledAt.toISOString(), timeZone: "Europe/Amsterdam" },
+      end: { dateTime: endAt.toISOString(), timeZone: "Europe/Amsterdam" },
+      location: { displayName: location },
+      body: { contentType: "Text", content: appointment.notes || "" },
+      categories: ["Vakflow"],
+    };
+
+    if (action === "create") {
+      const { data, error } = await supabase.functions.invoke("outlook-calendar", {
+        body: { action: "create", event, targetUserId: appointment.assigned_to },
+      });
+      if (error) throw error;
+      // Return the Outlook event ID to store
+      return data?.id || null;
+    }
+
+    if (action === "update" && appointment.outlook_event_id) {
+      await supabase.functions.invoke("outlook-calendar", {
+        body: {
+          action: "update",
+          eventId: appointment.outlook_event_id,
+          event,
+          targetUserId: appointment.assigned_to,
+        },
+      });
+    }
+  } catch (e) {
+    console.warn("Outlook sync failed (non-blocking):", e);
+  }
+  return null;
+}
+
 export const useAppointments = (weekStart: Date, weekEnd: Date) => {
   const queryClient = useQueryClient();
   const { companyId, user, role } = useAuth();
@@ -76,9 +137,20 @@ export const useCreateAppointment = () => {
   const qc = useQueryClient();
   const { companyId } = useAuth();
   return useMutation({
-    mutationFn: async (appointment: TablesInsert<"appointments">) => {
-      const { data, error } = await supabase.from("appointments").insert({ ...appointment, company_id: companyId } as any).select().single();
+    mutationFn: async (appointment: TablesInsert<"appointments"> & { _syncOutlook?: boolean; _customers?: any[]; _services?: any[] }) => {
+      const { _syncOutlook, _customers, _services, ...apptData } = appointment;
+      const { data, error } = await supabase.from("appointments").insert({ ...apptData, company_id: companyId } as any).select().single();
       if (error) throw error;
+
+      // Sync to Outlook if requested
+      if (_syncOutlook !== false && data.assigned_to) {
+        const outlookEventId = await syncToOutlook(data, "create", _customers, _services);
+        if (outlookEventId) {
+          await supabase.from("appointments").update({ outlook_event_id: outlookEventId }).eq("id", data.id);
+          data.outlook_event_id = outlookEventId;
+        }
+      }
+
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["appointments"] }),
@@ -88,9 +160,15 @@ export const useCreateAppointment = () => {
 export const useUpdateAppointment = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: TablesUpdate<"appointments"> & { id: string }) => {
+    mutationFn: async ({ id, _syncOutlook, _customers, _services, ...updates }: TablesUpdate<"appointments"> & { id: string; _syncOutlook?: boolean; _customers?: any[]; _services?: any[] }) => {
       const { data, error } = await supabase.from("appointments").update(updates).eq("id", id).select().single();
       if (error) throw error;
+
+      // Sync update to Outlook
+      if (_syncOutlook !== false && data.assigned_to) {
+        await syncToOutlook(data, "update", _customers, _services);
+      }
+
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["appointments"] }),
@@ -100,8 +178,12 @@ export const useUpdateAppointment = () => {
 export const useDeleteAppointment = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("appointments").delete().eq("id", id);
+    mutationFn: async (appointment: { id: string; outlook_event_id?: string | null; assigned_to?: string | null }) => {
+      // Delete from Outlook first
+      if (appointment.outlook_event_id && appointment.assigned_to) {
+        await syncToOutlook(appointment, "delete");
+      }
+      const { error } = await supabase.from("appointments").delete().eq("id", appointment.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["appointments"] }),

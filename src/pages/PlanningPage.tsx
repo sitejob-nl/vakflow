@@ -290,7 +290,7 @@ const PlanningPage = () => {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await deleteAppointment.mutateAsync(deleteTarget.id);
+      await deleteAppointment.mutateAsync({ id: deleteTarget.id, outlook_event_id: deleteTarget.outlook_event_id, assigned_to: deleteTarget.assigned_to });
       toast({ title: "Afspraak verwijderd" });
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
