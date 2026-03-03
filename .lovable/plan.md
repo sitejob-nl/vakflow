@@ -1,24 +1,18 @@
 
 
-## Probleem: `Invalid key length` in `outlook-callback`
+## Plan
 
-De `SMTP_ENCRYPTION_KEY` secret heeft geen geldige lengte voor AES-256-GCM. De `encrypt()` functie verwacht:
-- **64 hex karakters** (= 32 bytes = 256 bits), of
-- **Base64-encoded 32 bytes** (= 44 karakters)
+Twee fixes in de Outlook edge functions:
 
-Als de key een ander formaat of lengte heeft, faalt `crypto.subtle.importKey` met "Invalid key length".
+### 1. `outlook-auth-url/index.ts` — App origin meesturen in state
+De `state` parameter wordt nu `companyId|https://app.vakflow.nl` zodat de callback weet waarheen te redirecten.
 
-Dit werkt waarschijnlijk al langer niet — de `send-email` functie gebruikt dezelfde key voor **decryptie** van SMTP-wachtwoorden, dus als die wel werkt, is de key waarschijnlijk correct maar in een onverwacht formaat.
+- Regel 69: state wijzigen van `${profile.company_id}` naar `${profile.company_id}|https://app.vakflow.nl`
 
-### Oplossing
+### 2. `outlook-callback/index.ts` — State parsen + email_provider + redirect fix
+- State splitsen op `|` om `companyId` en `appOrigin` te extraheren (met fallback `https://app.vakflow.nl`)
+- `email_provider: "outlook"` toevoegen aan de company update (regel 115-118)
+- Redirect URL gebruiken op basis van de `appOrigin` uit de state, niet `req.headers.get("origin")`
 
-De `encrypt()` functie robuuster maken met een SHA-256 hash als fallback. Als de key niet exact 32 bytes oplevert via hex of base64, hashen we de ruwe key-string naar exact 32 bytes met SHA-256. Dit is veilig en zorgt dat elke willekeurige string als key werkt.
-
-**Bestanden:**
-- `supabase/functions/outlook-callback/index.ts` — encrypt functie aanpassen
-- `supabase/functions/save-smtp-credentials/index.ts` — zelfde encrypt functie, ook aanpassen voor consistentie
-
-De `decrypt` functies in `send-email`, `outlook-send`, en `outlook-calendar` moeten **niet** aangepast worden — die werken al correct met de huidige key (omdat bestaande encrypted data met het huidige formaat is opgeslagen).
-
-De aanpassing: als de key niet precies 64 hex chars is en ook niet valid base64 van 32 bytes oplevert, gebruik `SHA-256(keyString)` om altijd 32 bytes te krijgen.
+Beide functions worden opnieuw gedeployed.
 
