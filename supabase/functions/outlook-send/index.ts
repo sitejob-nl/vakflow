@@ -28,7 +28,14 @@ async function decrypt(encryptedStr: string): Promise<string> {
   if (keyHex.length === 64 && /^[0-9a-fA-F]+$/.test(keyHex)) {
     keyBytes = hexToBytes(keyHex);
   } else {
-    keyBytes = base64ToBytes(keyHex);
+    try {
+      keyBytes = base64ToBytes(keyHex);
+      if (keyBytes.length !== 32) throw new Error("not 32 bytes");
+    } catch {
+      keyBytes = new Uint8Array(
+        await crypto.subtle.digest("SHA-256", new TextEncoder().encode(keyHex))
+      );
+    }
   }
 
   const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
