@@ -376,15 +376,29 @@ Deno.serve(async (req) => {
 
     if (!roleCheck) throw new Error("Niet geautoriseerd");
 
-    // Get profile with e-boekhouden settings
+    // Get profile with e-boekhouden token + company_id
     const { data: profile } = await supabase
       .from("profiles")
-      .select("eboekhouden_api_token, eboekhouden_template_id, eboekhouden_ledger_id, eboekhouden_debtor_ledger_id")
+      .select("company_id, eboekhouden_api_token, eboekhouden_template_id, eboekhouden_ledger_id, eboekhouden_debtor_ledger_id")
       .eq("id", user.id)
       .single();
 
     if (!profile?.eboekhouden_api_token) {
       throw new Error("e-Boekhouden API-token niet ingesteld. Ga naar Instellingen.");
+    }
+
+    // Override template/ledger config from companies table (preferred source since SettingsPage saves there)
+    if (profile.company_id) {
+      const { data: companyConfig } = await supabase
+        .from("companies")
+        .select("eboekhouden_template_id, eboekhouden_ledger_id, eboekhouden_debtor_ledger_id")
+        .eq("id", profile.company_id)
+        .single();
+      if (companyConfig) {
+        if (companyConfig.eboekhouden_template_id != null) profile.eboekhouden_template_id = companyConfig.eboekhouden_template_id;
+        if (companyConfig.eboekhouden_ledger_id != null) profile.eboekhouden_ledger_id = companyConfig.eboekhouden_ledger_id;
+        if (companyConfig.eboekhouden_debtor_ledger_id != null) profile.eboekhouden_debtor_ledger_id = companyConfig.eboekhouden_debtor_ledger_id;
+      }
     }
 
     // Decrypt the stored token
@@ -907,6 +921,105 @@ Deno.serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ checked: unpaidInvoices.length, updated, errors }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Action: create-invoice (push single invoice at creation, like Rompslomp/Moneybird)
+    if (action === "create-invoice") {
+      if (!invoice_id) throw new Error("invoice_id is verplicht");
+      if (!profile.eboekhouden_template_id || !profile.eboekhouden_ledger_id) {
+        throw new Error("Stel eerst een factuursjabloon en grootboekrekening in via Instellingen → e-Boekhouden.");
+      }
+
+      const { data: invoice, error: invError } = await supabase
+        .from("invoices")
+        .select("*, customers(id, name, type, contact_person, address, city, postal_code, email, phone, eboekhouden_relation_id), work_orders(work_order_number, services(name, price))")
+        .eq("id", invoice_id)
+        .single();
+      if (invError || !invoice) throw new Error("Factuur niet gevonden");
+      if (invoice.eboekhouden_id) {
+        return new Response(JSON.stringify({ success: true, eboekhouden_id: invoice.eboekhouden_id, message: "Al gesynchroniseerd" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const customer = invoice.customers as any;
+      if (!customer) throw new Error("Geen klant gekoppeld aan factuur");
+
+      const relationId = await ensureRelation(customer);
+
+      const ebInvoice = await ebPost(session, "/invoice", {
+        relationId,
+        invoiceNumber: invoice.invoice_number,
+        date: invoice.issued_at || new Date().toISOString().split("T")[0],
+        inExVat: "IN",
+        termOfPayment: calcTermOfPayment(invoice),
+        templateId: profile.eboekhouden_template_id,
+        mutation: { ledgerId: profile.eboekhouden_debtor_ledger_id || profile.eboekhouden_ledger_id },
+        items: mapInvoiceItems(invoice, profile.eboekhouden_ledger_id),
+      });
+
+      const ebId = String(ebInvoice.id ?? ebInvoice.Id ?? ebInvoice.invoiceId);
+      await supabase.from("invoices").update({ eboekhouden_id: ebId, status: "verzonden" }).eq("id", invoice_id);
+
+      return new Response(JSON.stringify({ success: true, eboekhouden_id: ebId }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Action: create-quote (push single quote at creation)
+    if (action === "create-quote") {
+      if (!quote_id) throw new Error("quote_id is verplicht");
+      if (!profile.eboekhouden_template_id || !profile.eboekhouden_ledger_id) {
+        throw new Error("Stel eerst een factuursjabloon en grootboekrekening in via Instellingen → e-Boekhouden.");
+      }
+
+      const { data: quote, error: qErr } = await supabase
+        .from("quotes")
+        .select("*, customers(id, name, type, contact_person, address, city, postal_code, email, phone, eboekhouden_relation_id)")
+        .eq("id", quote_id)
+        .single();
+      if (qErr || !quote) throw new Error("Offerte niet gevonden");
+
+      const customer = quote.customers as any;
+      if (!customer) throw new Error("Geen klant gekoppeld aan offerte");
+
+      const relationId = await ensureRelation(customer);
+
+      const items = Array.isArray(quote.items) ? quote.items : [];
+      const ebItems = items.map((item: any) => ({
+        description: item.description || "Offerte item",
+        pricePerUnit: Number(item.unit_price || 0),
+        vatCode: "HOOG_VERK_21",
+        ledgerId: profile.eboekhouden_ledger_id,
+        quantity: Number(item.qty || 1),
+      }));
+
+      if (ebItems.length === 0) {
+        ebItems.push({
+          description: "Offerte",
+          pricePerUnit: Number(quote.total || 0),
+          vatCode: "HOOG_VERK_21",
+          ledgerId: profile.eboekhouden_ledger_id,
+          quantity: 1,
+        });
+      }
+
+      const ebInvoice = await ebPost(session, "/invoice", {
+        relationId,
+        invoiceNumber: quote.quote_number || `O-${quote_id.substring(0, 8)}`,
+        date: quote.issued_at || new Date().toISOString().split("T")[0],
+        inExVat: "IN",
+        termOfPayment: 30,
+        templateId: profile.eboekhouden_template_id,
+        mutation: { ledgerId: profile.eboekhouden_debtor_ledger_id || profile.eboekhouden_ledger_id },
+        items: ebItems,
+      });
+
+      const ebId = String(ebInvoice.id ?? ebInvoice.Id ?? ebInvoice.invoiceId);
+
+      return new Response(JSON.stringify({ success: true, eboekhouden_id: ebId }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

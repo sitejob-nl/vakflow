@@ -691,6 +691,97 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Action: create-quote (push single quote to Rompslomp, get back quote number)
+    if (action === "create-quote") {
+      const { quote_id } = body;
+      if (!quote_id) {
+        return jsonRes({ error: "quote_id is verplicht" }, 400);
+      }
+
+      const { data: quote, error: qErr } = await supabaseAdmin
+        .from("quotes")
+        .select("*, customers(id, name, rompslomp_contact_id, email, address, postal_code, city, contact_person, phone, type)")
+        .eq("id", quote_id)
+        .single();
+      if (qErr || !quote) {
+        return jsonRes({ error: `Offerte niet gevonden: ${qErr?.message}` }, 400);
+      }
+
+      const customer = quote.customers as any;
+
+      // Auto-create contact in Rompslomp if needed
+      let contactId = customer?.rompslomp_contact_id;
+      if (!contactId && customer) {
+        const isIndividual = customer.type === "particulier";
+        const contactData: any = {
+          is_individual: isIndividual,
+          is_supplier: false,
+          company_name: !isIndividual ? customer.name : undefined,
+          contact_person_name: isIndividual ? customer.name : (customer.contact_person || undefined),
+          contact_person_email_address: customer.email || undefined,
+          contact_number: customer.phone || undefined,
+          address: customer.address || undefined,
+          zipcode: customer.postal_code || undefined,
+          city: customer.city || undefined,
+          api_reference: customer.id,
+        };
+        const contactResult = await rompslompPost(rompslompCompanyId, "/contacts", apiToken, { contact: contactData });
+        contactId = String(contactResult?.id || contactResult?.contact?.id);
+        if (contactId) {
+          await supabaseAdmin.from("customers").update({ rompslomp_contact_id: contactId }).eq("id", customer.id);
+        }
+      }
+
+      if (!contactId) {
+        return jsonRes({ error: "Kan geen Rompslomp contact aanmaken voor deze klant" }, 400);
+      }
+
+      const vatPct = Number(quote.vat_percentage || 21);
+      const items = Array.isArray(quote.items) ? quote.items : [];
+      const quoteLines = (items as any[]).map((item: any) => ({
+        description: item.description || "Item",
+        quantity: String(item.qty || 1),
+        price_per_unit: String(Number(item.unit_price || 0) / (1 + vatPct / 100)),
+      }));
+
+      const quotationData: any = {
+        contact_id: parseInt(contactId),
+        date: quote.issued_at || new Date().toISOString().split("T")[0],
+        invoice_lines: quoteLines,
+        api_reference: quote.quote_number || undefined,
+        _publish: true,
+      };
+
+      console.log(`create-quote: pushing to Rompslomp`, JSON.stringify(quotationData));
+      const result = await rompslompPost(rompslompCompanyId, "/quotations", apiToken, { quotation: quotationData });
+      const rompslompId = result?.id || result?.quotation?.id;
+
+      if (!rompslompId) {
+        return jsonRes({ error: "Geen ID terug van Rompslomp", result }, 500);
+      }
+
+      // Fetch full quotation to get the Rompslomp quote number
+      const fullQuotation = await rompslompGet(rompslompCompanyId, `/quotations/${rompslompId}`, apiToken);
+      const rQ = fullQuotation?.quotation || fullQuotation;
+      const rompslompQuoteNumber = rQ?.invoice_number || null;
+
+      const updateData: any = {
+        rompslomp_id: String(rompslompId),
+        status: "verzonden",
+      };
+      if (rompslompQuoteNumber) {
+        updateData.quote_number = rompslompQuoteNumber;
+      }
+      await supabaseAdmin.from("quotes").update(updateData).eq("id", quote_id);
+
+      console.log(`create-quote: success, rompslomp_id=${rompslompId}, quote_number=${rompslompQuoteNumber}`);
+      return jsonRes({
+        success: true,
+        rompslomp_id: String(rompslompId),
+        quote_number: rompslompQuoteNumber,
+      });
+    }
+
     // Action: download PDF from Rompslomp
     if (action === "download-pdf") {
       const { rompslomp_id } = body;
