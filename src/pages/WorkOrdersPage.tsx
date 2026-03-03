@@ -1,8 +1,9 @@
 import { useNavigation } from "@/hooks/useNavigation";
 import { useState, useCallback } from "react";
-import { Check, Clock, Calendar, Loader2, Plus, RefreshCw } from "lucide-react";
+import { Check, Clock, Calendar, Loader2, Plus, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useWorkOrders } from "@/hooks/useWorkOrders";
+import { Button } from "@/components/ui/button";
+import { usePaginatedWorkOrders } from "@/hooks/useWorkOrders";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -10,6 +11,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useQueryClient } from "@tanstack/react-query";
 
 const tabs = ["Alle", "Open", "Bezig", "Afgerond"];
+const PAGE_SIZE = 25;
 
 const statusConfig: Record<string, { badge: string; icon: typeof Check; iconBg: string }> = {
   open: { badge: "bg-cyan-muted text-cyan", icon: Calendar, iconBg: "bg-cyan-muted text-cyan" },
@@ -25,27 +27,30 @@ const statusLabel: Record<string, string> = {
 
 const WorkOrdersPage = () => {
   const { navigate } = useNavigation();
-  const { data: workOrders, isLoading } = useWorkOrders();
   const [activeTab, setActiveTab] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [page, setPage] = useState(0);
   const queryClient = useQueryClient();
 
+  const statusFilter = activeTab === 0 ? null : ["open", "bezig", "afgerond"][activeTab - 1];
+
+  const { data: result, isLoading } = usePaginatedWorkOrders({
+    page,
+    pageSize: PAGE_SIZE,
+    statusFilter,
+  });
+
+  const workOrders = result?.data ?? [];
+  const totalCount = result?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
   const handleRefresh = useCallback(() => {
-    return queryClient.invalidateQueries({ queryKey: ["work_orders"] });
+    return queryClient.invalidateQueries({ queryKey: ["work_orders-paginated"] });
   }, [queryClient]);
 
   const { containerRef, pullDistance, refreshing, isTriggered } = usePullToRefresh({
     onRefresh: handleRefresh,
   });
-
-  const statusFilter = activeTab === 0 ? null : ["open", "bezig", "afgerond"][activeTab - 1];
-
-  const filtered = (workOrders ?? []).filter((wo) => {
-    if (statusFilter && wo.status !== statusFilter) return false;
-    return true;
-  });
-
-  const openCount = (workOrders ?? []).filter((wo) => wo.status === "open" || wo.status === "bezig").length;
 
   return (
     <div ref={containerRef}>
@@ -66,9 +71,8 @@ const WorkOrdersPage = () => {
       <div className="flex items-center justify-between mb-4 gap-2">
         <div className="flex gap-0 border-b-2 border-border flex-1 overflow-x-auto scrollbar-hide">
           {tabs.map((t, i) => (
-            <button key={t} onClick={() => setActiveTab(i)} className={`px-3 md:px-5 py-2.5 text-[13px] font-bold border-b-2 -mb-[2px] transition-colors whitespace-nowrap ${i === activeTab ? "text-primary border-primary" : "text-t3 border-transparent hover:text-secondary-foreground"}`}>
+            <button key={t} onClick={() => { setActiveTab(i); setPage(0); }} className={`px-3 md:px-5 py-2.5 text-[13px] font-bold border-b-2 -mb-[2px] transition-colors whitespace-nowrap ${i === activeTab ? "text-primary border-primary" : "text-t3 border-transparent hover:text-secondary-foreground"}`}>
               {t}
-              {t === "Open" && openCount > 0 && <span className="ml-1 bg-warning-muted text-warning px-[6px] py-[2px] rounded-full text-[9px] font-bold">{openCount}</span>}
             </button>
           ))}
         </div>
@@ -91,47 +95,66 @@ const WorkOrdersPage = () => {
 
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-      ) : filtered.length === 0 ? (
+      ) : workOrders.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground text-sm">
           {activeTab > 0 ? "Geen werkbonnen met deze status" : "Nog geen werkbonnen. Maak je eerste werkbon aan!"}
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((wo) => {
-            const config = statusConfig[wo.status] ?? statusConfig.open;
-            const Icon = config.icon;
-            return (
-              <div
-                key={wo.id}
-                onClick={() => navigate("woDetail", { workOrderId: wo.id })}
-                className="bg-card border border-border rounded-lg p-3 md:p-4 px-4 md:px-5 grid grid-cols-[auto_1fr_auto] gap-3 md:gap-4 items-center shadow-card hover:border-primary hover:shadow-card-hover hover:-translate-y-px transition-all cursor-pointer"
-              >
-                <div className={`w-[38px] h-[38px] md:w-[42px] md:h-[42px] rounded-[10px] flex items-center justify-center ${config.iconBg}`}>
-                  <Icon className="w-4 h-4 md:w-5 md:h-5" />
+        <>
+          <div className="space-y-3">
+            {workOrders.map((wo) => {
+              const config = statusConfig[wo.status] ?? statusConfig.open;
+              const Icon = config.icon;
+              return (
+                <div
+                  key={wo.id}
+                  onClick={() => navigate("woDetail", { workOrderId: wo.id })}
+                  className="bg-card border border-border rounded-lg p-3 md:p-4 px-4 md:px-5 grid grid-cols-[auto_1fr_auto] gap-3 md:gap-4 items-center shadow-card hover:border-primary hover:shadow-card-hover hover:-translate-y-px transition-all cursor-pointer"
+                >
+                  <div className={`w-[38px] h-[38px] md:w-[42px] md:h-[42px] rounded-[10px] flex items-center justify-center ${config.iconBg}`}>
+                    <Icon className="w-4 h-4 md:w-5 md:h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-[13px] md:text-sm font-bold truncate flex items-center gap-1.5">
+                      {wo.customers?.name ?? "Onbekend"} — {wo.services?.name ?? "Dienst"}
+                      {(wo.services as any)?.category && (
+                        <Badge variant="outline" className={`text-[9px] px-1.5 py-0 font-semibold ${(wo.services as any).category.startsWith('MV') ? 'border-blue-400 text-blue-500' : 'border-amber-400 text-amber-500'}`}>
+                          {(wo.services as any).category.startsWith('MV') ? 'MV' : 'WTW'}
+                        </Badge>
+                      )}
+                    </h4>
+                    <p className="text-[11.5px] md:text-[12.5px] text-secondary-foreground truncate">
+                      {format(new Date(wo.created_at), "d MMM yyyy", { locale: nl })} · {wo.customers?.city ?? ""}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${config.badge}`}>
+                      {statusLabel[wo.status] ?? wo.status}
+                    </span>
+                    <div className="text-[10.5px] text-t3 font-mono mt-1">{wo.work_order_number}</div>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h4 className="text-[13px] md:text-sm font-bold truncate flex items-center gap-1.5">
-                    {wo.customers?.name ?? "Onbekend"} — {wo.services?.name ?? "Dienst"}
-                    {(wo.services as any)?.category && (
-                      <Badge variant="outline" className={`text-[9px] px-1.5 py-0 font-semibold ${(wo.services as any).category.startsWith('MV') ? 'border-blue-400 text-blue-500' : 'border-amber-400 text-amber-500'}`}>
-                        {(wo.services as any).category.startsWith('MV') ? 'MV' : 'WTW'}
-                      </Badge>
-                    )}
-                  </h4>
-                  <p className="text-[11.5px] md:text-[12.5px] text-secondary-foreground truncate">
-                    {format(new Date(wo.created_at), "d MMM yyyy", { locale: nl })} · {wo.customers?.city ?? ""}
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${config.badge}`}>
-                    {statusLabel[wo.status] ?? wo.status}
-                  </span>
-                  <div className="text-[10.5px] text-t3 font-mono mt-1">{wo.work_order_number}</div>
-                </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-[12px] text-muted-foreground">
+                {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} van {totalCount}
+              </span>
+              <div className="flex gap-1">
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       <WorkOrderDialog open={dialogOpen} onOpenChange={setDialogOpen} />

@@ -1,6 +1,6 @@
 import { useNavigation } from "@/hooks/useNavigation";
 import { useState, useRef, useMemo } from "react";
-import { useCustomers, useDeleteCustomer } from "@/hooks/useCustomers";
+import { useCustomers, useDeleteCustomer, usePaginatedCustomers } from "@/hooks/useCustomers";
 import { Loader2, Search, RefreshCw, MapPin, Upload, ChevronLeft, ChevronRight, Filter, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -35,32 +35,55 @@ const CustomersPage = () => {
   const { navigate } = useNavigation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: customers, isLoading } = useCustomers();
   const [activeTab, setActiveTab] = useState(0);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [page, setPage] = useState(0);
   const [cityFilter, setCityFilter] = useState<string>("all");
-  const [serviceFilter, setServiceFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Derive unique cities and services for filter dropdowns
+  // Debounce search
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPage(0);
+    }, 300);
+  };
+
+  const typeFilter = activeTab === 0 ? null : ["particulier", "zakelijk", "vve"][activeTab - 1];
+
+  // Server-side paginated query
+  const { data: paginatedResult, isLoading } = usePaginatedCustomers({
+    page,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+    typeFilter,
+    cityFilter: cityFilter !== "all" ? cityFilter : null,
+    sortKey,
+    sortDir,
+  });
+
+  const customers = paginatedResult?.data ?? [];
+  const totalCount = paginatedResult?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  // Use unpaginated query just for filter dropdowns (lightweight)
+  const { data: allCustomers } = useCustomers();
+
   const cities = useMemo(() => {
     const set = new Set<string>();
-    (customers ?? []).forEach((c) => { if (c.city) set.add(c.city); });
+    (allCustomers ?? []).forEach((c) => { if (c.city) set.add(c.city); });
     return Array.from(set).sort();
-  }, [customers]);
-
-  const serviceNames = useMemo(() => {
-    const set = new Set<string>();
-    (customers ?? []).forEach((c) => { if (c.services?.name) set.add(c.services.name); });
-    return Array.from(set).sort();
-  }, [customers]);
+  }, [allCustomers]);
 
   const formatPhone = (raw: string | undefined | null): string | null => {
     if (!raw) return null;
@@ -106,8 +129,8 @@ const CustomersPage = () => {
         return;
       }
 
-      const existing = customers ?? [];
-      const existingKeys = new Set(existing.map((c) => `${c.name.toLowerCase()}|${(c.postal_code ?? "").toLowerCase()}`));
+      const existingAll = allCustomers ?? [];
+      const existingKeys = new Set(existingAll.map((c) => `${c.name.toLowerCase()}|${(c.postal_code ?? "").toLowerCase()}`));
       const toInsert = mapped.filter((m) => !existingKeys.has(`${m.name.toLowerCase()}|${(m.postal_code ?? "").toLowerCase()}`));
       const skipped = mapped.length - toInsert.length;
 
@@ -122,6 +145,7 @@ const CustomersPage = () => {
       }
 
       queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-paginated"] });
       toast({
         title: "Import voltooid",
         description: `${inserted} klanten geïmporteerd${skipped > 0 ? `, ${skipped} duplicaten overgeslagen` : ""}.`,
@@ -140,6 +164,7 @@ const CustomersPage = () => {
       const { data, error } = await supabase.functions.invoke("geocode-customers");
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-paginated"] });
       toast({
         title: "Coördinaten bijgewerkt",
         description: `${data.geocoded} van ${data.total} klanten geocodeerd.`,
@@ -152,44 +177,15 @@ const CustomersPage = () => {
   };
 
   const { containerRef, pullDistance, refreshing, isTriggered } = usePullToRefresh({
-    onRefresh: () => queryClient.invalidateQueries({ queryKey: ["customers"] }),
+    onRefresh: () => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      return queryClient.invalidateQueries({ queryKey: ["customers-paginated"] });
+    },
   });
 
-  const typeFilter = activeTab === 0 ? null : ["particulier", "zakelijk", "vve"][activeTab - 1];
-
-  const filtered = useMemo(() => {
-    const list = (customers ?? []).filter((c) => {
-      if (typeFilter && c.type !== typeFilter) return false;
-      if (cityFilter !== "all" && c.city !== cityFilter) return false;
-      if (serviceFilter !== "all" && c.services?.name !== serviceFilter) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        return c.name.toLowerCase().includes(q) || c.city?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.address?.toLowerCase().includes(q) || c.postal_code?.toLowerCase().includes(q);
-      }
-      return true;
-    });
-
-    // Sort
-    const dir = sortDir === "asc" ? 1 : -1;
-    list.sort((a, b) => {
-      if (sortKey === "name") return dir * a.name.localeCompare(b.name, "nl");
-      if (sortKey === "city") return dir * (a.city ?? "").localeCompare(b.city ?? "", "nl");
-      if (sortKey === "interval_months") return dir * (a.interval_months - b.interval_months);
-      return 0;
-    });
-
-    return list;
-  }, [customers, typeFilter, cityFilter, serviceFilter, search, sortKey, sortDir]);
-
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages - 1);
-  const paged = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
-
-  // Reset page when filters change
   const resetPage = () => setPage(0);
 
-  const hasActiveFilters = cityFilter !== "all" || serviceFilter !== "all";
+  const hasActiveFilters = cityFilter !== "all";
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -205,6 +201,7 @@ const CustomersPage = () => {
     if (sortKey !== col) return <ArrowUpDown className="inline ml-1 h-3 w-3 opacity-40" />;
     return sortDir === "asc" ? <ArrowUp className="inline ml-1 h-3 w-3" /> : <ArrowDown className="inline ml-1 h-3 w-3" />;
   };
+
   const getInitials = (name: string) =>
     name.split(/[\s.]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
@@ -246,13 +243,13 @@ const CustomersPage = () => {
         {/* Header with search & button */}
         <div className="px-4 md:px-5 py-3 md:py-4 flex flex-col gap-2 border-b border-border">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <h3 className="text-[14px] md:text-[15px] font-bold">{filtered.length} klanten</h3>
+            <h3 className="text-[14px] md:text-[15px] font-bold">{totalCount} klanten</h3>
             <div className="flex gap-2 items-center w-full sm:w-auto flex-wrap">
               <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   value={search}
-                  onChange={(e) => { setSearch(e.target.value); resetPage(); }}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   placeholder="Zoek klant..."
                   className="pl-8 h-8 w-full sm:w-48 text-[12px]"
                 />
@@ -307,22 +304,11 @@ const CustomersPage = () => {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={serviceFilter} onValueChange={(v) => { setServiceFilter(v); resetPage(); }}>
-              <SelectTrigger className="h-8 w-[160px] text-[12px]">
-                <SelectValue placeholder="Alle diensten" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle diensten</SelectItem>
-                {serviceNames.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             {hasActiveFilters && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => { setCityFilter("all"); setServiceFilter("all"); resetPage(); }}
+                onClick={() => { setCityFilter("all"); resetPage(); }}
                 className="h-8 text-[12px] text-muted-foreground"
               >
                 <X className="mr-1 h-3.5 w-3.5" />
@@ -343,9 +329,9 @@ const CustomersPage = () => {
           <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : customers.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground text-sm">
-            {search || hasActiveFilters ? "Geen klanten gevonden" : "Nog geen klanten. Voeg je eerste klant toe!"}
+            {debouncedSearch || hasActiveFilters ? "Geen klanten gevonden" : "Nog geen klanten. Voeg je eerste klant toe!"}
           </div>
         ) : (
           <>
@@ -367,7 +353,7 @@ const CustomersPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {paged.map((c) => (
+                {customers.map((c) => (
                   <tr
                     key={c.id}
                     className="hover:bg-bg-hover transition-colors cursor-pointer"
@@ -409,7 +395,7 @@ const CustomersPage = () => {
 
             {/* Mobile list */}
             <div className="md:hidden divide-y divide-border">
-              {paged.map((c) => (
+              {customers.map((c) => (
                 <div
                   key={c.id}
                   className="px-4 py-3 flex items-center gap-3 active:bg-bg-hover transition-colors cursor-pointer"
@@ -434,20 +420,20 @@ const CustomersPage = () => {
             {totalPages > 1 && (
               <div className="px-4 md:px-5 py-3 flex items-center justify-between border-t border-border">
                 <span className="text-[12px] text-muted-foreground">
-                  {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} van {filtered.length}
+                  {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} van {totalCount}
                 </span>
                 <div className="flex gap-1">
                   <Button
                     variant="outline"
                     size="icon"
                     className="h-8 w-8"
-                    disabled={safePage === 0}
+                    disabled={page === 0}
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   {Array.from({ length: totalPages }, (_, i) => i)
-                    .filter((i) => i === 0 || i === totalPages - 1 || Math.abs(i - safePage) <= 1)
+                    .filter((i) => i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 1)
                     .reduce<(number | "ellipsis")[]>((acc, i, idx, arr) => {
                       if (idx > 0 && i - (arr[idx - 1] as number) > 1) acc.push("ellipsis");
                       acc.push(i);
@@ -459,7 +445,7 @@ const CustomersPage = () => {
                       ) : (
                         <Button
                           key={item}
-                          variant={item === safePage ? "default" : "outline"}
+                          variant={item === page ? "default" : "outline"}
                           size="icon"
                           className="h-8 w-8 text-[12px]"
                           onClick={() => setPage(item)}
@@ -472,7 +458,7 @@ const CustomersPage = () => {
                     variant="outline"
                     size="icon"
                     className="h-8 w-8"
-                    disabled={safePage >= totalPages - 1}
+                    disabled={page >= totalPages - 1}
                     onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                   >
                     <ChevronRight className="h-4 w-4" />

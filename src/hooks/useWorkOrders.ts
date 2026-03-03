@@ -25,6 +25,40 @@ export const useWorkOrders = () => {
   });
 };
 
+export interface PaginatedWorkOrdersParams {
+  page: number;
+  pageSize: number;
+  statusFilter?: string | null;
+}
+
+export const usePaginatedWorkOrders = (params: PaginatedWorkOrdersParams) => {
+  const { companyId } = useAuth();
+  const { page, pageSize, statusFilter } = params;
+
+  return useQuery({
+    queryKey: ["work_orders-paginated", companyId, page, pageSize, statusFilter],
+    queryFn: async () => {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+
+      let q = supabase
+        .from("work_orders")
+        .select("*, customers(name, address, city), services(name, color, price, category)", { count: "exact" })
+        .order("created_at", { ascending: false });
+
+      if (companyId) q = q.eq("company_id", companyId);
+      if (statusFilter) q = q.eq("status", statusFilter);
+
+      q = q.range(from, to);
+
+      const { data, error, count } = await q;
+      if (error) throw error;
+      return { data: data as WorkOrder[], totalCount: count ?? 0 };
+    },
+    placeholderData: (prev) => prev,
+  });
+};
+
 export const useWorkOrder = (id: string | undefined) => {
   const { companyId } = useAuth();
   return useQuery({
