@@ -10,7 +10,7 @@ const allSections = [
   {
     label: "Overzicht",
     items: [
-      { id: "dashboard" as Page, icon: LayoutGrid, label: "Dashboard", adminOnly: true },
+      { id: "dashboard" as Page, icon: LayoutGrid, label: "Dashboard", adminOnly: false },
     ],
   },
   {

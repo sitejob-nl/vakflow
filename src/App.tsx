@@ -12,6 +12,7 @@ import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
 import DashboardPage from "@/pages/DashboardPage";
+import MonteurDashboardPage from "@/pages/MonteurDashboardPage";
 import PlanningPage from "@/pages/PlanningPage";
 import CustomersPage from "@/pages/CustomersPage";
 import CustomerDetailPage from "@/pages/CustomerDetailPage";
@@ -55,7 +56,7 @@ const App = () => (
               }
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
+              <Route path="dashboard" element={<AdminRoute fallback={<MonteurDashboardPage />}><DashboardPage /></AdminRoute>} />
               <Route path="planning" element={<PlanningPage />} />
               <Route path="customers" element={<AdminRoute><CustomersPage /></AdminRoute>} />
               <Route path="customers/:id" element={<AdminRoute><CustomerDetailPage /></AdminRoute>} />
