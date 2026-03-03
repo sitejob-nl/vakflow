@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { Camera, X, Loader2 } from "lucide-react";
 import { getSignedUrl } from "@/utils/storageUtils";
 
@@ -15,6 +16,7 @@ const BUCKET = "work-order-photos";
 
 const PhotoUpload = ({ workOrderId, type, photos, onPhotosChange }: PhotoUploadProps) => {
   const { toast } = useToast();
+  const { companyId } = useAuth();
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
@@ -41,7 +43,7 @@ const PhotoUpload = ({ workOrderId, type, photos, onPhotosChange }: PhotoUploadP
     try {
       for (const file of Array.from(files)) {
         const ext = file.name.split(".").pop() ?? "jpg";
-        const path = `${workOrderId}/${type}/${crypto.randomUUID()}.${ext}`;
+        const path = `${companyId}/${workOrderId}/${type}/${crypto.randomUUID()}.${ext}`;
 
         const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
           cacheControl: "3600",

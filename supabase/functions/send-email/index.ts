@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logUsage } from "../_shared/usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -249,8 +250,12 @@ serve(async (req) => {
     }
 
     await client.send(mailOptions);
-
     await client.close();
+
+    // Log usage event
+    if (userProfile?.company_id) {
+      await logUsage(supabaseAdmin, userProfile.company_id, "email_sent", { to, subject });
+    }
 
     return new Response(
       JSON.stringify({ success: true }),

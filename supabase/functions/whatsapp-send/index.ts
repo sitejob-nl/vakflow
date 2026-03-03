@@ -1,6 +1,7 @@
 import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { normalizePhone } from "../_shared/phone.ts";
+import { logUsage } from "../_shared/usage.ts";
 
 /** Build the Meta API request body for any supported message type */
 function buildMetaBody(body: Record<string, unknown>, normalizedTo: string): Record<string, unknown> {
@@ -235,6 +236,7 @@ Deno.serve(async (req) => {
         customer_id: customer_id || null,
         company_id: companyId,
       });
+      await logUsage(supabaseAdmin, companyId, "whatsapp_sent", { to: normalizedTo, type });
     }
 
     return jsonRes({ ok: true, ...result });

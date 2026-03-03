@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, Pencil, Trash2, Search, Plus, Save, Loader2, Eye, BarChart3, List, ChevronLeft, ChevronRight } from "lucide-react";
+import { Building2, Users, Pencil, Trash2, Search, Plus, Save, Loader2, Eye, BarChart3, List, ChevronLeft, ChevronRight, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import SuperAdminStats from "@/components/SuperAdminStats";
+import SuperAdminUsage from "@/components/SuperAdminUsage";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Company = Tables<"companies">;
@@ -146,6 +147,7 @@ const SuperAdminPage = () => {
         <TabsList>
           <TabsTrigger value="overview" className="gap-1.5"><BarChart3 className="w-4 h-4" /> Overzicht</TabsTrigger>
           <TabsTrigger value="companies" className="gap-1.5"><List className="w-4 h-4" /> Bedrijven</TabsTrigger>
+          <TabsTrigger value="usage" className="gap-1.5"><Activity className="w-4 h-4" /> Usage</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -235,6 +237,10 @@ const SuperAdminPage = () => {
               )}
             </>
           )}
+        </TabsContent>
+
+        <TabsContent value="usage" className="mt-4">
+          <SuperAdminUsage />
         </TabsContent>
       </Tabs>
 
