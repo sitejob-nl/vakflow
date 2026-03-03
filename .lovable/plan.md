@@ -1,70 +1,48 @@
 
 
-## Plan: Route-optimalisatie met Google Routes API
+## Plan: Migreer naar Google APIs, verwijder Mapbox
 
 ### Overzicht
 
-Een "Optimaliseer route" knop op het planningsscherm die afspraken van een dag via de Google Routes API in de optimale rijvolgorde herschikt, inclusief reistijden per leg.
+Drie Edge Functions worden aangepast: `geocode-customers` migreert van Mapbox naar Google Geocoding API, `mapbox-proxy` wordt vervangen door een nieuwe `google-maps-proxy` met dezelfde interface (geocode + directions acties), en de `mapbox-proxy` function wordt verwijderd.
 
-### Stap 1: Google API key opslaan
+### Stap 1: Nieuwe `google-maps-proxy` Edge Function
 
-De `GOOGLE_ROUTES_API_KEY` secret moet worden toegevoegd via de secrets tool.
+Vervangt `mapbox-proxy` met dezelfde action-interface (`geocode`, `directions`) maar nu via Google APIs:
 
-### Stap 2: Edge function `optimize-route/index.ts`
+- **`geocode` action**: Roept `https://maps.googleapis.com/maps/api/geocode/json` aan met `address={query}&region=nl&language=nl&key={GOOGLE_ROUTES_API_KEY}`
+  - Parsed de `address_components` om `street`, `house_number`, `postal_code`, `city` te extraheren
+  - Retourneert exact hetzelfde `GeocodeSuggestion[]` formaat als voorheen
+- **`directions` action**: Roept `https://routes.googleapis.com/directions/v2:computeRoutes` aan
+  - Retourneert hetzelfde `{ duration_minutes, distance_km }` formaat
 
-Nieuwe edge function die:
-1. Authenticatie via `authenticateRequest()` (shared helper)
-2. Input: `{ date, assigned_to?, round_trip? }`
-3. Haalt afspraken van die dag op voor de monteur (default: ingelogde user)
-4. Verzamelt lat/lng uit `addresses` tabel (fallback: `customers` tabel)
-5. Haalt bedrijfsadres op uit `companies` als startpunt
-6. Roept Google Routes API `computeRoutes` aan met `optimizeWaypointOrder: true` en `TRAFFIC_AWARE` routing
-7. Retourneert: optimale volgorde met `travel_time_minutes` en `distance_km` per stop, plus summary
+Dezelfde auth via `authenticateRequest()`, dezelfde input validatie.
 
-API call naar:
-```
-POST https://routes.googleapis.com/directions/v2:computeRoutes
-Headers: X-Goog-Api-Key, X-Goog-FieldMask
-Body: { origin, destination, intermediates[], optimizeWaypointOrder: true, routingPreference: "TRAFFIC_AWARE" }
-```
+### Stap 2: `geocode-customers` migreren
 
-Het antwoord bevat `optimizedIntermediateWaypointIndex` (de optimale volgorde) en `routes[0].legs[]` met `duration` en `distanceMeters` per leg.
+Vervangt de Mapbox geocoding call door Google Geocoding API. Zelfde structuur (batch 50 klanten, kleine delay), alleen de API call en response parsing verandert.
 
-### Stap 3: Frontend hook in `useMapbox.ts`
+### Stap 3: Frontend aanpassen
 
-Nieuwe `useOptimizeRoute` functie:
-- Roept `supabase.functions.invoke("optimize-route", { body })` aan
-- Retourneert de geoptimaliseerde stops met reistijden
+Drie bestanden refereren naar `"mapbox-proxy"`:
+- `src/hooks/useMapbox.ts` — `useGeocode` en `useDirections` → invoke `"google-maps-proxy"`
+- `src/components/CustomerDialog.tsx` — auto-geocode bij opslaan → invoke `"google-maps-proxy"`
 
-### Stap 4: UI in `PlanningPage.tsx`
+De hook-file hernoemen naar `useGoogleMaps.ts` (of de import alias behouden). De interfaces en return types blijven identiek.
 
-- **"Optimaliseer route" knop** in de desktop toolbar (naast "Nieuwe afspraak"), zichtbaar wanneer er ≥2 afspraken met coördinaten op de geselecteerde dag staan
-- Bij klik:
-  1. Roep `optimize-route` aan met de geselecteerde datum en monteur-filter
-  2. Toon bevestigingsdialoog met de voorgestelde volgorde + geschatte rijtijden
-  3. Na bevestiging: batch-update `scheduled_at` (herberekend op basis van optimale volgorde, eerste afspraak behoudt starttijd, volgende = vorige eindtijd + rijtijd) en `travel_time_minutes` per afspraak
-- Op mobile: knop in de toolbar balk
+### Stap 4: Opruimen
 
-### Stap 5: Config
-
-Toevoegen aan `supabase/config.toml`:
-```toml
-[functions.optimize-route]
-verify_jwt = false
-```
-(Auth wordt intern afgehandeld via `authenticateRequest()`)
+- **Verwijder** `supabase/functions/mapbox-proxy/index.ts`
+- **Verwijder** de deployed `mapbox-proxy` function via delete tool
+- Geen wijziging nodig in `config.toml` (mapbox-proxy had geen entry)
 
 ### Bestanden
 
 | Bestand | Actie |
 |---|---|
-| `supabase/functions/optimize-route/index.ts` | Nieuw |
-| `supabase/config.toml` | Entry toevoegen |
-| `src/hooks/useMapbox.ts` | `useOptimizeRoute` hook toevoegen |
-| `src/pages/PlanningPage.tsx` | Knop + bevestigingsdialoog + batch-update logica |
-
-### Beperkingen
-
-- Google Routes API ondersteunt max 25 waypoints (ruim voldoende)
-- Afspraken zonder coördinaten worden overgeslagen met een waarschuwing in de response
+| `supabase/functions/google-maps-proxy/index.ts` | Nieuw — vervangt mapbox-proxy |
+| `supabase/functions/geocode-customers/index.ts` | Wijzigen — Google Geocoding API |
+| `supabase/functions/mapbox-proxy/index.ts` | Verwijderen |
+| `src/hooks/useMapbox.ts` | Wijzigen — invoke `google-maps-proxy` |
+| `src/components/CustomerDialog.tsx` | Wijzigen — invoke `google-maps-proxy` |
 
