@@ -2,38 +2,25 @@
 
 ## Probleem
 
-De `decryptPassword` functie in `fetch-emails/index.ts` mist de SHA-256 fallback die wél aanwezig is in `outlook-callback` en `save-smtp-credentials`. Wanneer de `SMTP_ENCRYPTION_KEY` geen geldige 64-char hex is, probeert het base64-decode en krijgt geen 32 bytes, waardoor `importKey` crasht met "Invalid key length".
+De scopes staan correct in Azure, maar worden **niet aangevraagd** in de OAuth-flow. De `outlook-auth-url` en `outlook-callback` vragen alleen `Mail.Send Calendars.ReadWrite offline_access` aan. Het huidige refresh token bevat dus geen `Mail.Read` permissie. Bij een token refresh kun je geen nieuwe scopes toevoegen die niet in het originele token zitten.
 
 ## Oplossing
 
-In `supabase/functions/fetch-emails/index.ts`, regels 31-36 aanpassen: na de base64 poging een length-check toevoegen en bij falen een SHA-256 hash van de key string maken (exact zoals de encrypt-kant doet).
+De scope string uitbreiden in **4 bestanden** zodat `Mail.Read` en `Mail.ReadWrite` vanaf het begin worden aangevraagd:
 
-**Wijziging (regels 31-36):**
+| Bestand | Regel | Huidige scope | 
+|---------|-------|---------------|
+| `outlook-auth-url/index.ts` | 67 | `Mail.Send Calendars.ReadWrite offline_access` |
+| `outlook-callback/index.ts` | 95 | `Mail.Send Calendars.ReadWrite offline_access` |
+| `outlook-send/index.ts` | 57 | `Mail.Send Calendars.ReadWrite offline_access` |
+| `outlook-calendar/index.ts` | 57 | `Mail.Send Calendars.ReadWrite offline_access` |
 
-Van:
-```typescript
-let keyBytes: Uint8Array;
-if (keyHex.length === 64 && /^[0-9a-fA-F]+$/.test(keyHex)) {
-  keyBytes = hexToBytes(keyHex);
-} else {
-  keyBytes = base64ToBytes(keyHex);
-}
+Allemaal wijzigen naar:
+```
+https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite offline_access
 ```
 
-Naar:
-```typescript
-let keyBytes: Uint8Array;
-if (keyHex.length === 64 && /^[0-9a-fA-F]+$/.test(keyHex)) {
-  keyBytes = hexToBytes(keyHex);
-} else {
-  try {
-    keyBytes = base64ToBytes(keyHex);
-    if (keyBytes.length !== 32) throw new Error("not 32 bytes");
-  } catch {
-    keyBytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(keyHex)));
-  }
-}
-```
+(`fetch-emails` heeft dit al correct.)
 
-Eén bestand, opnieuw deployen.
+**Na het deployen moet SiteJob opnieuw Outlook koppelen** via Instellingen, zodat het nieuwe refresh token de Mail.Read scope bevat.
 
