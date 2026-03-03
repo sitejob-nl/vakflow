@@ -1,0 +1,1 @@
+UPDATE companies SET outlook_refresh_token = NULL, rompslomp_api_token = NULL WHERE id = '2a5c7a99-0bcd-4d1d-b541-c97e7e3e701e';
