@@ -107,6 +107,13 @@ Deno.serve(async (req) => {
       );
     }
 
+    /* ── get-key (publishable, restricted by referrer) ── */
+    if (action === "get-key") {
+      return new Response(JSON.stringify({ key: GOOGLE_API_KEY }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "private, max-age=3600" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
