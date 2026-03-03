@@ -25,6 +25,45 @@ export const useInvoices = () => {
   });
 };
 
+export interface PaginatedInvoicesParams {
+  page: number;
+  pageSize: number;
+  statusFilter?: string | null;
+}
+
+export const usePaginatedInvoices = (params: PaginatedInvoicesParams) => {
+  const { companyId } = useAuth();
+  const { page, pageSize, statusFilter } = params;
+
+  return useQuery({
+    queryKey: ["invoices-paginated", companyId, page, pageSize, statusFilter],
+    queryFn: async () => {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+
+      let q = supabase
+        .from("invoices")
+        .select("*, customers(name, address, city, postal_code, email), work_orders(work_order_number, services(name, price))", { count: "exact" })
+        .order("created_at", { ascending: false });
+
+      if (companyId) q = q.eq("company_id", companyId);
+
+      if (statusFilter === "openstaand") {
+        q = q.in("status", ["concept", "verzonden", "verlopen"]);
+      } else if (statusFilter) {
+        q = q.eq("status", statusFilter);
+      }
+
+      q = q.range(from, to);
+
+      const { data, error, count } = await q;
+      if (error) throw error;
+      return { data: data as Invoice[], totalCount: count ?? 0 };
+    },
+    placeholderData: (prev) => prev,
+  });
+};
+
 export const useInvoice = (id: string | undefined) => {
   return useQuery({
     queryKey: ["invoices", id],

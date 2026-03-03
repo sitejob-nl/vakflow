@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
-import { useInvoices, useUpdateInvoice, useDeleteInvoice, useSyncInvoiceEboekhouden, usePullInvoiceStatusEboekhouden, useSyncInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncInvoicesMoneybird, usePullInvoiceStatusMoneybird } from "@/hooks/useInvoices";
+import { useInvoices, usePaginatedInvoices, useUpdateInvoice, useDeleteInvoice, useSyncInvoiceEboekhouden, usePullInvoiceStatusEboekhouden, useSyncInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncInvoicesMoneybird, usePullInvoiceStatusMoneybird } from "@/hooks/useInvoices";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCreateCommunicationLog } from "@/hooks/useCommunicationLogs";
 import type { Invoice } from "@/hooks/useInvoices";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { Loader2, ChevronLeft, FileDown, RefreshCw, BookOpen, Plus, Mail } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, FileDown, RefreshCw, BookOpen, Plus, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -29,12 +29,20 @@ const badgeStyles: Record<string, string> = {
   cyan: "bg-cyan-muted text-cyan",
 };
 
+const PAGE_SIZE = 25;
+
 const InvoicesPage = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobilePreview, setMobilePreview] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { data: invoices, isLoading } = useInvoices();
+  const [page, setPage] = useState(0);
+
+  const statusFilter = activeTab === 0 ? null : activeTab === 1 ? "openstaand" : "betaald";
+  const { data: result, isLoading } = usePaginatedInvoices({ page, pageSize: PAGE_SIZE, statusFilter });
+  const invoices = result?.data ?? [];
+  const totalCount = result?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const updateInvoice = useUpdateInvoice();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -58,15 +66,11 @@ const InvoicesPage = () => {
   }, [companyId]);
 
   const { containerRef, pullDistance, refreshing, isTriggered } = usePullToRefresh({
-    onRefresh: () => queryClient.invalidateQueries({ queryKey: ["invoices"] }),
+    onRefresh: () => queryClient.invalidateQueries({ queryKey: ["invoices-paginated"] }),
   });
 
-  const filtered = useMemo(() => {
-    if (!invoices) return [];
-    if (activeTab === 1) return invoices.filter((i) => i.status === "verzonden" || i.status === "verlopen" || i.status === "concept");
-    if (activeTab === 2) return invoices.filter((i) => i.status === "betaald");
-    return invoices;
-  }, [invoices, activeTab]);
+  // Server-side filtering handles tabs now, so filtered = invoices
+  const filtered = invoices;
 
   const selected = useMemo(() => {
     if (selectedId) return invoices?.find((i) => i.id === selectedId) ?? null;
@@ -482,7 +486,7 @@ const InvoicesPage = () => {
       </div>
       <div className="flex gap-0 border-b-2 border-border mb-4 md:mb-5 overflow-x-auto scrollbar-hide">
         {tabs.map((t, i) => (
-          <button key={t} onClick={() => setActiveTab(i)} className={`px-4 md:px-5 py-2.5 text-[12px] md:text-[13px] font-bold border-b-2 -mb-[2px] transition-colors whitespace-nowrap ${i === activeTab ? "text-primary border-primary" : "text-t3 border-transparent hover:text-secondary-foreground"}`}>
+          <button key={t} onClick={() => { setActiveTab(i); setPage(0); }} className={`px-4 md:px-5 py-2.5 text-[12px] md:text-[13px] font-bold border-b-2 -mb-[2px] transition-colors whitespace-nowrap ${i === activeTab ? "text-primary border-primary" : "text-t3 border-transparent hover:text-secondary-foreground"}`}>
             {t}
           </button>
         ))}
@@ -581,6 +585,24 @@ const InvoicesPage = () => {
           <InvoicePreview />
         </div>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-[12px] text-muted-foreground">
+            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} van {totalCount}
+          </span>
+          <div className="flex gap-1">
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       <InvoiceDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
