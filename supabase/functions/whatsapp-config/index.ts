@@ -1,23 +1,14 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-secret",
-};
+import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
+import { createAdminClient } from "../_shared/supabase.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return optionsResponse();
 
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  const supabase = createAdminClient();
 
   // Read the incoming secret from header
   const incomingSecret = req.headers.get("X-Webhook-Secret");
@@ -48,9 +39,7 @@ Deno.serve(async (req) => {
   // Disconnect actie
   if (body.action === "disconnect") {
     await supabase.from("whatsapp_config").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    return new Response(JSON.stringify({ ok: true, disconnected: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonRes({ ok: true, disconnected: true });
   }
 
   // Upsert credentials (config push from SiteJob Connect)
@@ -71,14 +60,9 @@ Deno.serve(async (req) => {
 
   if (error) {
     console.error("Config upsert failed:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonRes({ error: error.message }, 500);
   }
 
   console.log("Config push succesvol opgeslagen voor tenant:", body.tenant_id);
-  return new Response(JSON.stringify({ ok: true }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  return jsonRes({ ok: true });
 });

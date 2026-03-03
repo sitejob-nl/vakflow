@@ -1,35 +1,14 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
+import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-function jsonRes(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+const GRAPH_API_VERSION = "v25.0";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return optionsResponse();
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return jsonRes({ error: "Unauthorized" }, 401);
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claims, error: claimsErr } = await supabase.auth.getClaims(token);
-    if (claimsErr || !claims?.claims) return jsonRes({ error: "Unauthorized" }, 401);
-
-    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    await authenticateRequest(req);
+    const supabaseAdmin = createAdminClient();
 
     const body = await req.json();
     const { code, redirect_uri, state } = body;
@@ -43,7 +22,7 @@ Deno.serve(async (req) => {
       return jsonRes({ error: "Invalid state" }, 400);
     }
 
-    // Handle select-page action BEFORE code exchange (code is single-use and already consumed)
+    // Handle select-page action BEFORE code exchange
     if (body.action === "select-page" && body.page_id) {
       const pageAccessToken = body.page_access_token;
       if (!pageAccessToken) return jsonRes({ error: "Missing page_access_token" }, 400);
@@ -61,14 +40,14 @@ Deno.serve(async (req) => {
 
       let pageName = body.page_id;
       try {
-        const pageInfoRes = await fetch(`https://graph.facebook.com/v21.0/${selectedPage.id}?fields=name&access_token=${selectedPage.access_token}`);
+        const pageInfoRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${selectedPage.id}?fields=name&access_token=${selectedPage.access_token}`);
         const pageInfo = await pageInfoRes.json();
         if (pageInfo.name) pageName = pageInfo.name;
       } catch { /* fallback */ }
 
       let instagramAccountId = null;
       try {
-        const igRes = await fetch(`https://graph.facebook.com/v21.0/${selectedPage.id}?fields=instagram_business_account&access_token=${selectedPage.access_token}`);
+        const igRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${selectedPage.id}?fields=instagram_business_account&access_token=${selectedPage.access_token}`);
         const igData = await igRes.json();
         instagramAccountId = igData.instagram_business_account?.id || null;
       } catch { /* optional */ }
@@ -108,7 +87,7 @@ Deno.serve(async (req) => {
     const appSecret = Deno.env.get("META_APP_SECRET")!;
 
     // Step 1: Exchange code for short-lived token
-    const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(redirect_uri)}&client_secret=${appSecret}&code=${code}`;
+    const tokenUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(redirect_uri)}&client_secret=${appSecret}&code=${code}`;
     const tokenRes = await fetch(tokenUrl);
     const tokenData = await tokenRes.json();
 
@@ -120,7 +99,7 @@ Deno.serve(async (req) => {
     const shortLivedToken = tokenData.access_token;
 
     // Step 2: Exchange for long-lived token
-    const longLivedUrl = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortLivedToken}`;
+    const longLivedUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortLivedToken}`;
     const longLivedRes = await fetch(longLivedUrl);
     const longLivedData = await longLivedRes.json();
 
@@ -132,7 +111,7 @@ Deno.serve(async (req) => {
     const userAccessToken = longLivedData.access_token;
 
     // Step 3: Get pages
-    const pagesRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?access_token=${userAccessToken}`);
+    const pagesRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/me/accounts?access_token=${userAccessToken}`);
     const pagesData = await pagesRes.json();
 
     if (pagesData.error) {
@@ -141,17 +120,13 @@ Deno.serve(async (req) => {
     }
 
     const pages = (pagesData.data || []).map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      access_token: p.access_token,
+      id: p.id, name: p.name, access_token: p.access_token,
     }));
 
-    // If action is "list-pages", return the pages for selection
     if (body.action === "list-pages") {
       return jsonRes({ pages });
     }
 
-    // Default: exchange code and return pages for selection
     // Save user_access_token temporarily
     await supabaseAdmin.from("meta_config").upsert(
       { company_id: companyId, user_access_token: userAccessToken },
@@ -160,6 +135,7 @@ Deno.serve(async (req) => {
 
     return jsonRes({ pages, user_access_token: userAccessToken });
   } catch (err: any) {
+    if (err instanceof AuthError) return jsonRes({ error: err.message }, err.status);
     console.error("meta-oauth-callback error:", err);
     return jsonRes({ error: err.message || "Internal error" }, 500);
   }

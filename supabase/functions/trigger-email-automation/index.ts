@@ -1,17 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-function jsonRes(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
+import { createAdminClient, createUserClient } from "../_shared/supabase.ts";
 
 /** Replace {{variable}} placeholders in a string */
 function replaceVariables(text: string, vars: Record<string, string>): string {
@@ -19,15 +7,12 @@ function replaceVariables(text: string, vars: Record<string, string>): string {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return optionsResponse();
   if (req.method !== "POST") return jsonRes({ error: "Method not allowed" }, 405);
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const supabase = createAdminClient();
 
     // Authenticate caller
     const authHeader = req.headers.get("Authorization");
@@ -35,9 +20,7 @@ Deno.serve(async (req) => {
       return jsonRes({ error: "Unauthorized" }, 401);
     }
 
-    const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const supabaseUser = createUserClient(authHeader);
     const { data: { user }, error: userErr } = await supabaseUser.auth.getUser();
     if (userErr || !user) {
       return jsonRes({ error: "Invalid session" }, 401);
@@ -76,10 +59,9 @@ Deno.serve(async (req) => {
       return jsonRes({ skipped: true, reason: "No email address" });
     }
 
-    // Use trigger_type directly as message_type (they match in auto_message_settings)
+    // Use trigger_type directly as message_type
     const messageType = trigger_type;
 
-    // Fetch auto_message_settings for this company/user where channel includes email
     const { data: settings } = await supabase
       .from("auto_message_settings")
       .select("*, email_templates(*)")
@@ -87,7 +69,6 @@ Deno.serve(async (req) => {
       .eq("message_type", messageType)
       .eq("enabled", true);
 
-    // Filter settings where channel is 'email' or 'both'
     const emailSettings = (settings || []).filter(
       (s: any) => s.channel === "email" || s.channel === "both"
     );
@@ -97,14 +78,12 @@ Deno.serve(async (req) => {
       return jsonRes({ skipped: true, reason: "No matching email automations" });
     }
 
-    // Fetch company info for variables
     const { data: company } = await supabase
       .from("companies")
       .select("name, address, city, phone, logo_url, smtp_email")
       .eq("id", companyId)
       .single();
 
-    // Build variable map
     const variables: Record<string, string> = {
       klantnaam: customer.name || "",
       bedrijfsnaam: company?.name || "",
@@ -119,35 +98,23 @@ Deno.serve(async (req) => {
       try {
         const template = (setting as any).email_templates;
         if (!template) {
-          console.log(`Setting ${setting.message_type}: no email template linked, skipping`);
           results.push({ message_type: setting.message_type, skipped: true, reason: "no_template" });
           continue;
         }
 
-        // Replace variables in subject and body
         const subject = replaceVariables(template.subject || "", variables);
         const htmlBody = replaceVariables(template.html_body || "", variables);
         const plainBody = htmlBody.replace(/<[^>]*>/g, "").substring(0, 5000);
 
-        // Send via send-email edge function
         const sendResponse = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: authHeader,
-          },
-          body: JSON.stringify({
-            to: customer.email,
-            subject,
-            body: plainBody,
-            html: htmlBody,
-          }),
+          headers: { "Content-Type": "application/json", Authorization: authHeader },
+          body: JSON.stringify({ to: customer.email, subject, body: plainBody, html: htmlBody }),
         });
 
         const sendResult = await sendResponse.json();
         console.log(`Email automation ${setting.message_type} result:`, JSON.stringify(sendResult));
 
-        // Log to communication_logs
         await supabase.from("communication_logs").insert({
           company_id: companyId,
           customer_id: customer.id,
@@ -162,18 +129,10 @@ Deno.serve(async (req) => {
           work_order_id: ctx?.work_order_id || null,
         });
 
-        results.push({
-          message_type: setting.message_type,
-          success: sendResponse.ok,
-          template: template.name,
-        });
+        results.push({ message_type: setting.message_type, success: sendResponse.ok, template: template.name });
       } catch (err) {
         console.error(`Email automation error:`, err);
-        results.push({
-          message_type: setting.message_type,
-          success: false,
-          error: (err as Error).message,
-        });
+        results.push({ message_type: setting.message_type, success: false, error: (err as Error).message });
       }
     }
 
