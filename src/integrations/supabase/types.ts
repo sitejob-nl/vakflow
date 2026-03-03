@@ -69,6 +69,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "addresses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "addresses_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -149,6 +156,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "appointments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "appointments_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -208,6 +222,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_maintenance_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
           {
@@ -297,6 +318,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "assets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "assets_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -353,6 +381,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "auto_message_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       automation_send_log: {
@@ -396,6 +431,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_send_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
           {
@@ -474,6 +516,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
           {
@@ -688,6 +737,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "customers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "customers_default_service_id_fkey"
             columns: ["default_service_id"]
             isOneToOne: false
@@ -772,6 +828,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invoices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invoices_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -826,6 +889,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "materials_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       notifications: {
@@ -868,6 +938,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -959,6 +1036,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       quote_templates: {
@@ -998,6 +1082,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1072,6 +1163,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "quotes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "quotes_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -1122,6 +1220,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "services_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       time_entries: {
@@ -1167,6 +1272,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
           {
@@ -1218,6 +1330,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "todos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "todos_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -1254,6 +1373,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1312,6 +1438,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_automations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       whatsapp_config: {
@@ -1354,6 +1487,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1412,6 +1552,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_messages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       work_order_materials: {
@@ -1460,6 +1607,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_materials_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
           {
@@ -1581,6 +1735,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_orders_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "work_orders_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -1598,7 +1759,105 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      companies_safe: {
+        Row: {
+          accounting_provider: string | null
+          address: string | null
+          brand_color: string | null
+          btw_number: string | null
+          city: string | null
+          created_at: string | null
+          eboekhouden_debtor_ledger_id: number | null
+          eboekhouden_ledger_id: number | null
+          eboekhouden_template_id: number | null
+          email_provider: string | null
+          enabled_features: string[] | null
+          iban: string | null
+          id: string | null
+          kvk_number: string | null
+          logo_url: string | null
+          max_users: number | null
+          moneybird_administration_id: string | null
+          name: string | null
+          outlook_client_id: string | null
+          outlook_email: string | null
+          outlook_tenant_id: string | null
+          phone: string | null
+          postal_code: string | null
+          rompslomp_company_id: string | null
+          rompslomp_company_name: string | null
+          rompslomp_tenant_id: string | null
+          slug: string | null
+          smtp_email: string | null
+          smtp_host: string | null
+          smtp_port: number | null
+        }
+        Insert: {
+          accounting_provider?: string | null
+          address?: string | null
+          brand_color?: string | null
+          btw_number?: string | null
+          city?: string | null
+          created_at?: string | null
+          eboekhouden_debtor_ledger_id?: number | null
+          eboekhouden_ledger_id?: number | null
+          eboekhouden_template_id?: number | null
+          email_provider?: string | null
+          enabled_features?: string[] | null
+          iban?: string | null
+          id?: string | null
+          kvk_number?: string | null
+          logo_url?: string | null
+          max_users?: number | null
+          moneybird_administration_id?: string | null
+          name?: string | null
+          outlook_client_id?: string | null
+          outlook_email?: string | null
+          outlook_tenant_id?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          rompslomp_company_id?: string | null
+          rompslomp_company_name?: string | null
+          rompslomp_tenant_id?: string | null
+          slug?: string | null
+          smtp_email?: string | null
+          smtp_host?: string | null
+          smtp_port?: number | null
+        }
+        Update: {
+          accounting_provider?: string | null
+          address?: string | null
+          brand_color?: string | null
+          btw_number?: string | null
+          city?: string | null
+          created_at?: string | null
+          eboekhouden_debtor_ledger_id?: number | null
+          eboekhouden_ledger_id?: number | null
+          eboekhouden_template_id?: number | null
+          email_provider?: string | null
+          enabled_features?: string[] | null
+          iban?: string | null
+          id?: string | null
+          kvk_number?: string | null
+          logo_url?: string | null
+          max_users?: number | null
+          moneybird_administration_id?: string | null
+          name?: string | null
+          outlook_client_id?: string | null
+          outlook_email?: string | null
+          outlook_tenant_id?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          rompslomp_company_id?: string | null
+          rompslomp_company_name?: string | null
+          rompslomp_tenant_id?: string | null
+          slug?: string | null
+          smtp_email?: string | null
+          smtp_host?: string | null
+          smtp_port?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_company_stats: {

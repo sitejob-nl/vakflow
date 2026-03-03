@@ -52,7 +52,7 @@ const InvoicesPage = () => {
 
   useEffect(() => {
     if (!companyId) return;
-    supabase.from("companies").select("accounting_provider").eq("id", companyId).single().then(({ data }) => {
+    (supabase.from("companies_safe" as any).select("accounting_provider").eq("id", companyId).single() as unknown as Promise<{ data: any }>).then(({ data }) => {
       setAccountingProvider(data?.accounting_provider ?? null);
     });
   }, [companyId]);

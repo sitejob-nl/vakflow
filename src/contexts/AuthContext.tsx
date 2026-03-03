@@ -66,11 +66,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Fetch company logo
     if (cid) {
-      const { data: companyData } = await supabase.from("companies").select("logo_url, brand_color, max_users, enabled_features").eq("id", cid).single();
+      const { data: companyData } = await supabase.from("companies_safe" as any).select("logo_url, brand_color, max_users, enabled_features").eq("id", cid).single() as { data: any };
       setCompanyLogoUrl(companyData?.logo_url ?? null);
-      setCompanyBrandColor((companyData as any)?.brand_color ?? null);
-      setMaxUsersState((companyData as any)?.max_users ?? 2);
-      setEnabledFeaturesState((companyData as any)?.enabled_features ?? []);
+      setCompanyBrandColor(companyData?.brand_color ?? null);
+      setMaxUsersState(companyData?.max_users ?? 2);
+      setEnabledFeaturesState(companyData?.enabled_features ?? []);
     }
   };
 
@@ -132,11 +132,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const impersonate = async (companyId: string, companyName: string) => {
     setImpersonatedCompanyId(companyId);
     setImpersonatedCompanyName(companyName);
-    const { data } = await supabase.from("companies").select("logo_url, brand_color, max_users, enabled_features").eq("id", companyId).single();
+    const { data } = await supabase.from("companies_safe" as any).select("logo_url, brand_color, max_users, enabled_features").eq("id", companyId).single() as { data: any };
     setImpersonatedLogoUrl(data?.logo_url ?? null);
-    setImpersonatedBrandColor((data as any)?.brand_color ?? null);
-    setImpersonatedMaxUsers((data as any)?.max_users ?? 2);
-    setImpersonatedEnabledFeatures((data as any)?.enabled_features ?? []);
+    setImpersonatedBrandColor(data?.brand_color ?? null);
+    setImpersonatedMaxUsers(data?.max_users ?? 2);
+    setImpersonatedEnabledFeatures(data?.enabled_features ?? []);
   };
 
   const stopImpersonating = () => {
