@@ -1,148 +1,51 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
+import { createAdminClient, createUserClient } from "../_shared/supabase.ts";
+import { decrypt, base64ToBytes } from "../_shared/crypto.ts";
 import { logUsage } from "../_shared/usage.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-function base64ToBytes(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
-  }
-  return bytes;
-}
-
-async function decryptPassword(encryptedStr: string): Promise<string> {
-  const keyHex = Deno.env.get("SMTP_ENCRYPTION_KEY");
-  if (!keyHex) throw new Error("SMTP_ENCRYPTION_KEY not configured");
-
-  let keyBytes: Uint8Array;
-  if (keyHex.length === 64 && /^[0-9a-fA-F]+$/.test(keyHex)) {
-    keyBytes = hexToBytes(keyHex);
-  } else {
-    try {
-      keyBytes = base64ToBytes(keyHex);
-      if (keyBytes.length !== 32) throw new Error("not 32 bytes");
-    } catch {
-      keyBytes = new Uint8Array(
-        await crypto.subtle.digest("SHA-256", new TextEncoder().encode(keyHex))
-      );
-    }
-  }
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    keyBytes,
-    { name: "AES-GCM" },
-    false,
-    ["decrypt"]
-  );
-
-  const [ivB64, ctB64] = encryptedStr.split(":");
-  const iv = base64ToBytes(ivB64);
-  const ciphertext = base64ToBytes(ctB64);
-
-  const decrypted = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    key,
-    ciphertext
-  );
-
-  return new TextDecoder().decode(decrypted);
-}
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return optionsResponse();
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Niet ingelogd" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonRes({ error: "Niet ingelogd" }, 401);
     }
 
     const { to, subject, body, html, attachments } = await req.json();
 
     // Input validation
     if (!to || typeof to !== "string" || to.length > 500) {
-      return new Response(
-        JSON.stringify({ error: "Ongeldig 'to' veld" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonRes({ error: "Ongeldig 'to' veld" }, 400);
     }
     if (!subject || typeof subject !== "string" || subject.length > 998) {
-      return new Response(
-        JSON.stringify({ error: "Ongeldig 'subject' veld (max 998 tekens)" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonRes({ error: "Ongeldig 'subject' veld (max 998 tekens)" }, 400);
     }
     if (!body || typeof body !== "string" || body.length > 500000) {
-      return new Response(
-        JSON.stringify({ error: "Ongeldig 'body' veld (max 500KB)" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonRes({ error: "Ongeldig 'body' veld (max 500KB)" }, 400);
     }
     if (html && (typeof html !== "string" || html.length > 500000)) {
-      return new Response(
-        JSON.stringify({ error: "Ongeldig 'html' veld (max 500KB)" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonRes({ error: "Ongeldig 'html' veld (max 500KB)" }, 400);
     }
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const toAddresses = to.split(",").map((e: string) => e.trim());
     if (!toAddresses.every((e: string) => emailRegex.test(e))) {
-      return new Response(
-        JSON.stringify({ error: "Ongeldig e-mailadres in 'to'" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonRes({ error: "Ongeldig e-mailadres in 'to'" }, 400);
     }
-    // Validate attachments size
     if (attachments && Array.isArray(attachments)) {
       const totalSize = attachments.reduce((sum: number, att: any) => sum + (att.content?.length || 0), 0);
       if (totalSize > 15_000_000) {
-        return new Response(
-          JSON.stringify({ error: "Bijlagen te groot (max 10MB)" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return jsonRes({ error: "Bijlagen te groot (max 10MB)" }, 400);
       }
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const supabaseAdmin = createAdminClient();
+    const supabaseUser = createUserClient(authHeader);
 
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Ongeldige sessie" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonRes({ error: "Ongeldige sessie" }, 401);
     }
 
     // Try to get credentials from companies table first
@@ -201,16 +104,13 @@ serve(async (req) => {
     }
 
     if (!smtpCreds?.smtp_email || !smtpCreds?.smtp_password) {
-      return new Response(
-        JSON.stringify({ error: "SMTP-gegevens niet ingesteld. Ga naar Instellingen om je e-mail in te stellen." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonRes({ error: "SMTP-gegevens niet ingesteld. Ga naar Instellingen om je e-mail in te stellen." }, 400);
     }
 
-    // Decrypt the password
+    // Decrypt the password using shared crypto
     let smtpPassword: string;
     try {
-      smtpPassword = await decryptPassword(smtpCreds.smtp_password!);
+      smtpPassword = await decrypt(smtpCreds.smtp_password!);
     } catch (decryptError) {
       console.error("Decrypt error:", decryptError);
       smtpPassword = smtpCreds.smtp_password!;
@@ -257,15 +157,9 @@ serve(async (req) => {
       await logUsage(supabaseAdmin, userProfile.company_id, "email_sent", { to, subject });
     }
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonRes({ success: true });
   } catch (error: any) {
     console.error("Send email error:", error);
-    return new Response(
-      JSON.stringify({ error: "Fout bij het versturen van de e-mail", code: "EMAIL_SEND_FAILED" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonRes({ error: "Fout bij het versturen van de e-mail", code: "EMAIL_SEND_FAILED" }, 500);
   }
 });

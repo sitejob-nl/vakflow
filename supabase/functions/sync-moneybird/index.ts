@@ -1,19 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-const MB_BASE = "https://moneybird.com/api/v2";
-
-function jsonRes(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
+import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 
 async function mbGet(adminId: string, path: string, token: string) {
   const url = `${MB_BASE}/${adminId}/${path}.json`;
@@ -76,51 +62,17 @@ async function mbPatch(adminId: string, path: string, token: string, body: unkno
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-  if (req.method !== "POST") {
-    return jsonRes({ error: "Method not allowed" }, 405);
-  }
+  if (req.method === "OPTIONS") return optionsResponse();
+  if (req.method !== "POST") return jsonRes({ error: "Method not allowed" }, 405);
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return jsonRes({ error: "Niet ingelogd" }, 401);
-    }
-
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return jsonRes({ error: "Niet ingelogd" }, 401);
-    }
-    const userId = claimsData.claims.sub;
-
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("company_id")
-      .eq("id", userId)
-      .single();
-
-    if (!profile?.company_id) {
-      return jsonRes({ error: "Geen bedrijf gevonden" }, 400);
-    }
+    const { userId, companyId } = await authenticateRequest(req);
+    const supabaseAdmin = createAdminClient();
 
     const { data: company } = await supabaseAdmin
       .from("companies")
       .select("id, moneybird_api_token, moneybird_administration_id")
-      .eq("id", profile.company_id)
+      .eq("id", companyId)
       .single();
 
     const body = await req.json();
@@ -788,6 +740,7 @@ Deno.serve(async (req) => {
 
     return jsonRes({ error: `Onbekende actie: ${action}` }, 400);
   } catch (err: any) {
+    if (err instanceof AuthError) return jsonRes({ error: err.message }, err.status);
     console.error("sync-moneybird error:", err.message);
     return jsonRes({ error: err.message }, 500);
   }

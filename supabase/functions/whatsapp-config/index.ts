@@ -36,18 +36,25 @@ Deno.serve(async (req) => {
   const body = await req.json();
   console.log("whatsapp-config body action:", body.action || "config-push", "tenant_id:", body.tenant_id);
 
-  // Disconnect actie
+  // Disconnect actie — scoped op tenant_id
   if (body.action === "disconnect") {
-    await supabase.from("whatsapp_config").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (!body.tenant_id) {
+      return jsonRes({ error: "tenant_id is verplicht voor disconnect" }, 400);
+    }
+    await supabase.from("whatsapp_config").delete().eq("tenant_id", body.tenant_id);
     return jsonRes({ ok: true, disconnected: true });
   }
 
   // Upsert credentials (config push from SiteJob Connect)
+  // Use phone_number_id as natural key instead of hardcoded UUID
+  if (!body.phone_number_id) {
+    return jsonRes({ error: "phone_number_id is verplicht" }, 400);
+  }
+
   const { error } = await supabase
     .from("whatsapp_config")
     .upsert(
       {
-        id: "00000000-0000-0000-0000-000000000001",
         phone_number_id: body.phone_number_id,
         access_token: body.access_token,
         display_phone: body.display_phone || null,
@@ -55,7 +62,7 @@ Deno.serve(async (req) => {
         tenant_id: body.tenant_id || null,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "id" }
+      { onConflict: "phone_number_id" }
     );
 
   if (error) {

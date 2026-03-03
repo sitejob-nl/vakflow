@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
 
     // === DISCONNECT ===
     if (body.action === "disconnect") {
-      await supabaseAdmin.from("whatsapp_config").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await supabaseAdmin.from("whatsapp_config").delete().eq("company_id", companyId);
       return jsonRes({ ok: true });
     }
 

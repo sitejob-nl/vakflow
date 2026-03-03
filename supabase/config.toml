@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.trigger-email-automation]
 verify_jwt = false
+
+[functions.reminder-scan]
+verify_jwt = false
