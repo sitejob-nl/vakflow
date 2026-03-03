@@ -1,85 +1,76 @@
 
 
-## Analyse van het SaaS-Gereedheidsrapport
+## Plan: Super Admin Error Logs Dashboard
 
-### Wat is al opgelost (vorige iteratie)
-- Edge Functions JWT-validatie: `authenticateRequest()` gestandaardiseerd, `getClaims()` verwijderd
-- Shared crypto module (`_shared/crypto.ts`) met AES-256-GCM + HMAC
-- OAuth state HMAC-signing (Outlook)
-- Multi-tenant scoping fixes (whatsapp-config, whatsapp-send)
-- `CRON_SECRET` voor reminder-scan
+### Wat we bouwen
 
-### Wat nu nog actie vereist
+Een nieuw "Errors" tab op de Super Admin pagina waar alle edge function- en webhook-fouten realtime zichtbaar zijn. Hiermee kun je problemen zien en oplossen voordat klanten contact opnemen.
 
----
+### Architectuur
 
-#### Stap 1: RLS-policies van `public` naar `authenticated` role (KRITIEK)
-
-**12 tabellen** hebben policies op de `public` role in plaats van `authenticated`. Dit moet per policy: drop + recreate met `TO authenticated`.
-
-Betreffende tabellen:
-- `asset_maintenance_logs` (4 policies)
-- `assets` (4 policies)
-- `companies` (2 policies: SELECT + Super admin UPDATE)
-- `email_templates` (4 policies)
-- `materials` (4 policies)
-- `meta_config` (4 policies)
-- `meta_conversations` (3 policies)
-- `meta_leads` (4 policies)
-- `meta_page_posts` (4 policies)
-- `time_entries` (4 policies)
-- `work_order_materials` (policies op public)
-- Mogelijk `whatsapp_messages`, `work_orders` (moet geverifieerd worden)
-
-**Aanpak**: Eén migratie die alle betrokken policies dropt en opnieuw aanmaakt met `TO authenticated`.
-
----
-
-#### Stap 2: RLS InitPlan-optimalisatie (HOOG)
-
-Alle policies die `get_my_company_id()`, `auth.uid()`, `has_role(auth.uid(), ...)`, of `is_super_admin()` gebruiken moeten gewrapped worden met `(select ...)` om per-row evaluatie te voorkomen.
-
-Voorbeeld:
-```sql
--- Was:
-company_id = get_my_company_id()
--- Wordt:
-company_id = (select get_my_company_id())
-
--- Was:
-has_role(auth.uid(), 'admin'::app_role)
--- Wordt:
-has_role((select auth.uid()), 'admin'::app_role)
+```text
+Edge Function error → logError() → edge_function_errors tabel
+                                            ↓
+                        Super Admin UI ← SELECT (is_super_admin)
 ```
 
-Dit raakt **alle ~120 policies** over alle 30 tabellen. Wordt gecombineerd met Stap 1 in dezelfde migratie.
+### Stap 1: Database tabel `edge_function_errors`
 
----
+Nieuwe tabel met kolommen:
+- `id` (uuid, PK)
+- `company_id` (uuid, nullable — sommige errors zijn niet tenant-gebonden)
+- `function_name` (text — bijv. "whatsapp-send", "meta-webhook")
+- `error_message` (text)
+- `error_details` (jsonb — stack trace, request context, etc.)
+- `severity` (text — "error", "warning")
+- `resolved` (boolean, default false)
+- `created_at` (timestamptz)
 
-#### Stap 3: Dubbele UPDATE-policies op `companies` samenvoegen (HOOG)
+RLS: alleen `is_super_admin()` mag SELECT/UPDATE. INSERT via service role vanuit edge functions.
 
-Twee permissive UPDATE-policies:
-1. "Admins can update own company" — `id = get_my_company_id() AND has_role(auth.uid(), 'admin')`
-2. "Super admins can update companies" — `is_super_admin()`
+### Stap 2: Shared helper `_shared/error-logger.ts`
 
-Samenvoegen tot één policy met OR-conditie.
+Een fire-and-forget functie vergelijkbaar met `logUsage()`:
 
----
+```typescript
+export async function logEdgeFunctionError(
+  supabaseAdmin: SupabaseClient,
+  functionName: string,
+  errorMessage: string,
+  details: Record<string, unknown> = {},
+  companyId?: string
+): Promise<void> { ... }
+```
 
-#### Stap 4: Leaked Password Protection (WAARSCHUWING)
+### Stap 3: Edge Functions integreren
 
-Dit is een **Supabase Dashboard-instelling**, geen code-wijziging. Ik geef je de link om dit in te schakelen.
+De `logEdgeFunctionError()` aanroepen in catch-blokken van de belangrijkste functies:
+- `whatsapp-send`, `whatsapp-webhook`
+- `meta-webhook`, `meta-api`
+- `send-email`, `fetch-emails`
+- `generate-invoice-pdf`, `generate-quote-pdf`, `generate-workorder-pdf`
+- `reminder-scan`
+- `sync-rompslomp`, `sync-moneybird`, `sync-invoice-eboekhouden`
+- `outlook-send`, `outlook-callback`
 
----
+### Stap 4: UI Component `SuperAdminErrors.tsx`
 
-### Buiten scope (handmatig / later)
-- **Auth DB connection strategy** (percentage-based): Supabase Pro plan instelling, niet via migratie
-- **Credentials encryptie in companies-tabel**: De `_shared/crypto.ts` module is er al. De Edge Functions die credentials lezen (send-email, outlook-*, rompslomp-*, etc.) gebruiken al decrypt. Verdere verplaatsing naar een apart model is een grotere refactor voor later.
-- **Rate limiting op Edge Functions**: Vereist externe tooling (Cloudflare, custom middleware)
+Nieuw component met:
+- Tabel met recente errors (function naam, bedrijf, foutmelding, tijdstip)
+- Severity badges (rood voor error, oranje voor warning)
+- "Opgelost" toggle per error
+- Filter op function naam en severity
+- Auto-refresh elke 30 seconden
 
-### Uitvoering
+### Stap 5: Tab toevoegen aan SuperAdminPage
 
-Eén grote migratie die stap 1, 2 en 3 combineert: alle ~120 policies worden gedropt en opnieuw aangemaakt met:
-- `TO authenticated` (i.p.v. `public`)
-- `(select ...)` wrappers rond alle function calls
+Nieuw tab "Errors" met een AlertTriangle icoon en een badge met het aantal onopgeloste errors.
+
+### Omvang
+
+- 1 migratie (tabel + RLS)
+- 1 nieuw shared module (`_shared/error-logger.ts`)
+- ~12 edge functions aanpassen (catch-blokken)
+- 1 nieuw component (`SuperAdminErrors.tsx`)
+- 1 bestaand bestand aanpassen (`SuperAdminPage.tsx`)
 
