@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 export type Invoice = Tables<"invoices"> & {
@@ -8,8 +10,12 @@ export type Invoice = Tables<"invoices"> & {
   work_orders?: { work_order_number: string | null; services: { name: string; price: number } | null } | null;
 };
 
+const INV_QUERY_KEYS = ["invoices", "invoices-paginated"];
+
 export const useInvoices = () => {
   const { companyId } = useAuth();
+  const keys = useMemo(() => INV_QUERY_KEYS, []);
+  useRealtimeSubscription("invoices", keys, companyId);
   return useQuery({
     queryKey: ["invoices", companyId],
     queryFn: async () => {

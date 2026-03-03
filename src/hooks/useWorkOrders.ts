@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 export type WorkOrder = Tables<"work_orders"> & {
@@ -8,8 +10,12 @@ export type WorkOrder = Tables<"work_orders"> & {
   services?: { name: string; color: string | null; price: number; category: string | null } | null;
 };
 
+const WO_QUERY_KEYS = ["work_orders", "work_orders-paginated"];
+
 export const useWorkOrders = () => {
   const { companyId } = useAuth();
+  const keys = useMemo(() => WO_QUERY_KEYS, []);
+  useRealtimeSubscription("work_orders", keys, companyId);
   return useQuery({
     queryKey: ["work_orders", companyId],
     queryFn: async () => {
