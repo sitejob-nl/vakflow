@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAppointments, useUpdateAppointment, useDeleteAppointment, type Appointment } from "@/hooks/useAppointments";
 import { useCreateWorkOrder, useWorkOrders } from "@/hooks/useWorkOrders";
@@ -7,7 +7,7 @@ import { useServices } from "@/hooks/useCustomers";
 import { useOutlookCalendar, type OutlookEvent } from "@/hooks/useOutlookCalendar";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildWorkOrderPayload } from "@/utils/createWorkOrderFromAppointment";
-import { Loader2, Plus, Trash2, CheckCircle2, Navigation, ExternalLink, FileText, ChevronLeft, ChevronRight, Users, Calendar as CalendarIcon } from "lucide-react";
+import { Loader2, Plus, Trash2, CheckCircle2, Navigation, ExternalLink, FileText, ChevronLeft, ChevronRight, Users, Calendar as CalendarIcon, Route } from "lucide-react";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, isSameDay, subDays, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { nl } from "date-fns/locale";
 import AppointmentDialog from "@/components/AppointmentDialog";
@@ -16,7 +16,7 @@ import CurrentTimeIndicator from "@/components/planning/CurrentTimeIndicator";
 import MonthView from "@/components/planning/MonthView";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useToast } from "@/hooks/use-toast";
-import { useDirections } from "@/hooks/useMapbox";
+import { useDirections, useOptimizeRoute, type OptimizedStop } from "@/hooks/useMapbox";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { Switch } from "@/components/ui/switch";
@@ -63,6 +63,7 @@ const PlanningPage = () => {
   const { toast } = useToast();
   const { navigate } = useNavigation();
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
 
   const [currentWeekStart, setCurrentWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -134,6 +135,83 @@ const PlanningPage = () => {
   const createWorkOrder = useCreateWorkOrder();
   const { data: allWorkOrders } = useWorkOrders();
   const { data: services } = useServices();
+
+  // Route optimization
+  const { result: optimizeResult, loading: optimizeLoading, error: optimizeError, optimize: runOptimize, reset: resetOptimize } = useOptimizeRoute();
+  const [optimizeDialogOpen, setOptimizeDialogOpen] = useState(false);
+  const [applyingOptimize, setApplyingOptimize] = useState(false);
+
+  // Determine if optimize button should show (≥2 appointments on selected day with coords)
+  const optimizeTargetDate = isMobile ? mobileDay : (viewMode === "week" ? new Date() : null);
+  const optimizeTargetAssignedTo = filterEmployee !== "all" ? filterEmployee : undefined;
+
+  const canOptimize = useMemo(() => {
+    if (!optimizeTargetDate || !appointments) return false;
+    const dayAppts = appointments.filter((a) =>
+      isSameDay(new Date(a.scheduled_at), optimizeTargetDate) &&
+      a.status !== "geannuleerd" &&
+      (filterEmployee === "all" || a.assigned_to === filterEmployee)
+    );
+    return dayAppts.length >= 2;
+  }, [appointments, optimizeTargetDate, filterEmployee]);
+
+  const handleOptimize = useCallback(async () => {
+    if (!optimizeTargetDate) return;
+    const dateStr = format(optimizeTargetDate, "yyyy-MM-dd");
+    const result = await runOptimize({
+      date: dateStr,
+      assigned_to: optimizeTargetAssignedTo,
+      round_trip: true,
+    });
+    if (result) {
+      setOptimizeDialogOpen(true);
+    } else {
+      toast({ title: "Optimalisatie mislukt", description: optimizeError ?? "Onbekende fout", variant: "destructive" });
+    }
+  }, [optimizeTargetDate, optimizeTargetAssignedTo, runOptimize, optimizeError, toast]);
+
+  const handleApplyOptimize = useCallback(async () => {
+    if (!optimizeResult || !appointments) return;
+    setApplyingOptimize(true);
+    try {
+      // Find the earliest scheduled_at among the optimized appointments
+      const optimizedIds = new Set(optimizeResult.stops.map((s) => s.appointment_id));
+      const relevantAppts = appointments.filter((a) => optimizedIds.has(a.id));
+      const earliestTime = relevantAppts.reduce((min, a) => {
+        const t = new Date(a.scheduled_at).getTime();
+        return t < min ? t : min;
+      }, Infinity);
+
+      let currentTime = earliestTime;
+
+      for (const stop of optimizeResult.stops) {
+        const appt = relevantAppts.find((a) => a.id === stop.appointment_id);
+        if (!appt) continue;
+
+        // Add travel time before this appointment
+        currentTime += stop.travel_time_minutes * 60 * 1000;
+
+        const newScheduledAt = new Date(currentTime).toISOString();
+        await updateAppointment.mutateAsync({
+          id: stop.appointment_id,
+          scheduled_at: newScheduledAt,
+          travel_time_minutes: stop.travel_time_minutes,
+        });
+
+        // Next appointment starts after this one's duration
+        currentTime += (appt.duration_minutes ?? 60) * 60 * 1000;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast({ title: "Route geoptimaliseerd", description: `${optimizeResult.stops.length} afspraken herschikt` });
+      setOptimizeDialogOpen(false);
+      resetOptimize();
+    } catch (err: any) {
+      toast({ title: "Fout bij toepassen", description: err.message, variant: "destructive" });
+    } finally {
+      setApplyingOptimize(false);
+    }
+  }, [optimizeResult, appointments, updateAppointment, queryClient, toast, resetOptimize]);
 
   const appointmentWoMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -254,6 +332,16 @@ const PlanningPage = () => {
                 Vandaag
               </button>
             )}
+            {canOptimize && (
+              <button
+                onClick={handleOptimize}
+                disabled={optimizeLoading}
+                className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors disabled:opacity-50"
+                title="Optimaliseer route"
+              >
+                {optimizeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Route className="h-4 w-4" />}
+              </button>
+            )}
           </div>
         ) : (
           /* Desktop toolbar */
@@ -309,6 +397,16 @@ const PlanningPage = () => {
               </label>
             )}
             <div className="flex-1" />
+            {canOptimize && (
+              <button
+                onClick={handleOptimize}
+                disabled={optimizeLoading}
+                className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors flex items-center gap-1 disabled:opacity-50"
+              >
+                {optimizeLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Route className="h-3.5 w-3.5" />}
+                Optimaliseer route
+              </button>
+            )}
             <button
               onClick={() => { setEditAppointment(null); setDefaultDate(undefined); setDialogOpen(true); }}
               className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors flex items-center gap-1"
@@ -659,6 +757,62 @@ const PlanningPage = () => {
             <AlertDialogCancel>Annuleren</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Verwijderen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Route optimization confirmation dialog */}
+      <AlertDialog open={optimizeDialogOpen} onOpenChange={(open) => { if (!open) { setOptimizeDialogOpen(false); resetOptimize(); } }}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Route className="h-5 w-5 text-primary" />
+              Route optimaliseren
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                {optimizeResult && (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Voorgestelde volgorde voor {optimizeResult.stops.length} stops
+                      {optimizeResult.summary.skipped_count > 0 && (
+                        <span className="text-warning"> ({optimizeResult.summary.skipped_count} overgeslagen, geen coördinaten)</span>
+                      )}
+                    </p>
+                    {optimizeResult.company_origin && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                        <Navigation className="h-3 w-3" />
+                        <span>Start: {optimizeResult.company_origin}</span>
+                      </div>
+                    )}
+                    <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+                      {optimizeResult.stops.map((stop, idx) => (
+                        <div key={stop.appointment_id} className="flex items-center gap-2 text-sm py-1.5 px-2 bg-muted/50 rounded-md">
+                          <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="flex-1 truncate font-medium">{stop.label}</span>
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                            {stop.travel_time_minutes} min · {stop.distance_km} km
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between text-sm font-bold pt-2 border-t border-border">
+                      <span>Totaal rijtijd</span>
+                      <span>{optimizeResult.summary.total_travel_minutes} min · {optimizeResult.summary.total_distance_km} km</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuleren</AlertDialogCancel>
+            <AlertDialogAction onClick={handleApplyOptimize} disabled={applyingOptimize}>
+              {applyingOptimize ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Toepassen
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
