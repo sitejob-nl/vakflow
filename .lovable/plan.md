@@ -1,64 +1,57 @@
 
 
-## E-mail Templates & Automatiseringen
+## Analyse & Plan
 
-### Wat wordt gebouwd
+### 1. Bug: Variabelen mapping in edge function
 
-1. **Nieuwe tabel `email_templates`** — Opslaan van herbruikbare HTML e-mailtemplates per bedrijf
-2. **HTML E-mail Template Builder** — Een visuele editor in de Instellingen pagina waar gebruikers templates kunnen maken met bedrijfslogo, kleuren, en variabelen (bijv. `{{klantnaam}}`, `{{werkbonnummer}}`)
-3. **E-mail Automatiseringen** — Uitbreiding van het bestaande "Automatiseringen" tabblad in Instellingen zodat naast WhatsApp ook e-mail automatiseringen ingesteld kunnen worden (bijv. bij afgeronde werkbon, factuur verzonden, etc.)
+Er zit een bug in `trigger-email-automation/index.ts`. De `messageTypeMap` vertaalt trigger types naar verkeerde `message_type` waarden:
 
-### Database
+```
+work_order_completed → "work_order_summary"  (FOUT)
+invoice_sent → "appointment_confirmation"    (FOUT)
+```
 
-**Nieuwe tabel: `email_templates`**
+Maar in `auto_message_settings` worden de waarden opgeslagen als `work_order_completed` en `invoice_sent` (direct van `TRIGGER_TYPES`). Hierdoor vindt de edge function nooit een match en worden er geen e-mails verstuurd.
 
-| Kolom | Type | Omschrijving |
-|-------|------|-------------|
-| id | uuid PK | |
-| company_id | uuid NOT NULL | |
-| name | text NOT NULL | Templatenaaam |
-| subject | text | Standaard onderwerp |
-| html_body | text NOT NULL | HTML-inhoud met variabelen |
-| variables | jsonb | Lijst beschikbare variabelen |
-| created_at | timestamptz | |
-| updated_at | timestamptz | |
+**Fix**: Verwijder de `messageTypeMap` en gebruik `trigger_type` direct als `message_type` filter.
 
-Met RLS-policies op basis van `company_id = get_my_company_id()`.
+### 2. Auth bug in edge function
 
-**Uitbreiding `auto_message_settings`**: bestaande tabel ondersteunt al `channel: "email" | "whatsapp" | "both"` en `custom_text`. We voegen een kolom `email_template_id uuid` toe die verwijst naar `email_templates`.
+De edge function gebruikt `supabaseUser.auth.getClaims()` wat geen standaard Supabase method is. Dit moet `supabaseUser.auth.getUser()` zijn.
 
-### Frontend componenten
+**Fix**: Vervang getClaims door getUser().
 
-**1. E-mail Template Builder** (nieuw component `EmailTemplateEditor.tsx`)
-- Bewerkbare secties: header (met bedrijfslogo upload), body (rich text met variabelen), footer
-- Live preview via sandboxed iframe (patroon bestaat al in `EmailPage.tsx`)
-- Variabelen invoegen via knoppen: `{{klantnaam}}`, `{{werkbonnummer}}`, `{{factuurnummer}}`, `{{bedrag}}`, `{{datum}}`
-- Bedrijfslogo wordt automatisch ingeladen vanuit `companies.logo_url`
-- Kleurthema gebaseerd op `companies.brand_color`
+### 3. Visuele E-mail Builder (vervanging raw HTML editor)
 
-**2. E-mail Templates tab** (in SettingsPage, nieuw tabblad "E-mail Templates")
-- Lijst van bestaande templates met preview
-- CRUD: aanmaken, bewerken, verwijderen
-- Standaard starttemplates (bijv. "Werkbon afgerond", "Factuur bijgevoegd")
+De huidige editor toont een raw HTML textarea — onbruikbaar voor normale gebruikers. We bouwen een blok-gebaseerde visuele editor zonder externe dependencies.
 
-**3. Automatiseringen tab uitbreiden**
-- Huidige tab toont alleen WhatsApp automatiseringen
-- Twee secties toevoegen: "WhatsApp Automatiseringen" (bestaand) en "E-mail Automatiseringen" (nieuw)
-- E-mail automatisering: kies trigger (zelfde `TRIGGER_TYPES` als WhatsApp) → kies e-mail template → aan/uit
-- Opslaan in `auto_message_settings` met `channel: "email"` en `email_template_id`
+**Aanpak**: Een sectie-gebaseerde editor waar gebruikers blokken kunnen toevoegen, verwijderen, herschikken en bewerken. Elk blok heeft een type en bewerkbare inhoud.
 
-### Hooks
+**Bloktypen**:
+- **Header** — bedrijfslogo + titel (automatisch gevuld vanuit bedrijfsgegevens)
+- **Tekst** — vrij tekstveld met variabele-knoppen
+- **Info-tabel** — key-value rijen (bijv. Werkbon: {{werkbonnummer}}, Bedrag: {{bedrag}})
+- **Knop** — CTA button met tekst + URL
+- **Scheidingslijn** — horizontale lijn
+- **Footer** — bedrijfsnaam + adres
 
-- `useEmailTemplates.ts` — CRUD hook voor `email_templates` tabel
-- Uitbreiding `useAutoMessageSettings.ts` — ondersteuning voor `email_template_id`
+**UI**:
+- Linkerkolom: lijst van blokken met omhoog/omlaag/verwijder knoppen
+- Per blok: inline bewerking (contentEditable of inputs)
+- Variabele-knoppen boven de editor
+- Preview tab blijft (iframe met gegenereerde HTML)
+- Optionele "HTML" tab voor power users
+
+**Hoe het werkt**:
+- State is een array van blok-objecten `{ type, content, settings }`
+- Bij opslaan wordt de array geconverteerd naar e-mail-compatibele HTML (table-based layout)
+- Bij laden van bestaande templates: als de HTML niet van de builder komt, toon een "HTML modus" fallback
+- Bedrijfslogo en kleur worden automatisch ingeladen
 
 ### Bestanden
 
 | Bestand | Actie |
 |---------|-------|
-| Migration SQL | Maak `email_templates` tabel + voeg `email_template_id` kolom toe aan `auto_message_settings` |
-| `src/hooks/useEmailTemplates.ts` | Nieuw — CRUD voor email templates |
-| `src/components/EmailTemplateEditor.tsx` | Nieuw — HTML template builder met logo, variabelen, preview |
-| `src/pages/SettingsPage.tsx` | Voeg "E-mail Templates" tab toe + breid "Automatiseringen" tab uit met e-mail sectie |
-| `src/hooks/useAutoMessageSettings.ts` | Voeg `email_template_id` toe aan interface |
+| `src/components/EmailTemplateEditor.tsx` | Volledig herschrijven: blok-gebaseerde visuele editor |
+| `supabase/functions/trigger-email-automation/index.ts` | Fix messageTypeMap bug + auth bug |
 
