@@ -3,6 +3,7 @@ import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, createUserClient } from "../_shared/supabase.ts";
 import { decrypt, base64ToBytes } from "../_shared/crypto.ts";
 import { logUsage } from "../_shared/usage.ts";
+import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return optionsResponse();
@@ -160,6 +161,8 @@ Deno.serve(async (req) => {
     return jsonRes({ success: true });
   } catch (error: any) {
     console.error("Send email error:", error);
+    const admin = createAdminClient();
+    await logEdgeFunctionError(admin, "send-email", error.message || "Email send failed", { stack: error.stack });
     return jsonRes({ error: "Fout bij het versturen van de e-mail", code: "EMAIL_SEND_FAILED" }, 500);
   }
 });

@@ -1,5 +1,6 @@
 import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
+import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
 async function rompslompGet(companyId: string, path: string, token: string) {
   const url = `${ROMPSLOMP_BASE}/companies/${companyId}${path}`;
@@ -792,6 +793,7 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     if (err instanceof AuthError) return jsonRes({ error: err.message }, err.status);
     console.error("sync-rompslomp error:", err.message);
+    await logEdgeFunctionError(createAdminClient(), "sync-rompslomp", err.message, { stack: err.stack });
     return jsonRes({ error: err.message }, 500);
   }
 });

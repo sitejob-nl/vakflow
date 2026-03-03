@@ -188,6 +188,11 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error("Outlook send error:", error);
+    try {
+      const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { logEdgeFunctionError: log } = await import("../_shared/error-logger.ts");
+      await log(admin, "outlook-send", error.message || "Outlook send failed", { stack: error.stack });
+    } catch {}
     return new Response(
       JSON.stringify({ error: "Fout bij het versturen via Outlook", code: "OUTLOOK_SEND_FAILED" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

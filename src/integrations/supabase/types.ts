@@ -762,6 +762,54 @@ export type Database = {
           },
         ]
       }
+      edge_function_errors: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          error_details: Json
+          error_message: string
+          function_name: string
+          id: string
+          resolved: boolean
+          severity: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          error_details?: Json
+          error_message: string
+          function_name: string
+          id?: string
+          resolved?: boolean
+          severity?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          error_details?: Json
+          error_message?: string
+          function_name?: string
+          id?: string
+          resolved?: boolean
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edge_function_errors_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "edge_function_errors_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_templates: {
         Row: {
           company_id: string

@@ -3,6 +3,7 @@
 import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient } from "../_shared/supabase.ts";
 import { verifyMetaSignature, verifyWebhookChallenge } from "../_shared/webhook-verify.ts";
+import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return optionsResponse();
@@ -90,6 +91,7 @@ Deno.serve(async (req) => {
           );
           if (error) {
             console.error(`Lead save error: ${error.message}`);
+            await logEdgeFunctionError(supabase, "meta-webhook", `Lead save: ${error.message}`, { lead_id: leadData.leadgen_id }, companyId);
           } else {
             console.log(`Lead saved: ${leadData.leadgen_id}`);
           }
@@ -124,6 +126,7 @@ Deno.serve(async (req) => {
           });
           if (error) {
             console.error(`Message save error: ${error.message}`);
+            await logEdgeFunctionError(supabase, "meta-webhook", `Message save: ${error.message}`, { sender_id: senderId }, companyId);
           } else {
             console.log(`Message saved from ${senderId} on ${platform}`);
           }

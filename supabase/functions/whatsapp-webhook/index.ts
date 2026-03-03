@@ -5,6 +5,7 @@ import { createAdminClient } from "../_shared/supabase.ts";
 import { verifyMetaSignature } from "../_shared/webhook-verify.ts";
 import { findCustomerByPhone } from "../_shared/phone.ts";
 import { logUsage } from "../_shared/usage.ts";
+import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
 const MEDIA_TYPES = ["image", "video", "audio", "document", "sticker"];
 
@@ -281,7 +282,10 @@ Deno.serve(async (req) => {
             { onConflict: "wamid" }
           );
 
-          if (error) console.error(`Message save error: ${error.message}`);
+          if (error) {
+            console.error(`Message save error: ${error.message}`);
+            await logEdgeFunctionError(supabase, "whatsapp-webhook", `Message save: ${error.message}`, { wamid: msg.id }, companyId);
+          }
           else await logUsage(supabase, companyId, "whatsapp_received", { from: fromNumber, type: msg.type });
         }
       }
