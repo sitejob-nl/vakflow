@@ -19,14 +19,16 @@ import TemplateDialog from "@/components/TemplateDialog";
 import { useQuoteTemplatesDB, useDeleteQuoteTemplate, useCombinedTemplates, type QuoteTemplateDB } from "@/hooks/useQuoteTemplates";
 import { useWhatsAppAutomations, useCreateAutomation, useUpdateAutomation, useDeleteAutomation, TRIGGER_TYPES, AVAILABLE_VARIABLES } from "@/hooks/useWhatsAppAutomations";
 import type { Tables } from "@/integrations/supabase/types";
+import MetaSettingsTab from "@/components/MetaSettingsTab";
 
-const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "Automatiseringen", "Teamleden", "Koppelingen"];
+const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "Automatiseringen", "Teamleden", "Koppelingen", "Meta"];
 
 // Map tab names to required feature slugs (tabs not listed here are always shown)
 const TAB_FEATURE_MAP: Record<string, string> = {
   "E-mail": "email",
   "WhatsApp": "whatsapp",
   "Automatiseringen": "whatsapp",
+  "Meta": "marketing",
 };
 
 const SettingsPage = () => {
@@ -2834,6 +2836,11 @@ const SettingsPage = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Meta tab */}
+      {activeTab === "Meta" && (
+        <MetaSettingsTab inputClass={inputClass} labelClass={labelClass} />
       )}
 
       <ServiceDialog

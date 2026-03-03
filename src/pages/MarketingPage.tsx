@@ -10,8 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useMetaLeads } from "@/hooks/useMetaLeads";
 import { useMetaConversations } from "@/hooks/useMetaConversations";
 import { useMetaConfig } from "@/hooks/useMetaConfig";
+import { useMetaPagePosts } from "@/hooks/useMetaPagePosts";
 import { toast } from "@/hooks/use-toast";
-import { Users, MessageSquare, Instagram, FileText, RefreshCw, UserPlus, Send } from "lucide-react";
+import { Users, MessageSquare, Instagram, FileText, RefreshCw, UserPlus, Send, ThumbsUp, MessageCircle, Share2, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
@@ -20,9 +21,9 @@ import {
 import { Label } from "@/components/ui/label";
 
 const statusColors: Record<string, string> = {
-  nieuw: "bg-blue-100 text-blue-800",
-  gecontacteerd: "bg-yellow-100 text-yellow-800",
-  klant: "bg-green-100 text-green-800",
+  nieuw: "bg-primary/10 text-primary",
+  gecontacteerd: "bg-accent/50 text-accent-foreground",
+  klant: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   genegeerd: "bg-muted text-muted-foreground",
 };
 
@@ -31,11 +32,14 @@ const MarketingPage = () => {
   const { statusQuery } = useMetaConfig();
   const messengerConvos = useMetaConversations("messenger");
   const instagramConvos = useMetaConversations("instagram");
+  const { postsQuery, fetchPosts, publishPost } = useMetaPagePosts();
 
   const [convertDialog, setConvertDialog] = useState<{ open: boolean; leadId: string; data: any }>({ open: false, leadId: "", data: {} });
   const [convertForm, setConvertForm] = useState({ name: "", email: "", phone: "" });
   const [replyDialog, setReplyDialog] = useState<{ open: boolean; senderId: string; platform: string }>({ open: false, senderId: "", platform: "" });
   const [replyText, setReplyText] = useState("");
+  const [newPostDialog, setNewPostDialog] = useState(false);
+  const [newPostText, setNewPostText] = useState("");
 
   const connected = statusQuery.data?.connected ?? false;
 
@@ -65,6 +69,17 @@ const MarketingPage = () => {
     }
   };
 
+  const handlePublishPost = async () => {
+    try {
+      await publishPost.mutateAsync(newPostText);
+      toast({ title: "Post gepubliceerd" });
+      setNewPostDialog(false);
+      setNewPostText("");
+    } catch {
+      toast({ title: "Fout bij publiceren", variant: "destructive" });
+    }
+  };
+
   const openConvertDialog = (lead: any) => {
     const cd = lead.customer_data || {};
     const fieldData = cd.field_data || [];
@@ -81,7 +96,6 @@ const MarketingPage = () => {
     if (!convos?.length) {
       return <p className="text-muted-foreground text-sm py-8 text-center">Geen berichten gevonden.</p>;
     }
-    // Group by sender
     const grouped = convos.reduce((acc: Record<string, any[]>, msg: any) => {
       const key = msg.direction === "incoming" ? msg.sender_id : "outgoing";
       if (!acc[key]) acc[key] = [];
@@ -129,7 +143,7 @@ const MarketingPage = () => {
           <p className="text-sm text-muted-foreground">Meta leads, Messenger & Instagram berichten</p>
         </div>
         {!connected && (
-          <Badge variant="outline" className="text-orange-600 border-orange-300">
+          <Badge variant="outline" className="border-destructive/30 text-destructive">
             Niet gekoppeld — configureer in Instellingen
           </Badge>
         )}
@@ -248,17 +262,47 @@ const MarketingPage = () => {
 
         {/* PAGE TAB */}
         <TabsContent value="page">
-          <Card>
-            <CardHeader>
-              <CardTitle>Facebook Pagina</CardTitle>
-              <CardDescription>Posts en engagement overzicht — komt in fase 3</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-sm py-8 text-center">
-                Pagina-beheer wordt in een volgende update toegevoegd.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Facebook Pagina Posts</CardTitle>
+                  <CardDescription>Overzicht van je pagina-posts met engagement</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => fetchPosts.mutate()} disabled={fetchPosts.isPending}>
+                    <RefreshCw className={`w-4 h-4 mr-1 ${fetchPosts.isPending ? "animate-spin" : ""}`} /> Ophalen
+                  </Button>
+                  <Button size="sm" onClick={() => setNewPostDialog(true)}>
+                    <Plus className="w-4 h-4 mr-1" /> Nieuw bericht
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!postsQuery.data?.length ? (
+                  <p className="text-muted-foreground text-sm py-8 text-center">
+                    Geen posts gevonden. Klik op "Ophalen" om je recente pagina-posts te synchroniseren vanuit Facebook.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {postsQuery.data.map((post: any) => (
+                      <div key={post.id} className="border border-border rounded-lg p-4">
+                        <p className="text-sm mb-2">{post.message || <span className="text-muted-foreground italic">Geen tekst</span>}</p>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          {post.created_time && (
+                            <span>{format(new Date(post.created_time), "d MMM yyyy HH:mm", { locale: nl })}</span>
+                          )}
+                          <span className="flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" /> {post.likes ?? 0}</span>
+                          <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" /> {post.comments ?? 0}</span>
+                          <span className="flex items-center gap-1"><Share2 className="w-3.5 h-3.5" /> {post.shares ?? 0}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -269,18 +313,9 @@ const MarketingPage = () => {
             <DialogTitle>Lead omzetten naar klant</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div>
-              <Label>Naam</Label>
-              <Input value={convertForm.name} onChange={(e) => setConvertForm((f) => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div>
-              <Label>E-mail</Label>
-              <Input value={convertForm.email} onChange={(e) => setConvertForm((f) => ({ ...f, email: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Telefoon</Label>
-              <Input value={convertForm.phone} onChange={(e) => setConvertForm((f) => ({ ...f, phone: e.target.value }))} />
-            </div>
+            <div><Label>Naam</Label><Input value={convertForm.name} onChange={(e) => setConvertForm((f) => ({ ...f, name: e.target.value }))} /></div>
+            <div><Label>E-mail</Label><Input value={convertForm.email} onChange={(e) => setConvertForm((f) => ({ ...f, email: e.target.value }))} /></div>
+            <div><Label>Telefoon</Label><Input value={convertForm.phone} onChange={(e) => setConvertForm((f) => ({ ...f, phone: e.target.value }))} /></div>
           </div>
           <DialogFooter>
             <Button onClick={handleConvert} disabled={!convertForm.name || convertToCustomer.isPending}>
@@ -293,13 +328,24 @@ const MarketingPage = () => {
       {/* Reply Dialog */}
       <Dialog open={replyDialog.open} onOpenChange={(o) => !o && setReplyDialog({ open: false, senderId: "", platform: "" })}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Bericht sturen</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Bericht sturen</DialogTitle></DialogHeader>
           <Textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Typ je bericht..." rows={4} />
           <DialogFooter>
             <Button onClick={handleReply} disabled={!replyText.trim() || messengerConvos.sendMessage.isPending}>
               <Send className="w-4 h-4 mr-1" /> Versturen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Post Dialog */}
+      <Dialog open={newPostDialog} onOpenChange={setNewPostDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Nieuw bericht publiceren</DialogTitle></DialogHeader>
+          <Textarea value={newPostText} onChange={(e) => setNewPostText(e.target.value)} placeholder="Schrijf je bericht..." rows={5} />
+          <DialogFooter>
+            <Button onClick={handlePublishPost} disabled={!newPostText.trim() || publishPost.isPending}>
+              <Send className="w-4 h-4 mr-1" /> Publiceren
             </Button>
           </DialogFooter>
         </DialogContent>
