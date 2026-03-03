@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 function jsonRes(data: unknown, status = 200) {
@@ -63,7 +63,6 @@ Deno.serve(async (req) => {
     if (claimsErr || !claims?.claims) return jsonRes({ error: "Unauthorized" }, 401);
     const userId = claims.claims.sub as string;
 
-    // Get company_id
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("company_id")
@@ -79,28 +78,29 @@ Deno.serve(async (req) => {
     if (action === "status") {
       const { data: config } = await supabaseAdmin
         .from("meta_config")
-        .select("page_id, page_access_token")
+        .select("page_id, page_access_token, page_name")
         .eq("company_id", companyId)
         .maybeSingle();
       return jsonRes({
         connected: !!(config?.page_id && config?.page_access_token),
         page_id: config?.page_id || null,
+        page_name: config?.page_name || null,
       });
     }
 
-    // Save config
+    // Save config (simplified — only page-level fields)
     if (action === "save-config") {
-      const { app_id, app_secret, page_access_token, page_id, instagram_account_id, webhook_verify_token } = body;
+      const { page_access_token, page_id, instagram_account_id, webhook_verify_token } = body;
+      const updateData: any = {};
+      if (page_access_token !== undefined) updateData.page_access_token = page_access_token || null;
+      if (page_id !== undefined) updateData.page_id = page_id || null;
+      if (instagram_account_id !== undefined) updateData.instagram_account_id = instagram_account_id || null;
+      if (webhook_verify_token !== undefined) updateData.webhook_verify_token = webhook_verify_token || null;
+      // Clear page_name when disconnecting
+      if (page_id === "" || page_id === null) updateData.page_name = null;
+
       const { error } = await supabaseAdmin.from("meta_config").upsert(
-        {
-          company_id: companyId,
-          app_id,
-          app_secret,
-          page_access_token,
-          page_id,
-          instagram_account_id,
-          webhook_verify_token,
-        },
+        { company_id: companyId, ...updateData },
         { onConflict: "company_id" }
       );
       if (error) return jsonRes({ error: error.message }, 500);
@@ -109,13 +109,18 @@ Deno.serve(async (req) => {
 
     // Get config (for settings page)
     if (action === "get-config") {
-      const config = await getConfig(supabaseAdmin, companyId);
+      const { data: config } = await supabaseAdmin
+        .from("meta_config")
+        .select("page_id, instagram_account_id, webhook_verify_token, page_access_token, page_name")
+        .eq("company_id", companyId)
+        .maybeSingle();
+      
       return jsonRes({
-        app_id: config.app_id,
-        page_id: config.page_id,
-        instagram_account_id: config.instagram_account_id,
-        webhook_verify_token: config.webhook_verify_token,
-        connected: !!(config.page_id && config.page_access_token),
+        page_id: config?.page_id || null,
+        page_name: config?.page_name || null,
+        instagram_account_id: config?.instagram_account_id || null,
+        webhook_verify_token: config?.webhook_verify_token || null,
+        connected: !!(config?.page_id && config?.page_access_token),
       });
     }
 
@@ -125,7 +130,6 @@ Deno.serve(async (req) => {
       const config = await getConfig(supabaseAdmin, companyId);
       const result = await graphGet(`${lead_id}?fields=field_data,created_time,ad_id,form_id`, config.page_access_token);
       
-      // Update lead with fetched data
       if (result.field_data) {
         await supabaseAdmin
           .from("meta_leads")
@@ -159,7 +163,6 @@ Deno.serve(async (req) => {
         }
       );
 
-      // Save outgoing message
       await supabaseAdmin.from("meta_conversations").insert({
         company_id: companyId,
         platform: platform || "messenger",
@@ -181,7 +184,6 @@ Deno.serve(async (req) => {
         config.page_access_token
       );
 
-      // Cache posts
       if (result.data) {
         for (const post of result.data) {
           await supabaseAdmin.from("meta_page_posts").upsert(

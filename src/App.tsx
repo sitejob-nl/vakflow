@@ -29,6 +29,7 @@ import SuperAdminPage from "@/pages/SuperAdminPage";
 import ReportsPage from "@/pages/ReportsPage";
 import AssetsPage from "@/pages/AssetsPage";
 import MarketingPage from "@/pages/MarketingPage";
+import MetaCallbackPage from "@/pages/MetaCallbackPage";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +73,7 @@ const App = () => (
               <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
               <Route path="superadmin" element={<SuperAdminPage />} />
             </Route>
+            <Route path="/meta-callback" element={<ProtectedRoute><MetaCallbackPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
