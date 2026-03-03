@@ -17,6 +17,7 @@ export interface AutoMessageSetting {
   template_name: string | null;
   custom_text: string | null;
   delay_hours: number;
+  email_template_id: string | null;
 }
 
 const MESSAGE_TYPES: MessageType[] = [
@@ -62,6 +63,7 @@ export function useAutoMessageSettings() {
           template_name: null,
           custom_text: null,
           delay_hours: 0,
+          email_template_id: null,
         };
       });
     },

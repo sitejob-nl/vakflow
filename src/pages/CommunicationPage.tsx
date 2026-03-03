@@ -117,6 +117,7 @@ const CommunicationPage = () => {
         template_name: sheetTemplate || null,
         custom_text: sheetCustomText || null,
         delay_hours: parseInt(sheetDelay) || 0,
+        email_template_id: null,
       });
       toast({ title: "Opgeslagen", description: `${LABELS[editingType]} instellingen bijgewerkt.` });
       setEditingType(null);

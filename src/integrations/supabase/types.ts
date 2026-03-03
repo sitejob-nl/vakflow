@@ -340,6 +340,7 @@ export type Database = {
           created_at: string
           custom_text: string | null
           delay_hours: number
+          email_template_id: string | null
           enabled: boolean
           id: string
           message_type: string
@@ -353,6 +354,7 @@ export type Database = {
           created_at?: string
           custom_text?: string | null
           delay_hours?: number
+          email_template_id?: string | null
           enabled?: boolean
           id?: string
           message_type: string
@@ -366,6 +368,7 @@ export type Database = {
           created_at?: string
           custom_text?: string | null
           delay_hours?: number
+          email_template_id?: string | null
           enabled?: boolean
           id?: string
           message_type?: string
@@ -386,6 +389,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_message_settings_email_template_id_fkey"
+            columns: ["email_template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -748,6 +758,54 @@ export type Database = {
             columns: ["default_service_id"]
             isOneToOne: false
             referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_templates: {
+        Row: {
+          company_id: string
+          created_at: string
+          html_body: string
+          id: string
+          name: string
+          subject: string | null
+          updated_at: string
+          variables: Json | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          html_body?: string
+          id?: string
+          name: string
+          subject?: string | null
+          updated_at?: string
+          variables?: Json | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          html_body?: string
+          id?: string
+          name?: string
+          subject?: string | null
+          updated_at?: string
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
         ]
