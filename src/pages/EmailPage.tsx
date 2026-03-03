@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useCommunicationLogs, useCreateCommunicationLog, useDeleteCommunicationLog, useSendEmail } from "@/hooks/useCommunicationLogs";
 import { useCustomers } from "@/hooks/useCustomers";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -87,7 +88,8 @@ const HtmlEmailViewer = ({ html }: { html: string }) => {
 const EmailPage = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: logs, isLoading } = useCommunicationLogs();
+  const { companyId } = useAuth();
+  const { data: logs, isLoading } = useCommunicationLogs(undefined, companyId);
   const { data: customers } = useCustomers();
   const createLog = useCreateCommunicationLog();
   const deleteLog = useDeleteCommunicationLog();

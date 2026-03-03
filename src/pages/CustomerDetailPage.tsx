@@ -4,6 +4,7 @@ import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useAddresses, useDeleteAddress, type Address } from "@/hooks/useAddresses";
 import { useCommunicationLogs } from "@/hooks/useCommunicationLogs";
+import { useAuth } from "@/contexts/AuthContext";
 import AddressDialog from "@/components/AddressDialog";
 import WhatsAppChat from "@/components/WhatsAppChat";
 import { Loader2, Trash2, MapPin, Plus, MessageSquare } from "lucide-react";
@@ -44,7 +45,8 @@ const CustomerDetailPage = () => {
   const { data: allInvoices } = useInvoices();
   const deleteCustomer = useDeleteCustomer();
   const { data: addresses } = useAddresses(params.customerId);
-  const { data: commLogs } = useCommunicationLogs(params.customerId);
+  const { companyId } = useAuth();
+  const { data: commLogs } = useCommunicationLogs(params.customerId, companyId);
   const deleteAddress = useDeleteAddress();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);

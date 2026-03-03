@@ -3,6 +3,7 @@ import { useSignedUrl } from "@/hooks/useSignedUrl";
 import { useCommunicationLogs, useCreateCommunicationLog, useDeleteCommunicationLog, useSendEmail } from "@/hooks/useCommunicationLogs";
 import { useWhatsAppMessages } from "@/hooks/useWhatsAppMessages";
 import { useCustomers } from "@/hooks/useCustomers";
+import { useAuth } from "@/contexts/AuthContext";
 import { useWhatsAppStatus } from "@/hooks/useWhatsAppStatus";
 import { Loader2, Trash2, Plus, Mail, MessageSquare, Phone, StickyNote, ChevronDown, ChevronUp, Search, RefreshCw, FileText, Play, Mic, CheckCheck, Smile, Settings2 } from "lucide-react";
 import ComposeWhatsAppDialog from "@/components/ComposeWhatsAppDialog";
@@ -73,7 +74,8 @@ const CommunicationPage = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: logs, isLoading } = useCommunicationLogs();
+  const { companyId } = useAuth();
+  const { data: logs, isLoading } = useCommunicationLogs(undefined, companyId);
   const { data: waMessages, isLoading: waLoading } = useWhatsAppMessages();
   const { data: customers } = useCustomers();
   const { data: waStatus } = useWhatsAppStatus();
