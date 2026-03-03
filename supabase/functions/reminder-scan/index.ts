@@ -1,5 +1,6 @@
 import { jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, createUserClient } from "../_shared/supabase.ts";
+import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return optionsResponse();
@@ -106,6 +107,8 @@ Deno.serve(async (req) => {
     return jsonRes({ success: true, total_due: dueCustomers.length, triggered, skipped, customers: dueCustomers });
   } catch (error) {
     console.error("Reminder scan error:", error);
+    const admin = createAdminClient();
+    await logEdgeFunctionError(admin, "reminder-scan", (error as Error).message, { stack: (error as Error).stack });
     return jsonRes({ error: (error as Error).message }, 500);
   }
 });

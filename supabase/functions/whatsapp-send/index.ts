@@ -2,6 +2,7 @@ import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { normalizePhone } from "../_shared/phone.ts";
 import { logUsage } from "../_shared/usage.ts";
+import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
 /** Build the Meta API request body for any supported message type */
 function buildMetaBody(body: Record<string, unknown>, normalizedTo: string): Record<string, unknown> {
@@ -243,6 +244,8 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     if (err instanceof AuthError) return jsonRes({ error: err.message }, err.status);
     console.error("whatsapp-send error:", err);
+    const admin = createAdminClient();
+    await logEdgeFunctionError(admin, "whatsapp-send", err.message || "Unknown error", { stack: err.stack });
     return jsonRes({ error: err.message || "Internal error" }, 500);
   }
 });

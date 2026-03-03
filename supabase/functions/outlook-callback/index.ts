@@ -95,6 +95,10 @@ Deno.serve(async (req) => {
     );
   } catch (error: any) {
     console.error("Outlook callback error:", error);
+    try {
+      const { logEdgeFunctionError: log } = await import("../_shared/error-logger.ts");
+      await log(createAdminClient(), "outlook-callback", error.message, { stack: error.stack });
+    } catch {}
     return new Response(`Error: ${error.message}`, { status: 500 });
   }
 });

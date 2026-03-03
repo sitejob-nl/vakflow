@@ -1,5 +1,6 @@
 import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
+import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
 async function mbGet(adminId: string, path: string, token: string) {
   const url = `${MB_BASE}/${adminId}/${path}.json`;
@@ -742,6 +743,7 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     if (err instanceof AuthError) return jsonRes({ error: err.message }, err.status);
     console.error("sync-moneybird error:", err.message);
+    await logEdgeFunctionError(createAdminClient(), "sync-moneybird", err.message, { stack: err.stack });
     return jsonRes({ error: err.message }, 500);
   }
 });

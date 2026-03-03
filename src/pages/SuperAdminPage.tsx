@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, Pencil, Trash2, Search, Plus, Save, Loader2, Eye, BarChart3, List, ChevronLeft, ChevronRight, Activity } from "lucide-react";
+import { Building2, Users, Pencil, Trash2, Search, Plus, Save, Loader2, Eye, BarChart3, List, ChevronLeft, ChevronRight, Activity, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import SuperAdminStats from "@/components/SuperAdminStats";
 import SuperAdminUsage from "@/components/SuperAdminUsage";
+import SuperAdminErrors from "@/components/SuperAdminErrors";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Company = Tables<"companies">;
@@ -62,6 +63,7 @@ const SuperAdminPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [unresolvedErrorCount, setUnresolvedErrorCount] = useState(0);
 
   const fetchCompanies = useCallback(async () => {
     setLoading(true);
@@ -148,6 +150,14 @@ const SuperAdminPage = () => {
           <TabsTrigger value="overview" className="gap-1.5"><BarChart3 className="w-4 h-4" /> Overzicht</TabsTrigger>
           <TabsTrigger value="companies" className="gap-1.5"><List className="w-4 h-4" /> Bedrijven</TabsTrigger>
           <TabsTrigger value="usage" className="gap-1.5"><Activity className="w-4 h-4" /> Usage</TabsTrigger>
+          <TabsTrigger value="errors" className="gap-1.5">
+            <AlertTriangle className="w-4 h-4" /> Errors
+            {unresolvedErrorCount > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+                {unresolvedErrorCount > 99 ? "99+" : unresolvedErrorCount}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -241,6 +251,10 @@ const SuperAdminPage = () => {
 
         <TabsContent value="usage" className="mt-4">
           <SuperAdminUsage />
+        </TabsContent>
+
+        <TabsContent value="errors" className="mt-4">
+          <SuperAdminErrors onUnresolvedCount={setUnresolvedErrorCount} />
         </TabsContent>
       </Tabs>
 
