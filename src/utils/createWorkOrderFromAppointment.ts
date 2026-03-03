@@ -8,6 +8,7 @@ export interface CreateWorkOrderPayload {
   service_id?: string;
   appointment_id: string;
   address_id?: string;
+  assigned_to?: string;
   checklist: { label: string; checked: boolean }[];
   total_amount: number;
   status: string;
@@ -31,6 +32,7 @@ export function buildWorkOrderPayload(
     service_id: appointment.service_id ?? undefined,
     appointment_id: appointment.id,
     address_id: (appointment as any).address_id ?? undefined,
+    assigned_to: appointment.assigned_to ?? undefined,
     checklist,
     total_amount: service?.price ?? 0,
     status: "open",

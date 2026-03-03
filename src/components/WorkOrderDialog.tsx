@@ -12,6 +12,8 @@ import { useCreateWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
 import { useAssets } from "@/hooks/useAssets";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Tables } from "@/integrations/supabase/types";
@@ -25,17 +27,21 @@ interface Props {
 const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { isAdmin, user, role } = useAuth();
   const { data: customers } = useCustomers();
   const { data: services } = useServices();
   const { data: allAssets } = useAssets();
+  const { data: teamMembers } = useTeamMembers();
   const createWO = useCreateWorkOrder();
   const updateWO = useUpdateWorkOrder();
   const isEdit = !!workOrder;
+  const isMonteur = role === "monteur";
 
   const [form, setForm] = useState({
     customer_id: "",
     service_id: "",
     asset_id: "",
+    assigned_to: "",
     status: "open",
     description: "",
     remarks: "",
@@ -48,15 +54,25 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         customer_id: workOrder.customer_id,
         service_id: workOrder.service_id || "",
         asset_id: (workOrder as any).asset_id || "",
+        assigned_to: (workOrder as any).assigned_to || "",
         status: workOrder.status,
         description: (workOrder as any).description || "",
         remarks: workOrder.remarks || "",
         travel_cost: workOrder.travel_cost ?? 0,
       });
     } else {
-      setForm({ customer_id: "", service_id: "", asset_id: "", status: "open", description: "", remarks: "", travel_cost: 0 });
+      setForm({
+        customer_id: "",
+        service_id: "",
+        asset_id: "",
+        assigned_to: isMonteur ? (user?.id ?? "") : "",
+        status: "open",
+        description: "",
+        remarks: "",
+        travel_cost: 0,
+      });
     }
-  }, [workOrder, open]);
+  }, [workOrder, open, isMonteur, user?.id]);
 
   const set = (key: string, value: unknown) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -84,6 +100,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
       customer_id: form.customer_id,
       service_id: form.service_id || null,
       asset_id: form.asset_id || null,
+      assigned_to: form.assigned_to || null,
       status: form.status,
       description: form.description || null,
       remarks: form.remarks || null,
@@ -143,6 +160,21 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
                 <SelectItem key={a.id} value={a.id}>
                   {a.name}{a.brand ? ` — ${a.brand}` : ""}{a.serial_number ? ` (${a.serial_number})` : ""}
                 </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      {/* Toegewezen aan - alleen zichtbaar voor admins */}
+      {isAdmin && teamMembers && teamMembers.length > 1 && (
+        <div className="space-y-1.5">
+          <Label>Toegewezen aan</Label>
+          <Select value={form.assigned_to} onValueChange={(v) => set("assigned_to", v === "none" ? "" : v)}>
+            <SelectTrigger><SelectValue placeholder="Niet toegewezen" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Niet toegewezen</SelectItem>
+              {teamMembers.map((m) => (
+                <SelectItem key={m.id} value={m.id}>{m.full_name ?? "Onbekend"}</SelectItem>
               ))}
             </SelectContent>
           </Select>

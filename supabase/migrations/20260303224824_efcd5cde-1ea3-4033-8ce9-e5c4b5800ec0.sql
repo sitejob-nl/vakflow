@@ -1,0 +1,1 @@
+ALTER TABLE public.work_orders ADD COLUMN assigned_to UUID REFERENCES public.profiles(id);

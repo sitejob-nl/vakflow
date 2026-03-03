@@ -86,9 +86,18 @@ const PlanningPage = () => {
   // Selected day for desktop (route optimization target)
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
-  // Employee filter
+  // Employee filter — monteurs zien alleen hun eigen afspraken
+  const { user, role } = useAuth();
+  const isMonteur = role === "monteur";
   const [filterEmployee, setFilterEmployee] = useState<string>("all");
   const { data: teamMembers } = useTeamMembers();
+
+  // Auto-set filter voor monteurs
+  useEffect(() => {
+    if (isMonteur && user?.id) {
+      setFilterEmployee(user.id);
+    }
+  }, [isMonteur, user?.id]);
 
   // Outlook calendar integration
   const [showOutlook, setShowOutlook] = useState(false);
@@ -378,8 +387,8 @@ const PlanningPage = () => {
               <CalendarIcon className="h-3.5 w-3.5" />
               {viewMode === "week" ? "Maand" : "Week"}
             </button>
-            {/* Employee filter */}
-            {teamMembers && teamMembers.length > 1 && (
+            {/* Employee filter - alleen voor admins */}
+            {!isMonteur && teamMembers && teamMembers.length > 1 && (
               <Select value={filterEmployee} onValueChange={setFilterEmployee}>
                 <SelectTrigger className="w-[160px] h-8 text-[12px]">
                   <Users className="h-3.5 w-3.5 mr-1 flex-shrink-0" />
