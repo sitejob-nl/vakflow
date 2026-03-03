@@ -13,6 +13,7 @@ export function useMetaPagePosts() {
       const { data, error } = await supabase
         .from("meta_page_posts")
         .select("*")
+        .eq("company_id", companyId)
         .order("created_time", { ascending: false })
         .limit(25);
       if (error) throw error;
@@ -37,10 +38,12 @@ export function useMetaPagePosts() {
         body: { action: "publish-post", message },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["meta-page-posts"] });
+      try { await fetchPosts.mutateAsync(); } catch {}
     },
   });
 
