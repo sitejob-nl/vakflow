@@ -1,67 +1,92 @@
 
 
-## Systeemanalyse Vakflow
+## Overzicht boekhoudintegraties in Vakflow
 
-Na uitgebreide analyse van de codebase, hooks, RLS policies, edge functions en workflows zijn de volgende verbeterpunten gevonden, gegroepeerd op prioriteit.
+### Huidige integraties (3 stuks)
 
----
-
-### KRITIEK - Data-lekken (super_admin ziet data van alle bedrijven)
-
-Dit is het probleem dat je net meldde bij e-mail, maar het bestaat op **meer plekken**:
-
-| Hook / Pagina | Probleem |
-|---|---|
-| `useAssets` | **Geen** `companyId` filter in query (regel 47-49). Super_admin ziet alle objecten van alle bedrijven |
-| `useMaintenanceLogs` | Geen company filter |
-| `useWhatsAppMessages` | **Geen** `companyId` filter. Super_admin ziet alle WhatsApp berichten |
-| `useDashboard` (`useTodayAppointments`, `useDashboardStats`, `useRecentWorkOrders`, `useReminders`) | **Geen enkele** `companyId` filter. Dashboard toont aggregaten over alle bedrijven heen voor super_admins |
-| `useAppointmentsForDay` | Geen `companyId` filter (wordt gebruikt in de planning) |
-
-**Hooks die het WEL goed doen:** `useCustomers`, `useWorkOrders`, `useInvoices`, `useQuotes`, `useTodos`, `useTimeEntries`, `useMaterials`, `useAppointments` (weekview), `useReports`, `useCommunicationLogs` (na recente fix).
+| Provider | Edge Function | Configuratie-opslag | Status |
+|---|---|---|---|
+| **Rompslomp** | `sync-rompslomp` (716 regels) | `companies.rompslomp_api_token`, `rompslomp_company_id`, `rompslomp_tenant_id` | Volledig |
+| **Moneybird** | `sync-moneybird` (756 regels) | `companies.moneybird_api_token`, `moneybird_administration_id` | Volledig |
+| **e-Boekhouden** | `sync-invoice-eboekhouden` (932 regels) | `profiles.eboekhouden_api_token` (versleuteld), template/ledger IDs op profiles | Werkend maar afwijkend |
 
 ---
 
-### HOOG - Ontbrekende functionaliteit & workflow-gaps
+### Wat elke integratie KAN
 
-1. **Geen paginatie** - Alle list-hooks laden alle data in één keer (`useCustomers`, `useWorkOrders`, `useInvoices`, etc.). Bij 1000+ bedrijven met elk honderden records raakt dit de Supabase 1000-rij limiet en wordt de app traag. Server-side paginatie is nodig.
-
-2. **Geen error boundaries** - Als een pagina crasht, krijgt de gebruiker een wit scherm. Er is geen React Error Boundary component.
-
-3. **Ontbrekende realtime op belangrijke tabellen** - Alleen `appointments`, `notifications` en `whatsapp_messages` hebben realtime subscriptions. Werkbonnen, facturen en klanten updaten niet automatisch wanneer collega's wijzigingen maken.
-
-4. **`useWorkOrder` (enkel) mist companyId check** - De `useWorkOrder(id)` query (regel 28-42) doet geen company filter. Een super_admin zou via een directe URL een werkbon van een ander bedrijf kunnen openen zonder te impersoneren.
-
----
-
-### MEDIUM - Beveiligings- & architectuur-issues
-
-5. **`companies` tabel bevat gevoelige data zonder view** - Kolommen als `smtp_password`, `outlook_refresh_token`, `rompslomp_api_token`, `moneybird_api_token`, `eboekhouden_api_token` zijn leesbaar voor elke authenticated user van dat bedrijf via de SELECT policy. Een view die deze kolommen uitsluit zou veiliger zijn.
-
-6. **`profiles` tabel bevat legacy SMTP-velden** - `smtp_email`, `smtp_password`, `smtp_host`, `smtp_port` staan zowel op `profiles` als `companies`. Deze duplicatie kan verwarring veroorzaken.
-
-7. **`as any` casts verspreid door de codebase** - Vrijwel elke insert/update gebruikt `as any` om TypeScript-fouten te onderdrukken. Dit verbergt potentiële bugs.
-
-8. **Supabase Realtime kanalen zonder specifieke filters** - `appointments-realtime` channel luistert naar ALLE appointment changes zonder `company_id` filter, wat onnodig verkeer genereert voor multi-tenant.
+| Functionaliteit | Rompslomp | Moneybird | e-Boekhouden |
+|---|---|---|---|
+| Auto-detect (bedrijven/administraties) | ✅ | ✅ | ❌ |
+| Verbinding testen | ✅ | ✅ | ✅ |
+| Contacten pushen | ✅ | ✅ | ✅ |
+| Contacten pullen | ✅ | ✅ | ✅ (via auto-sync) |
+| Facturen pushen (bulk) | ✅ | ✅ | ✅ (via auto-sync) |
+| Factuur aanmaken (enkel, bij creatie) | ✅ `create-invoice` | ✅ `create-invoice` | ❌ |
+| Facturen pullen | ✅ | ✅ | ✅ (via auto-sync) |
+| Betaalstatus pullen | ✅ | ✅ | ✅ (via auto-sync) |
+| Offertes pushen | ✅ `sync-quotes` | ✅ `sync-quotes` + `create-quote` | ✅ `sync-quote` |
+| Offertes pullen | ✅ | ✅ | ❌ |
+| PDF downloaden | ✅ | ✅ | ❌ |
+| Offerte aanmaken (enkel, bij creatie) | ❌ | ✅ `create-quote` | ❌ |
+| Factuurnummer overnemen | ✅ | ✅ | ❌ |
 
 ---
 
-### LAAG - Verbeteringen voor schaalbaarheid & UX
+### Wat verbeterd/aangepast moet worden
 
-9. **Dashboard hooks niet company-scoped** - Alle 4 dashboard queries moeten `companyId` filter krijgen (nu ziet super_admin aggregaten van alle bedrijven).
+#### 1. e-Boekhouden configuratie zit op `profiles` i.p.v. `companies` (architectuur-inconsistentie)
 
-10. **Geen offline/PWA queueing** - PWA is geconfigureerd maar er is geen offline data-queueing. Monteurs in het veld verliezen wijzigingen bij slechte verbinding.
+Rompslomp en Moneybird slaan tokens op in de `companies` tabel (bedrijfsniveau). e-Boekhouden slaat alles op in `profiles` (gebruikersniveau): `eboekhouden_api_token`, `eboekhouden_template_id`, `eboekhouden_ledger_id`, `eboekhouden_debtor_ledger_id`. Dit betekent:
+- Elke gebruiker moet apart configureren
+- Bij verwijderen van een gebruiker gaat de koppeling verloren
+- De edge function itereert over alle profielen i.p.v. over bedrijven
 
-11. **`useReminders` doet client-side berekening over alle klanten** - Dit schaalt niet bij grote datasets. Zou een database function moeten zijn.
+**Oplossing:** Migreer e-Boekhouden config naar de `companies` tabel (net als Rompslomp/Moneybird). Voeg kolommen toe: `eboekhouden_api_token` op companies, verplaats template/ledger IDs.
 
-12. **Geen soft-delete** - Verwijderen is permanent. Voor een SaaS-platform is soft-delete (met `deleted_at` kolom) veiliger.
+#### 2. e-Boekhouden mist `create-invoice` actie (geen auto-sync bij aanmaken)
+
+Bij Rompslomp en Moneybird wordt een factuur direct bij aanmaken gepusht via `create-invoice`. Bij e-Boekhouden gebeurt dit niet — facturen worden pas gesynchroniseerd bij de volgende `auto-sync` run. Hetzelfde geldt voor offertes.
+
+**Oplossing:** Voeg een `create-invoice` actie toe aan `sync-invoice-eboekhouden` en integreer deze in `InvoiceDialog.tsx` (waar nu alleen Rompslomp/Moneybird worden afgehandeld).
+
+#### 3. Rompslomp mist `create-quote` actie (geen auto-sync bij offerte aanmaken)
+
+Moneybird heeft een `create-quote` actie die een offerte direct pusht bij aanmaken. Rompslomp heeft dit niet — offertes worden alleen via de bulk `sync-quotes` gesynchroniseerd.
+
+**Oplossing:** Voeg een `create-quote` actie toe aan `sync-rompslomp` en koppel deze in `QuoteDialog.tsx`.
+
+#### 4. Geen uniforme "create" flow in QuoteDialog/InvoiceDialog voor e-Boekhouden
+
+`InvoiceDialog.tsx` en `QuoteDialog.tsx` controleren alleen op `accountingProvider === "rompslomp" || accountingProvider === "moneybird"`. e-Boekhouden wordt volledig genegeerd bij het aanmaken van facturen/offertes.
+
+**Oplossing:** Breid de auto-sync logica in beide dialogen uit met een `eboekhouden` case.
+
+#### 5. e-Boekhouden mist auto-detect flow
+
+Rompslomp en Moneybird hebben een `auto-detect` actie waarmee na het invoeren van een token automatisch bedrijven/administraties worden opgehaald. e-Boekhouden mist dit — de gebruiker moet handmatig template- en ledger-IDs configureren (wat al geïmplementeerd is via dropdowns, maar het token-validatie stap is handmatiger).
+
+#### 6. PDF download niet beschikbaar voor e-Boekhouden
+
+Rompslomp en Moneybird bieden PDF-download van facturen. e-Boekhouden niet. Dit kan een API-beperking zijn, maar zou onderzocht moeten worden.
+
+#### 7. Betaalstatus-sync is niet geautomatiseerd
+
+Voor alle drie de providers bestaat een `pull-invoice-status` actie, maar deze wordt alleen handmatig getriggerd (er is geen cron/scheduled job). Betaalstatussen worden dus niet automatisch bijgewerkt.
+
+**Oplossing:** Voeg een Supabase cron job toe die periodiek (bijv. dagelijks) de betaalstatus van alle onbetaalde facturen ophaalt.
+
+#### 8. Bulk sync-knoppen ontbreken in de UI voor Rompslomp/Moneybird
+
+De SettingsPage heeft test/configuratie-knoppen, maar geen duidelijke "Synchroniseer nu" knoppen voor bulk contact/factuur/offerte sync. De bulk sync acties (`sync-contacts`, `sync-invoices`, `pull-contacts`, `pull-invoices`) zijn alleen via de edge function beschikbaar.
 
 ---
 
-### Aanbevolen aanpak (volgorde)
+### Aanbevolen prioriteit
 
-1. **Eerst:** Fix alle data-lekken (companyId filters toevoegen aan `useAssets`, `useWhatsAppMessages`, `useDashboard` hooks, `useAppointmentsForDay`) - **hoogste prioriteit**
-2. **Dan:** Gevoelige kolommen in `companies` afschermen met een view
-3. **Daarna:** Server-side paginatie voor de grootste tabellen
-4. **Tot slot:** Error boundaries, realtime uitbreiden, offline support
+1. **e-Boekhouden `create-invoice` + `create-quote`** — Zodat facturen/offertes direct worden gesynchroniseerd bij aanmaken, consistent met Rompslomp/Moneybird
+2. **Rompslomp `create-quote`** — Offerte direct pushen bij aanmaken
+3. **InvoiceDialog/QuoteDialog uitbreiden** — e-Boekhouden toevoegen aan de auto-sync flow
+4. **e-Boekhouden config migreren naar companies** — Architectuurconsistentie
+5. **Automatische betaalstatus-sync** — Cron job voor alle providers
+6. **Bulk sync UI** — Knoppen in SettingsPage voor handmatige sync
 
