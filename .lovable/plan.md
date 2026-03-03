@@ -1,69 +1,62 @@
 
 
-## Analyse: Geupload Fix-pakket vs Huidige Code
+## Plan: Tenant-isolatie op Storage + Usage Tracking
 
-### Conclusie: Het pakket is grotendeels beter, maar er zitten 2 regressies in die we moeten fixen
+### 1. Storage tenant-isolatie
 
----
+**Probleem**: Beide private buckets (`whatsapp-media`, `work-order-photos`) hebben RLS policies die alleen checken of `auth.uid() IS NOT NULL`. Elke ingelogde gebruiker kan bestanden van andere tenants ophalen als ze het pad kennen.
 
-### Wat is beter in het pakket
+**Oplossing**: Bestanden opslaan onder `{company_id}/...` prefix, en RLS policies die het pad matchen tegen de company van de gebruiker.
 
-**1. Shared modules (4 bestanden)** — Goede opsplitsing. `cors.ts`, `supabase.ts`, `phone.ts`, `webhook-verify.ts` apart houden is schoner dan 1 mega-file.
+**Wijzigingen**:
 
-**2. `whatsapp-webhook`** — Grote verbetering:
-- Multi-tenant: lookup op `phone_number_id` uit de payload i.p.v. `.limit(1).single()`
-- Duale signature verificatie: Meta native (`X-Hub-Signature-256`) OF SiteJob Connect (`X-Webhook-Secret`) met multi-tenant secret matching
-- Shared `findCustomerByPhone()` vervangt 30 regels inline phone-lookup
-- Fallback naar eerste config voor legacy tenants (met TODO-marker)
+| Bestand | Actie |
+|---------|-------|
+| SQL migration | Vervang storage RLS policies: SELECT/INSERT/DELETE alleen als `(storage.foldername(name))[1] = get_my_company_id()::text`, plus service_role INSERT voor webhooks |
+| `supabase/functions/whatsapp-webhook/index.ts` | Upload pad wijzigen van `{msgType}/{uuid}.{ext}` naar `{companyId}/{msgType}/{uuid}.{ext}` |
+| `src/components/PhotoUpload.tsx` | Upload pad wijzigen van `{workOrderId}/{type}/{uuid}.{ext}` naar `{companyId}/{workOrderId}/{type}/{uuid}.{ext}` |
 
-**3. `meta-webhook`** — Verbeterd:
-- HMAC-SHA256 signature verificatie op POST (voorheen open voor fake events)
-- Postback event handling (Messenger knoppen)
-- Error logging per insert i.p.v. silent failures
+**Bestaande bestanden**: Oude paden (zonder company_id prefix) werken niet meer met de nieuwe RLS. We voegen een fallback-policy toe voor service_role zodat edge functions nog steeds kunnen uploaden, en de signed URL flow via service_role key (die RLS bypassed) blijft werken voor oude bestanden. Bij nieuwe uploads wordt het correcte pad gebruikt.
 
-**4. `meta-api`** — Graph API v21.0 naar v25.0, consistent met webhook field versies. Shared auth.
+### 2. Usage tracking tabel
 
-**5. SQL: Foreign key indexes** — ~50 ontbrekende indexes, `phone_number_id` kolom op `whatsapp_config`. Puur winst.
+**Probleem**: Geen zicht op hoeveel WhatsApp berichten, emails of API calls per tenant. Geen basis voor facturering of misbruikdetectie.
 
----
+**Oplossing**: Een `usage_events` tabel + een helper function die edge functions aanroepen bij elke billable actie.
 
-### Wat we moeten fixen in het pakket
-
-**Regressie 1: `supabase.ts` gebruikt `getClaims()` (bestaat niet)**
-
-De shared auth helper (`authenticateRequest()`) gebruikt nog `supabaseUser.auth.getClaims(token)`. Dit is geen standaard Supabase method. Moet `getUser()` worden, zoals we al eerder gefixt hebben in `trigger-email-automation`.
-
-**Regressie 2: RLS migration verwijdert admin-checks**
-
-De `001_fix_rls_policies.sql` herschrijft admin-only policies (invoices, services, user_roles, companies) maar verwijdert de `has_role(auth.uid(), 'admin')` check. Voorbeeld:
-
+**Schema**:
 ```text
-HUIDIG (correct):
-  USING (company_id = get_my_company_id() AND has_role(auth.uid(), 'admin'))
+usage_events
+  id            uuid PK
+  company_id    uuid NOT NULL (FK companies)
+  event_type    text NOT NULL  -- 'whatsapp_sent', 'whatsapp_received', 'email_sent', 'api_call'
+  metadata      jsonb DEFAULT '{}'
+  created_at    timestamptz DEFAULT now()
 
-MIGRATION (regressie):
-  USING (company_id IN (SELECT company_id FROM profiles WHERE id = (select auth.uid())))
+INDEX op (company_id, event_type, created_at)
 ```
 
-Dit betekent dat *elke* authenticated user in het bedrijf facturen, services en rollen kan verwijderen/wijzigen. Dat is een privilege escalation. We moeten `has_role()` checks behouden op die tabellen.
+**RLS**: Alleen super_admins kunnen lezen. Insert via service_role (edge functions).
 
-**Overige aandachtspunten:**
-- Het verwijderen van "Service role full access" policies op meta-tabellen is correct (service_role key bypassed RLS sowieso)
-- De `(select auth.uid())` performance-optimalisatie is goed, maar we kunnen dat combineren met `get_my_company_id()` dat al SECURITY DEFINER is
+**Edge function wijzigingen** — logging toevoegen in:
+- `whatsapp-send/index.ts` → log `whatsapp_sent`
+- `whatsapp-webhook/index.ts` → log `whatsapp_received`
+- `send-email/index.ts` → log `email_sent`
+- `trigger-email-automation/index.ts` → log `email_automation_sent`
 
----
+**Super Admin UI**: Uitbreiding van `SuperAdminPage.tsx` met een usage-tab die per company de counts toont (deze maand / vorige maand) via een `get_usage_summary()` RPC.
 
-### Plan: Implementatie in 5 stappen
+**RPC functie**:
+```text
+get_usage_summary(p_company_id uuid, p_start timestamptz, p_end timestamptz)
+RETURNS TABLE(event_type text, event_count bigint)
+-- SECURITY DEFINER, alleen callable door super_admins
+```
 
-| # | Wat | Bestanden |
-|---|-----|-----------|
-| 1 | Maak de 4 shared modules aan | `_shared/cors.ts`, `_shared/supabase.ts` (met getUser fix), `_shared/phone.ts`, `_shared/webhook-verify.ts` |
-| 2 | Vervang `whatsapp-webhook/index.ts` met de geuploadde versie (gebruikt shared imports) | `supabase/functions/whatsapp-webhook/index.ts` |
-| 3 | Vervang `meta-webhook/index.ts` met de geuploadde versie (signature verificatie + postback handling) | `supabase/functions/meta-webhook/index.ts` |
-| 4 | Vervang `meta-api/index.ts` met de geuploadde versie (v25.0 + shared auth) | `supabase/functions/meta-api/index.ts` |
-| 5 | SQL migration: foreign key indexes + `phone_number_id` kolom + verwijder "always true" service role policies. RLS admin-checks blijven **behouden** (we nemen alleen de safe delen van de migration over) | Migration SQL |
+### Samenvatting stappen
 
-### Wat we bewust NIET overnemen uit de migration
-- De herschreven RLS policies die `has_role()` checks verwijderen
-- We nemen wel de `(select auth.uid())` optimalisatie mee, maar alleen voor policies die geen admin-check nodig hebben (profiles, notifications)
+1. SQL migration: nieuwe storage RLS policies + `usage_events` tabel + `get_usage_summary` RPC
+2. Webhook + PhotoUpload: company_id prefix in storage paden
+3. Edge functions: usage event logging na elke billable actie
+4. Super Admin UI: usage tab met per-tenant overzicht
 
