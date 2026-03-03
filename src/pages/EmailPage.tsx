@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useCommunicationLogs, useCreateCommunicationLog, useDeleteCommunicationLog, useSendEmail } from "@/hooks/useCommunicationLogs";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useToast } from "@/hooks/use-toast";
@@ -7,15 +7,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
-  Loader2, Trash2, Mail, ChevronDown, ChevronUp, Search, RefreshCw, Plus,
-  Inbox, Send as SendIcon, ArrowLeft, Reply,
+  Loader2, Trash2, Mail, Search, RefreshCw, Plus,
+  Inbox, ArrowLeft, User,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,10 +21,57 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import CustomerCombobox from "@/components/CustomerCombobox";
 
 const statusBadge: Record<string, { label: string; cls: string }> = {
   sent: { label: "Verzonden", cls: "bg-success-muted text-success" },
   failed: { label: "Mislukt", cls: "bg-destructive/10 text-destructive" },
+};
+
+/* ── Sandboxed HTML renderer via iframe ── */
+const HtmlEmailViewer = ({ html }: { html: string }) => {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(300);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const onLoad = () => {
+      try {
+        const doc = iframe.contentDocument;
+        if (doc) {
+          // inject base styles for readability
+          const style = doc.createElement("style");
+          style.textContent = `
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.6; color: #1a1a1a; margin: 0; padding: 16px; word-break: break-word; }
+            img { max-width: 100%; height: auto; }
+            a { color: #2563eb; }
+            table { max-width: 100% !important; }
+          `;
+          doc.head?.appendChild(style);
+          const h = doc.body?.scrollHeight || 300;
+          setHeight(Math.min(Math.max(h, 200), 800));
+        }
+      } catch {
+        // cross-origin, ignore
+      }
+    };
+
+    iframe.addEventListener("load", onLoad);
+    return () => iframe.removeEventListener("load", onLoad);
+  }, [html]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      srcDoc={html}
+      sandbox="allow-same-origin"
+      className="w-full border-0"
+      style={{ height }}
+      title="E-mail inhoud"
+    />
+  );
 };
 
 const EmailPage = () => {
@@ -47,8 +91,9 @@ const EmailPage = () => {
   const [sending, setSending] = useState(false);
   const [activeFilter, setActiveFilter] = useState<"all" | "inbound" | "outbound">("all");
 
-  // Form
+  // Compose form
   const [formCustomerId, setFormCustomerId] = useState("");
+  const [formToEmail, setFormToEmail] = useState("");
   const [formSubject, setFormSubject] = useState("");
   const [formBody, setFormBody] = useState("");
 
@@ -60,7 +105,9 @@ const EmailPage = () => {
       result = result.filter((l) =>
         l.customers?.name?.toLowerCase().includes(q) ||
         l.subject?.toLowerCase().includes(q) ||
-        l.body?.toLowerCase().includes(q)
+        l.body?.toLowerCase().includes(q) ||
+        (l as any).sender_email?.toLowerCase().includes(q) ||
+        (l as any).sender_name?.toLowerCase().includes(q)
       );
     }
     return result;
@@ -69,7 +116,20 @@ const EmailPage = () => {
   const selected = useMemo(() => emailLogs.find((l) => l.id === selectedId), [emailLogs, selectedId]);
 
   const emailCustomers = useMemo(() => customers?.filter((c) => c.email) ?? [], [customers]);
-  const selectedCustomer = customers?.find((c) => c.id === formCustomerId);
+
+  // When customer is selected, auto-fill email
+  const handleCustomerChange = useCallback((customerId: string) => {
+    setFormCustomerId(customerId);
+    const cust = customers?.find((c) => c.id === customerId);
+    if (cust?.email) setFormToEmail(cust.email);
+  }, [customers]);
+
+  const getSenderDisplay = (m: any) => {
+    if (m.sender_name) return m.sender_name;
+    if (m.sender_email) return m.sender_email;
+    if (m.customers?.name) return m.customers.name;
+    return "Onbekend";
+  };
 
   const handleFetchEmails = async () => {
     setFetching(true);
@@ -91,26 +151,38 @@ const EmailPage = () => {
   };
 
   const handleSend = async () => {
-    if (!formCustomerId) { toast({ title: "Selecteer een klant", variant: "destructive" }); return; }
-    if (!selectedCustomer?.email) { toast({ title: "Geen e-mailadres", variant: "destructive" }); return; }
+    if (!formToEmail) { toast({ title: "Vul een e-mailadres in", variant: "destructive" }); return; }
     if (!formSubject || !formBody) { toast({ title: "Vul onderwerp en bericht in", variant: "destructive" }); return; }
     setSending(true);
     let status = "sent";
-    try { await sendEmail.mutateAsync({ to: selectedCustomer.email, subject: formSubject, body: formBody }); }
+    try { await sendEmail.mutateAsync({ to: formToEmail, subject: formSubject, body: formBody }); }
     catch { status = "failed"; }
     try {
       await createLog.mutateAsync({
-        customer_id: formCustomerId, channel: "email", subject: formSubject, body: formBody,
-        direction: "outbound", is_automated: false, status, sent_at: new Date().toISOString(),
-      });
+        customer_id: formCustomerId || null,
+        channel: "email",
+        subject: formSubject,
+        body: formBody,
+        direction: "outbound",
+        is_automated: false,
+        status,
+        sent_at: new Date().toISOString(),
+      } as any);
       if (status === "sent") toast({ title: "E-mail verzonden" });
       else toast({ title: "E-mail verzending mislukt", variant: "destructive" });
       setComposeOpen(false);
-      setFormCustomerId(""); setFormSubject(""); setFormBody("");
+      resetForm();
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
     }
     setSending(false);
+  };
+
+  const resetForm = () => {
+    setFormCustomerId("");
+    setFormToEmail("");
+    setFormSubject("");
+    setFormBody("");
   };
 
   const handleDelete = async () => {
@@ -122,10 +194,14 @@ const EmailPage = () => {
 
   const unreadCount = emailLogs.filter((l) => l.direction === "inbound" && l.status !== "read").length;
 
-  // Detail view
+  // ── Detail view ──
   if (selected) {
     const dt = selected.sent_at ?? selected.created_at;
     const badge = statusBadge[selected.status] ?? statusBadge.sent;
+    const senderName = getSenderDisplay(selected);
+    const senderEmail = (selected as any).sender_email || "";
+    const htmlBody = (selected as any).html_body;
+
     return (
       <div>
         <div className="flex items-center gap-2 mb-4">
@@ -140,16 +216,36 @@ const EmailPage = () => {
               <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${badge.cls}`}>{badge.label}</span>
             </div>
             <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
-              <span className="font-semibold text-foreground">{selected.customers?.name || "Onbekend"}</span>
+              <div className="flex items-center gap-1.5">
+                <User className="h-3 w-3" />
+                <span className="font-semibold text-foreground">{senderName}</span>
+                {senderEmail && senderEmail !== senderName && (
+                  <span className="text-muted-foreground">&lt;{senderEmail}&gt;</span>
+                )}
+              </div>
               <span>·</span>
               <span>{selected.direction === "inbound" ? "Inkomend" : "Uitgaand"}</span>
               <span>·</span>
               <span className="font-mono">{format(new Date(dt), "d MMMM yyyy 'om' HH:mm", { locale: nl })}</span>
             </div>
+            {selected.customers?.name && senderName !== selected.customers.name && (
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                Klant: <span className="font-medium text-foreground">{selected.customers.name}</span>
+              </div>
+            )}
           </div>
-          <div className="px-5 py-5 text-[13px] text-foreground whitespace-pre-wrap leading-relaxed min-h-[200px]">
-            {selected.body || "(leeg)"}
+
+          {/* Email body */}
+          <div className="min-h-[200px]">
+            {htmlBody ? (
+              <HtmlEmailViewer html={htmlBody} />
+            ) : (
+              <div className="px-5 py-5 text-[13px] text-foreground whitespace-pre-wrap leading-relaxed">
+                {selected.body || "(leeg)"}
+              </div>
+            )}
           </div>
+
           <div className="px-5 py-3 border-t border-border flex items-center gap-2">
             {!selected.is_automated && (
               <Button variant="ghost" size="sm" className="text-destructive gap-1.5" onClick={() => setDeleteTarget(selected.id)}>
@@ -162,6 +258,7 @@ const EmailPage = () => {
     );
   }
 
+  // ── List view ──
   return (
     <div>
       {/* Header bar */}
@@ -204,7 +301,7 @@ const EmailPage = () => {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Zoek op klant, onderwerp of inhoud..."
+            placeholder="Zoek op afzender, onderwerp of inhoud..."
             className="h-8 pl-8 text-[12px]"
           />
         </div>
@@ -225,6 +322,10 @@ const EmailPage = () => {
               const dt = m.sent_at ?? m.created_at;
               const badge = statusBadge[m.status] ?? statusBadge.sent;
               const isInbound = m.direction === "inbound";
+              const sender = getSenderDisplay(m);
+              // Use plain text body for preview, not html
+              const preview = m.body || "";
+
               return (
                 <button
                   key={m.id}
@@ -234,8 +335,8 @@ const EmailPage = () => {
                   <div className={`w-2 h-2 rounded-full shrink-0 ${isInbound ? "bg-primary" : "bg-muted-foreground/30"}`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[12px] font-bold truncate">
-                        {m.customers?.name || "Onbekend"}
+                      <span className="text-[12px] font-bold truncate max-w-[180px]">
+                        {sender}
                       </span>
                       <span className="text-[11px] text-muted-foreground truncate flex-1">
                         {m.subject || "(geen onderwerp)"}
@@ -244,8 +345,8 @@ const EmailPage = () => {
                         {format(new Date(dt), "dd MMM HH:mm", { locale: nl })}
                       </span>
                     </div>
-                    {m.body && (
-                      <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{m.body}</p>
+                    {preview && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{preview}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -271,33 +372,39 @@ const EmailPage = () => {
       </div>
 
       {/* Compose dialog */}
-      <Dialog open={composeOpen} onOpenChange={(v) => { if (!v) { setComposeOpen(false); setFormCustomerId(""); setFormSubject(""); setFormBody(""); } }}>
+      <Dialog open={composeOpen} onOpenChange={(v) => { if (!v) { setComposeOpen(false); resetForm(); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Nieuwe e-mail</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Klant</Label>
-              <Select value={formCustomerId} onValueChange={setFormCustomerId}>
-                <SelectTrigger><SelectValue placeholder="Selecteer klant" /></SelectTrigger>
-                <SelectContent>
-                  {emailCustomers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {selectedCustomer?.email && (
-                <p className="text-[11px] text-muted-foreground">Aan: {selectedCustomer.email}</p>
-              )}
+              <Label>Klant (optioneel)</Label>
+              <CustomerCombobox
+                customers={emailCustomers}
+                value={formCustomerId}
+                onValueChange={handleCustomerChange}
+                placeholder="Selecteer klant..."
+              />
             </div>
             <div className="space-y-2">
-              <Label>Onderwerp</Label>
+              <Label>Aan (e-mailadres) *</Label>
+              <Input
+                type="email"
+                value={formToEmail}
+                onChange={(e) => setFormToEmail(e.target.value)}
+                placeholder="naam@voorbeeld.nl"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Onderwerp *</Label>
               <Input value={formSubject} onChange={(e) => setFormSubject(e.target.value)} placeholder="Onderwerp" />
             </div>
             <div className="space-y-2">
-              <Label>Bericht</Label>
+              <Label>Bericht *</Label>
               <Textarea value={formBody} onChange={(e) => setFormBody(e.target.value)} placeholder="Typ je bericht..." rows={8} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setComposeOpen(false)}>Annuleren</Button>
+            <Button variant="outline" onClick={() => { setComposeOpen(false); resetForm(); }}>Annuleren</Button>
             <Button onClick={handleSend} disabled={sending || createLog.isPending}>
               {(sending || createLog.isPending) && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
               {sending ? "Verzenden..." : "Verzenden"}
