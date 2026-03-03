@@ -9,6 +9,7 @@ import { nl } from "date-fns/locale";
 import {
   Loader2, Trash2, Mail, Search, RefreshCw, Plus,
   Inbox, ArrowLeft, User, Send, FileEdit, FolderOpen,
+  ArrowDownLeft, ArrowUpRight,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -99,6 +100,21 @@ const EmailPage = () => {
   const [fetching, setFetching] = useState(false);
   const [sending, setSending] = useState(false);
   const [activeFolder, setActiveFolder] = useState<FolderKey>("inbox");
+
+  // Realtime subscription for automatic refresh
+  useEffect(() => {
+    const channel = supabase
+      .channel("communication_logs_realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "communication_logs" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["communication_logs"] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   // Compose form
   const [formCustomerId, setFormCustomerId] = useState("");
@@ -199,6 +215,7 @@ const EmailPage = () => {
         subject: formSubject,
         body: formBody,
         direction: "outbound",
+        folder_name: "sent",
         is_automated: false,
         status,
         sent_at: new Date().toISOString(),
@@ -375,9 +392,11 @@ const EmailPage = () => {
                   onClick={() => setSelectedId(m.id)}
                   className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-muted/40 transition-colors group"
                 >
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${
-                    m.status === "draft" ? "bg-muted-foreground/50" : isInbound ? "bg-primary" : "bg-muted-foreground/30"
-                  }`} />
+                  <div className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center ${
+                    m.status === "draft" ? "bg-muted text-muted-foreground" : isInbound ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {isInbound ? <ArrowDownLeft className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-[12px] font-bold truncate max-w-[180px]">
