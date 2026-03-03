@@ -8,14 +8,22 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabase = createAdminClient();
 
-    // Optional auth check (can be called from cron without auth or from frontend with auth)
+    // Auth check: require either a valid JWT or a matching CRON_SECRET header
     const authHeader = req.headers.get("Authorization");
+    const cronSecret = req.headers.get("X-Cron-Secret");
+    const expectedCronSecret = Deno.env.get("CRON_SECRET");
+
     if (authHeader?.startsWith("Bearer ")) {
+      // Validate JWT
       const supabaseUser = createUserClient(authHeader);
       const { data: { user }, error } = await supabaseUser.auth.getUser();
       if (error || !user) {
         return jsonRes({ error: "Unauthorized" }, 401);
       }
+    } else if (cronSecret && expectedCronSecret && cronSecret === expectedCronSecret) {
+      // Valid cron secret — allow
+    } else {
+      return jsonRes({ error: "Unauthorized — provide a valid JWT or X-Cron-Secret header" }, 401);
     }
 
     // Fetch all customers with their interval

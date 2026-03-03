@@ -1,54 +1,8 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
+import { createAdminClient } from "../_shared/supabase.ts";
+import { encrypt, hmacVerify } from "../_shared/crypto.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
-  }
-  return bytes;
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
-
-async function encrypt(plainText: string): Promise<string> {
-  const keyHex = Deno.env.get("SMTP_ENCRYPTION_KEY");
-  if (!keyHex) throw new Error("SMTP_ENCRYPTION_KEY not configured");
-
-  let keyBytes: Uint8Array;
-  if (keyHex.length === 64 && /^[0-9a-fA-F]+$/.test(keyHex)) {
-    keyBytes = hexToBytes(keyHex);
-  } else {
-    try {
-      const binary = atob(keyHex);
-      keyBytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) keyBytes[i] = binary.charCodeAt(i);
-      if (keyBytes.length !== 32) throw new Error("not 32 bytes");
-    } catch {
-      // Fallback: SHA-256 hash of the raw key string to get exactly 32 bytes
-      keyBytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(keyHex)));
-    }
-  }
-
-  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["encrypt"]);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(plainText);
-  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
-
-  return `${bytesToBase64(iv)}:${bytesToBase64(new Uint8Array(encrypted))}`;
-}
-
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -62,9 +16,22 @@ serve(async (req) => {
       return new Response("Missing code or state parameter", { status: 400 });
     }
 
-    const [companyId, appOrigin] = rawState.includes("|")
-      ? [rawState.split("|")[0], rawState.split("|").slice(1).join("|")]
-      : [rawState, "https://app.vakflow.nl"];
+    // Parse and verify HMAC-signed state: "companyId|appOrigin|hmac"
+    const parts = rawState.split("|");
+    if (parts.length < 3) {
+      return new Response("Invalid state format", { status: 400 });
+    }
+
+    const hmac = parts.pop()!;
+    const statePayload = parts.join("|");
+    const isValid = await hmacVerify(statePayload, hmac);
+    if (!isValid) {
+      console.error("HMAC verification failed for state:", statePayload);
+      return new Response("Invalid state signature", { status: 403 });
+    }
+
+    const [companyId, ...originParts] = parts;
+    const appOrigin = originParts.join("|") || "https://app.vakflow.nl";
 
     const clientId = Deno.env.get("OUTLOOK_CLIENT_ID");
     const tenantId = Deno.env.get("OUTLOOK_TENANT_ID") || "organizations";
@@ -74,10 +41,7 @@ serve(async (req) => {
       return new Response("Outlook credentials not configured", { status: 500 });
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabaseAdmin = createAdminClient();
 
     // Exchange code for tokens
     const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
@@ -102,7 +66,7 @@ serve(async (req) => {
       return new Response(`OAuth error: ${tokenData.error_description}`, { status: 400 });
     }
 
-    // Encrypt refresh token and save
+    // Encrypt refresh token using shared crypto module
     const encryptedRefreshToken = await encrypt(tokenData.refresh_token);
 
     // Get user email from the access token (decode JWT payload)
@@ -124,7 +88,7 @@ serve(async (req) => {
       .eq("id", companyId);
 
     const redirectUrl = `${appOrigin}/settings`;
-    
+
     return new Response(
       `<html><body><script>window.opener ? (window.opener.postMessage('outlook-connected','*'), window.close()) : (window.location.href = '${redirectUrl}')</script><p>Outlook gekoppeld! Je kunt dit venster sluiten.</p></body></html>`,
       { headers: { "Content-Type": "text/html" } }
