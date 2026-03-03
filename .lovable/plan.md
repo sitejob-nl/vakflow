@@ -1,73 +1,78 @@
 
 
-## Marketing Module met Meta Integratie
+## Huidige situatie vs. gewenste situatie
 
-Dit is een omvangrijk feature-verzoek met vier Meta-onderdelen. Ik stel een gefaseerde aanpak voor, te beginnen met de basis-infrastructuur en Facebook Leads (de meest directe CRM-waarde), gevolgd door Messenger/Instagram DM's en Page-beheer.
+**Nu**: Elke gebruiker/bedrijf moet handmatig een Meta App aanmaken, App ID/Secret kopiëren, Page Access Token genereren via Graph API Explorer, etc. Dit is complex en foutgevoelig.
 
-### Fase 1 — Infrastructuur (deze implementatie)
+**Gewenst**: Jij (als platform-eigenaar) maakt één Meta App aan. Gebruikers klikken op "Koppel Facebook" en loggen in met hun Facebook-account. Het systeem krijgt automatisch de juiste tokens en page info.
 
-**Database tabellen:**
+## Oplossing: Facebook Login OAuth flow
 
-- `meta_config` — Slaat de Meta App credentials op per bedrijf (app_id, app_secret, page_access_token, page_id, instagram_account_id, company_id). Vergelijkbaar met `whatsapp_config`.
-- `meta_leads` — Opslag van inkomende leads (lead_id, form_id, form_name, customer_data jsonb, status, customer_id nullable, company_id, created_at). Status: nieuw / gecontacteerd / klant / genegeerd.
-- `meta_conversations` — Berichten van Messenger en Instagram DM's (platform: messenger/instagram, sender_name, sender_id, content, direction, customer_id, company_id, metadata jsonb, created_at).
-- `meta_page_posts` — Cache van pagina-posts (post_id, message, created_time, likes, comments, shares, company_id).
+### Architectuur
 
-**Edge Functions:**
+```text
+Gebruiker klikt "Koppel Facebook"
+        ↓
+Browser redirect → Facebook Login dialog
+  (permissions: pages_manage_metadata, pages_messaging, leads_retrieval, 
+   instagram_manage_messages, pages_read_engagement, pages_manage_posts)
+        ↓
+Facebook redirect terug → /meta-callback?code=xxx
+        ↓
+Edge function "meta-oauth-callback":
+  - Wisselt code in voor user access token
+  - Haalt pagina's op via /me/accounts
+  - Slaat page_access_token + page_id op in meta_config
+        ↓
+Gebruiker kiest welke Facebook Page te koppelen
+        ↓
+Klaar — alles werkt automatisch
+```
 
-- `meta-webhook` — Ontvangt webhooks van Meta voor leads, Messenger-berichten en Instagram DM's. Slaat data op in de juiste tabellen.
-- `meta-api` — Proxy voor Meta Graph API calls (leads ophalen, berichten versturen, posts publiceren, page insights).
+### Wat verandert
 
-**Frontend:**
+**1. Systeembrede Meta App credentials als Supabase Secrets**
+- `META_APP_ID` en `META_APP_SECRET` worden secrets (jij stelt ze één keer in)
+- Niet meer per bedrijf opslaan — alle bedrijven gebruiken dezelfde app
 
-- Nieuwe `MarketingPage.tsx` met tabs: Leads, Messenger, Instagram, Pagina
-- Route `/marketing` toevoegen aan `App.tsx`, `useNavigation.tsx`, `Sidebar.tsx`
-- `marketing` toevoegen aan de `enabled_features` default array
-- Leads-tab: tabel met inkomende leads, status wijzigen, lead omzetten naar klant
-- Messenger-tab: chat-interface vergelijkbaar met WhatsApp-module
-- Instagram-tab: DM chat-interface + berichten/reacties overzicht
-- Pagina-tab: posts overzicht met engagement metrics
+**2. Nieuwe edge function: `meta-oauth-callback`**
+- Ontvangt de `code` van Facebook na login
+- Wisselt code → short-lived token → long-lived token
+- Haalt `/me/accounts` op om beschikbare Pages te tonen
+- Slaat page_access_token en page_id op in `meta_config`
 
-**Instellingen:**
+**3. Nieuwe edge function: `meta-oauth-url`**
+- Genereert de Facebook Login URL met juiste redirect_uri en permissions
+- Voegt een `state` parameter toe met company_id voor CSRF-bescherming
 
-- Meta-koppeling sectie op de SettingsPage: App ID, App Secret, Page Access Token invoeren + webhook URL tonen
+**4. MetaSettingsTab vereenvoudigen**
+- Verwijder handmatige invoervelden voor App ID, App Secret, Page Access Token
+- Vervang door een "Koppel met Facebook" knop
+- Na koppeling: toon welke Page gekoppeld is + disconnect knop
+- Webhook verify token en Instagram Account ID blijven configureerbaar (of automatisch)
 
-### Technische details
+**5. meta_config tabel aanpassen**
+- `app_id` en `app_secret` kolommen worden overbodig (staan als secrets)
+- Eventueel `user_access_token` kolom toevoegen voor token refresh
 
-**Meta App configuratie (door gebruiker):**
-De gebruiker moet in Meta for Developers de volgende use cases selecteren (zoals in de screenshot):
-- "Capture & manage ad leads" voor Lead Ads
-- "Manage messaging & content on Instagram" voor Instagram DM's
-- "Manage everything on your Page" voor Page-beheer
-- "Engage with customers on Messenger" voor Messenger
-
-De webhook URL wordt: `https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/meta-webhook`
-
-**Benodigde secrets:**
-- `META_APP_SECRET` — voor webhook signature verificatie (vergelijkbaar met WhatsApp webhook secret)
-
-**Bestanden te maken/wijzigen:**
+### Bestanden
 
 | Bestand | Actie |
 |---------|-------|
-| `src/pages/MarketingPage.tsx` | Nieuw — hoofdpagina met tabs |
-| `src/hooks/useMetaLeads.ts` | Nieuw — CRUD voor leads |
-| `src/hooks/useMetaConversations.ts` | Nieuw — berichten ophalen/versturen |
-| `src/hooks/useMetaConfig.ts` | Nieuw — config ophalen |
-| `supabase/functions/meta-webhook/index.ts` | Nieuw — webhook ontvanger |
-| `supabase/functions/meta-api/index.ts` | Nieuw — Graph API proxy |
-| `src/App.tsx` | Route toevoegen |
-| `src/hooks/useNavigation.tsx` | Page type + route mapping |
-| `src/components/Sidebar.tsx` | Menu-item toevoegen |
-| `src/components/MobileNav.tsx` | Menu-item toevoegen |
-| Migration SQL | 4 tabellen + RLS policies |
+| `supabase/functions/meta-oauth-url/index.ts` | Nieuw — genereert login URL |
+| `supabase/functions/meta-oauth-callback/index.ts` | Nieuw — verwerkt OAuth callback |
+| `src/pages/MetaCallbackPage.tsx` | Nieuw — vangt redirect op, stuurt code naar edge function |
+| `src/components/MetaSettingsTab.tsx` | Vereenvoudigen — "Koppel met Facebook" knop |
+| `supabase/functions/meta-api/index.ts` | Aanpassen — config lezen uit secrets i.p.v. meta_config voor app credentials |
+| `src/App.tsx` | Route `/meta-callback` toevoegen |
+| `supabase/config.toml` | Nieuwe functions registreren |
 
-### Aanbeveling
+### Benodigde secrets
+- `META_APP_ID` — je Meta App ID (één keer instellen)
+- `META_APP_SECRET` — je Meta App Secret (één keer instellen)
 
-Gezien de omvang stel ik voor om dit in 2-3 stappen te implementeren:
-1. **Stap 1**: Database, config, edge functions + Leads tab (hoogste CRM-waarde)
-2. **Stap 2**: Messenger + Instagram DM's (chat-interfaces)
-3. **Stap 3**: Page-beheer (posts, insights)
-
-Zal ik beginnen met stap 1 (database + leads)?
+### Facebook App configuratie (door jou)
+In Meta for Developers moet je instellen:
+- **Valid OAuth Redirect URI**: `https://vakflow.lovable.app/meta-callback`
+- **Permissions**: `pages_manage_metadata`, `pages_messaging`, `leads_retrieval`, `instagram_manage_messages`, `pages_read_engagement`, `pages_manage_posts`
 
