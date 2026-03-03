@@ -1,6 +1,7 @@
 import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { logEdgeFunctionError } from "../_shared/error-logger.ts";
+import { decrypt } from "../_shared/crypto.ts";
 
 async function rompslompGet(companyId: string, path: string, token: string) {
   const url = `${ROMPSLOMP_BASE}/companies/${companyId}${path}`;
@@ -65,7 +66,15 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action } = body;
 
-    const apiToken = company.rompslomp_api_token;
+    // Decrypt stored token (may be encrypted or plaintext for legacy data)
+    let apiToken: string;
+    try {
+      apiToken = company.rompslomp_api_token.includes(":")
+        ? await decrypt(company.rompslomp_api_token)
+        : company.rompslomp_api_token;
+    } catch {
+      apiToken = company.rompslomp_api_token;
+    }
     const rompslompCompanyId = company.rompslomp_company_id;
 
     // Action: auto-detect companies (token provided in body, not yet saved)
