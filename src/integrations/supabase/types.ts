@@ -415,6 +415,7 @@ export type Database = {
           created_at: string
           customer_id: string | null
           direction: string
+          folder_name: string | null
           html_body: string | null
           id: string
           is_automated: boolean
@@ -434,6 +435,7 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           direction?: string
+          folder_name?: string | null
           html_body?: string | null
           id?: string
           is_automated?: boolean
@@ -453,6 +455,7 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           direction?: string
+          folder_name?: string | null
           html_body?: string | null
           id?: string
           is_automated?: boolean

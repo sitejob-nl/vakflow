@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
   Loader2, Trash2, Mail, Search, RefreshCw, Plus,
-  Inbox, ArrowLeft, User,
+  Inbox, ArrowLeft, User, Send, FileEdit, FolderOpen,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -26,7 +26,17 @@ import CustomerCombobox from "@/components/CustomerCombobox";
 const statusBadge: Record<string, { label: string; cls: string }> = {
   sent: { label: "Verzonden", cls: "bg-success-muted text-success" },
   failed: { label: "Mislukt", cls: "bg-destructive/10 text-destructive" },
+  draft: { label: "Concept", cls: "bg-muted text-muted-foreground" },
 };
+
+type FolderKey = "all" | "inbox" | "sent" | "drafts";
+
+const folders: { key: FolderKey; label: string; icon: React.ReactNode }[] = [
+  { key: "all", label: "Alle", icon: <FolderOpen className="h-3.5 w-3.5" /> },
+  { key: "inbox", label: "Inbox", icon: <Inbox className="h-3.5 w-3.5" /> },
+  { key: "sent", label: "Verzonden", icon: <Send className="h-3.5 w-3.5" /> },
+  { key: "drafts", label: "Concepten", icon: <FileEdit className="h-3.5 w-3.5" /> },
+];
 
 /* ── Sandboxed HTML renderer via iframe ── */
 const HtmlEmailViewer = ({ html }: { html: string }) => {
@@ -41,7 +51,6 @@ const HtmlEmailViewer = ({ html }: { html: string }) => {
       try {
         const doc = iframe.contentDocument;
         if (doc) {
-          // inject base styles for readability
           const style = doc.createElement("style");
           style.textContent = `
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.6; color: #1a1a1a; margin: 0; padding: 16px; word-break: break-word; }
@@ -89,7 +98,7 @@ const EmailPage = () => {
   const [composeOpen, setComposeOpen] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [sending, setSending] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<"all" | "inbound" | "outbound">("all");
+  const [activeFolder, setActiveFolder] = useState<FolderKey>("inbox");
 
   // Compose form
   const [formCustomerId, setFormCustomerId] = useState("");
@@ -99,7 +108,15 @@ const EmailPage = () => {
 
   const emailLogs = useMemo(() => {
     let result = (logs ?? []).filter((l) => l.channel === "email");
-    if (activeFilter !== "all") result = result.filter((l) => l.direction === activeFilter);
+
+    // Filter by folder
+    if (activeFolder !== "all") {
+      result = result.filter((l) => {
+        const folder = (l as any).folder_name || (l.direction === "outbound" ? "sent" : "inbox");
+        return folder === activeFolder;
+      });
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((l) =>
@@ -111,13 +128,23 @@ const EmailPage = () => {
       );
     }
     return result;
-  }, [logs, searchQuery, activeFilter]);
+  }, [logs, searchQuery, activeFolder]);
+
+  // Folder counts
+  const folderCounts = useMemo(() => {
+    const all = (logs ?? []).filter((l) => l.channel === "email");
+    const counts: Record<FolderKey, number> = { all: all.length, inbox: 0, sent: 0, drafts: 0 };
+    for (const l of all) {
+      const folder = (l as any).folder_name || (l.direction === "outbound" ? "sent" : "inbox");
+      if (folder in counts) counts[folder as FolderKey]++;
+    }
+    return counts;
+  }, [logs]);
 
   const selected = useMemo(() => emailLogs.find((l) => l.id === selectedId), [emailLogs, selectedId]);
 
   const emailCustomers = useMemo(() => customers?.filter((c) => c.email) ?? [], [customers]);
 
-  // When customer is selected, auto-fill email
   const handleCustomerChange = useCallback((customerId: string) => {
     setFormCustomerId(customerId);
     const cust = customers?.find((c) => c.id === customerId);
@@ -125,6 +152,14 @@ const EmailPage = () => {
   }, [customers]);
 
   const getSenderDisplay = (m: any) => {
+    const folder = m.folder_name || (m.direction === "outbound" ? "sent" : "inbox");
+    // For sent items, show recipient info
+    if (folder === "sent") {
+      if (m.customers?.name) return `Aan: ${m.customers.name}`;
+      if (m.sender_name) return `Aan: ${m.sender_name}`;
+      if (m.sender_email) return `Aan: ${m.sender_email}`;
+      return "Verzonden";
+    }
     if (m.sender_name) return m.sender_name;
     if (m.sender_email) return m.sender_email;
     if (m.customers?.name) return m.customers.name;
@@ -192,7 +227,9 @@ const EmailPage = () => {
     setDeleteTarget(null);
   };
 
-  const unreadCount = emailLogs.filter((l) => l.direction === "inbound" && l.status !== "read").length;
+  const inboxUnread = useMemo(() => {
+    return (logs ?? []).filter((l) => l.channel === "email" && l.direction === "inbound" && l.status !== "read").length;
+  }, [logs]);
 
   // ── Detail view ──
   if (selected) {
@@ -215,11 +252,11 @@ const EmailPage = () => {
               <h2 className="text-base font-bold">{selected.subject || "(geen onderwerp)"}</h2>
               <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${badge.cls}`}>{badge.label}</span>
             </div>
-            <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
+            <div className="flex items-center gap-3 text-[12px] text-muted-foreground flex-wrap">
               <div className="flex items-center gap-1.5">
                 <User className="h-3 w-3" />
                 <span className="font-semibold text-foreground">{senderName}</span>
-                {senderEmail && senderEmail !== senderName && (
+                {senderEmail && senderEmail !== senderName && !senderName.startsWith("Aan:") && (
                   <span className="text-muted-foreground">&lt;{senderEmail}&gt;</span>
                 )}
               </div>
@@ -228,14 +265,13 @@ const EmailPage = () => {
               <span>·</span>
               <span className="font-mono">{format(new Date(dt), "d MMMM yyyy 'om' HH:mm", { locale: nl })}</span>
             </div>
-            {selected.customers?.name && senderName !== selected.customers.name && (
+            {selected.customers?.name && !senderName.includes(selected.customers.name) && (
               <div className="mt-1 text-[11px] text-muted-foreground">
                 Klant: <span className="font-medium text-foreground">{selected.customers.name}</span>
               </div>
             )}
           </div>
 
-          {/* Email body */}
           <div className="min-h-[200px]">
             {htmlBody ? (
               <HtmlEmailViewer html={htmlBody} />
@@ -266,9 +302,9 @@ const EmailPage = () => {
         <div className="flex items-center gap-3">
           <Mail className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-bold">E-mail</h1>
-          {unreadCount > 0 && (
+          {inboxUnread > 0 && (
             <span className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
-              {unreadCount} nieuw
+              {inboxUnread} nieuw
             </span>
           )}
         </div>
@@ -283,17 +319,23 @@ const EmailPage = () => {
         </div>
       </div>
 
-      {/* Filters + search */}
-      <div className="flex items-center gap-2 mb-3">
-        {(["all", "inbound", "outbound"] as const).map((f) => (
+      {/* Folder tabs + search */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        {folders.map((f) => (
           <button
-            key={f}
-            onClick={() => setActiveFilter(f)}
-            className={`px-3 py-1.5 text-[12px] font-bold rounded-full transition-colors ${
-              activeFilter === f ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
+            key={f.key}
+            onClick={() => { setActiveFolder(f.key); setSelectedId(null); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-bold rounded-full transition-colors ${
+              activeFolder === f.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            {f === "all" ? "Alle" : f === "inbound" ? "Inkomend" : "Verzonden"}
+            {f.icon}
+            {f.label}
+            {folderCounts[f.key] > 0 && (
+              <span className={`text-[10px] ml-0.5 ${activeFolder === f.key ? "text-primary-foreground/70" : "text-muted-foreground/60"}`}>
+                {folderCounts[f.key]}
+              </span>
+            )}
           </button>
         ))}
         <div className="relative flex-1 max-w-sm ml-auto">
@@ -314,7 +356,9 @@ const EmailPage = () => {
         ) : emailLogs.length === 0 ? (
           <div className="text-center py-12">
             <Inbox className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-            <p className="text-[13px] text-muted-foreground">Geen e-mails gevonden</p>
+            <p className="text-[13px] text-muted-foreground">
+              {activeFolder === "drafts" ? "Geen concepten" : activeFolder === "sent" ? "Geen verzonden e-mails" : "Geen e-mails gevonden"}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -323,7 +367,6 @@ const EmailPage = () => {
               const badge = statusBadge[m.status] ?? statusBadge.sent;
               const isInbound = m.direction === "inbound";
               const sender = getSenderDisplay(m);
-              // Use plain text body for preview, not html
               const preview = m.body || "";
 
               return (
@@ -332,7 +375,9 @@ const EmailPage = () => {
                   onClick={() => setSelectedId(m.id)}
                   className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-muted/40 transition-colors group"
                 >
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${isInbound ? "bg-primary" : "bg-muted-foreground/30"}`} />
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${
+                    m.status === "draft" ? "bg-muted-foreground/50" : isInbound ? "bg-primary" : "bg-muted-foreground/30"
+                  }`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-[12px] font-bold truncate max-w-[180px]">
@@ -350,9 +395,6 @@ const EmailPage = () => {
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {isInbound && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary-muted text-primary">IN</span>
-                    )}
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${badge.cls}`}>{badge.label}</span>
                     {!m.is_automated && (
                       <span
