@@ -34,9 +34,9 @@ serve(async (req) => {
       });
     }
 
-    const MAPBOX_ACCESS_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN");
-    if (!MAPBOX_ACCESS_TOKEN) {
-      throw new Error("MAPBOX_ACCESS_TOKEN not configured");
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_ROUTES_API_KEY");
+    if (!GOOGLE_API_KEY) {
+      throw new Error("GOOGLE_ROUTES_API_KEY not configured");
     }
 
     const supabase = createClient(
@@ -64,14 +64,14 @@ serve(async (req) => {
       const query = parts.join(", ");
 
       try {
-        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_ACCESS_TOKEN}&country=nl&language=nl&types=address&limit=1`;
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&region=nl&language=nl&key=${GOOGLE_API_KEY}`;
         const res = await fetch(url);
         const data = await res.json();
 
-        const feature = data.features?.[0];
-        if (feature?.center) {
-          const lng = feature.center[0];
-          const lat = feature.center[1];
+        const result = data.results?.[0];
+        if (result?.geometry?.location) {
+          const lat = result.geometry.location.lat;
+          const lng = result.geometry.location.lng;
 
           const { error: updateError } = await supabase
             .from("customers")

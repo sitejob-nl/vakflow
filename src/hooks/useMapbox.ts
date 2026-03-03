@@ -30,7 +30,7 @@ export const useGeocode = () => {
     timerRef.current = setTimeout(async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase.functions.invoke("mapbox-proxy", {
+        const { data, error } = await supabase.functions.invoke("google-maps-proxy", {
           body: { action: "geocode", query },
         });
         if (error) throw error;
@@ -56,7 +56,7 @@ export const useDirections = () => {
     async (from: [number, number], to: [number, number]) => {
       setLoading(true);
       try {
-        const { data, error } = await supabase.functions.invoke("mapbox-proxy", {
+        const { data, error } = await supabase.functions.invoke("google-maps-proxy", {
           body: { action: "directions", from, to },
         });
         if (error) throw error;

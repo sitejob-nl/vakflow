@@ -84,7 +84,7 @@ const CustomerDialog = ({ open, onOpenChange, customer, onCreated }: Props) => {
     if (payload.lat == null && payload.lng == null && payload.address && payload.city) {
       try {
         const query = [payload.address, payload.postal_code, payload.city].filter(Boolean).join(", ");
-        const { data, error } = await supabase.functions.invoke("mapbox-proxy", {
+        const { data, error } = await supabase.functions.invoke("google-maps-proxy", {
           body: { action: "geocode", query },
         });
         if (!error && data?.[0]) {
