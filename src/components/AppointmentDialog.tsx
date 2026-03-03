@@ -246,10 +246,19 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
 
     try {
       if (isEdit) {
-        await updateAppointment.mutateAsync({ id: appointment!.id, ...payload });
+        await updateAppointment.mutateAsync({
+          id: appointment!.id,
+          ...payload,
+          _customers: customers,
+          _services: services,
+        });
         toast({ title: "Afspraak bijgewerkt" });
       } else {
-        await createAppointment.mutateAsync(payload);
+        await createAppointment.mutateAsync({
+          ...payload,
+          _customers: customers,
+          _services: services,
+        });
         toast({ title: "Afspraak aangemaakt" });
 
         // Trigger WhatsApp automation
