@@ -1,45 +1,36 @@
 
 
-# Fix: Toon Vercel-specifieke DNS-records in custom domain UI
+## Analyse: WhatsApp tenant registratie faalt voor tweede bedrijf
 
-## Probleem
+### Probleem
 
-De Vercel API retourneert specifieke DNS-verificatierecords (CNAME met unieke waarde + TXT-record) wanneer een domein aan een ander Vercel-account is gekoppeld. De huidige UI toont alleen een generieke instructie ("stel CNAME in naar cname.vercel-dns.com"), maar negeert de `verification`-array die Vercel teruggeeft.
+De `whatsapp-register` Edge Function stuurt voor elk bedrijf dezelfde `webhook_url` naar het Connect platform:
 
-Uit je screenshot blijkt dat Vercel deze records vereist:
-- **CNAME** `test` → `ebc47d62a95136b7.vercel-dns-017.com.`
-- **TXT** `_vercel` → `vc-domain-verify=test.sitejob.nl,ae91d7df48575fe566fc`
-
-## Oplossing
-
-### 1. Edge Function (`manage-custom-domain/index.ts`)
-De `verification`-array wordt al doorgegeven in de response (`vercelData.verification`). Hier hoeft niets te veranderen.
-
-### 2. Settings UI (`src/pages/SettingsPage.tsx`)
-Update de DNS-instructiesectie (regels ~1017-1041) om de `verification`-array uit `customDomainStatus` te tonen:
-
-- Als `customDomainStatus.verification` bestaat en niet leeg is → toon elke record (type, name, value) in een overzichtelijke tabel/lijst
-- Als er geen verification-array is → toon de huidige generieke CNAME-instructie als fallback
-- Voeg een "Kopieer"-knop toe per record-waarde voor gebruiksgemak
-
-**Voorbeeldweergave:**
-
-```text
-┌─────────────────────────────────────────────────────┐
-│ ℹ DNS instellen                                     │
-│                                                     │
-│ Stel de volgende records in bij je domeinprovider:   │
-│                                                     │
-│  Type   │ Name     │ Value                    [📋]  │
-│  CNAME  │ test     │ ebc47d62...dns-017.com.  [📋]  │
-│  TXT    │ _vercel  │ vc-domain-verify=...     [📋]  │
-│                                                     │
-│ SSL wordt automatisch geregeld na verificatie.       │
-│ ⚠ Wacht op DNS-verificatie                          │
-└─────────────────────────────────────────────────────┘
 ```
+https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/whatsapp-webhook
+```
+
+Als Connect de webhook_url als uniek beschouwt, wordt het tweede bedrijf geweigerd. Daarnaast komt de `name` parameter uit `profiles.company_name` (die mogelijk leeg of identiek is voor meerdere bedrijven), in plaats van uit de `companies` tabel.
+
+### Oplossing
+
+**1. Maak de webhook_url uniek per bedrijf** door de `company_id` als query parameter mee te sturen:
+
+In `src/pages/SettingsPage.tsx`:
+```typescript
+const webhookUrl = `https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/whatsapp-webhook?company_id=${companyId}`;
+```
+
+**2. Gebruik de company naam uit de companies tabel** in plaats van `profiles.company_name` (die een legacy-veld is):
+
+In `src/pages/SettingsPage.tsx` - vervang de profile lookup door het al beschikbare `companyId` en haal de naam op uit `companies_safe`.
+
+**3. Verwerk de company_id query parameter in de whatsapp-webhook** zodat inkomende berichten correct gerouteerd worden als de URL deze bevat (bestaande routing op `phone_number_id` blijft intact als fallback).
+
+In `supabase/functions/whatsapp-webhook/index.ts` - lees optioneel `company_id` uit de URL query params.
 
 | Bestand | Wijziging |
 |---------|-----------|
-| `src/pages/SettingsPage.tsx` | Toon `verification`-records dynamisch, met kopieerknoppen en fallback naar generieke CNAME |
+| `src/pages/SettingsPage.tsx` | Unieke webhook_url met company_id; bedrijfsnaam uit companies_safe |
+| `supabase/functions/whatsapp-webhook/index.ts` | Optionele company_id uit query params ondersteunen |
 
