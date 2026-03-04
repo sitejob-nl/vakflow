@@ -314,6 +314,23 @@ const SettingsPage = () => {
   const syncQuotesMoneybird = useSyncQuotesMoneybird();
   const pullQuotesMoneybird = usePullQuotesMoneybird();
 
+  // Exact Online state
+  const [exactConnected, setExactConnected] = useState(false);
+  const [exactCompanyName, setExactCompanyName] = useState("");
+  const [exactDivision, setExactDivision] = useState<number | null>(null);
+  const [exactConnecting, setExactConnecting] = useState(false);
+  const [exactTesting, setExactTesting] = useState(false);
+  const [exactSyncingContacts, setExactSyncingContacts] = useState(false);
+  const [exactSyncingInvoices, setExactSyncingInvoices] = useState(false);
+  const [exactPullingContacts, setExactPullingContacts] = useState(false);
+  const [exactPullingInvoices, setExactPullingInvoices] = useState(false);
+  const [exactPullingStatus, setExactPullingStatus] = useState(false);
+  const syncContactsExact = useSyncContactsExact();
+  const syncInvoicesExact = useSyncInvoicesExact();
+  const pullContactsExact = usePullContactsExact();
+  const pullInvoicesExact = usePullInvoicesExact();
+  const pullInvoiceStatusExact = usePullInvoiceStatusExact();
+
   // Team members state
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [teamRoles, setTeamRoles] = useState<Record<string, string>>({});
