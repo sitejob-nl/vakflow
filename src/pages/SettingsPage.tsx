@@ -327,6 +327,8 @@ const SettingsPage = () => {
   const [exactPullingStatus, setExactPullingStatus] = useState(false);
   const [exactSyncingQuotes, setExactSyncingQuotes] = useState(false);
   const [exactPullingQuotes, setExactPullingQuotes] = useState(false);
+  const [exactUnlinkedCustomers, setExactUnlinkedCustomers] = useState<{ name: string; exact_account_id: string }[]>([]);
+  const [exactLinkingCustomer, setExactLinkingCustomer] = useState<string | null>(null);
   const syncContactsExact = useSyncContactsExact();
   const syncInvoicesExact = useSyncInvoicesExact();
   const pullContactsExact = usePullContactsExact();
