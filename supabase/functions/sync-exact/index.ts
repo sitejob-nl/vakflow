@@ -379,12 +379,96 @@ Deno.serve(async (req) => {
       }
 
       case "pull-status": {
-        // Check payment status of synced invoices
         const openInvoices = await exactGetAll(
           base_url, division, "salesinvoice/SalesInvoices", access_token,
           "$select=InvoiceID,InvoiceNumber,Status,AmountDC&$filter=Status ne 50"
         );
         return jsonRes({ checked: openInvoices.length, updated: 0, errors: [] });
+      }
+
+      case "sync-quotes": {
+        // Push local quotes to Exact as Quotations
+        const { data: quotes } = await supabaseAdmin
+          .from("quotes")
+          .select("*, customers(name, email, exact_account_id)")
+          .eq("company_id", companyId)
+          .eq("status", "verstuurd");
+
+        if (!quotes?.length) return jsonRes({ synced: 0, skipped: 0, errors: [] });
+
+        let synced = 0, skipped = 0;
+        const errors: string[] = [];
+
+        for (const q of quotes) {
+          try {
+            const customer = q.customers as any;
+            if (!customer?.exact_account_id) {
+              skipped++;
+              errors.push(`${q.quote_number}: Klant heeft geen Exact Account ID`);
+              continue;
+            }
+
+            const items = (q.items as any[]) || [];
+            const quotationLines = items.map((item: any) => ({
+              Description: item.description || item.name || "Regel",
+              Quantity: item.quantity || 1,
+              UnitPrice: item.unit_price || item.price || 0,
+            }));
+
+            if (!quotationLines.length) {
+              skipped++;
+              errors.push(`${q.quote_number}: Geen offerteregels`);
+              continue;
+            }
+
+            const quotationData: Record<string, unknown> = {
+              OrderAccount: customer.exact_account_id,
+              Description: `Offerte ${q.quote_number || ""}`.trim(),
+              QuotationDate: q.issued_at || new Date().toISOString().split("T")[0],
+              QuotationLines: quotationLines,
+            };
+
+            if (q.valid_until) {
+              quotationData.ClosingDate = q.valid_until;
+            }
+
+            const result = await exactPost(
+              `${base_url}/api/v1/${division}/crm/Quotations`,
+              access_token,
+              quotationData
+            );
+
+            if (!result.ok) {
+              errors.push(`${q.quote_number}: ${result.error}`);
+              continue;
+            }
+            synced++;
+          } catch (err: any) {
+            errors.push(`${q.quote_number}: ${err.message}`);
+          }
+        }
+
+        await logUsage(supabaseAdmin, companyId, "exact_sync_quotes", { synced, skipped, errors: errors.length });
+        return jsonRes({ synced, skipped, errors });
+      }
+
+      case "pull-quotes": {
+        // Read-only: list quotations from Exact
+        const quotations = await exactGetAll(
+          base_url, division, "crm/Quotations", access_token,
+          "$select=QuotationID,QuotationNumber,QuotationDate,AmountDC,StatusDescription,Description&$orderby=QuotationDate desc"
+        );
+
+        const result = quotations.map((q: any) => ({
+          exact_id: q.QuotationID,
+          number: q.QuotationNumber,
+          date: q.QuotationDate,
+          amount: q.AmountDC,
+          status: q.StatusDescription,
+          description: q.Description,
+        }));
+
+        return jsonRes({ total_in_exact: quotations.length, quotes: result });
       }
 
       default:

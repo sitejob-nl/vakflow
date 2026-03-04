@@ -3,7 +3,7 @@ import { usePersonalOutlookToken, useDeletePersonalOutlookToken } from "@/hooks/
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Upload, UserPlus, Users, MessageSquare, ChevronDown, ChevronUp, BookOpen, AlertTriangle, HelpCircle, Mail, Eye, Globe, Info, Copy } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Upload, Download, UserPlus, Users, MessageSquare, ChevronDown, ChevronUp, BookOpen, AlertTriangle, HelpCircle, Mail, Eye, Globe, Info, Copy } from "lucide-react";
 import { useEmailTemplates, useCreateEmailTemplate, useUpdateEmailTemplate, useDeleteEmailTemplate, type EmailTemplate } from "@/hooks/useEmailTemplates";
 import EmailTemplateEditor, { DEFAULT_TEMPLATE } from "@/components/EmailTemplateEditor";
 import { useAutoMessageSettings, useUpsertAutoMessageSetting, MESSAGE_TYPES, LABELS } from "@/hooks/useAutoMessageSettings";
@@ -12,7 +12,7 @@ import { useWhatsAppTemplates, useDeleteWhatsAppTemplate, useCreateWhatsAppTempl
 import { useWhatsAppProfile, useUpdateWhatsAppProfile, useUploadWhatsAppProfilePhoto } from "@/hooks/useWhatsAppProfile";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServices, useDeleteService } from "@/hooks/useCustomers";
-import { useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden, useSyncContactsRompslomp, useSyncInvoicesRompslomp, usePullContactsRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncQuotesRompslomp, usePullQuotesRompslomp, useSyncContactsMoneybird, usePullContactsMoneybird, useSyncInvoicesMoneybird, usePullInvoicesMoneybird, usePullInvoiceStatusMoneybird, useSyncQuotesMoneybird, usePullQuotesMoneybird, useSyncContactsExact, usePullContactsExact, useSyncInvoicesExact, usePullInvoicesExact, usePullInvoiceStatusExact } from "@/hooks/useInvoices";
+import { useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden, useSyncContactsRompslomp, useSyncInvoicesRompslomp, usePullContactsRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncQuotesRompslomp, usePullQuotesRompslomp, useSyncContactsMoneybird, usePullContactsMoneybird, useSyncInvoicesMoneybird, usePullInvoicesMoneybird, usePullInvoiceStatusMoneybird, useSyncQuotesMoneybird, usePullQuotesMoneybird, useSyncContactsExact, usePullContactsExact, useSyncInvoicesExact, usePullInvoicesExact, usePullInvoiceStatusExact, useSyncQuotesExact, usePullQuotesExact } from "@/hooks/useInvoices";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -325,11 +325,15 @@ const SettingsPage = () => {
   const [exactPullingContacts, setExactPullingContacts] = useState(false);
   const [exactPullingInvoices, setExactPullingInvoices] = useState(false);
   const [exactPullingStatus, setExactPullingStatus] = useState(false);
+  const [exactSyncingQuotes, setExactSyncingQuotes] = useState(false);
+  const [exactPullingQuotes, setExactPullingQuotes] = useState(false);
   const syncContactsExact = useSyncContactsExact();
   const syncInvoicesExact = useSyncInvoicesExact();
   const pullContactsExact = usePullContactsExact();
   const pullInvoicesExact = usePullInvoicesExact();
   const pullInvoiceStatusExact = usePullInvoiceStatusExact();
+  const syncQuotesExact = useSyncQuotesExact();
+  const pullQuotesExact = usePullQuotesExact();
 
   // Team members state
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -1803,6 +1807,51 @@ const SettingsPage = () => {
                     >
                       {exactSyncingInvoices ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                       Facturen pushen
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setExactPullingInvoices(true);
+                        try {
+                          const result = await pullInvoicesExact.mutateAsync();
+                          toast({ title: "Facturen opgehaald", description: `${result.total_in_exact} facturen in Exact, ${result.linked || 0} al gekoppeld` });
+                        } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
+                        setExactPullingInvoices(false);
+                      }}
+                      disabled={exactPullingInvoices}
+                      className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {exactPullingInvoices ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                      Facturen ophalen
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setExactSyncingQuotes(true);
+                        try {
+                          const result = await syncQuotesExact.mutateAsync();
+                          toast({ title: "Offertes gesynchroniseerd", description: `${result.synced} gesynct${result.errors.length ? `, ${result.errors.length} fouten` : ""}`, variant: result.errors.length ? "destructive" : "default" });
+                        } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
+                        setExactSyncingQuotes(false);
+                      }}
+                      disabled={exactSyncingQuotes}
+                      className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {exactSyncingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      Offertes pushen
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setExactPullingQuotes(true);
+                        try {
+                          const result = await pullQuotesExact.mutateAsync();
+                          toast({ title: "Offertes opgehaald", description: `${result.total_in_exact} offertes in Exact` });
+                        } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
+                        setExactPullingQuotes(false);
+                      }}
+                      disabled={exactPullingQuotes}
+                      className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {exactPullingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                      Offertes ophalen
                     </button>
                     <button
                       onClick={async () => {
