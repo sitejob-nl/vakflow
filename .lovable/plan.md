@@ -1,91 +1,85 @@
 
 
-# Plan: Subdomain-based Tenant Routing met Multi-Brand Support
+# Plan: Custom Domain Support met Vercel API + Admin-verificatie
 
 ## Overzicht
 
-Client-side subdomain detectie met ondersteuning voor meerdere brand-domeinen (vakflow.nl, wasflow.nl, groenflow.nl). Een publieke Edge Function voor tenant-lookup voor login. TenantContext app-breed beschikbaar, niet alleen op AuthPage. Post-login validatie dat de user bij de juiste tenant hoort.
+Klanten kunnen hun eigen domein (bijv. `app.bedrijfsnaam.nl`) koppelen via de instellingenpagina. Een nieuwe edge function handelt de Vercel API-integratie af en valideert dat de ingelogde gebruiker admin is van het betreffende bedrijf. De tenant-detectie en lookup worden uitgebreid om custom domains te herkennen.
 
-## 1. Edge Function: `tenant-lookup`
+## 1. Database: `custom_domain` kolom
 
-**Nieuw bestand:** `supabase/functions/tenant-lookup/index.ts`
+SQL migratie:
+```sql
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS custom_domain text UNIQUE;
 
-- Accepteert `GET ?slug=blinkit`
-- Gebruikt service role key om RLS te bypassen
-- Retourneert **uitsluitend publieke velden**: `{ name, logo_url, brand_color, industry, subcategory }`
-- Geen user-lijsten, geen financiele data, geen interne config
-- `verify_jwt = false` in config.toml
-
-## 2. TenantContext (app-breed)
-
-**Nieuw bestand:** `src/contexts/TenantContext.tsx`
-
-Subdomain-detectie met multi-brand support:
-
-```typescript
-const BRAND_DOMAINS: Record<string, Industry> = {
-  'vakflow.nl': 'technical',
-  'wasflow.nl': 'cleaning',
-  'groenflow.nl': 'landscaping',
-  // autoflow.nl en pestflow.nl later toe te voegen
-};
-
-function detectTenant(hostname: string) {
-  // Skip localhost, lovable.app previews
-  if (hostname === 'localhost' || hostname.endsWith('.lovable.app')) return null;
-
-  const parts = hostname.split('.');
-  const baseDomain = parts.slice(-2).join('.'); // "vakflow.nl"
-  const subdomain = parts.length >= 3 ? parts[0] : null;
-
-  if (!subdomain || subdomain === 'app' || subdomain === 'www') return null;
-  
-  const brandIndustry = BRAND_DOMAINS[baseDomain] ?? null;
-  return { subdomain, brandIndustry, baseDomain };
-}
+DROP VIEW IF EXISTS public.companies_safe;
+CREATE VIEW public.companies_safe AS
+SELECT
+  id, name, slug, address, city, postal_code, phone,
+  kvk_number, btw_number, iban, logo_url, brand_color, max_users,
+  created_at, enabled_features, accounting_provider,
+  email_provider, outlook_email, outlook_client_id, outlook_tenant_id,
+  smtp_email, smtp_host, smtp_port,
+  rompslomp_company_id, rompslomp_company_name, rompslomp_tenant_id,
+  moneybird_administration_id,
+  eboekhouden_ledger_id, eboekhouden_template_id, eboekhouden_debtor_ledger_id,
+  industry, subcategory, custom_domain
+FROM public.companies;
 ```
 
-Context exposeert:
-- `tenant`: opgehaalde tenant-data (naam, logo, kleur, industry)
-- `tenantSlug`: het subdomain
-- `brandIndustry`: de industry op basis van het domein (fallback als tenant geen industry heeft)
-- `isTenantSite`: boolean
-- `loading`: boolean
+## 2. Edge Function: `manage-custom-domain` (nieuw)
 
-**Belangrijk:** TenantContext wraps de hele app in `App.tsx`, **buiten** AuthProvider, zodat het zowel op AuthPage als in AppLayout beschikbaar is.
+Beveiligd met JWT-verificatie + admin-check:
+- Haalt `userId` op via `supabase.auth.getUser()`
+- Haalt `company_id` op via profiles
+- Checkt `has_role(userId, 'admin')` — weigert als de user geen admin is
+- Slaat `custom_domain` op in de companies tabel (alleen voor eigen bedrijf)
+- Roept Vercel API aan om domein toe te voegen aan het project (`POST /v10/projects/{id}/domains`)
+- Ondersteunt ook `GET` om de verificatie-status op te vragen bij Vercel
 
-## 3. AuthPage branding
+Vereiste secrets: `VERCEL_TOKEN` en `VERCEL_PROJECT_ID` (moeten nog worden toegevoegd).
 
-`src/pages/AuthPage.tsx` wijzigingen:
-- Gebruikt `useTenant()` om tenant-data op te halen
-- Toont tenant-logo i.p.v. Vakflow-logo als er een tenant is
-- Past brand_color toe als CSS variabele op de login-card
-- Toont bedrijfsnaam: "Log in bij Blink It"
+## 3. `tenant-lookup` uitbreiden
 
-## 4. Post-login tenant validatie
+Naast `?slug=blinkit` ook `?domain=app.bedrijfsnaam.nl` ondersteunen:
+- Als `domain` parameter aanwezig: zoek op `custom_domain` kolom
+- Retourneert dezelfde publieke velden
+- Basis hostname-format validatie
 
-In `AuthContext.tsx`, na succesvolle login op een tenant-subdomain:
-- Vergelijk `realCompanyId` met de tenant's company ID
-- Als ze niet matchen: toon foutmelding "Dit account hoort niet bij dit bedrijf" en log automatisch uit
-- RLS vangt het in de database op, maar de UI geeft een duidelijke foutmelding
+## 4. TenantContext: custom domain fallback
 
-## 5. AppLayout integratie
+De `detectTenant` functie krijgt een derde pad:
 
-`AppLayout.tsx` gebruikt TenantContext als bron voor brand_color wanneer beschikbaar (tenant overschrijft company data voor de visuele laag). De industry/subcategory uit TenantContext voedt dezelfde `useIndustryConfig` hook.
+```text
+hostname inkomend
+  ├─ localhost / .lovable.app / .vercel.app → null (dev)
+  ├─ baseDomain in BRAND_DOMAINS → { subdomain, brandIndustry }
+  └─ onbekend domein → { customDomain: hostname }
+```
+
+Bij `customDomain`: fetch `tenant-lookup?domain=hostname` i.p.v. `?slug=...`. De context krijgt een extra veld `customDomain`.
+
+## 5. SettingsPage: custom domain invoerveld
+
+Onder het bestaande slug-veld in "Bedrijfsgegevens":
+- Input voor custom domain (bijv. `app.bedrijfsnaam.nl`)
+- Opslaan roept `manage-custom-domain` edge function aan via `supabase.functions.invoke()`
+- Na opslaan: toon DNS-instructies in een info-blok:
+  - "Stel een CNAME-record in bij je hosting: `app` → `cname.vercel-dns.com`"
+- Toon verificatie-status (pending/verified) op basis van Vercel API response
 
 ## Bestanden
 
 | Bestand | Actie |
 |---------|-------|
-| `supabase/functions/tenant-lookup/index.ts` | **Nieuw** — publieke slug-lookup |
-| `supabase/config.toml` | Toevoegen `[functions.tenant-lookup]` |
-| `src/contexts/TenantContext.tsx` | **Nieuw** — subdomain detectie + tenant state + multi-brand |
-| `src/App.tsx` | TenantProvider wrappen rond AuthProvider |
-| `src/pages/AuthPage.tsx` | Tenant branding op login pagina |
-| `src/contexts/AuthContext.tsx` | Post-login tenant validatie |
-| `src/components/AppLayout.tsx` | TenantContext brand color als primaire bron |
+| Database migratie | `custom_domain` kolom + view update |
+| `supabase/functions/manage-custom-domain/index.ts` | **Nieuw** — JWT + admin check + Vercel API + DB opslag |
+| `supabase/config.toml` | `[functions.manage-custom-domain]` toevoegen (verify_jwt = false, validatie in code) |
+| `supabase/functions/tenant-lookup/index.ts` | `domain` parameter toevoegen |
+| `src/contexts/TenantContext.tsx` | Custom domain fallback in detectie + fetch |
+| `src/pages/SettingsPage.tsx` | Custom domain input + DNS instructies + status |
 
-## Geen database wijzigingen nodig
+## Vereiste secrets
 
-De `companies` tabel heeft al `slug`, `logo_url`, `brand_color`, `industry`, `subcategory`. De Edge Function leest direct uit deze tabel.
+`VERCEL_TOKEN` en `VERCEL_PROJECT_ID` moeten als Supabase secrets worden toegevoegd voordat de edge function werkt. Ik vraag deze op na goedkeuring van het plan.
 
