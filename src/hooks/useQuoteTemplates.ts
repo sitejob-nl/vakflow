@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { QuoteItem, OptionalItem } from "@/hooks/useQuotes";
+import type { TemplateBlock } from "@/components/QuoteTemplateBuilder";
 
 export interface QuoteTemplateDB {
   id: string;
@@ -9,6 +10,7 @@ export interface QuoteTemplateDB {
   name: string;
   items: QuoteItem[];
   optional_items: OptionalItem[];
+  blocks: TemplateBlock[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +38,7 @@ export const useQuoteTemplatesDB = () => {
         ...t,
         items: Array.isArray(t.items) ? t.items : [],
         optional_items: Array.isArray(t.optional_items) ? t.optional_items : [],
+        blocks: Array.isArray(t.blocks) ? t.blocks : null,
       })) as QuoteTemplateDB[];
     },
   });
@@ -59,7 +62,7 @@ export const useCreateQuoteTemplate = () => {
   const qc = useQueryClient();
   const { user, companyId } = useAuth();
   return useMutation({
-    mutationFn: async (tpl: { name: string; items: QuoteItem[]; optional_items: OptionalItem[] }) => {
+    mutationFn: async (tpl: { name: string; items: QuoteItem[]; optional_items: OptionalItem[]; blocks?: TemplateBlock[] }) => {
       const { data, error } = await supabase
         .from("quote_templates")
         .insert({ ...tpl, user_id: user!.id, company_id: companyId } as any)
@@ -75,7 +78,7 @@ export const useCreateQuoteTemplate = () => {
 export const useUpdateQuoteTemplate = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; name?: string; items?: QuoteItem[]; optional_items?: OptionalItem[] }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; name?: string; items?: QuoteItem[]; optional_items?: OptionalItem[]; blocks?: TemplateBlock[] }) => {
       const { data, error } = await supabase
         .from("quote_templates")
         .update(updates as any)
