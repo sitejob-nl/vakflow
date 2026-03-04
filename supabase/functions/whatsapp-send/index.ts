@@ -1,6 +1,6 @@
 import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
-import { normalizePhone } from "../_shared/phone.ts";
+import { normalizePhone, findCustomerByPhone } from "../_shared/phone.ts";
 import { logUsage } from "../_shared/usage.ts";
 import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
@@ -226,6 +226,13 @@ Deno.serve(async (req) => {
     }
 
     if (!isReaction && result.messages?.[0]?.id) {
+      // Auto-resolve customer_id als die ontbreekt, op basis van telefoonnummer
+      let resolvedCustomerId = customer_id || null;
+      if (!resolvedCustomerId && companyId) {
+        const found = await findCustomerByPhone(supabaseAdmin, normalizedTo, companyId);
+        if (found) resolvedCustomerId = found.id;
+      }
+
       await supabaseAdmin.from("whatsapp_messages").insert({
         wamid: result.messages[0].id,
         direction: "outgoing",
@@ -234,7 +241,7 @@ Deno.serve(async (req) => {
         type,
         status: "sent",
         sent_by: userId,
-        customer_id: customer_id || null,
+        customer_id: resolvedCustomerId,
         company_id: companyId,
       });
       await logUsage(supabaseAdmin, companyId, "whatsapp_sent", { to: normalizedTo, type });
