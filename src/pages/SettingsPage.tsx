@@ -480,7 +480,7 @@ const SettingsPage = () => {
         setLocation(profileData.location ?? "");
       }
       // Load company data
-      const { data: companyData } = await supabase.from("companies").select("*").limit(1).single();
+      const { data: companyData } = await supabase.from("companies_safe" as any).select("*").limit(1).single();
       if (companyData) {
         setCompanyName((companyData as any).name ?? "");
         setKvkNumber((companyData as any).kvk_number ?? "");
@@ -493,28 +493,26 @@ const SettingsPage = () => {
         setSmtpEmail((companyData as any).smtp_email || user?.email || "");
         setSmtpHost((companyData as any).smtp_host || "smtp.transip.email");
         setSmtpPort(String((companyData as any).smtp_port || "465"));
-        setSmtpHasCredentials(!!(companyData as any).smtp_email && !!(companyData as any).smtp_password);
+        setSmtpHasCredentials(!!(companyData as any).smtp_email);
         setAccountingProvider((companyData as any).accounting_provider ?? null);
         setEmailProvider((companyData as any).email_provider ?? "smtp");
-        // outlook_tenant_id and outlook_client_id no longer per-company
         setOutlookEmail((companyData as any).outlook_email ?? "");
-        setOutlookConnected(!!(companyData as any).outlook_refresh_token);
+        // Outlook connection status — check personal token or outlook_email presence
+        setOutlookConnected(!!(companyData as any).outlook_email);
         setEbTemplateId(String((companyData as any).eboekhouden_template_id ?? ""));
         setEbLedgerId(String((companyData as any).eboekhouden_ledger_id ?? ""));
         setEbDebtorLedgerId(String((companyData as any).eboekhouden_debtor_ledger_id ?? ""));
-        setEbConnected(!!(companyData as any).eboekhouden_api_token);
+        setEbConnected(!!(companyData as any).eboekhouden_ledger_id);
         setCompanyLogoPreview((companyData as any).logo_url ?? null);
         setBrandColor((companyData as any).brand_color ?? "");
         // Rompslomp
-        setRompslompConnected(!!(companyData as any).rompslomp_api_token && !!(companyData as any).rompslomp_company_id);
+        setRompslompConnected(!!(companyData as any).rompslomp_company_id);
         setRompslompCompanyName((companyData as any).rompslomp_company_name ?? "");
-        // Don't show encrypted token value — show placeholder if set
-        setRompslompApiToken((companyData as any).rompslomp_api_token ? "••••••••" : "");
+        setRompslompApiToken("");
         setRompslompCompanyId((companyData as any).rompslomp_company_id ?? "");
         // Moneybird
-        setMoneybirdConnected(!!(companyData as any).moneybird_api_token && !!(companyData as any).moneybird_administration_id);
-        // Don't show encrypted token value — show placeholder if set
-        setMoneybirdApiToken((companyData as any).moneybird_api_token ? "••••••••" : "");
+        setMoneybirdConnected(!!(companyData as any).moneybird_administration_id);
+        setMoneybirdApiToken("");
         setMoneybirdAdminId((companyData as any).moneybird_administration_id ?? "");
       }
       setLoading(false);
@@ -525,10 +523,10 @@ const SettingsPage = () => {
   useEffect(() => {
     const handler = async (e: MessageEvent) => {
       if (e.data === "outlook-connected") {
-        const { data: companyData } = await supabase.from("companies").select("outlook_email, outlook_refresh_token").limit(1).single();
+        const { data: companyData } = await supabase.from("companies_safe" as any).select("outlook_email").limit(1).single();
         if (companyData) {
           setOutlookEmail((companyData as any).outlook_email ?? "");
-          setOutlookConnected(!!(companyData as any).outlook_refresh_token);
+          setOutlookConnected(true);
         }
         toast({ title: "Outlook gekoppeld!" });
       }

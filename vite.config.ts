@@ -22,9 +22,9 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [/^\/~oauth/],
       },
       manifest: {
-        name: "VentFlow - MV Solutions",
-        short_name: "VentFlow",
-        description: "Service & planning platform voor ventilatiereinigingen",
+        name: "Vakflow",
+        short_name: "Vakflow",
+        description: "Service & planning platform voor vakmensen",
         theme_color: "#383eed",
         background_color: "#f5f5f7",
         display: "standalone",
@@ -38,6 +38,17 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ].filter(Boolean),
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          recharts: ["recharts"],
+          xlsx: ["xlsx"],
+          googlemaps: ["@vis.gl/react-google-maps"],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

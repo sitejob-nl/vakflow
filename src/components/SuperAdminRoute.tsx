@@ -2,8 +2,8 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
-const AdminRoute = ({ children, fallback }: { children: React.ReactNode; fallback?: React.ReactNode }) => {
-  const { isAdmin, role } = useAuth();
+const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isSuperAdmin, role } = useAuth();
 
   if (role === null) {
     return (
@@ -13,12 +13,11 @@ const AdminRoute = ({ children, fallback }: { children: React.ReactNode; fallbac
     );
   }
 
-  if (!isAdmin) {
-    if (fallback) return <>{fallback}</>;
+  if (!isSuperAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
 };
 
-export default AdminRoute;
+export default SuperAdminRoute;
