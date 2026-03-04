@@ -449,3 +449,73 @@ export const usePullQuotesMoneybird = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["quotes"] }),
   });
 };
+
+// ─── Exact Online sync hooks ───
+
+export const useSyncContactsExact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-exact", { body: { action: "sync-contacts" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; skipped: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+  });
+};
+
+export const usePullContactsExact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-exact", { body: { action: "pull-contacts" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total_in_exact: number; already_imported: number; imported: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+  });
+};
+
+export const useSyncInvoicesExact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-exact", { body: { action: "sync-invoices" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; skipped: number; errors: string[] };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
+    },
+  });
+};
+
+export const usePullInvoicesExact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-exact", { body: { action: "pull-invoices" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total_in_exact: number; already_imported: number; imported: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+};
+
+export const usePullInvoiceStatusExact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-exact", { body: { action: "pull-status" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { checked: number; updated: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+};

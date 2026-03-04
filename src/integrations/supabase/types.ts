@@ -876,6 +876,60 @@ export type Database = {
           },
         ]
       }
+      exact_config: {
+        Row: {
+          company_id: string
+          company_name_exact: string | null
+          created_at: string
+          division: number | null
+          id: string
+          region: string | null
+          status: string
+          tenant_id: string | null
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          company_id: string
+          company_name_exact?: string | null
+          created_at?: string
+          division?: number | null
+          id?: string
+          region?: string | null
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          company_id?: string
+          company_name_exact?: string | null
+          created_at?: string
+          division?: number | null
+          id?: string
+          region?: string | null
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exact_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exact_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           company_id: string | null

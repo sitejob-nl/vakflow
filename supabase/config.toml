@@ -47,3 +47,9 @@ verify_jwt = false
 
 [functions.manage-custom-domain]
 verify_jwt = false
+
+[functions.exact-config]
+verify_jwt = false
+
+[functions.exact-webhook]
+verify_jwt = false

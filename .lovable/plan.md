@@ -1,99 +1,45 @@
 
 
-## Plan: Exact Online integratie via SiteJob Connect
+# Fix: Toon Vercel-specifieke DNS-records in custom domain UI
 
-### Overzicht
+## Probleem
 
-De Exact Online integratie volgt hetzelfde patroon als WhatsApp: registreer een tenant bij SiteJob Connect, open een setup-popup, ontvang config-push, en gebruik tokens on-demand voor API calls.
+De Vercel API retourneert specifieke DNS-verificatierecords (CNAME met unieke waarde + TXT-record) wanneer een domein aan een ander Vercel-account is gekoppeld. De huidige UI toont alleen een generieke instructie ("stel CNAME in naar cname.vercel-dns.com"), maar negeert de `verification`-array die Vercel teruggeeft.
 
-### Database wijzigingen
+Uit je screenshot blijkt dat Vercel deze records vereist:
+- **CNAME** `test` → `ebc47d62a95136b7.vercel-dns-017.com.`
+- **TXT** `_vercel` → `vc-domain-verify=test.sitejob.nl,ae91d7df48575fe566fc`
 
-**Nieuwe tabel: `exact_config`** (vergelijkbaar met `whatsapp_config`)
+## Oplossing
 
-| Kolom | Type | Beschrijving |
-|-------|------|-------------|
-| id | uuid PK | |
-| company_id | uuid UNIQUE NOT NULL | FK naar companies |
-| tenant_id | uuid | Van SiteJob Connect |
-| webhook_secret | text | Voor token requests |
-| division | integer | Exact Online administratie |
-| company_name_exact | text | Naam in Exact |
-| region | text | nl/be/de etc. |
-| status | text | pending / connected / error |
-| created_at | timestamptz | |
-| updated_at | timestamptz | |
+### 1. Edge Function (`manage-custom-domain/index.ts`)
+De `verification`-array wordt al doorgegeven in de response (`vercelData.verification`). Hier hoeft niets te veranderen.
 
-RLS policies: company-scoped lezen/schrijven + super_admin, insert/delete voor admins.
+### 2. Settings UI (`src/pages/SettingsPage.tsx`)
+Update de DNS-instructiesectie (regels ~1017-1041) om de `verification`-array uit `customDomainStatus` te tonen:
 
-### Edge Functions
+- Als `customDomainStatus.verification` bestaat en niet leeg is → toon elke record (type, name, value) in een overzichtelijke tabel/lijst
+- Als er geen verification-array is → toon de huidige generieke CNAME-instructie als fallback
+- Voeg een "Kopieer"-knop toe per record-waarde voor gebruiksgemak
 
-**1. `exact-register` (nieuw)** — Registreer tenant bij Connect
-- Authenticated (JWT via authenticateRequest)
-- Haalt company_id op, checkt bestaande config
-- Stuurt POST naar `exact-register-tenant` met unieke webhook_url (`...exact-webhook?company_id={cid}`)
-- Slaat tenant_id + webhook_secret op in `exact_config`
-- Stale pending configs worden verwijderd (zelfde patroon als WhatsApp)
+**Voorbeeldweergave:**
 
-**2. `exact-config` (nieuw, verify_jwt=false)** — Ontvangt config-push van Connect
-- Verifieert X-Webhook-Secret header
-- Slaat division, company_name, region op
-- Zet status op "connected"
-- Ondersteunt disconnect actie
-
-**3. `exact-webhook` (nieuw, verify_jwt=false)** — Ontvangt doorgestuurde Exact webhooks
-- Verifieert X-Webhook-Secret header
-- Routeert op company_id (query param) of division
-- Verwerkt SalesInvoices/Accounts events (fase 2, initieel alleen loggen)
-
-**4. `sync-exact` (nieuw)** — Sync contacten/facturen met Exact Online
-- Authenticated
-- Haalt verse token op via Connect `exact-token` endpoint
-- Acties: test, sync-contacts, pull-contacts, sync-invoices, pull-invoices, pull-status
-- Gebruikt OData v3 API calls naar Exact Online
-
-### Frontend wijzigingen
-
-**`src/pages/SettingsPage.tsx`** — Vervang de "Binnenkort beschikbaar" placeholder (regel 1702-1707) door een volledige Exact Online sectie:
-
-- **Niet verbonden**: "Koppel Exact Online" knop die:
-  1. `exact-register` Edge Function aanroept
-  2. Setup popup opent (`connect.sitejob.nl/exact-setup?tenant_id=...`)
-  3. Luistert naar `exact-connected` postMessage
-- **Verbonden**: Status tonen + sync knoppen (contacten, facturen) + ontkoppelen
-- Zelfde UI patroon als Rompslomp/Moneybird sectie
-
-**`src/hooks/useInvoices.ts`** — Nieuwe sync hooks toevoegen:
-- `useSyncContactsExact`, `usePullContactsExact`
-- `useSyncInvoicesExact`, `usePullInvoicesExact`
-- `usePullInvoiceStatusExact`
-
-### Config.toml updates
-
-```toml
-[functions.exact-config]
-verify_jwt = false
-
-[functions.exact-webhook]
-verify_jwt = false
+```text
+┌─────────────────────────────────────────────────────┐
+│ ℹ DNS instellen                                     │
+│                                                     │
+│ Stel de volgende records in bij je domeinprovider:   │
+│                                                     │
+│  Type   │ Name     │ Value                    [📋]  │
+│  CNAME  │ test     │ ebc47d62...dns-017.com.  [📋]  │
+│  TXT    │ _vercel  │ vc-domain-verify=...     [📋]  │
+│                                                     │
+│ SSL wordt automatisch geregeld na verificatie.       │
+│ ⚠ Wacht op DNS-verificatie                          │
+└─────────────────────────────────────────────────────┘
 ```
 
-### Bestanden overzicht
-
-| Bestand | Actie |
-|---------|-------|
-| Migration | Nieuwe `exact_config` tabel + RLS |
-| `supabase/functions/exact-register/index.ts` | Nieuw — tenant registratie |
-| `supabase/functions/exact-config/index.ts` | Nieuw — config push ontvanger |
-| `supabase/functions/exact-webhook/index.ts` | Nieuw — webhook ontvanger (initieel: loggen) |
-| `supabase/functions/sync-exact/index.ts` | Nieuw — sync contacten/facturen |
-| `supabase/config.toml` | Toevoegen exact-config + exact-webhook |
-| `src/pages/SettingsPage.tsx` | Exact Online UI (vervang placeholder) |
-| `src/hooks/useInvoices.ts` | Sync hooks voor Exact |
-
-### Implementatievolgorde
-
-1. Database tabel + RLS
-2. Edge Functions (register → config → sync)
-3. Frontend UI + hooks
-4. Webhook handler (initieel alleen loggen)
+| Bestand | Wijziging |
+|---------|-----------|
+| `src/pages/SettingsPage.tsx` | Toon `verification`-records dynamisch, met kopieerknoppen en fallback naar generieke CNAME |
 
