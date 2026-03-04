@@ -1817,8 +1817,10 @@ const SettingsPage = () => {
                           const result = await pullInvoicesExact.mutateAsync();
                           let desc = `${result.imported} geïmporteerd, ${result.already_linked} al aanwezig`;
                           if (result.unlinked_customers?.length) {
-                            const names = result.unlinked_customers.map(c => c.name).join(", ");
-                            desc += `. ⚠️ ${result.unlinked_customers.length} klant(en) niet gekoppeld: ${names}. Synchroniseer eerst je klanten.`;
+                            setExactUnlinkedCustomers(result.unlinked_customers);
+                            desc += `. ⚠️ ${result.unlinked_customers.length} klant(en) niet gekoppeld`;
+                          } else {
+                            setExactUnlinkedCustomers([]);
                           }
                           if (result.errors?.length) {
                             desc += `. ${result.errors.length} fout(en)`;
