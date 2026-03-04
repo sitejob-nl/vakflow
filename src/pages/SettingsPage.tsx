@@ -2636,9 +2636,12 @@ const SettingsPage = () => {
                 onClick={async () => {
                   try {
                     // Stap 1: Registreer tenant via edge function (beveiligt API key server-side)
-                    const companyRes = await supabase.from("companies_safe").select("name").eq("id", companyId).single();
-                    const companyNameVal = companyRes.data?.name || "Mijn bedrijf";
-                    const webhookUrl = `https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/whatsapp-webhook?company_id=${companyId}`;
+                    const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
+                    const cid = profileData?.company_id;
+                    if (!cid) throw new Error("Geen bedrijf gevonden");
+                    const companyRes = await supabase.from("companies_safe").select("name").eq("id", cid).single();
+                    const companyNameVal = (companyRes.data as any)?.name || "Mijn bedrijf";
+                    const webhookUrl = `https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/whatsapp-webhook?company_id=${cid}`;
 
                     const { data: registerData, error: registerError } = await supabase.functions.invoke("whatsapp-register", {
                       body: { name: companyNameVal, webhook_url: webhookUrl },
