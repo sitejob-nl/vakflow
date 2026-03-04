@@ -209,6 +209,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return optionsResponse();
 
   try {
+    // Verify X-Cron-Secret to prevent unauthenticated access
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const requestSecret = req.headers.get("X-Cron-Secret") || req.headers.get("x-cron-secret");
+    if (!cronSecret || requestSecret !== cronSecret) {
+      return jsonRes({ error: "Unauthorized" }, 401);
+    }
+
     const admin = createAdminClient();
     const body = await req.json().catch(() => ({}));
     const syncType: "delta" | "full" = body.sync_type || "delta";

@@ -103,7 +103,7 @@ async function fetchOutlookEvents(admin: any, companyId: string, targetUser: str
         if (seenIds.has(ev.id) || ev.isAllDay) continue;
         seenIds.add(ev.id);
 
-        const override = overrideMap.get(ev.id);
+        const override: any = overrideMap.get(ev.id);
         const lat = override?.lat ? Number(override.lat) : null;
         const lng = override?.lng ? Number(override.lng) : null;
         const pinned = override?.pinned ?? false;

@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
       logo: logoData,
     });
 
-    return new Response(pdf, {
+    return new Response(pdf as unknown as BodyInit, {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/pdf",
@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
       const { createClient: cc } = await import("https://esm.sh/@supabase/supabase-js@2.49.1");
       const admin = cc(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
       const { logEdgeFunctionError: log } = await import("../_shared/error-logger.ts");
-      await log(admin, "generate-workorder-pdf", (err as Error).message, {});
+      await log(admin as any, "generate-workorder-pdf", (err as Error).message, {});
     } catch {}
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
