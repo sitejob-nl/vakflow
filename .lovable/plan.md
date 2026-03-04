@@ -1,125 +1,41 @@
 
 
-# Plan: Launch Readiness Fixes — Security, Performance & Scalability
+# Plan: PWA Offline Functionaliteit
 
-Dit plan implementeert alle P0/P1 items uit de audit in de volgende volgorde.
+## Huidige situatie
 
----
+De PWA is geconfigureerd met `vite-plugin-pwa` maar heeft geen offline caching strategie. De workbox config is minimaal — alleen `navigateFallbackDenylist` is ingesteld. Er is geen runtime caching, geen offline fallback pagina, en geen data caching.
 
-## 1. SuperAdminRoute component + route guard
+## Wat wordt gebouwd
 
-**Nieuw bestand**: `src/components/SuperAdminRoute.tsx`
-- Checkt `isSuperAdmin` uit `useAuth()`
-- Toont spinner bij `role === null`, redirect naar `/dashboard` als niet super_admin
+### 1. Workbox runtime caching strategie (`vite.config.ts`)
 
-**`src/App.tsx`**: Wrap `/superadmin` route in `<SuperAdminRoute>`
+Configureer workbox met:
+- **App shell** (HTML, CSS, JS): `CacheFirst` met max 60 entries, 30 dagen geldig
+- **Supabase API calls**: `NetworkFirst` met 5 sec timeout fallback naar cache, max 100 entries, 1 uur geldig
+- **Afbeeldingen**: `CacheFirst`, max 50 entries, 30 dagen
+- **Google Fonts**: `StaleWhileRevalidate`
+- `globPatterns`: Cache alle build-assets (`**/*.{js,css,html,ico,png,svg,woff2}`)
 
----
+### 2. Offline fallback pagina (`public/offline.html`)
 
-## 2. Companies tabel: credentials afschermen
+Simpele HTML pagina met Vakflow branding die toont: "Je bent offline. Controleer je internetverbinding en probeer opnieuw." Met een "Opnieuw proberen" knop.
 
-**Database migratie**: Vervang de huidige SELECT policy op `companies` zodat alleen `super_admin` direct kan lezen. Admins worden doorverwezen naar `companies_safe` view.
+### 3. Offline status banner (`src/components/OfflineBanner.tsx`)
 
-```sql
-DROP POLICY "Company admins and super_admins can view companies" ON companies;
-CREATE POLICY "Only super admins can view companies directly"
-  ON companies FOR SELECT TO authenticated
-  USING (is_super_admin());
-```
+React component dat `navigator.onLine` + `online`/`offline` events luistert. Toont een gele banner bovenaan het scherm wanneer de gebruiker offline gaat: "Je bent offline — sommige functies zijn beperkt."
 
-**Frontend aanpassingen** (SettingsPage, PlanningPage, OnboardingDialog):
-- Vervang `.from("companies").select(...)` reads door `.from("companies_safe").select(...)`
-- Updates/writes blijven op `companies` (die UPDATE policy is al admin-only)
-- PlanningPage `outlook_refresh_token` check → gebruik `companies_safe` of `user_outlook_tokens`
+### 4. PWAUpdatePrompt uitbreiden
 
----
+Voeg `offlineReady` state toe aan de bestaande `useRegisterSW` hook en toon een korte toast wanneer de app klaar is voor offline gebruik.
 
-## 3. Company-signup: generieke foutmeldingen
-
-**`supabase/functions/company-signup/index.ts`**:
-- Vervang `companyError.message` en `authError.message` door generieke tekst
-- Log details server-side met `console.error`
-
----
-
-## 4. Code-splitting met React.lazy
-
-**`src/App.tsx`**:
-- Alle pagina-imports omzetten naar `React.lazy(() => import(...))`
-- `<Suspense fallback={<Loader2 spinner>}>` wrapper om de Routes
-
-Pagina's die lazy worden: DashboardPage, MonteurDashboardPage, PlanningPage, CustomersPage, CustomerDetailPage, WorkOrdersPage, WorkOrderDetailPage, InvoicesPage, QuotesPage, CommunicationPage, EmailPage, WhatsAppPage, RemindersPage, SettingsPage, SuperAdminPage, ReportsPage, AssetsPage, MarketingPage, MetaCallbackPage, CompanySignupPage.
-
----
-
-## 5. QueryClient globale defaults
-
-**`src/App.tsx`**:
-```typescript
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false }
-  }
-});
-```
-
----
-
-## 6. Appointments realtime filter op company_id
-
-**`src/hooks/useAppointments.ts`**:
-- Voeg `filter: \`company_id=eq.${companyId}\`` toe aan de realtime subscription
-- Guard met `if (!companyId) return;`
-
----
-
-## 7. PWA naam fixen
-
-**`vite.config.ts`**:
-- `name: "Vakflow"`, `short_name: "Vakflow"`, `description` updaten
-
----
-
-## 8. AdminRoute loading spinner
-
-**`src/components/AdminRoute.tsx`**:
-- Vervang `return null` door een centered `<Loader2>` spinner
-
----
-
-## 9. Vite bundle splitting
-
-**`vite.config.ts`**: Voeg `build.rollupOptions.output.manualChunks` toe:
-```typescript
-manualChunks: {
-  recharts: ['recharts'],
-  xlsx: ['xlsx'],
-  googlemaps: ['@vis.gl/react-google-maps'],
-}
-```
-
----
-
-## 10. Outlook sync foutmelding
-
-**`src/hooks/useAppointments.ts`**:
-- Bij sync-falen: toon toast met "Outlook sync mislukt" melding
-- Afspraak wordt wel opgeslagen (fire-and-forget blijft, maar met feedback)
-
----
-
-## Bestanden die worden aangepast
+## Bestanden
 
 | Bestand | Wijziging |
 |---------|-----------|
-| `src/components/SuperAdminRoute.tsx` | Nieuw: route guard |
-| `src/components/AdminRoute.tsx` | Spinner bij laden |
-| `src/App.tsx` | Lazy imports, QueryClient config, SuperAdminRoute |
-| `supabase/migrations/...` | Companies SELECT policy |
-| `supabase/functions/company-signup/index.ts` | Generieke errors |
-| `src/pages/SettingsPage.tsx` | companies_safe reads |
-| `src/pages/PlanningPage.tsx` | companies_safe reads |
-| `src/components/OnboardingDialog.tsx` | companies_safe reads |
-| `src/hooks/useAppointments.ts` | Realtime filter + sync toast |
-| `vite.config.ts` | PWA naam + manualChunks |
+| `vite.config.ts` | Workbox runtime caching, offline fallback, globPatterns |
+| `public/offline.html` | Nieuw: offline fallback pagina |
+| `src/components/OfflineBanner.tsx` | Nieuw: online/offline status banner |
+| `src/components/PWAUpdatePrompt.tsx` | offlineReady feedback toevoegen |
+| `src/components/AppLayout.tsx` | OfflineBanner integreren |
 
