@@ -1,38 +1,45 @@
 
 
-# Fix: Auto-resolve customer_id bij WhatsApp versturen
+# Fix: Toon Vercel-specifieke DNS-records in custom domain UI
 
-## Huidige situatie
-- RLS op `whatsapp_messages` dwingt `company_id` isolatie af -- berichten zijn al veilig per bedrijf
-- Probleem: als `customer_id` niet wordt meegegeven, wordt het bericht opgeslagen zonder koppeling en is het onzichtbaar in de chat UI
+## Probleem
+
+De Vercel API retourneert specifieke DNS-verificatierecords (CNAME met unieke waarde + TXT-record) wanneer een domein aan een ander Vercel-account is gekoppeld. De huidige UI toont alleen een generieke instructie ("stel CNAME in naar cname.vercel-dns.com"), maar negeert de `verification`-array die Vercel teruggeeft.
+
+Uit je screenshot blijkt dat Vercel deze records vereist:
+- **CNAME** `test` → `ebc47d62a95136b7.vercel-dns-017.com.`
+- **TXT** `_vercel` → `vc-domain-verify=test.sitejob.nl,ae91d7df48575fe566fc`
 
 ## Oplossing
 
-### `supabase/functions/whatsapp-send/index.ts`
+### 1. Edge Function (`manage-custom-domain/index.ts`)
+De `verification`-array wordt al doorgegeven in de response (`vercelData.verification`). Hier hoeft niets te veranderen.
 
-Na het succesvol versturen via Meta, voor de database-insert: als `customer_id` ontbreekt, zoek de klant op basis van telefoonnummer binnen hetzelfde bedrijf. Gebruik de bestaande `findCustomerByPhone` functie uit `_shared/phone.ts` die al meerdere telefoonformaten probeert (internationaal, +prefix, 06-formaat).
+### 2. Settings UI (`src/pages/SettingsPage.tsx`)
+Update de DNS-instructiesectie (regels ~1017-1041) om de `verification`-array uit `customDomainStatus` te tonen:
 
-```typescript
-// Bestaande code:
-const { to, customer_id, type = "text" } = body;
-const normalizedTo = normalizePhone(to);
+- Als `customDomainStatus.verification` bestaat en niet leeg is → toon elke record (type, name, value) in een overzichtelijke tabel/lijst
+- Als er geen verification-array is → toon de huidige generieke CNAME-instructie als fallback
+- Voeg een "Kopieer"-knop toe per record-waarde voor gebruiksgemak
 
-// Toevoegen na Meta API call, voor de insert:
-let resolvedCustomerId = customer_id || null;
-if (!resolvedCustomerId && companyId) {
-  const found = await findCustomerByPhone(supabaseAdmin, normalizedTo, companyId);
-  if (found) resolvedCustomerId = found.id;
-}
+**Voorbeeldweergave:**
 
-// In de insert: customer_id: resolvedCustomerId (ipv customer_id || null)
+```text
+┌─────────────────────────────────────────────────────┐
+│ ℹ DNS instellen                                     │
+│                                                     │
+│ Stel de volgende records in bij je domeinprovider:   │
+│                                                     │
+│  Type   │ Name     │ Value                    [📋]  │
+│  CNAME  │ test     │ ebc47d62...dns-017.com.  [📋]  │
+│  TXT    │ _vercel  │ vc-domain-verify=...     [📋]  │
+│                                                     │
+│ SSL wordt automatisch geregeld na verificatie.       │
+│ ⚠ Wacht op DNS-verificatie                          │
+└─────────────────────────────────────────────────────┘
 ```
-
-### Veiligheid
-- `findCustomerByPhone` wordt aangeroepen met `companyId` -- zoekt alleen binnen het eigen bedrijf
-- RLS op `whatsapp_messages` voorkomt cross-tenant reads
-- De edge function haalt `companyId` uit de authenticated user's profile
 
 | Bestand | Wijziging |
 |---------|-----------|
-| `supabase/functions/whatsapp-send/index.ts` | Import `findCustomerByPhone`, auto-resolve `customer_id` voor insert |
+| `src/pages/SettingsPage.tsx` | Toon `verification`-records dynamisch, met kopieerknoppen en fallback naar generieke CNAME |
 
