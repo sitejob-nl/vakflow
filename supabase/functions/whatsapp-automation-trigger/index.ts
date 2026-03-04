@@ -68,7 +68,11 @@ Deno.serve(async (req) => {
       .select("*")
       .eq("trigger_type", trigger_type)
       .eq("is_active", true);
-    if (customer.company_id) automationQuery.eq("company_id", customer.company_id);
+    if (!customer.company_id) {
+      console.error("Customer has no company_id, cannot determine automations");
+      return jsonRes({ error: "Customer has no company_id" }, 400);
+    }
+    automationQuery.eq("company_id", customer.company_id);
     const { data: automations } = await automationQuery;
 
     if (!automations || automations.length === 0) {
