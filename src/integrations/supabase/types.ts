@@ -570,6 +570,7 @@ export type Database = {
           enabled_features: string[]
           iban: string | null
           id: string
+          industry: string
           kvk_number: string | null
           logo_url: string | null
           max_users: number
@@ -592,6 +593,7 @@ export type Database = {
           smtp_host: string | null
           smtp_password: string | null
           smtp_port: number | null
+          subcategory: string
         }
         Insert: {
           accounting_provider?: string | null
@@ -608,6 +610,7 @@ export type Database = {
           enabled_features?: string[]
           iban?: string | null
           id?: string
+          industry?: string
           kvk_number?: string | null
           logo_url?: string | null
           max_users?: number
@@ -630,6 +633,7 @@ export type Database = {
           smtp_host?: string | null
           smtp_password?: string | null
           smtp_port?: number | null
+          subcategory?: string
         }
         Update: {
           accounting_provider?: string | null
@@ -646,6 +650,7 @@ export type Database = {
           enabled_features?: string[]
           iban?: string | null
           id?: string
+          industry?: string
           kvk_number?: string | null
           logo_url?: string | null
           max_users?: number
@@ -668,6 +673,7 @@ export type Database = {
           smtp_host?: string | null
           smtp_password?: string | null
           smtp_port?: number | null
+          subcategory?: string
         }
         Relationships: []
       }
@@ -2264,6 +2270,7 @@ export type Database = {
           enabled_features: string[] | null
           iban: string | null
           id: string | null
+          industry: string | null
           kvk_number: string | null
           logo_url: string | null
           max_users: number | null
@@ -2281,6 +2288,7 @@ export type Database = {
           smtp_email: string | null
           smtp_host: string | null
           smtp_port: number | null
+          subcategory: string | null
         }
         Insert: {
           accounting_provider?: string | null
@@ -2296,6 +2304,7 @@ export type Database = {
           enabled_features?: string[] | null
           iban?: string | null
           id?: string | null
+          industry?: string | null
           kvk_number?: string | null
           logo_url?: string | null
           max_users?: number | null
@@ -2313,6 +2322,7 @@ export type Database = {
           smtp_email?: string | null
           smtp_host?: string | null
           smtp_port?: number | null
+          subcategory?: string | null
         }
         Update: {
           accounting_provider?: string | null
@@ -2328,6 +2338,7 @@ export type Database = {
           enabled_features?: string[] | null
           iban?: string | null
           id?: string | null
+          industry?: string | null
           kvk_number?: string | null
           logo_url?: string | null
           max_users?: number | null
@@ -2345,6 +2356,7 @@ export type Database = {
           smtp_email?: string | null
           smtp_host?: string | null
           smtp_port?: number | null
+          subcategory?: string | null
         }
         Relationships: []
       }

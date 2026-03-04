@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { usePaginatedWorkOrders } from "@/hooks/useWorkOrders";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -31,6 +32,7 @@ const statusLabel: Record<string, string> = {
 const WorkOrdersPage = () => {
   const { navigate } = useNavigation();
   const { isAdmin } = useAuth();
+  const { labels } = useIndustryConfig();
   const [activeTab, setActiveTab] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
@@ -102,7 +104,7 @@ const WorkOrdersPage = () => {
           onClick={() => setDialogOpen(true)}
           className="hidden lg:flex ml-3 px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors items-center gap-1 flex-shrink-0"
         >
-          <Plus className="h-3.5 w-3.5" /> Nieuwe werkbon
+          <Plus className="h-3.5 w-3.5" /> Nieuwe {labels.workOrder.toLowerCase()}
         </button>
       </div>
 
@@ -110,7 +112,7 @@ const WorkOrdersPage = () => {
       <button
         onClick={() => setDialogOpen(true)}
         className="lg:hidden fixed right-4 bottom-[calc(72px+env(safe-area-inset-bottom,0px))] z-30 w-12 h-12 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center hover:bg-primary-hover transition-colors"
-        aria-label="Nieuwe werkbon"
+        aria-label={`Nieuwe ${labels.workOrder.toLowerCase()}`}
       >
         <Plus className="h-5 w-5" />
       </button>
@@ -119,7 +121,7 @@ const WorkOrdersPage = () => {
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : workOrders.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground text-sm">
-          {activeTab > 0 ? "Geen werkbonnen met deze status" : "Nog geen werkbonnen. Maak je eerste werkbon aan!"}
+          {activeTab > 0 ? `Geen ${labels.workOrders.toLowerCase()} met deze status` : `Nog geen ${labels.workOrders.toLowerCase()}. Maak je eerste ${labels.workOrder.toLowerCase()} aan!`}
         </div>
       ) : (
         <>

@@ -11,6 +11,7 @@ import WorkOrderDialog from "@/components/WorkOrderDialog";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useQueryClient } from "@tanstack/react-query";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 
 const Badge = ({ children, variant = "primary" }: { children: React.ReactNode; variant?: string }) => {
   const styles: Record<string, string> = {
@@ -59,6 +60,7 @@ const formatCurrency = (amount: number) => {
 const DashboardPage = () => {
   const { navigate } = useNavigation();
   const queryClient = useQueryClient();
+  const { labels } = useIndustryConfig();
   const { data: todayAppts, isLoading: loadingAppts } = useTodayAppointments();
   const { data: stats, isLoading: loadingStats } = useDashboardStats();
   const { data: reminders, isLoading: loadingReminders } = useReminders();
@@ -76,7 +78,7 @@ const DashboardPage = () => {
 
   const kpiCards = [
     { label: "Afspraken vandaag", value: stats?.appointmentsToday ?? "—", page: "planning" as const },
-    { label: "Open werkbonnen", value: stats?.openWorkOrders ?? "—", page: "workorders" as const },
+    { label: `Open ${labels.workOrders.toLowerCase()}`, value: stats?.openWorkOrders ?? "—", page: "workorders" as const },
     { label: `Betaalde omzet ${format(new Date(), "MMM", { locale: nl })}`, value: stats ? formatCurrency(stats.revenueMonth) : "—", page: "invoices" as const },
     { label: "Openstaand", value: stats ? formatCurrency(stats.outstandingAmount) : "—", sub: stats ? `${stats.outstandingCount} facturen` : undefined, page: "invoices" as const },
   ];
@@ -110,7 +112,7 @@ const DashboardPage = () => {
           <CalendarPlus className="h-3.5 w-3.5" /> Nieuwe afspraak
         </button>
         <button onClick={() => setWoDialogOpen(true)} className="flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-lg text-[12px] font-bold text-secondary-foreground hover:border-primary hover:text-primary transition-all shadow-card">
-          <FileText className="h-3.5 w-3.5" /> Nieuwe werkbon
+          <FileText className="h-3.5 w-3.5" /> Nieuwe {labels.workOrder.toLowerCase()}
         </button>
         <button onClick={() => setInvoiceDialogOpen(true)} className="flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-lg text-[12px] font-bold text-secondary-foreground hover:border-primary hover:text-primary transition-all shadow-card">
           <Receipt className="h-3.5 w-3.5" /> Nieuwe factuur
@@ -178,11 +180,11 @@ const DashboardPage = () => {
         {/* Recent work orders */}
         <div className="bg-card border border-border rounded-lg shadow-card overflow-hidden">
           <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between border-b border-border">
-            <h3 className="text-[14px] md:text-[15px] font-bold">Recente werkbonnen</h3>
+            <h3 className="text-[14px] md:text-[15px] font-bold">Recente {labels.workOrders.toLowerCase()}</h3>
             <button onClick={() => navigate("workorders")} className="text-[11px] text-primary font-bold hover:underline">Alle →</button>
           </div>
           {!recentWOs?.length ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">Geen werkbonnen</div>
+            <div className="text-center py-8 text-muted-foreground text-sm">Geen {labels.workOrders.toLowerCase()}</div>
           ) : (
             <div className="divide-y divide-border">
               {recentWOs.map((wo: any) => (
