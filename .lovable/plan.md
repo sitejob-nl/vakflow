@@ -1,45 +1,43 @@
 
 
-# Fix: Toon Vercel-specifieke DNS-records in custom domain UI
-
 ## Probleem
 
-De Vercel API retourneert specifieke DNS-verificatierecords (CNAME met unieke waarde + TXT-record) wanneer een domein aan een ander Vercel-account is gekoppeld. De huidige UI toont alleen een generieke instructie ("stel CNAME in naar cname.vercel-dns.com"), maar negeert de `verification`-array die Vercel teruggeeft.
+De `pull-invoices` actie faalt met: `invalid input syntax for type date: "/Date(1774396800000)/"`.
 
-Uit je screenshot blijkt dat Vercel deze records vereist:
-- **CNAME** `test` → `ebc47d62a95136b7.vercel-dns-017.com.`
-- **TXT** `_vercel` → `vc-domain-verify=test.sitejob.nl,ae91d7df48575fe566fc`
+Exact Online OData v3 retourneert datums in het formaat `/Date(1774396800000)/` (Unix timestamp in milliseconden), maar de code verwacht ISO 8601 (`2026-01-15T00:00:00`) en doet `split("T")[0]`.
+
+Daarnaast is `InvoiceNumber` null voor sommige facturen, waardoor de foutmelding "null:" toont.
 
 ## Oplossing
 
-### 1. Edge Function (`manage-custom-domain/index.ts`)
-De `verification`-array wordt al doorgegeven in de response (`vercelData.verification`). Hier hoeft niets te veranderen.
+**1. `sync-exact/index.ts` -- Voeg een OData date parser toe**
 
-### 2. Settings UI (`src/pages/SettingsPage.tsx`)
-Update de DNS-instructiesectie (regels ~1017-1041) om de `verification`-array uit `customDomainStatus` te tonen:
+Een helper functie die `/Date(...)/ ` omzet naar `YYYY-MM-DD`:
 
-- Als `customDomainStatus.verification` bestaat en niet leeg is → toon elke record (type, name, value) in een overzichtelijke tabel/lijst
-- Als er geen verification-array is → toon de huidige generieke CNAME-instructie als fallback
-- Voeg een "Kopieer"-knop toe per record-waarde voor gebruiksgemak
-
-**Voorbeeldweergave:**
-
-```text
-┌─────────────────────────────────────────────────────┐
-│ ℹ DNS instellen                                     │
-│                                                     │
-│ Stel de volgende records in bij je domeinprovider:   │
-│                                                     │
-│  Type   │ Name     │ Value                    [📋]  │
-│  CNAME  │ test     │ ebc47d62...dns-017.com.  [📋]  │
-│  TXT    │ _vercel  │ vc-domain-verify=...     [📋]  │
-│                                                     │
-│ SSL wordt automatisch geregeld na verificatie.       │
-│ ⚠ Wacht op DNS-verificatie                          │
-└─────────────────────────────────────────────────────┘
+```ts
+function parseODataDate(val: unknown): string | null {
+  if (!val) return null;
+  const s = String(val);
+  const match = s.match(/\/Date\((\d+)\)\//);
+  if (match) {
+    return new Date(Number(match[1])).toISOString().split("T")[0];
+  }
+  if (s.includes("T")) return s.split("T")[0];
+  return s;
+}
 ```
+
+**2. Pas `pull-invoices` aan om de parser te gebruiken**
+
+Vervang:
+- `inv.InvoiceDate.split("T")[0]` → `parseODataDate(inv.InvoiceDate)`
+- `inv.DueDate.split("T")[0]` → `parseODataDate(inv.DueDate)`
+
+**3. Pas ook `sync-invoices` en andere datum-velden aan**
+
+Dezelfde parser toepassen op alle plekken waar Exact datums worden gelezen (pull-contacts, pull-quotes, etc.).
 
 | Bestand | Wijziging |
 |---------|-----------|
-| `src/pages/SettingsPage.tsx` | Toon `verification`-records dynamisch, met kopieerknoppen en fallback naar generieke CNAME |
+| `supabase/functions/sync-exact/index.ts` | OData date parser + toepassen op alle datum-velden |
 
