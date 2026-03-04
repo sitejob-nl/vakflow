@@ -1,45 +1,57 @@
 
 
-## Plan: Volledige template-tekst tonen bij automations
+## Plan: Betere Meta API foutmeldingen in WhatsApp
 
 ### Probleem
-De automation trigger stuurt een template via `whatsapp-send` zonder `preview` veld. `whatsapp-send` slaat dan `"Template: template_naam"` op in de chat — niet de werkelijke tekst.
+Wanneer een WhatsApp bericht faalt (bijv. geen betaalmethode, 24-uurs venster verlopen, rate limit), toont het systeem alleen de generieke melding "Bericht kon niet worden verstuurd". De specifieke Meta API error details worden weggegooid.
 
-### Aanpak
+### Oplossing
 
-**1. `whatsapp-send/index.ts` — `contentSummary` aanpassen (regel 81)**
+**1. `supabase/functions/whatsapp-send/index.ts` -- Meta error parsing (regel 225-228)**
 
-Wijzig:
+Voeg een mapping toe van bekende Meta error codes naar Nederlandse foutmeldingen:
+
+```typescript
+const META_ERROR_MAP: Record<number, string> = {
+  131042: "Geen betaalmethode gekoppeld in Meta Business Suite",
+  131047: "Klant heeft 24+ uur niet gereageerd — gebruik een template",
+  131026: "Bericht kon niet worden afgeleverd (nummer onbereikbaar)",
+  131051: "Dit berichttype wordt niet ondersteund",
+  130429: "Te veel berichten verstuurd — probeer later opnieuw",
+  131021: "Ontvanger is geen WhatsApp-gebruiker",
+  131031: "Bedrijfsaccount is geblokkeerd door Meta",
+  131056: "Template is afgekeurd of gepauzeerd",
+  131009: "Parameter ontbreekt of is ongeldig",
+  190:    "Toegangstoken verlopen — koppel WhatsApp opnieuw",
+};
 ```
-case "template": return `Template: ${(body.template as any)?.name}`;
+
+Wijzig de error response (regel 226-228) om de Meta error te parsen:
+
+```typescript
+if (!metaRes.ok) {
+  const metaError = result?.error;
+  const code = metaError?.code;
+  const subcode = metaError?.error_subcode;
+  const friendlyMsg = META_ERROR_MAP[subcode] || META_ERROR_MAP[code] 
+    || metaError?.error_data?.details 
+    || metaError?.message 
+    || "Bericht kon niet worden verstuurd";
+  console.error("Meta API error:", JSON.stringify(result));
+  return jsonRes({ 
+    error: friendlyMsg, 
+    code: "META_SEND_FAILED",
+    meta_code: code,
+    meta_subcode: subcode,
+  }, metaRes.status);
+}
 ```
-naar:
-```
-case "template": return (body.preview as string) || `Template: ${(body.template as any)?.name}`;
-```
 
-Dit is de fallback-logica: als `preview` meegegeven wordt, gebruik die. Anders de oude tekst.
+**2. `src/hooks/useWhatsApp.ts` -- Error doorsturen**
 
-**2. `whatsapp-automation-trigger/index.ts` — template body ophalen en preview bouwen**
-
-Na het opbouwen van de `components` en vóór de `fetch` naar `whatsapp-send`:
-
-- Haal de template content op via de Meta Graph API: `GET https://graph.facebook.com/v25.0/{waba_id}/message_templates?name={template_name}`
-- Hiervoor moet de automation trigger eerst de `whatsapp_config` ophalen (access_token + waba_id) voor het bedrijf
-- Extract de body-component tekst (bijv. `"Hallo {{1}}, uw afspraak is op {{2}}"`)
-- Vervang de variabelen (`{{1}}`, `{{2}}`, of named `{{name}}`) met de resolved values uit de `parameters` array
-- Stuur het resultaat mee als `preview` veld in de request body naar `whatsapp-send`
-
-**3. Client-side (`WhatsAppChat.tsx` en `ComposeWhatsAppDialog.tsx`)**
-
-Dezelfde aanpak voor handmatig verstuurde templates:
-- De preview is al beschikbaar (berekend uit `activeTemplate.components`)
-- Meesturen als `preview` veld in het request
+Geen wijziging nodig. De `data.error` wordt al als Error message gegooid en getoond via toast. De nieuwe `friendlyMsg` komt automatisch door.
 
 ### Bestanden die wijzigen
 
-1. `supabase/functions/whatsapp-send/index.ts` — 1 regel in `contentSummary`
-2. `supabase/functions/whatsapp-automation-trigger/index.ts` — whatsapp_config ophalen, Meta API call, preview bouwen, meesturen
-3. `src/components/WhatsAppChat.tsx` — preview meesturen bij template-verzending
-4. `src/components/ComposeWhatsAppDialog.tsx` — preview meesturen bij template-verzending
+1. `supabase/functions/whatsapp-send/index.ts` -- error mapping + verbeterde error response
 
