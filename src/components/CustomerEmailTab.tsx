@@ -77,7 +77,7 @@ const CustomerEmailTab = ({ customerId, customerEmail, customerName }: Props) =>
     const resolvedBody = resolveVars(selectedTemplate.html_body);
     setSending(true);
     try {
-      await sendEmail.mutateAsync({ to: customerEmail, subject: resolvedSubject, body: resolvedBody });
+      await sendEmail.mutateAsync({ to: customerEmail, subject: resolvedSubject, body: resolvedBody, html: resolvedBody });
       await createLog.mutateAsync({
         customer_id: customerId,
         channel: "email",
