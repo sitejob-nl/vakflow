@@ -3,7 +3,7 @@ import { usePersonalOutlookToken, useDeletePersonalOutlookToken } from "@/hooks/
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Upload, UserPlus, Users, MessageSquare, ChevronDown, ChevronUp, BookOpen, AlertTriangle, HelpCircle, Mail, Eye, Globe, Info, Copy } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Upload, Download, UserPlus, Users, MessageSquare, ChevronDown, ChevronUp, BookOpen, AlertTriangle, HelpCircle, Mail, Eye, Globe, Info, Copy } from "lucide-react";
 import { useEmailTemplates, useCreateEmailTemplate, useUpdateEmailTemplate, useDeleteEmailTemplate, type EmailTemplate } from "@/hooks/useEmailTemplates";
 import EmailTemplateEditor, { DEFAULT_TEMPLATE } from "@/components/EmailTemplateEditor";
 import { useAutoMessageSettings, useUpsertAutoMessageSetting, MESSAGE_TYPES, LABELS } from "@/hooks/useAutoMessageSettings";
@@ -1813,7 +1813,7 @@ const SettingsPage = () => {
                         setExactPullingInvoices(true);
                         try {
                           const result = await pullInvoicesExact.mutateAsync();
-                          toast({ title: "Facturen opgehaald", description: `${result.total_in_exact} facturen in Exact, ${result.linked} al gekoppeld` });
+                          toast({ title: "Facturen opgehaald", description: `${result.total_in_exact} facturen in Exact, ${result.linked || 0} al gekoppeld` });
                         } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
                         setExactPullingInvoices(false);
                       }}
