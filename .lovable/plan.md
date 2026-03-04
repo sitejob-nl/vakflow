@@ -1,31 +1,45 @@
 
 
-## Two fixes needed
+## Plan: Volledige template-tekst tonen bij automations
 
-### 1. FK-indexes migration: OK, no action needed
+### Probleem
+De automation trigger stuurt een template via `whatsapp-send` zonder `preview` veld. `whatsapp-send` slaat dan `"Template: template_naam"` op in de chat — niet de werkelijke tekst.
 
-The existing migration uses plain `CREATE INDEX IF NOT EXISTS` (not `CONCURRENTLY`), which works correctly inside Supabase's transactional migration runner. No change required.
+### Aanpak
 
-### 2. Missing composite index on `usage_events` for rate-limit performance
+**1. `whatsapp-send/index.ts` — `contentSummary` aanpassen (regel 81)**
 
-The `_shared/rate-limit.ts` helper does:
-```sql
-SELECT id FROM usage_events 
-WHERE company_id = ? AND event_type = ? AND created_at >= ?
+Wijzig:
+```
+case "template": return `Template: ${(body.template as any)?.name}`;
+```
+naar:
+```
+case "template": return (body.preview as string) || `Template: ${(body.template as any)?.name}`;
 ```
 
-Without a composite index, this becomes a sequential scan at scale. Need to add:
+Dit is de fallback-logica: als `preview` meegegeven wordt, gebruik die. Anders de oude tekst.
 
-```sql
-CREATE INDEX IF NOT EXISTS idx_usage_events_company_type_created
-  ON public.usage_events (company_id, event_type, created_at DESC);
-```
+**2. `whatsapp-automation-trigger/index.ts` — template body ophalen en preview bouwen**
 
-This is a single new migration file with one statement.
+Na het opbouwen van de `components` en vóór de `fetch` naar `whatsapp-send`:
 
-### Implementation
+- Haal de template content op via de Meta Graph API: `GET https://graph.facebook.com/v25.0/{waba_id}/message_templates?name={template_name}`
+- Hiervoor moet de automation trigger eerst de `whatsapp_config` ophalen (access_token + waba_id) voor het bedrijf
+- Extract de body-component tekst (bijv. `"Hallo {{1}}, uw afspraak is op {{2}}"`)
+- Vervang de variabelen (`{{1}}`, `{{2}}`, of named `{{name}}`) met de resolved values uit de `parameters` array
+- Stuur het resultaat mee als `preview` veld in de request body naar `whatsapp-send`
 
-1. Create one migration adding the composite index on `usage_events(company_id, event_type, created_at DESC)`
+**3. Client-side (`WhatsAppChat.tsx` en `ComposeWhatsAppDialog.tsx`)**
 
-That's it — one file, one statement.
+Dezelfde aanpak voor handmatig verstuurde templates:
+- De preview is al beschikbaar (berekend uit `activeTemplate.components`)
+- Meesturen als `preview` veld in het request
+
+### Bestanden die wijzigen
+
+1. `supabase/functions/whatsapp-send/index.ts` — 1 regel in `contentSummary`
+2. `supabase/functions/whatsapp-automation-trigger/index.ts` — whatsapp_config ophalen, Meta API call, preview bouwen, meesturen
+3. `src/components/WhatsAppChat.tsx` — preview meesturen bij template-verzending
+4. `src/components/ComposeWhatsAppDialog.tsx` — preview meesturen bij template-verzending
 
