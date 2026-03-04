@@ -18,6 +18,7 @@ import { buildWorkOrderPayload } from "@/utils/createWorkOrderFromAppointment";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 
 interface TodoItem {
   id: string;
@@ -58,6 +59,7 @@ const AppointmentDetailSheet = ({ open, onOpenChange, appointment, onEdit, onDel
   const updateAppointment = useUpdateAppointment();
   const createWorkOrder = useCreateWorkOrder();
   const { data: services } = useServices();
+  const { labels } = useIndustryConfig();
   const [newTodo, setNewTodo] = useState("");
   const [newNote, setNewNote] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
@@ -70,7 +72,7 @@ const AppointmentDetailSheet = ({ open, onOpenChange, appointment, onEdit, onDel
     try {
       const payload = buildWorkOrderPayload(appointment, services);
       const wo = await createWorkOrder.mutateAsync(payload as any);
-      toast({ title: "Werkbon aangemaakt", description: wo.work_order_number ?? "Werkbon is klaar" });
+      toast({ title: `${labels.workOrder} aangemaakt`, description: wo.work_order_number ?? `${labels.workOrder} is klaar` });
       onOpenChange(false);
       navigate("woDetail", { workOrderId: wo.id });
     } catch (err: any) {
@@ -326,7 +328,7 @@ const AppointmentDetailSheet = ({ open, onOpenChange, appointment, onEdit, onDel
             className="text-[12px]"
             onClick={() => { onOpenChange(false); navigate("woDetail", { workOrderId: linkedWorkOrderId }); }}
           >
-            <FileText className="h-3.5 w-3.5 mr-1" /> Bekijk werkbon
+            <FileText className="h-3.5 w-3.5 mr-1" /> Bekijk {labels.workOrder.toLowerCase()}
           </Button>
         ) : (
           <>
@@ -338,7 +340,7 @@ const AppointmentDetailSheet = ({ open, onOpenChange, appointment, onEdit, onDel
               disabled={creatingWO}
             >
               {creatingWO ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <FileText className="h-3.5 w-3.5 mr-1" />}
-              Werkbon aanmaken
+              {labels.workOrder} aanmaken
             </Button>
             {a.status !== "afgerond" && a.status !== "geannuleerd" && (
               <Button
@@ -347,7 +349,7 @@ const AppointmentDetailSheet = ({ open, onOpenChange, appointment, onEdit, onDel
                 className="text-[12px] text-accent border-accent/30 hover:bg-accent/10"
                 onClick={() => { onOpenChange(false); onFinish(a); }}
               >
-                <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Afronden → Werkbon
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Afronden → {labels.workOrder}
               </Button>
             )}
           </>

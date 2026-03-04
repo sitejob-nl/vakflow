@@ -7,15 +7,17 @@ import { Progress } from "@/components/ui/progress";
 import {
   Wind, CalendarDays, Users, ClipboardList, ArrowRight, ArrowLeft,
   Sparkles, BookOpen, Mail, Building2, FileText, MapPin, BarChart3,
-  UserPlus, Check,
+  UserPlus, Check, Wrench, Car, Bug, TreePine,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { industryConfig, type Industry } from "@/config/industryConfig";
 
 /* ── Types ─────────────────────────────────────────── */
 type Phase =
   | "welcome"
+  | "industry"
   | "company"
   | "features"
   | "accounting"
@@ -25,6 +27,7 @@ type Phase =
 
 const PHASES: Phase[] = [
   "welcome",
+  "industry",
   "company",
   "features",
   "accounting",
@@ -33,12 +36,20 @@ const PHASES: Phase[] = [
   "done",
 ];
 
+const INDUSTRY_ICONS: Record<Industry, React.ElementType> = {
+  technical: Wrench,
+  cleaning: Sparkles,
+  automotive: Car,
+  pest: Bug,
+  landscaping: TreePine,
+};
+
 /* ── Feature tour slides ───────────────────────────── */
 const featureSlides = [
   {
     icon: CalendarDays,
     title: "Planning & Afspraken",
-    description: "Plan afspraken in, bekijk je dagschema per monteur en navigeer direct naar klanten met Google Maps. Optimaliseer routes voor efficiënte rijtijden.",
+    description: "Plan afspraken in, bekijk je dagschema per medewerker en navigeer direct naar klanten met Google Maps. Optimaliseer routes voor efficiënte rijtijden.",
     color: "text-primary",
     bg: "bg-primary/10",
   },
@@ -94,6 +105,10 @@ const OnboardingDialog = forwardRef<HTMLDivElement>((_props, ref) => {
   const [phase, setPhase] = useState<Phase>("welcome");
   const [featureSlide, setFeatureSlide] = useState(0);
 
+  // Industry selection
+  const [selectedIndustry, setSelectedIndustry] = useState<Industry>("technical");
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>("installation");
+
   // Company details
   const [address, setAddress] = useState("");
   const [postalCode, setPostalCode] = useState("");
@@ -126,7 +141,7 @@ const OnboardingDialog = forwardRef<HTMLDivElement>((_props, ref) => {
     if (!companyId) return;
     supabase
       .from("companies_safe" as any)
-      .select("address, postal_code, city, phone, btw_number, iban")
+      .select("address, postal_code, city, phone, btw_number, iban, industry, subcategory")
       .eq("id", companyId)
       .single()
       .then(({ data }: { data: any }) => {
@@ -137,8 +152,19 @@ const OnboardingDialog = forwardRef<HTMLDivElement>((_props, ref) => {
         if (data.phone) setPhone(data.phone);
         if (data.btw_number) setBtwNumber(data.btw_number);
         if (data.iban) setIban(data.iban);
+        if (data.industry) setSelectedIndustry(data.industry as Industry);
+        if (data.subcategory) setSelectedSubcategory(data.subcategory);
       });
   }, [companyId]);
+
+  // When industry changes, reset subcategory to first available
+  useEffect(() => {
+    const config = industryConfig[selectedIndustry];
+    const subs = Object.keys(config.subcategories);
+    if (!config.subcategories[selectedSubcategory]) {
+      setSelectedSubcategory(subs[0] || "general");
+    }
+  }, [selectedIndustry]);
 
   const currentIndex = PHASES.indexOf(phase);
   const progress = Math.round(((currentIndex + 1) / PHASES.length) * 100);
@@ -150,6 +176,17 @@ const OnboardingDialog = forwardRef<HTMLDivElement>((_props, ref) => {
   const goBack = () => {
     const idx = PHASES.indexOf(phase);
     if (idx > 0) setPhase(PHASES[idx - 1]);
+  };
+
+  const saveIndustryChoice = async () => {
+    if (!companyId) return;
+    await supabase
+      .from("companies")
+      .update({
+        industry: selectedIndustry,
+        subcategory: selectedSubcategory,
+      } as any)
+      .eq("id", companyId);
   };
 
   const saveCompanyDetails = async () => {
@@ -231,13 +268,98 @@ const OnboardingDialog = forwardRef<HTMLDivElement>((_props, ref) => {
     </>
   );
 
+  const renderIndustry = () => {
+    const config = industryConfig[selectedIndustry];
+    const subcategories = Object.entries(config.subcategories);
+
+    return (
+      <>
+        <div className="bg-accent/10 flex items-center justify-center py-8 transition-colors duration-300">
+          <div className="h-16 w-16 rounded-2xl bg-card shadow-md flex items-center justify-center">
+            <Building2 className="h-8 w-8 text-accent-foreground" />
+          </div>
+        </div>
+        <div className="px-6 pb-6 pt-4 space-y-4">
+          <div className="space-y-1 text-center">
+            <h2 className="text-lg font-bold text-foreground">Wat voor bedrijf heb je?</h2>
+            <p className="text-xs text-muted-foreground">
+              Kies je branche. Hiermee passen we de terminologie en modules aan.
+            </p>
+          </div>
+
+          {/* Industry cards */}
+          <div className="grid grid-cols-2 gap-2">
+            {(Object.keys(industryConfig) as Industry[]).map((key) => {
+              const ic = industryConfig[key];
+              const Icon = INDUSTRY_ICONS[key];
+              const isActive = selectedIndustry === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setSelectedIndustry(key)}
+                  className={`text-left px-3 py-3 rounded-lg border-2 transition-all ${
+                    isActive
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-card hover:border-primary/40"
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 mb-1.5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                  <div className="text-[13px] font-bold">{ic.name}</div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Subcategory selection */}
+          {subcategories.length > 1 && (
+            <div className="space-y-2">
+              <p className="text-[12px] font-semibold text-muted-foreground">Specialisatie</p>
+              <div className="space-y-1.5 max-h-[140px] overflow-y-auto">
+                {subcategories.map(([key, sub]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedSubcategory(key)}
+                    className={`w-full text-left px-3 py-2 rounded-md border transition-all text-[13px] font-medium ${
+                      selectedSubcategory === key
+                        ? "border-primary bg-primary/5 text-foreground"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {sub.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={goBack}>
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Terug
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={async () => {
+                await saveIndustryChoice();
+                goNext();
+              }}
+            >
+              Volgende
+              <ArrowRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   const renderCompanyDetails = () => {
     const isValid = address.trim() && postalCode.trim() && city.trim();
     return (
       <>
         <div className="bg-accent/10 flex items-center justify-center py-8 transition-colors duration-300">
           <div className="h-16 w-16 rounded-2xl bg-card shadow-md flex items-center justify-center">
-            <Building2 className="h-8 w-8 text-accent-foreground" />
+            <MapPin className="h-8 w-8 text-accent-foreground" />
           </div>
         </div>
         <div className="px-6 pb-6 pt-4 space-y-4">
@@ -463,41 +585,47 @@ const OnboardingDialog = forwardRef<HTMLDivElement>((_props, ref) => {
     </>
   );
 
-  const renderDone = () => (
-    <>
-      <div className="bg-primary/10 flex items-center justify-center py-12 transition-colors duration-300">
-        <div className="h-20 w-20 rounded-2xl bg-card shadow-md flex items-center justify-center">
-          <Sparkles className="h-10 w-10 text-primary" />
-        </div>
-      </div>
-      <div className="px-6 pb-6 pt-4 space-y-4">
-        <div className="space-y-2 text-center">
-          <h2 className="text-xl font-bold text-foreground">Klaar om te starten! 🎉</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Je account is ingesteld. Je kunt alles altijd wijzigen via <strong>Instellingen</strong>. Veel succes!
-          </p>
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Check className="h-4 w-4 text-emerald-500" /> Bedrijfsgegevens opgeslagen
+  const renderDone = () => {
+    const chosenConfig = industryConfig[selectedIndustry];
+    return (
+      <>
+        <div className="bg-primary/10 flex items-center justify-center py-12 transition-colors duration-300">
+          <div className="h-20 w-20 rounded-2xl bg-card shadow-md flex items-center justify-center">
+            <Sparkles className="h-10 w-10 text-primary" />
           </div>
-          {selectedAccounting && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Check className="h-4 w-4 text-emerald-500" /> Boekhoudpakket: {accountingProviders.find(p => p.value === selectedAccounting)?.label}
-            </div>
-          )}
-          {customerName.trim() && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Check className="h-4 w-4 text-emerald-500" /> Eerste klant: {customerName}
-            </div>
-          )}
         </div>
-        <Button className="w-full" onClick={finish}>
-          Aan de slag!
-        </Button>
-      </div>
-    </>
-  );
+        <div className="px-6 pb-6 pt-4 space-y-4">
+          <div className="space-y-2 text-center">
+            <h2 className="text-xl font-bold text-foreground">Klaar om te starten! 🎉</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Je account is ingesteld. Je kunt alles altijd wijzigen via <strong>Instellingen</strong>. Veel succes!
+            </p>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Check className="h-4 w-4 text-emerald-500" /> Branche: {chosenConfig.name}
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Check className="h-4 w-4 text-emerald-500" /> Bedrijfsgegevens opgeslagen
+            </div>
+            {selectedAccounting && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Check className="h-4 w-4 text-emerald-500" /> Boekhoudpakket: {accountingProviders.find(p => p.value === selectedAccounting)?.label}
+              </div>
+            )}
+            {customerName.trim() && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Check className="h-4 w-4 text-emerald-500" /> Eerste klant: {customerName}
+              </div>
+            )}
+          </div>
+          <Button className="w-full" onClick={finish}>
+            Aan de slag!
+          </Button>
+        </div>
+      </>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) finish(); }}>
@@ -511,6 +639,7 @@ const OnboardingDialog = forwardRef<HTMLDivElement>((_props, ref) => {
         </div>
 
         {phase === "welcome" && renderWelcome()}
+        {phase === "industry" && renderIndustry()}
         {phase === "company" && renderCompanyDetails()}
         {phase === "features" && renderFeatures()}
         {phase === "accounting" &&

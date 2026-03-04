@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 
 const STATUS_COLORS: Record<string, string> = {
   open: "hsl(var(--cyan))",
@@ -50,6 +51,7 @@ const ReportsPage = () => {
   const [endDate, setEndDate] = useState(() => endOfMonth(new Date()));
 
   const { data, isLoading } = useReportData({ startDate, endDate });
+  const { labels } = useIndustryConfig();
 
   const handlePreset = (preset: typeof PRESETS[number]) => {
     const { start, end } = preset.getRange();
@@ -134,10 +136,10 @@ const ReportsPage = () => {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         <KpiCard icon={Euro} label="Omzet (gefactureerd)" value={`€${data.totalRevenue.toFixed(0)}`} />
         <KpiCard icon={TrendingUp} label="Omzet (betaald)" value={`€${data.paidRevenue.toFixed(0)}`} accent />
-        <KpiCard icon={FileText} label="Werkbonnen" value={String(data.totalWorkOrders)} />
+        <KpiCard icon={FileText} label={labels.workOrders} value={String(data.totalWorkOrders)} />
         <KpiCard icon={Clock} label="Gem. doorlooptijd" value={formatDuration(data.avgLeadTimeHours)} />
         <KpiCard icon={Package} label="Materiaalkosten" value={`€${data.totalMaterialCost.toFixed(0)}`} />
-        <KpiCard icon={Users} label="Actieve monteurs" value={String(data.productivity.length)} />
+        <KpiCard icon={Users} label={`Actieve ${labels.workerPlural.toLowerCase()}`} value={String(data.productivity.length)} />
       </div>
 
       {/* Charts row */}
@@ -170,7 +172,7 @@ const ReportsPage = () => {
 
         {/* Status pie chart */}
         <div className="bg-card border border-border rounded-lg p-5">
-          <h3 className="text-[13px] font-bold mb-4">Werkbonnen per status</h3>
+          <h3 className="text-[13px] font-bold mb-4">{labels.workOrders} per status</h3>
           {pieData.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
@@ -199,23 +201,23 @@ const ReportsPage = () => {
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-[13px] text-t3 text-center py-12 italic">Geen werkbonnen in deze periode</p>
+            <p className="text-[13px] text-t3 text-center py-12 italic">Geen {labels.workOrders.toLowerCase()} in deze periode</p>
           )}
         </div>
       </div>
 
       {/* Productivity table */}
       <div className="bg-card border border-border rounded-lg p-5">
-        <h3 className="text-[13px] font-bold mb-4">Productiviteit per monteur</h3>
+        <h3 className="text-[13px] font-bold mb-4">Productiviteit per {labels.worker.toLowerCase()}</h3>
         {data.productivity.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-2 text-[11px] uppercase tracking-wider text-t3 font-bold">Monteur</th>
-                  <th className="text-right py-2 text-[11px] uppercase tracking-wider text-t3 font-bold">Werkbonnen</th>
+                   <th className="text-left py-2 text-[11px] uppercase tracking-wider text-t3 font-bold">{labels.worker}</th>
+                   <th className="text-right py-2 text-[11px] uppercase tracking-wider text-t3 font-bold">{labels.workOrders}</th>
                   <th className="text-right py-2 text-[11px] uppercase tracking-wider text-t3 font-bold">Totale tijd</th>
-                  <th className="text-right py-2 text-[11px] uppercase tracking-wider text-t3 font-bold">Gem. per werkbon</th>
+                  <th className="text-right py-2 text-[11px] uppercase tracking-wider text-t3 font-bold">Gem. per {labels.workOrder.toLowerCase()}</th>
                 </tr>
               </thead>
               <tbody>
@@ -234,7 +236,7 @@ const ReportsPage = () => {
           </div>
         ) : (
           <p className="text-[13px] text-t3 text-center py-8 italic">
-            Geen tijdregistraties in deze periode. Start de timer op werkbonnen om productiviteitsdata te verzamelen.
+            Geen tijdregistraties in deze periode. Start de timer op {labels.workOrders.toLowerCase()} om productiviteitsdata te verzamelen.
           </p>
         )}
       </div>

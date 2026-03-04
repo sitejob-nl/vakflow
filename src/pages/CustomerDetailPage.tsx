@@ -5,6 +5,7 @@ import { useInvoices } from "@/hooks/useInvoices";
 import { useAddresses, useDeleteAddress, type Address } from "@/hooks/useAddresses";
 import { useCommunicationLogs } from "@/hooks/useCommunicationLogs";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import AddressDialog from "@/components/AddressDialog";
 import WhatsAppChat from "@/components/WhatsAppChat";
 import { Loader2, Trash2, MapPin, Plus, MessageSquare } from "lucide-react";
@@ -40,6 +41,7 @@ const invoiceStatusBadge: Record<string, string> = {
 const CustomerDetailPage = () => {
   const { navigate, params } = useNavigation();
   const { toast } = useToast();
+  const { labels } = useIndustryConfig();
   const { data: customer, isLoading } = useCustomer(params.customerId);
   const { data: allWorkOrders } = useWorkOrders();
   const { data: allInvoices } = useInvoices();
@@ -99,13 +101,13 @@ const CustomerDetailPage = () => {
   };
 
   const tabLabels = isBusinessCustomer
-    ? ["Werkbonnen", "Facturen", "WhatsApp", "Communicatie", "Panden"]
-    : ["Werkbonnen", "Facturen", "WhatsApp", "Communicatie"];
+    ? [labels.workOrders, "Facturen", "WhatsApp", "Communicatie", "Panden"]
+    : [labels.workOrders, "Facturen", "WhatsApp", "Communicatie"];
 
   const tabContent = [
     // Werkbonnen
     () => customerWorkOrders.length === 0 ? (
-      <div className="text-center py-12 text-muted-foreground text-sm">Nog geen werkbonnen voor deze klant.</div>
+      <div className="text-center py-12 text-muted-foreground text-sm">Nog geen {labels.workOrders.toLowerCase()} voor deze klant.</div>
     ) : (
       <>
         {/* Desktop table */}
