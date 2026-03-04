@@ -1,3 +1,4 @@
+import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useState, useRef, useMemo } from "react";
 import { useCustomers, useDeleteCustomer, usePaginatedCustomers } from "@/hooks/useCustomers";
@@ -32,6 +33,7 @@ const typeMap: Record<string, string> = {
 };
 
 const CustomersPage = () => {
+  const { companyId } = useAuth();
   const { navigate } = useNavigation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -120,6 +122,7 @@ const CustomersPage = () => {
             city: r["Plaats"]?.toString().trim() || null,
             notes: r["Opmerking"]?.toString().trim() || null,
             type: "particulier" as const,
+            company_id: companyId,
           };
         });
 
