@@ -415,8 +415,8 @@ Deno.serve(async (req) => {
               subtotal: Math.round(amount / 1.21 * 100) / 100,
               vat_amount: Math.round((amount - amount / 1.21) * 100) / 100,
               vat_percentage: 21,
-              issued_at: inv.InvoiceDate ? inv.InvoiceDate.split("T")[0] : null,
-              due_at: inv.DueDate ? inv.DueDate.split("T")[0] : null,
+              issued_at: parseODataDate(inv.InvoiceDate),
+              due_at: parseODataDate(inv.DueDate),
               notes: inv.Description || null,
               items: [],
             });
