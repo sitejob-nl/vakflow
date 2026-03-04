@@ -3747,6 +3747,150 @@ const SettingsPage = () => {
                 )}
               </div>
             )}
+            {accountingProvider === "snelstart" && (
+              <div className="border-t border-border pt-4 space-y-3">
+                <h4 className="text-[13px] font-bold">SnelStart B2B-koppeling</h4>
+                <p className="text-[11px] text-secondary-foreground">Ga naar <a href="https://www.snelstart.nl" target="_blank" rel="noopener noreferrer" className="text-primary underline">SnelStart Web</a> → Koppelingen om je koppelingssleutel te vinden.</p>
+                {snelstartConn ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-[12px] text-muted-foreground bg-muted/50 p-2 rounded">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span><strong>SnelStart gekoppeld</strong></span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!confirm("Weet je zeker dat je SnelStart wilt ontkoppelen?")) return;
+                          try {
+                            await deleteSnelstart.mutateAsync();
+                            toast({ title: "SnelStart ontkoppeld" });
+                          } catch (err: any) {
+                            toast({ title: "Fout", description: err.message, variant: "destructive" });
+                          }
+                        }}
+                        className="ml-auto text-destructive text-[11px] underline"
+                      >
+                        Ontkoppelen
+                      </button>
+                    </div>
+                    {/* Sync status */}
+                    {snelstartSyncStatus && (snelstartSyncStatus as any[]).length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="text-[12px] font-bold">Synchronisatie status</h5>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-[11px]">Resource</TableHead>
+                              <TableHead className="text-[11px]">Laatst gesynchroniseerd</TableHead>
+                              <TableHead className="text-[11px]">Aantal</TableHead>
+                              <TableHead className="text-[11px]">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(snelstartSyncStatus as any[]).map((s: any) => (
+                              <TableRow key={s.resource_type}>
+                                <TableCell className="text-[11px] capitalize">{s.resource_type}</TableCell>
+                                <TableCell className="text-[11px]">{s.last_sync_at ? new Date(s.last_sync_at).toLocaleString("nl-NL") : "—"}</TableCell>
+                                <TableCell className="text-[11px]">{s.total_synced ?? 0}</TableCell>
+                                <TableCell className="text-[11px]">
+                                  {s.status === "completed" && <span className="text-green-600">✅ Voltooid</span>}
+                                  {s.status === "syncing" && <span className="text-amber-600">⏳ Bezig...</span>}
+                                  {s.status === "error" && <span className="text-destructive">❌ Fout</span>}
+                                  {s.status === "idle" && <span className="text-muted-foreground">—</span>}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        {(snelstartSyncStatus as any[]).some((s: any) => s.status === "error") && (
+                          <div className="bg-destructive/10 border border-destructive/30 rounded p-2">
+                            {(snelstartSyncStatus as any[]).filter((s: any) => s.status === "error").map((s: any) => (
+                              <p key={s.resource_type} className="text-[11px] text-destructive"><strong>{s.resource_type}:</strong> {s.error_message}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setSnelstartSyncing(true);
+                        try {
+                          await triggerSnelstartSync.mutateAsync("full");
+                          toast({ title: "Synchronisatie gestart" });
+                        } catch (err: any) {
+                          toast({ title: "Fout", description: err.message, variant: "destructive" });
+                        }
+                        setSnelstartSyncing(false);
+                      }}
+                      disabled={snelstartSyncing}
+                      className="px-4 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                    >
+                      {snelstartSyncing ? <><Loader2 className="inline w-3 h-3 mr-1 animate-spin" /> Synchroniseren...</> : "Nu synchroniseren"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className={labelClass}>Koppelingssleutel (Client Key)</label>
+                      <input value={snelstartClientKey} onChange={(e) => setSnelstartClientKey(e.target.value)} className={inputClass} placeholder="Je SnelStart koppelingssleutel" type="password" />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Subscription Key</label>
+                      <input value={snelstartSubKey} onChange={(e) => setSnelstartSubKey(e.target.value)} className={inputClass} placeholder="Je Ocp-Apim-Subscription-Key" type="password" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!snelstartClientKey || !snelstartSubKey) {
+                            toast({ title: "Vul beide sleutels in", variant: "destructive" });
+                            return;
+                          }
+                          setSnelstartSaving(true);
+                          try {
+                            await saveSnelstart.mutateAsync({ clientKey: snelstartClientKey, subscriptionKey: snelstartSubKey });
+                            toast({ title: "SnelStart koppeling opgeslagen" });
+                            setSnelstartClientKey("");
+                            setSnelstartSubKey("");
+                          } catch (err: any) {
+                            toast({ title: "Fout", description: err.message, variant: "destructive" });
+                          }
+                          setSnelstartSaving(false);
+                        }}
+                        disabled={snelstartSaving}
+                        className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
+                      >
+                        {snelstartSaving ? "Opslaan..." : "Koppeling opslaan"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!snelstartClientKey || !snelstartSubKey) {
+                            toast({ title: "Vul beide sleutels in", variant: "destructive" });
+                            return;
+                          }
+                          setSnelstartSaving(true);
+                          try {
+                            await saveSnelstart.mutateAsync({ clientKey: snelstartClientKey, subscriptionKey: snelstartSubKey });
+                            setSnelstartTesting(true);
+                            const result = await testSnelstart.mutateAsync();
+                            toast({ title: "Verbinding geslaagd!", description: `${result.count} relaties gevonden` });
+                          } catch (err: any) {
+                            toast({ title: "Test mislukt", description: err.message, variant: "destructive" });
+                          }
+                          setSnelstartTesting(false);
+                          setSnelstartSaving(false);
+                        }}
+                        disabled={snelstartSaving || snelstartTesting}
+                        className="px-4 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                      >
+                        {snelstartTesting ? <><Loader2 className="inline w-3 h-3 mr-1 animate-spin" /> Testen...</> : "Test verbinding"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <button
               onClick={async () => {
                 setSavingProviders(true);
