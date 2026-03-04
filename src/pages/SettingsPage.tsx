@@ -327,6 +327,8 @@ const SettingsPage = () => {
   const [exactPullingStatus, setExactPullingStatus] = useState(false);
   const [exactSyncingQuotes, setExactSyncingQuotes] = useState(false);
   const [exactPullingQuotes, setExactPullingQuotes] = useState(false);
+  const [exactUnlinkedCustomers, setExactUnlinkedCustomers] = useState<{ name: string; exact_account_id: string }[]>([]);
+  const [exactLinkingCustomer, setExactLinkingCustomer] = useState<string | null>(null);
   const syncContactsExact = useSyncContactsExact();
   const syncInvoicesExact = useSyncInvoicesExact();
   const pullContactsExact = usePullContactsExact();
@@ -1815,8 +1817,10 @@ const SettingsPage = () => {
                           const result = await pullInvoicesExact.mutateAsync();
                           let desc = `${result.imported} geïmporteerd, ${result.already_linked} al aanwezig`;
                           if (result.unlinked_customers?.length) {
-                            const names = result.unlinked_customers.map(c => c.name).join(", ");
-                            desc += `. ⚠️ ${result.unlinked_customers.length} klant(en) niet gekoppeld: ${names}. Synchroniseer eerst je klanten.`;
+                            setExactUnlinkedCustomers(result.unlinked_customers);
+                            desc += `. ⚠️ ${result.unlinked_customers.length} klant(en) niet gekoppeld`;
+                          } else {
+                            setExactUnlinkedCustomers([]);
                           }
                           if (result.errors?.length) {
                             desc += `. ${result.errors.length} fout(en)`;
@@ -1877,6 +1881,46 @@ const SettingsPage = () => {
                       Betaalstatus ophalen
                     </button>
                   </div>
+
+                  {exactUnlinkedCustomers.length > 0 && (
+                    <div className="border border-warning/30 bg-warning/5 rounded-md p-3 space-y-2">
+                      <div className="flex items-center gap-1.5 text-warning">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span className="text-[12px] font-bold">{exactUnlinkedCustomers.length} klant(en) niet gekoppeld — facturen zijn overgeslagen</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Maak deze klanten aan om hun facturen te importeren. Na het koppelen kun je opnieuw "Facturen ophalen" klikken.</p>
+                      <div className="space-y-1.5">
+                        {exactUnlinkedCustomers.map((uc) => (
+                          <div key={uc.exact_account_id} className="flex items-center justify-between bg-card border border-border rounded px-3 py-2">
+                            <span className="text-[12px] font-medium text-foreground">{uc.name}</span>
+                            <button
+                              onClick={async () => {
+                                setExactLinkingCustomer(uc.exact_account_id);
+                                try {
+                                  const { error } = await supabase.from("customers").insert({
+                                    company_id: (await supabase.from("profiles").select("company_id").eq("id", user?.id ?? "").single()).data?.company_id,
+                                    name: uc.name,
+                                    exact_account_id: uc.exact_account_id,
+                                  } as any);
+                                  if (error) throw error;
+                                  setExactUnlinkedCustomers((prev) => prev.filter((c) => c.exact_account_id !== uc.exact_account_id));
+                                  toast({ title: `Klant "${uc.name}" aangemaakt`, description: "Je kunt nu opnieuw facturen ophalen." });
+                                } catch (err: any) {
+                                  toast({ title: "Fout bij aanmaken", description: err.message, variant: "destructive" });
+                                }
+                                setExactLinkingCustomer(null);
+                              }}
+                              disabled={exactLinkingCustomer === uc.exact_account_id}
+                              className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[11px] font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            >
+                              {exactLinkingCustomer === uc.exact_account_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserPlus className="h-3 w-3" />}
+                              Klant aanmaken
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <button
                     onClick={async () => {
