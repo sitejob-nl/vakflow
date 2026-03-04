@@ -357,7 +357,7 @@ serve(async (req) => {
     if (userCompanyId) {
       const { data: companyData } = await supabaseAdmin
         .from("companies")
-        .select("email_provider, outlook_refresh_token, outlook_email, smtp_email, smtp_password")
+        .select("email_provider, outlook_refresh_token, outlook_email, smtp_email, smtp_password, imap_host, imap_port")
         .eq("id", userCompanyId)
         .single();
       company = companyData;
@@ -419,9 +419,12 @@ serve(async (req) => {
     const { ImapClient } = await import("jsr:@workingdevshero/deno-imap");
 
     console.log("Connecting to IMAP server...");
+    const imapHost = company?.imap_host || "imap.transip.email";
+    const imapPort = company?.imap_port || 993;
+    console.log(`Using IMAP server: ${imapHost}:${imapPort}`);
     const client = new ImapClient({
-      host: "imap.transip.email",
-      port: 993,
+      host: imapHost,
+      port: imapPort,
       tls: true,
       username: smtpEmail,
       password: password,

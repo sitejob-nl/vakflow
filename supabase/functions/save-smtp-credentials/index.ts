@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
       return jsonRes({ error: "Niet ingelogd" }, 401);
     }
 
-    const { smtp_email, smtp_password, eboekhouden_api_token, smtp_host, smtp_port, rompslomp_api_token, moneybird_api_token } = await req.json();
+    const { smtp_email, smtp_password, eboekhouden_api_token, smtp_host, smtp_port, rompslomp_api_token, moneybird_api_token, imap_host, imap_port } = await req.json();
 
     // Verify user
     const supabaseUser = createUserClient(authHeader);
@@ -56,6 +56,8 @@ Deno.serve(async (req) => {
     }
     if (smtp_host !== undefined) updateData.smtp_host = smtp_host;
     if (smtp_port !== undefined) updateData.smtp_port = smtp_port;
+    if (imap_host !== undefined) updateData.imap_host = imap_host || null;
+    if (imap_port !== undefined) updateData.imap_port = imap_port || null;
 
     // Encrypt accounting provider tokens
     if (rompslomp_api_token !== undefined) {
