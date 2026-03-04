@@ -2636,9 +2636,9 @@ const SettingsPage = () => {
                 onClick={async () => {
                   try {
                     // Stap 1: Registreer tenant via edge function (beveiligt API key server-side)
-                    const profileRes = await supabase.from("profiles").select("company_name").eq("id", user!.id).single();
-                    const companyNameVal = profileRes.data?.company_name || "Mijn bedrijf";
-                    const webhookUrl = `https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/whatsapp-webhook`;
+                    const companyRes = await supabase.from("companies_safe").select("name").eq("id", companyId).single();
+                    const companyNameVal = companyRes.data?.name || "Mijn bedrijf";
+                    const webhookUrl = `https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/whatsapp-webhook?company_id=${companyId}`;
 
                     const { data: registerData, error: registerError } = await supabase.functions.invoke("whatsapp-register", {
                       body: { name: companyNameVal, webhook_url: webhookUrl },

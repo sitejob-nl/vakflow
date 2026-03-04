@@ -200,6 +200,10 @@ Deno.serve(async (req) => {
     return new Response("Unauthorized", { status: 401, headers: corsHeaders });
   }
 
+  // ─── Stap 2b: Lees optionele company_id uit query params ───
+  const url = new URL(req.url);
+  const queryCompanyId = url.searchParams.get("company_id");
+
   // ─── Stap 3: Parse en verwerk ───
   let body: any;
   try {
