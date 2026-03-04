@@ -2,6 +2,18 @@ import { jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { logUsage } from "../_shared/usage.ts";
 
+/** Parse OData v3 /Date(...)/ or ISO date strings to YYYY-MM-DD */
+function parseODataDate(val: unknown): string | null {
+  if (!val) return null;
+  const s = String(val);
+  const match = s.match(/\/Date\((\d+)\)\//);
+  if (match) {
+    return new Date(Number(match[1])).toISOString().split("T")[0];
+  }
+  if (s.includes("T")) return s.split("T")[0];
+  return s;
+}
+
 interface ExactToken {
   access_token: string;
   division: number;
