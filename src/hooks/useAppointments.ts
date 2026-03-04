@@ -70,6 +70,9 @@ async function syncToOutlook(appointment: any, action: "create" | "update" | "de
     }
   } catch (e) {
     console.warn("Outlook sync failed (non-blocking):", e);
+    // Import dynamically to avoid circular deps
+    const { toast } = await import("@/hooks/use-toast");
+    toast({ title: "Outlook sync mislukt", description: "De afspraak is opgeslagen, maar niet gesynchroniseerd met Outlook.", variant: "destructive" });
   }
   return null;
 }
@@ -80,14 +83,15 @@ export const useAppointments = (weekStart: Date, weekEnd: Date) => {
   const isMonteur = role === "monteur";
 
   useEffect(() => {
+    if (!companyId) return;
     const channel = supabase
       .channel("appointments-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointments" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `company_id=eq.${companyId}` }, () => {
         queryClient.invalidateQueries({ queryKey: ["appointments"] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [queryClient]);
+  }, [queryClient, companyId]);
 
   return useQuery({
     queryKey: ["appointments", weekStart.toISOString(), weekEnd.toISOString(), companyId, isMonteur ? user?.id : null],

@@ -60,8 +60,9 @@ Deno.serve(async (req) => {
       .single();
 
     if (companyError) {
+      console.error("Company creation failed:", companyError);
       return new Response(
-        JSON.stringify({ error: "Bedrijf aanmaken mislukt: " + companyError.message }),
+        JSON.stringify({ error: "Registratie mislukt. Probeer het opnieuw." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -75,10 +76,10 @@ Deno.serve(async (req) => {
     });
 
     if (authError) {
-      // Cleanup company
+      console.error("Auth user creation failed:", authError);
       await adminClient.from("companies").delete().eq("id", company.id);
       return new Response(
-        JSON.stringify({ error: "Account aanmaken mislukt: " + authError.message }),
+        JSON.stringify({ error: "Account aanmaken mislukt. Controleer je gegevens en probeer het opnieuw." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

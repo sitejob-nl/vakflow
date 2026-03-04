@@ -108,15 +108,7 @@ const PlanningPage = () => {
   const { companyId } = useAuth();
   const { data: personalOutlookToken } = usePersonalOutlookToken();
   const { data: outlookOverrides } = useOutlookOverrides();
-  const { data: outlookConfig } = useQuery({
-    queryKey: ["outlook-config", companyId],
-    enabled: !!companyId,
-    queryFn: async () => {
-      const { data } = await supabase.from("companies").select("outlook_refresh_token").eq("id", companyId!).single();
-      return data;
-    },
-  });
-  const outlookConnected = !!outlookConfig?.outlook_refresh_token || !!personalOutlookToken;
+  const outlookConnected = !!personalOutlookToken;
 
   // For mobile, fetch a wider range around mobileDay
   const weekEnd = addDays(currentWeekStart, 8);
