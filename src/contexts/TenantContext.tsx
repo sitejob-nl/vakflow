@@ -47,6 +47,7 @@ function detectTenant(hostname: string): DetectResult | null {
     hostname === "localhost" ||
     hostname.startsWith("localhost:") ||
     hostname.endsWith(".lovable.app") ||
+    hostname.endsWith(".lovableproject.com") ||
     hostname.endsWith(".vercel.app")
   ) {
     return null;
