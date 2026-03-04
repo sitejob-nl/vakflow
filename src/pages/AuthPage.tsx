@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const AuthPage = () => {
   const { user, loading, signIn, signUp } = useAuth();
+  const { tenant, isTenantSite, loading: tenantLoading } = useTenant();
   const { toast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -106,17 +108,29 @@ const AuthPage = () => {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md shadow-lg border-border">
         <CardHeader className="text-center space-y-3">
-          <div className="mx-auto bg-foreground rounded-xl px-5 py-3 inline-flex items-center justify-center">
-            <img src={vakflowLogo} alt="Vakflow" className="h-10 object-contain" />
-          </div>
+          {isTenantSite && tenant?.logo_url ? (
+            <div className="mx-auto rounded-xl px-5 py-3 inline-flex items-center justify-center">
+              <img src={tenant.logo_url} alt={tenant.name} className="h-12 object-contain" />
+            </div>
+          ) : (
+            <div className="mx-auto bg-foreground rounded-xl px-5 py-3 inline-flex items-center justify-center">
+              <img src={vakflowLogo} alt="Vakflow" className="h-10 object-contain" />
+            </div>
+          )}
           <CardTitle className="text-xl">
-            {isSettingPassword ? "Wachtwoord instellen" : isLogin ? "Inloggen" : "Account aanmaken"}
+            {isSettingPassword
+              ? "Wachtwoord instellen"
+              : isLogin
+              ? isTenantSite && tenant ? `Inloggen bij ${tenant.name}` : "Inloggen"
+              : "Account aanmaken"}
           </CardTitle>
           <CardDescription>
             {isSettingPassword
               ? "Stel een wachtwoord in voor je account"
               : isLogin
-              ? "Log in met je Vakflow account"
+              ? isTenantSite && tenant
+                ? `Log in met je ${tenant.name} account`
+                : "Log in met je Vakflow account"
               : "Maak een nieuw medewerker account aan"}
           </CardDescription>
         </CardHeader>

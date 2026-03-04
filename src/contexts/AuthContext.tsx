@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenant } from "@/contexts/TenantContext";
 
 type AppRole = "admin" | "monteur" | "super_admin";
 
@@ -32,6 +33,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const { tenant, isTenantSite } = useTenant();
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,6 +54,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [impersonatedEnabledFeatures, setImpersonatedEnabledFeatures] = useState<string[] | null>(null);
   const [impersonatedIndustry, setImpersonatedIndustry] = useState<string | null>(null);
   const [impersonatedSubcategory, setImpersonatedSubcategory] = useState<string | null>(null);
+  const [tenantMismatch, setTenantMismatch] = useState(false);
   const fetchedForRef = useRef<string | null>(null);
 
   const fetchUserData = async (userId: string) => {
@@ -69,6 +72,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setOnboardingCompleted(profileRes.data?.onboarding_completed ?? null);
     const cid = profileRes.data?.company_id ?? null;
     setRealCompanyId(cid);
+
+    // Post-login tenant validation
+    if (isTenantSite && tenant && cid && cid !== tenant.id) {
+      setTenantMismatch(true);
+      await supabase.auth.signOut();
+      return;
+    }
+    setTenantMismatch(false);
 
     // Fetch company logo
     if (cid) {
