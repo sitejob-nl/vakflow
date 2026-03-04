@@ -202,6 +202,7 @@ const SettingsPage = () => {
   const [brandColor, setBrandColor] = useState<string>("");
   const [customDomain, setCustomDomain] = useState("");
   const [customDomainSaving, setCustomDomainSaving] = useState(false);
+  const [customDomainChecking, setCustomDomainChecking] = useState(false);
   const [customDomainStatus, setCustomDomainStatus] = useState<{ verified?: boolean; configured?: boolean; verification?: Array<{ type: string; domain: string; value: string }> } | null>(null);
   const [customDomainSaved, setCustomDomainSaved] = useState(false);
   
@@ -1012,6 +1013,37 @@ const SettingsPage = () => {
                 className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 whitespace-nowrap"
               >
                 {customDomainSaving ? "Opslaan..." : "Koppelen"}
+              </button>
+              <button
+                onClick={async () => {
+                  if (!customDomain) return;
+                  setCustomDomainChecking(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke("manage-custom-domain", {
+                      method: "GET",
+                    });
+                    if (error) throw error;
+                    if (data?.error) throw new Error(data.error);
+                    if (data?.domain) {
+                      setCustomDomainSaved(true);
+                      setCustomDomainStatus(data?.vercel ?? null);
+                      if (data?.vercel?.verified) {
+                        toast({ title: "Domein is geverifieerd en actief! ✓" });
+                      } else {
+                        toast({ title: "DNS nog niet geverifieerd", description: "Controleer je DNS-instellingen en probeer het later opnieuw.", variant: "destructive" });
+                      }
+                    } else {
+                      toast({ title: "Geen domein gekoppeld" });
+                    }
+                  } catch (err: any) {
+                    toast({ title: "Fout bij ophalen status", description: err.message, variant: "destructive" });
+                  }
+                  setCustomDomainChecking(false);
+                }}
+                disabled={customDomainChecking || !customDomain}
+                className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-secondary/80 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {customDomainChecking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Status"}
               </button>
             </div>
             {customDomainSaved && customDomain && (
