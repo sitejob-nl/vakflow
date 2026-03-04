@@ -2,11 +2,12 @@ import { forwardRef } from "react";
 import { useNavigation, type Page } from "@/hooks/useNavigation";
 import { LayoutGrid, Calendar, Users, FileText, DollarSign, Mail, MessageSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 
-const allItems = [
+const buildItems = (workOrderLabel: string) => [
   { id: "dashboard" as Page, icon: LayoutGrid, label: "Home", adminOnly: false },
   { id: "planning" as Page, icon: Calendar, label: "Planning", adminOnly: false },
-  { id: "workorders" as Page, icon: FileText, label: "Bonnen", adminOnly: false },
+  { id: "workorders" as Page, icon: FileText, label: workOrderLabel, adminOnly: false },
   { id: "email" as Page, icon: Mail, label: "E-mail", adminOnly: true },
   { id: "whatsapp" as Page, icon: MessageSquare, label: "WhatsApp", adminOnly: true },
 ];
@@ -14,8 +15,9 @@ const allItems = [
 const MobileNav = forwardRef<HTMLElement>((_props, ref) => {
   const { currentPage, navigate } = useNavigation();
   const { isAdmin, enabledFeatures } = useAuth();
+  const { labels } = useIndustryConfig();
 
-  const items = allItems.filter((item) =>
+  const items = buildItems(labels.workOrders).filter((item) =>
     (!item.adminOnly || isAdmin) &&
     (enabledFeatures.length === 0 || enabledFeatures.includes(item.id))
   );

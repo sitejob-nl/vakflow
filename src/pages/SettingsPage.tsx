@@ -25,6 +25,7 @@ import { useWhatsAppAutomations, useCreateAutomation, useUpdateAutomation, useDe
 import type { Tables } from "@/integrations/supabase/types";
 import MetaSettingsTab from "@/components/MetaSettingsTab";
 import { useGeocode } from "@/hooks/useMapbox";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 
 const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates", "Automatiseringen", "Teamleden", "Koppelingen", "Meta"];
 
@@ -160,6 +161,7 @@ const PersonalOutlookSection = ({ inputClass, labelClass }: { inputClass: string
 
 const SettingsPage = () => {
   const { user, enabledFeatures, maxUsers } = useAuth();
+  const { labels } = useIndustryConfig();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("Profiel");
   const [waGuideOpen, setWaGuideOpen] = useState(false);
@@ -2890,11 +2892,11 @@ const SettingsPage = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="monteur">Monteur</SelectItem>
+                   <SelectItem value="monteur">{labels.worker}</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-[11px] text-t3 mt-1">Monteurs zien alleen planning en werkbonnen</p>
+              <p className="text-[11px] text-t3 mt-1">{labels.workerPlural} zien alleen planning en {labels.workOrders.toLowerCase()}</p>
             </div>
             <button
               onClick={handleInviteUser}
@@ -2943,7 +2945,7 @@ const SettingsPage = () => {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="monteur">Monteur</SelectItem>
+                              <SelectItem value="monteur">{labels.worker}</SelectItem>
                             </SelectContent>
                           </Select>
                         )}

@@ -5,8 +5,9 @@ import {
 } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 
-const allSections = [
+const buildSections = (labels: { workOrders: string; assets: string }) => [
   {
     label: "Overzicht",
     items: [
@@ -18,7 +19,7 @@ const allSections = [
     items: [
       { id: "planning" as Page, icon: Calendar, label: "Planning", adminOnly: false },
       { id: "customers" as Page, icon: Users, label: "Klanten", adminOnly: true },
-      { id: "workorders" as Page, icon: FileText, label: "Werkbonnen", adminOnly: false },
+      { id: "workorders" as Page, icon: FileText, label: labels.workOrders, adminOnly: false },
     ],
   },
   {
@@ -36,7 +37,7 @@ const allSections = [
   {
     label: "Beheer",
     items: [
-      { id: "assets" as Page, icon: Box, label: "Objecten", adminOnly: true },
+      { id: "assets" as Page, icon: Box, label: labels.assets, adminOnly: true },
       { id: "marketing" as Page, icon: Megaphone, label: "Marketing", adminOnly: true },
     ],
   },
@@ -45,12 +46,13 @@ const allSections = [
 const Sidebar = () => {
   const { currentPage, navigate } = useNavigation();
   const { signOut, isAdmin, isSuperAdmin, companyLogoUrl, enabledFeatures } = useAuth();
+  const { labels } = useIndustryConfig();
 
   const handleNav = (page: Page) => {
     navigate(page);
   };
 
-  const sections = allSections
+  const sections = buildSections(labels)
     .map((section) => ({
       ...section,
       items: section.items.filter((item) =>

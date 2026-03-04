@@ -20,6 +20,8 @@ interface AuthContextType {
   isImpersonating: boolean;
   maxUsers: number;
   enabledFeatures: string[];
+  industry: string | null;
+  subcategory: string | null;
   impersonate: (companyId: string, companyName: string) => void;
   stopImpersonating: () => void;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -42,10 +44,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [companyBrandColor, setCompanyBrandColor] = useState<string | null>(null);
   const [maxUsersState, setMaxUsersState] = useState<number>(2);
   const [enabledFeaturesState, setEnabledFeaturesState] = useState<string[]>([]);
+  const [industryState, setIndustryState] = useState<string | null>(null);
+  const [subcategoryState, setSubcategoryState] = useState<string | null>(null);
   const [impersonatedLogoUrl, setImpersonatedLogoUrl] = useState<string | null>(null);
   const [impersonatedBrandColor, setImpersonatedBrandColor] = useState<string | null>(null);
   const [impersonatedMaxUsers, setImpersonatedMaxUsers] = useState<number | null>(null);
   const [impersonatedEnabledFeatures, setImpersonatedEnabledFeatures] = useState<string[] | null>(null);
+  const [impersonatedIndustry, setImpersonatedIndustry] = useState<string | null>(null);
+  const [impersonatedSubcategory, setImpersonatedSubcategory] = useState<string | null>(null);
   const fetchedForRef = useRef<string | null>(null);
 
   const fetchUserData = async (userId: string) => {
@@ -66,11 +72,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Fetch company logo
     if (cid) {
-      const { data: companyData } = await supabase.from("companies_safe" as any).select("logo_url, brand_color, max_users, enabled_features").eq("id", cid).single() as { data: any };
+      const { data: companyData } = await supabase.from("companies_safe" as any).select("logo_url, brand_color, max_users, enabled_features, industry, subcategory").eq("id", cid).single() as { data: any };
       setCompanyLogoUrl(companyData?.logo_url ?? null);
       setCompanyBrandColor(companyData?.brand_color ?? null);
       setMaxUsersState(companyData?.max_users ?? 2);
       setEnabledFeaturesState(companyData?.enabled_features ?? []);
+      setIndustryState(companyData?.industry ?? "technical");
+      setSubcategoryState(companyData?.subcategory ?? "installation");
     }
   };
 
@@ -132,11 +140,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const impersonate = async (companyId: string, companyName: string) => {
     setImpersonatedCompanyId(companyId);
     setImpersonatedCompanyName(companyName);
-    const { data } = await supabase.from("companies_safe" as any).select("logo_url, brand_color, max_users, enabled_features").eq("id", companyId).single() as { data: any };
+    const { data } = await supabase.from("companies_safe" as any).select("logo_url, brand_color, max_users, enabled_features, industry, subcategory").eq("id", companyId).single() as { data: any };
     setImpersonatedLogoUrl(data?.logo_url ?? null);
     setImpersonatedBrandColor(data?.brand_color ?? null);
     setImpersonatedMaxUsers(data?.max_users ?? 2);
     setImpersonatedEnabledFeatures(data?.enabled_features ?? []);
+    setImpersonatedIndustry(data?.industry ?? null);
+    setImpersonatedSubcategory(data?.subcategory ?? null);
   };
 
   const stopImpersonating = () => {
@@ -146,6 +156,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setImpersonatedBrandColor(null);
     setImpersonatedMaxUsers(null);
     setImpersonatedEnabledFeatures(null);
+    setImpersonatedIndustry(null);
+    setImpersonatedSubcategory(null);
   };
 
   const companyId = impersonatedCompanyId ?? realCompanyId;
@@ -154,13 +166,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const activeBrandColor = impersonatedBrandColor ?? companyBrandColor;
   const maxUsers = impersonatedMaxUsers ?? maxUsersState;
   const enabledFeatures = impersonatedEnabledFeatures ?? enabledFeaturesState;
+  const industry = impersonatedIndustry ?? industryState;
+  const subcategory = impersonatedSubcategory ?? subcategoryState;
 
   return (
     <AuthContext.Provider value={{
       session, user, loading, role, isAdmin, isSuperAdmin,
       companyId, realCompanyId, companyLogoUrl: activeLogoUrl, companyBrandColor: activeBrandColor,
       onboardingCompleted, impersonatedCompanyName, isImpersonating,
-      maxUsers, enabledFeatures,
+      maxUsers, enabledFeatures, industry, subcategory,
       impersonate, stopImpersonating,
       signIn, signUp, signOut,
     }}>

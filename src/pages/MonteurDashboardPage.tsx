@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useOptimizeRoute } from "@/hooks/useMapbox";
 import { useUpdateAppointment } from "@/hooks/useAppointments";
@@ -35,6 +36,7 @@ const woStatusBadge: Record<string, string> = {
 
 const MonteurDashboardPage = () => {
   const { user, companyId } = useAuth();
+  const { labels } = useIndustryConfig();
   const { navigate } = useNavigation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -295,7 +297,7 @@ const MonteurDashboardPage = () => {
       <div className="bg-card border border-border rounded-lg shadow-card overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border">
           <h3 className="text-[14px] font-bold flex items-center gap-2">
-            <Wrench className="h-4 w-4" /> Openstaande werkbonnen
+            <Wrench className="h-4 w-4" /> Openstaande {labels.workOrders.toLowerCase()}
           </h3>
           <button onClick={() => navigate("workorders")} className="text-[11px] text-primary font-bold hover:underline">
             Alle →
@@ -304,7 +306,7 @@ const MonteurDashboardPage = () => {
         {loadingWOs ? (
           <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : !openWOs?.length ? (
-          <div className="text-center py-8 text-muted-foreground text-sm">Geen openstaande werkbonnen</div>
+          <div className="text-center py-8 text-muted-foreground text-sm">Geen openstaande {labels.workOrders.toLowerCase()}</div>
         ) : (
           <div className="divide-y divide-border">
             {openWOs.map((wo: any) => (
