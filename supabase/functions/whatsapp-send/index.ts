@@ -285,7 +285,7 @@ Deno.serve(async (req) => {
         content: contentSummary(body),
         type,
         status: "sent",
-        sent_by: userId,
+        sent_by: isServiceRole ? null : userId,
         customer_id: resolvedCustomerId,
         company_id: companyId,
       });
