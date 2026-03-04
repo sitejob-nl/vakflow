@@ -482,8 +482,12 @@ const SettingsPage = () => {
         setPhone(profileData.phone ?? "");
         setLocation(profileData.location ?? "");
       }
-      // Load company data
-      const { data: companyData } = await supabase.from("companies_safe" as any).select("*").limit(1).single();
+      // Load company data — filter by user's own company
+      const { data: profileForCompany } = await supabase.from("profiles").select("company_id").eq("id", user.id).single();
+      const myCompanyId = profileForCompany?.company_id;
+      const { data: companyData } = myCompanyId
+        ? await supabase.from("companies_safe" as any).select("*").eq("id", myCompanyId).single()
+        : { data: null };
       if (companyData) {
         setCompanyName((companyData as any).name ?? "");
         setCompanySlug((companyData as any).slug ?? "");
