@@ -4,6 +4,7 @@ import { createAdminClient, createUserClient } from "../_shared/supabase.ts";
 import { decrypt, base64ToBytes } from "../_shared/crypto.ts";
 import { logUsage } from "../_shared/usage.ts";
 import { logEdgeFunctionError } from "../_shared/error-logger.ts";
+import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return optionsResponse();
@@ -57,6 +58,15 @@ Deno.serve(async (req) => {
       .single();
 
     // Check if company uses Outlook
+    // Rate limit: max 30 emails per minute per company
+    if (userProfile?.company_id) {
+      try {
+        await checkRateLimit(supabaseAdmin, userProfile.company_id, "send_email", 30);
+      } catch (e) {
+        if (e instanceof RateLimitError) return jsonRes({ error: e.message }, 429);
+      }
+    }
+
     let emailProvider = "smtp";
     let smtpCreds: { smtp_email: string | null; smtp_password: string | null; smtp_host: string | null; smtp_port: number | null } | null = null;
 

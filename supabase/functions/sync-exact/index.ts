@@ -1,6 +1,7 @@
 import { jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { logUsage } from "../_shared/usage.ts";
+import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
 /** Parse OData v3 /Date(...)/ or ISO date strings to YYYY-MM-DD */
 function parseODataDate(val: unknown): string | null {
@@ -119,6 +120,9 @@ Deno.serve(async (req) => {
   try {
     const { companyId } = await authenticateRequest(req);
     const supabaseAdmin = createAdminClient();
+
+    // Rate limit: max 5 syncs per minute per company
+    await checkRateLimit(supabaseAdmin, companyId, "sync_exact", 5);
 
     // Get exact config
     const { data: config } = await supabaseAdmin
@@ -551,6 +555,7 @@ Deno.serve(async (req) => {
     }
   } catch (err: any) {
     if (err instanceof AuthError) return jsonRes({ error: err.message }, err.status);
+    if (err instanceof RateLimitError) return jsonRes({ error: err.message }, 429);
     console.error("sync-exact error:", err);
     return jsonRes({ error: err.message || "Internal error" }, 500);
   }

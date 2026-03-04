@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { fetchJpegLogo, logoDisplaySize, type LogoData } from "../_shared/pdf-logo.ts";
+import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,6 +59,19 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: error?.message || "Quote not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Rate limit check
+    if (quote.company_id) {
+      try {
+        await checkRateLimit(supabase, quote.company_id, "pdf_generation", 30);
+      } catch (e) {
+        if (e instanceof RateLimitError) {
+          return new Response(JSON.stringify({ error: e.message }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
     }
 
     // Fetch company info

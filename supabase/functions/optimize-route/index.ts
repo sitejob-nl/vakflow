@@ -2,6 +2,7 @@ import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 import { decrypt } from "../_shared/crypto.ts";
+import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
 const FUNCTION_NAME = "optimize-route";
 
@@ -135,6 +136,11 @@ Deno.serve(async (req) => {
   try {
     const { userId, companyId } = await authenticateRequest(req);
     const body = await req.json();
+
+    // Rate limit: max 10 route optimizations per minute per company
+    const adminForRateLimit = createAdminClient();
+    await checkRateLimit(adminForRateLimit, companyId, "optimize_route", 10);
+
     const { date, assigned_to, round_trip = true, include_outlook = true } = body as {
       date: string;
       assigned_to?: string;
@@ -358,6 +364,9 @@ Deno.serve(async (req) => {
   } catch (err) {
     if (err instanceof AuthError) {
       return jsonRes({ error: err.message }, err.status);
+    }
+    if (err instanceof RateLimitError) {
+      return jsonRes({ error: err.message }, 429);
     }
     console.error("optimize-route error:", err);
     try {

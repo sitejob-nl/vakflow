@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.snelstart-sync]
 verify_jwt = false
+
+[functions.cleanup-old-media]
+verify_jwt = false
