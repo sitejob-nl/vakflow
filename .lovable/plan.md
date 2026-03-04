@@ -1,35 +1,45 @@
 
 
-## Plan: SnelStart Subscription Key als Supabase Secret
+# Fix: Toon Vercel-specifieke DNS-records in custom domain UI
 
-### Probleem
+## Probleem
 
-De **subscription key** (ontwikkelsleutel) is een app-niveau sleutel die Vakflow als ontwikkelaar ontvangt van het SnelStart Developer Portal. Deze is voor alle tenants hetzelfde. Nu wordt deze per tenant opgeslagen in `snelstart_connections`, wat onnodig en onveilig is.
+De Vercel API retourneert specifieke DNS-verificatierecords (CNAME met unieke waarde + TXT-record) wanneer een domein aan een ander Vercel-account is gekoppeld. De huidige UI toont alleen een generieke instructie ("stel CNAME in naar cname.vercel-dns.com"), maar negeert de `verification`-array die Vercel teruggeeft.
 
-Alleen de **koppelingssleutel** (client_key) is per tenant verschillend -- die beheert de eindgebruiker via SnelStart Web.
+Uit je screenshot blijkt dat Vercel deze records vereist:
+- **CNAME** `test` → `ebc47d62a95136b7.vercel-dns-017.com.`
+- **TXT** `_vercel` → `vc-domain-verify=test.sitejob.nl,ae91d7df48575fe566fc`
 
-### Wijzigingen
+## Oplossing
 
-**1. Supabase Secret toevoegen**
-- `SNELSTART_SUBSCRIPTION_KEY` als Supabase secret opslaan (via add_secret tool)
+### 1. Edge Function (`manage-custom-domain/index.ts`)
+De `verification`-array wordt al doorgegeven in de response (`vercelData.verification`). Hier hoeft niets te veranderen.
 
-**2. `_shared/snelstart-client.ts` aanpassen**
-- `subscription_key` uit `Deno.env.get("SNELSTART_SUBSCRIPTION_KEY")` halen in plaats van uit de connection record
-- `SnelstartConnection` interface: `subscription_key` veld verwijderen
+### 2. Settings UI (`src/pages/SettingsPage.tsx`)
+Update de DNS-instructiesectie (regels ~1017-1041) om de `verification`-array uit `customDomainStatus` te tonen:
 
-**3. Settings UI vereenvoudigen**
-- Het invoerveld "Subscription key" verwijderen uit de SnelStart-koppelingskaart
-- Gebruiker hoeft alleen de koppelingssleutel in te voeren
-- `useSaveSnelstartConnection` hook aanpassen: geen subscription_key meer meesturen
+- Als `customDomainStatus.verification` bestaat en niet leeg is → toon elke record (type, name, value) in een overzichtelijke tabel/lijst
+- Als er geen verification-array is → toon de huidige generieke CNAME-instructie als fallback
+- Voeg een "Kopieer"-knop toe per record-waarde voor gebruiksgemak
 
-**4. Database opschonen**
-- `subscription_key` kolom kan in de toekomst verwijderd worden uit `snelstart_connections`, maar voor nu maken we het optioneel (geen breaking migration nodig)
+**Voorbeeldweergave:**
 
-### Bestanden
+```text
+┌─────────────────────────────────────────────────────┐
+│ ℹ DNS instellen                                     │
+│                                                     │
+│ Stel de volgende records in bij je domeinprovider:   │
+│                                                     │
+│  Type   │ Name     │ Value                    [📋]  │
+│  CNAME  │ test     │ ebc47d62...dns-017.com.  [📋]  │
+│  TXT    │ _vercel  │ vc-domain-verify=...     [📋]  │
+│                                                     │
+│ SSL wordt automatisch geregeld na verificatie.       │
+│ ⚠ Wacht op DNS-verificatie                          │
+└─────────────────────────────────────────────────────┘
+```
 
 | Bestand | Wijziging |
 |---------|-----------|
-| `supabase/functions/_shared/snelstart-client.ts` | Subscription key uit env halen |
-| `src/pages/SettingsPage.tsx` | Subscription key invoerveld verwijderen |
-| `src/hooks/useSnelstart.ts` | subscription_key uit save logica verwijderen |
+| `src/pages/SettingsPage.tsx` | Toon `verification`-records dynamisch, met kopieerknoppen en fallback naar generieke CNAME |
 
