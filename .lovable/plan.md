@@ -1,73 +1,22 @@
 
 
-# Plan: WhatsApp Connect per bedrijf (multi-tenant)
+# Fix: PWA navigateFallback serveert offline pagina bij updates
 
-## Huidige situatie
+## Probleem
 
-De `whatsapp_config` tabel heeft al een `company_id` kolom en `whatsapp-send` + `whatsapp-webhook` zijn al multi-tenant aware. Maar `whatsapp-register` werkt nog globaal:
+In `vite.config.ts` staat `navigateFallback: "/offline.html"`. Workbox gebruikt dit als fallback voor **alle** navigatie-requests die niet in de cache staan. Wanneer de service worker update en de oude cache wordt gewist, valt elke pagina terug naar `offline.html` — zelfs als je online bent.
 
-1. **Globale tenant check** — zoekt ANY tenant_id zonder company filter
-2. **Hardcoded UUID** — upsert naar `00000000-0000-0000-0000-000000000001` i.p.v. per bedrijf
-3. **Geen company_id** — slaat geen company_id op bij registratie
+## Oplossing
 
-## Wat wordt aangepast
+Verander `navigateFallback` van `/offline.html` naar `/index.html` (de SPA entry point). Dit is het standaard Workbox-gedrag voor SPA's: bij een navigatie-request die niet in de precache zit, wordt de app-shell geserveerd in plaats van de offline pagina.
 
-### 1. Edge function `whatsapp-register` herschrijven
+De `offline.html` pagina wordt dan alleen getoond via de `OfflineBanner` component wanneer `navigator.onLine` daadwerkelijk `false` is — wat al correct werkt.
 
-- `authenticateRequest` retourneert al `companyId` — gebruik dit
-- Check bestaande tenant_id **gefilterd op company_id**
-- Upsert met `company_id` als key (niet hardcoded UUID)
-- Geeft elk bedrijf zijn eigen tenant bij SiteJob Connect
+## Wijziging
 
-### 2. Edge function `whatsapp-config` (config push van Connect)
+| Bestand | Wat |
+|---------|-----|
+| `vite.config.ts` | `navigateFallback: "/offline.html"` → `navigateFallback: "/index.html"` |
 
-- Na upsert op `phone_number_id`, zorg dat `company_id` behouden blijft (al correct via upsert op bestaand record)
-- Geen wijzigingen nodig — de config push matcht op `phone_number_id` dat al gekoppeld is aan een company
-
-### 3. Database: unique constraint op company_id
-
-- Voeg `UNIQUE(company_id)` toe zodat elk bedrijf maximaal één WhatsApp config heeft
-- Verwijder de hardcoded UUID-afhankelijkheid
-
-### 4. Frontend: SettingsPage
-
-- Stuur `company_id` niet mee (edge function haalt dit uit auth) — al correct
-- Geen wijzigingen nodig
-
-## Bestanden
-
-| Bestand | Wijziging |
-|---------|-----------|
-| `supabase/functions/whatsapp-register/index.ts` | Company-scoped tenant registratie |
-| `supabase/migrations/...` | UNIQUE constraint op `whatsapp_config.company_id` |
-
-## Technisch detail
-
-```typescript
-// whatsapp-register: company-scoped
-const { companyId } = await authenticateRequest(req);
-
-// Check bestaande tenant voor DIT bedrijf
-const { data: existingConfig } = await supabaseAdmin
-  .from("whatsapp_config")
-  .select("tenant_id")
-  .eq("company_id", companyId)
-  .maybeSingle();
-
-if (existingConfig?.tenant_id) {
-  return jsonRes({ tenant_id: existingConfig.tenant_id, existing: true });
-}
-
-// Registreer nieuwe tenant bij Connect
-// ...
-
-// Upsert met company_id als scope (gen_random_uuid voor id)
-await supabaseAdmin.from("whatsapp_config").upsert({
-  company_id: companyId,
-  phone_number_id: "pending",
-  access_token: "pending",
-  tenant_id,
-  webhook_secret,
-}, { onConflict: "company_id" });
-```
+Eén regel wijziging, geen andere bestanden nodig.
 
