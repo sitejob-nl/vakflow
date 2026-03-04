@@ -1,41 +1,23 @@
 
 
-## Analyse: SMTP ondersteuning
+## Probleem gevonden
 
-### Huidige situatie
+**De e-Boekhouden token wordt opgeslagen in de `companies` tabel, maar uitgelezen uit de `profiles` tabel.**
 
-**Uitgaand (SMTP - `send-email`):**
-- Host en port zijn **configureerbaar** via `smtp_host` en `smtp_port` in de database
-- Maar de **fallback** is hardcoded naar TransIP: `smtp.transip.email:465`
-- Dit werkt dus al voor andere providers, mits de gebruiker host/port invult
+### Oorzaak
 
-**Inkomend (IMAP - `fetch-emails`):**
-- IMAP is **hardcoded** naar `imap.transip.email:993` (regel 422-428)
-- Er wordt geen `imap_host` of `imap_port` uit de database gelezen
-- Dit werkt dus **alleen met TransIP**
+- `save-smtp-credentials` slaat de versleutelde token op in `companies.eboekhouden_api_token` (regel 74-78)
+- `sync-invoice-eboekhouden` leest de token uit `profiles.eboekhouden_api_token` (regel 391-398)
+- De token staat dus nooit in `profiles`, waardoor de fout "e-Boekhouden API-token niet ingesteld" altijd optreedt
 
-### Wat moet er veranderen
+### Oplossing
 
-**1. Database: IMAP-velden toevoegen aan `companies`**
-- `imap_host` (text, nullable, default `null`)
-- `imap_port` (integer, nullable, default `null`)
+**1 bestand aanpassen: `supabase/functions/sync-invoice-eboekhouden/index.ts`**
 
-**2. `fetch-emails/index.ts` aanpassen**
-- IMAP host/port lezen uit `companies` tabel (naast `smtp_email`/`smtp_password`)
-- Fallback naar `imap.transip.email:993` als niet ingesteld
-- Company query uitbreiden met `imap_host, imap_port`
+De token-ophaal logica wijzigen om de `eboekhouden_api_token` uit de `companies` tabel te lezen (via `company_id` uit het profiel), in plaats van uit `profiles`. Dit is consistent met hoe de SettingsPage het opslaat en hoe andere providers (Rompslomp, Moneybird) al werken.
 
-**3. Instellingen UI (`SettingsPage.tsx` — E-mail tab)**
-- Velden toevoegen voor IMAP host en IMAP port
-- Opslaan via `save-smtp-credentials` edge function
-
-**4. `save-smtp-credentials/index.ts` aanpassen**
-- `imap_host` en `imap_port` accepteren en opslaan
-
-### Samenvatting
-
-| | Uitgaand (SMTP) | Inkomend (IMAP) |
-|---|---|---|
-| **Nu** | Configureerbaar (fallback TransIP) | Alleen TransIP (hardcoded) |
-| **Na fix** | Configureerbaar (fallback TransIP) | Configureerbaar (fallback TransIP) |
+Concreet:
+- Haal eerst `company_id` op uit `profiles`
+- Haal daarna `eboekhouden_api_token` + template/ledger config op uit `companies` in een enkele query
+- Verwijder de dubbele company-config query die nu al op regel 406-418 staat (wordt overbodig)
 
