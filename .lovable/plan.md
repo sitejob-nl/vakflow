@@ -1,35 +1,35 @@
 
 
-# Fix: WhatsApp registratie faalt door unique constraint op `phone_number_id`
+# Fix: WhatsApp config push routing op tenant_id
 
 ## Probleem
 
-De edge function log toont:
-```
-duplicate key value violates unique constraint "idx_whatsapp_config_phone_number_id"
-Key (phone_number_id)=(pending) already exists.
-```
-
-Bij registratie wordt `phone_number_id` op `"pending"` gezet. Maar er is een UNIQUE index op die kolom, en een ander bedrijf heeft al `"pending"` staan. Daardoor kan geen tweede bedrijf meer registreren.
+De flow is:
+1. `whatsapp-register` maakt een rij aan: `{company_id, phone_number_id: "pending", tenant_id, webhook_secret}`
+2. Connect stuurt later een config push naar `whatsapp-config` met het echte `phone_number_id`
+3. **Bug**: `whatsapp-config` doet een `upsert` op `phone_number_id`, maar de bestaande rij heeft `"pending"` -- dus er wordt een NIEUWE rij aangemaakt zonder `company_id`
+4. De webhook secret lookup pakt ook de eerste willekeurige rij in plaats van te scopen op de tenant
 
 ## Oplossing
 
-1. **Database migratie**: Verwijder de unique index `idx_whatsapp_config_phone_number_id` en maak een partial unique index aan die alleen niet-null en niet-"pending" waarden afdwingt:
+### `supabase/functions/whatsapp-config/index.ts`
 
-```sql
-DROP INDEX IF EXISTS idx_whatsapp_config_phone_number_id;
-CREATE UNIQUE INDEX idx_whatsapp_config_phone_number_id 
-  ON whatsapp_config (phone_number_id) 
-  WHERE phone_number_id IS NOT NULL AND phone_number_id != 'pending';
-```
+Twee fixes:
 
-Dit zorgt ervoor dat echte phone_number_id's uniek blijven, maar meerdere bedrijven tegelijk de waarde `"pending"` kunnen hebben.
+**1. Webhook secret lookup scopen op tenant_id**
+- Lees eerst de body (nodig voor `tenant_id`), daarna verify
+- Zoek webhook_secret via `WHERE tenant_id = body.tenant_id` in plaats van `.limit(1).maybeSingle()`
 
-## Bestanden
+**2. Config push: UPDATE WHERE tenant_id in plaats van upsert op phone_number_id**
+- Zoek de bestaande rij via `tenant_id` uit de body
+- Update die rij met `phone_number_id`, `access_token`, `display_phone`, `waba_id`
+- Dit zorgt ervoor dat de "pending" rij correct wordt bijgewerkt en `company_id` behouden blijft
+
+### Database opschoning
+- Verwijder eventuele orphaned rijen (rijen zonder `company_id` die door de oude upsert-bug zijn aangemaakt)
 
 | Bestand | Actie |
 |---------|-------|
-| Database migratie | Partial unique index op `phone_number_id` |
-
-Geen code-wijzigingen nodig — alleen de database constraint moet worden aangepast.
+| `supabase/functions/whatsapp-config/index.ts` | Secret lookup scopen op tenant_id + UPDATE i.p.v. upsert |
+| Database | Orphaned rijen opschonen |
 
