@@ -501,7 +501,7 @@ export const usePullInvoicesExact = () => {
       const { data, error } = await supabase.functions.invoke("sync-exact", { body: { action: "pull-invoices" } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { total_in_exact: number; linked: number; invoices: any[] };
+      return data as { total_in_exact: number; imported: number; already_linked: number; unlinked_customers: { name: string; exact_account_id: string }[]; errors: string[] };
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
   });
