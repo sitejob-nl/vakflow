@@ -1,50 +1,31 @@
 
 
-## Schaalbaarheidsverbeteringen
+## Two fixes needed
 
-Je analyse is accuraat. Hier is wat ik nu kan fixen in code/database, en wat handmatig of later moet.
+### 1. FK-indexes migration: OK, no action needed
 
-### 1. Ontbrekende FK-indexes toevoegen (migratie)
+The existing migration uses plain `CREATE INDEX IF NOT EXISTS` (not `CONCURRENTLY`), which works correctly inside Supabase's transactional migration runner. No change required.
 
-8 foreign keys missen een index:
+### 2. Missing composite index on `usage_events` for rate-limit performance
 
-| Tabel | Kolom | Impact |
-|-------|-------|--------|
-| `work_orders` | `assigned_to` | Hoog — veel rijen, veel queries |
-| `user_outlook_tokens` | `company_id` | Laag |
-| `outlook_event_overrides` | `company_id` | Laag |
-| `snelstart_relaties` | `connection_id` | Middel |
-| `snelstart_artikelen` | `connection_id` | Middel |
-| `snelstart_verkoopfacturen` | `connection_id` | Middel |
-| `snelstart_verkooporders` | `connection_id` | Middel |
-| `snelstart_offertes` | `connection_id` | Middel |
+The `_shared/rate-limit.ts` helper does:
+```sql
+SELECT id FROM usage_events 
+WHERE company_id = ? AND event_type = ? AND created_at >= ?
+```
 
-Eenvoudige migratie: `CREATE INDEX CONCURRENTLY` voor elk.
+Without a composite index, this becomes a sequential scan at scale. Need to add:
 
-### 2. Rate limiting toevoegen aan zware endpoints
+```sql
+CREATE INDEX IF NOT EXISTS idx_usage_events_company_type_created
+  ON public.usage_events (company_id, event_type, created_at DESC);
+```
 
-Voeg een gedeelde `checkRateLimit()` helper toe in `_shared/rate-limit.ts` die een `usage_events`-based check doet per company. Toepassen op:
-- `generate-invoice-pdf` / `generate-quote-pdf` / `generate-workorder-pdf` (max 30/min per bedrijf)
-- `sync-exact` / `sync-moneybird` / `sync-rompslomp` / `sync-invoice-eboekhouden` (max 5/min per bedrijf)
-- `optimize-route` (max 10/min per bedrijf)
-- `send-email` (max 30/min per bedrijf)
+This is a single new migration file with one statement.
 
-### 3. WhatsApp media lifecycle
+### Implementation
 
-Niet mogelijk via code — Supabase Storage heeft geen ingebouwd lifecycle-beleid. Alternatief: een cron edge function `cleanup-old-media` die bestanden ouder dan 90 dagen verwijdert.
+1. Create one migration adding the composite index on `usage_events(company_id, event_type, created_at DESC)`
 
-### Wat NIET in scope is (handmatig/later)
-
-- **Subscription/billing**: Vereist Stripe-integratie + plan-management UI — apart project
-- **Feature flagging per plan**: `enabled_features` bestaat al, maar er is geen koppeling met een betalingsplan
-- **DB connection limits**: Supabase plan upgrade nodig
-- **Onboarding provisioning**: `company-signup` bestaat, maar geautomatiseerd betaal-pad ontbreekt
-- **Ongebruikte indexes opruimen**: Vereist productie-query-analyse (pg_stat_user_indexes) om te bepalen welke echt ongebruikt zijn
-
-### Aanpak
-
-1. Migratie: 8 ontbrekende indexes
-2. Nieuwe shared helper: `_shared/rate-limit.ts`
-3. Rate limiting toevoegen aan 8 edge functions
-4. Optioneel: `cleanup-old-media` cron function
+That's it — one file, one statement.
 
