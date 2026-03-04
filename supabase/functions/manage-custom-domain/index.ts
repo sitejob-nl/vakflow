@@ -77,6 +77,16 @@ Deno.serve(async (req) => {
       );
 
       const vercelData = await vercelRes.json();
+      console.log("Vercel POST response:", JSON.stringify(vercelData));
+
+      let verification = vercelData.verification ?? [];
+      if (!vercelData.verified && !verification.some((r: any) => r.type === 'CNAME')) {
+        const subdomain = domain.split('.')[0];
+        verification = [
+          { type: 'CNAME', domain: subdomain, value: 'cname.vercel-dns.com' },
+          ...verification,
+        ];
+      }
 
       return jsonRes({
         success: true,
@@ -84,7 +94,7 @@ Deno.serve(async (req) => {
         vercel: {
           status: vercelRes.status,
           verified: vercelData.verified ?? false,
-          verification: vercelData.verification ?? null,
+          verification,
         },
       });
     }
@@ -118,12 +128,22 @@ Deno.serve(async (req) => {
       );
 
       const vercelData = await vercelRes.json();
+      console.log("Vercel GET response:", JSON.stringify(vercelData));
+
+      let verification = vercelData.verification ?? [];
+      if (!vercelData.verified && !verification.some((r: any) => r.type === 'CNAME')) {
+        const subdomain = domain.split('.')[0];
+        verification = [
+          { type: 'CNAME', domain: subdomain, value: 'cname.vercel-dns.com' },
+          ...verification,
+        ];
+      }
 
       return jsonRes({
         domain,
         vercel: {
           verified: vercelData.verified ?? false,
-          verification: vercelData.verification ?? null,
+          verification,
           configured: vercelRes.ok,
         },
       });
