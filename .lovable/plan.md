@@ -1,45 +1,49 @@
 
 
-# Fix: Toon Vercel-specifieke DNS-records in custom domain UI
+## Plan: Pull-invoices daadwerkelijk importeren + ontkoppelde klanten melden
 
-## Probleem
+### Probleem
+`pull-invoices` is nu read-only: het haalt facturen uit Exact maar slaat ze niet op in de lokale database. De gebruiker wil dat facturen daadwerkelijk worden geimporteerd, en als een klant niet gekoppeld is, moet dat duidelijk gemeld worden (niet overslaan).
 
-De Vercel API retourneert specifieke DNS-verificatierecords (CNAME met unieke waarde + TXT-record) wanneer een domein aan een ander Vercel-account is gekoppeld. De huidige UI toont alleen een generieke instructie ("stel CNAME in naar cname.vercel-dns.com"), maar negeert de `verification`-array die Vercel teruggeeft.
+### Veiligheid & RLS
+De edge function gebruikt `createAdminClient()` (service role) die RLS omzeilt. Dit is correct voor server-side sync, maar het betekent dat de `company_id` **altijd expliciet** meegegeven moet worden bij inserts. De huidige code haalt `companyId` op via `authenticateRequest()` die de JWT valideert en de company_id uit het profiel haalt -- dit is veilig.
 
-Uit je screenshot blijkt dat Vercel deze records vereist:
-- **CNAME** `test` → `ebc47d62a95136b7.vercel-dns-017.com.`
-- **TXT** `_vercel` → `vc-domain-verify=test.sitejob.nl,ae91d7df48575fe566fc`
+### Aanpassingen
 
-## Oplossing
+**1. Edge function `sync-exact/index.ts` -- `pull-invoices` case (regels 352-378)**
 
-### 1. Edge Function (`manage-custom-domain/index.ts`)
-De `verification`-array wordt al doorgegeven in de response (`vercelData.verification`). Hier hoeft niets te veranderen.
+Huidige logica: alleen lezen en een lijst teruggeven.
 
-### 2. Settings UI (`src/pages/SettingsPage.tsx`)
-Update de DNS-instructiesectie (regels ~1017-1041) om de `verification`-array uit `customDomainStatus` te tonen:
+Nieuwe logica:
+- Haal facturen op uit Exact via `salesinvoice/SalesInvoices` (met paginering)
+- Haal ook `OrderedBy` op in `$select` zodat we de klant kunnen matchen
+- Voor elke factuur:
+  - Als `exact_id` al bestaat lokaal → skip (al geïmporteerd)
+  - Zoek de lokale klant via `exact_account_id = OrderedBy`
+  - Als klant NIET gevonden → voeg toe aan `unlinked_customers` lijst met de Exact Account naam (haal op via apart request of uit de factuur)
+  - Als klant WEL gevonden → insert factuur met `company_id`, `customer_id`, `exact_id`, `status: "verstuurd"`, bedragen, etc.
+- Return: `{ imported, already_linked, unlinked_customers: [{name, exact_account_id}], errors }`
 
-- Als `customDomainStatus.verification` bestaat en niet leeg is → toon elke record (type, name, value) in een overzichtelijke tabel/lijst
-- Als er geen verification-array is → toon de huidige generieke CNAME-instructie als fallback
-- Voeg een "Kopieer"-knop toe per record-waarde voor gebruiksgemak
+**2. Edge function -- extra: haal Exact Account namen op voor ontkoppelde klanten**
 
-**Voorbeeldweergave:**
+Om de klantnaam te tonen voor ontkoppelde facturen, haal ik de unieke `OrderedBy` GUIDs op en doe een batch lookup via `crm/Accounts?$filter=ID eq guid'...'` of cache ze in-memory tijdens de loop.
 
-```text
-┌─────────────────────────────────────────────────────┐
-│ ℹ DNS instellen                                     │
-│                                                     │
-│ Stel de volgende records in bij je domeinprovider:   │
-│                                                     │
-│  Type   │ Name     │ Value                    [📋]  │
-│  CNAME  │ test     │ ebc47d62...dns-017.com.  [📋]  │
-│  TXT    │ _vercel  │ vc-domain-verify=...     [📋]  │
-│                                                     │
-│ SSL wordt automatisch geregeld na verificatie.       │
-│ ⚠ Wacht op DNS-verificatie                          │
-└─────────────────────────────────────────────────────┘
+**3. Frontend `src/hooks/useInvoices.ts` -- `usePullInvoicesExact` return type**
+
+Update return type naar:
+```ts
+{ imported: number; already_linked: number; unlinked_customers: { name: string; exact_account_id: string }[]; errors: string[] }
 ```
 
-| Bestand | Wijziging |
-|---------|-----------|
-| `src/pages/SettingsPage.tsx` | Toon `verification`-records dynamisch, met kopieerknoppen en fallback naar generieke CNAME |
+**4. Frontend `src/pages/SettingsPage.tsx` -- pull-invoices toast**
+
+Na pull, als er `unlinked_customers` zijn:
+- Toon een waarschuwing-toast met de namen van niet-gekoppelde klanten
+- Suggestie: "Synchroniseer eerst je klanten om deze facturen te importeren"
+
+### Beveiligingsgaranties
+- `company_id` wordt altijd expliciet gezet bij INSERT (niet afgeleid van de data)
+- `authenticateRequest()` valideert de JWT en haalt company_id op uit het profiel via service role
+- Geen factuur kan worden ingevoegd zonder geldige `company_id` + `customer_id` combinatie
+- Facturen zonder gekoppelde klant worden NIET geïmporteerd maar WEL gemeld
 
