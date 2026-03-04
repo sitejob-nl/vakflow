@@ -5,19 +5,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return optionsResponse();
 
   try {
-    await authenticateRequest(req);
+    const { companyId } = await authenticateRequest(req);
     const supabaseAdmin = createAdminClient();
 
-    // Check for existing tenant_id first
+    // Check bestaande tenant voor DIT bedrijf
     const { data: existingConfig } = await supabaseAdmin
       .from("whatsapp_config")
       .select("tenant_id")
-      .not("tenant_id", "is", null)
-      .limit(1)
+      .eq("company_id", companyId)
       .maybeSingle();
 
     if (existingConfig?.tenant_id) {
-      console.log("Bestaande tenant_id gevonden:", existingConfig.tenant_id);
+      console.log("Bestaande tenant_id gevonden voor company:", companyId);
       return jsonRes({ tenant_id: existingConfig.tenant_id, existing: true });
     }
 
@@ -55,18 +54,19 @@ Deno.serve(async (req) => {
       return jsonRes({ error: "Geen tenant_id ontvangen van Connect" }, 500);
     }
 
+    // Upsert met company_id als scope
     const { error: upsertError } = await supabaseAdmin
       .from("whatsapp_config")
       .upsert(
         {
-          id: "00000000-0000-0000-0000-000000000001",
+          company_id: companyId,
           phone_number_id: "pending",
           access_token: "pending",
           tenant_id,
           webhook_secret: webhook_secret || null,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "id" }
+        { onConflict: "company_id" }
       );
 
     if (upsertError) {
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       return jsonRes({ error: "Kon tenant_id niet opslaan" }, 500);
     }
 
-    console.log("Tenant geregistreerd, webhook_secret opgeslagen:", !!webhook_secret);
+    console.log("Tenant geregistreerd voor company:", companyId, "webhook_secret:", !!webhook_secret);
     return jsonRes({ tenant_id, webhook_secret: webhook_secret ? "ontvangen" : "bestaand" });
   } catch (err: any) {
     if (err instanceof AuthError) return jsonRes({ error: err.message }, err.status);
