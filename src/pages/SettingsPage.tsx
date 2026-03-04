@@ -1282,6 +1282,31 @@ const SettingsPage = () => {
                     const cid = profileData?.company_id;
                     if (!cid) throw new Error("Geen bedrijf gevonden");
                     await supabase.from("companies").update({ pwa_name: pwaName || null } as any).eq("id", cid);
+                    // Update manifest link in-place
+                    const manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+                    if (manifestLink) {
+                      const name = pwaName || "Vakflow";
+                      const currentIcons = pwaIconPreview
+                        ? [
+                            { src: pwaIconPreview, sizes: "192x192", type: "image/png" },
+                            { src: pwaIconPreview, sizes: "512x512", type: "image/png" },
+                            { src: pwaIconPreview, sizes: "512x512", type: "image/png", purpose: "maskable" },
+                          ]
+                        : [
+                            { src: "/pwa-192.png", sizes: "192x192", type: "image/png" },
+                            { src: "/pwa-512.png", sizes: "512x512", type: "image/png" },
+                            { src: "/pwa-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+                          ];
+                      const manifest = {
+                        name, short_name: name,
+                        description: `Service & planning platform — ${name}`,
+                        theme_color: "#383eed", background_color: "#f5f5f7",
+                        display: "standalone", orientation: "portrait", start_url: "/",
+                        icons: currentIcons,
+                      };
+                      const blob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
+                      manifestLink.href = URL.createObjectURL(blob);
+                    }
                     toast({ title: "PWA-instellingen opgeslagen" });
                   } catch (err: any) {
                     toast({ title: "Fout", description: err.message, variant: "destructive" });
