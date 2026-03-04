@@ -26,6 +26,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import MetaSettingsTab from "@/components/MetaSettingsTab";
 import { useGeocode } from "@/hooks/useMapbox";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { useSnelstartConnection, useSaveSnelstartConnection, useTestSnelstartConnection, useDeleteSnelstartConnection, useSnelstartSyncStatus, useTriggerSnelstartSync } from "@/hooks/useSnelstart";
 
 const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates", "Automatiseringen", "Teamleden", "Koppelingen", "Meta"];
 
