@@ -698,15 +698,21 @@ const PlanningPage = () => {
                 const canShowLiveTravel = !storedTravel && prevLat && prevLng && curLat && curLng;
                 return (
                   <div key={a.id}>
-                    {storedTravel && (
-                      <div className="flex items-center gap-1.5 py-1 px-1 text-[11px] text-muted-foreground">
-                        <Navigation className="h-3 w-3" />
-                        <span>{storedTravel} min</span>
-                        {(a as any).start_location_label && (
-                          <span className="text-muted-foreground/60">vanaf {(a as any).start_location_label}</span>
-                        )}
-                      </div>
-                    )}
+                    {storedTravel && (() => {
+                      // Show previous customer's address as "from" label when available
+                      const fromLabel = prev
+                        ? [(prev.customers as any)?.name, (prev.customers as any)?.city].filter(Boolean).join(" — ")
+                        : (a as any).start_location_label;
+                      return (
+                        <div className="flex items-center gap-1.5 py-1 px-1 text-[11px] text-muted-foreground">
+                          <Navigation className="h-3 w-3" />
+                          <span>{storedTravel} min</span>
+                          {fromLabel && (
+                            <span className="text-muted-foreground/60">vanaf {fromLabel}</span>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {canShowLiveTravel && (
                       <TravelTimeBadge from={[prevLat, prevLng]} to={[curLat, curLng]} />
                     )}
