@@ -200,6 +200,10 @@ Deno.serve(async (req) => {
     return new Response("Unauthorized", { status: 401, headers: corsHeaders });
   }
 
+  // ─── Stap 2b: Lees optionele company_id uit query params ───
+  const url = new URL(req.url);
+  const queryCompanyId = url.searchParams.get("company_id");
+
   // ─── Stap 3: Parse en verwerk ───
   let body: any;
   try {
@@ -226,6 +230,16 @@ Deno.serve(async (req) => {
 
       if (phoneNumberId) {
         config = await findConfigByPhoneNumberId(supabase, phoneNumberId);
+      }
+
+      // Fallback: gebruik company_id uit query parameter (unieke webhook URL per tenant)
+      if (!config && queryCompanyId) {
+        const { data } = await supabase
+          .from("whatsapp_config")
+          .select("company_id, access_token")
+          .eq("company_id", queryCompanyId)
+          .maybeSingle();
+        if (data) config = data;
       }
 
       if (!config) {
