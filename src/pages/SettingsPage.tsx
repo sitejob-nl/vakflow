@@ -3,7 +3,7 @@ import { usePersonalOutlookToken, useDeletePersonalOutlookToken } from "@/hooks/
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Upload, UserPlus, Users, MessageSquare, ChevronDown, ChevronUp, BookOpen, AlertTriangle, HelpCircle, Mail, Eye } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Upload, UserPlus, Users, MessageSquare, ChevronDown, ChevronUp, BookOpen, AlertTriangle, HelpCircle, Mail, Eye, Globe, Info } from "lucide-react";
 import { useEmailTemplates, useCreateEmailTemplate, useUpdateEmailTemplate, useDeleteEmailTemplate, type EmailTemplate } from "@/hooks/useEmailTemplates";
 import EmailTemplateEditor, { DEFAULT_TEMPLATE } from "@/components/EmailTemplateEditor";
 import { useAutoMessageSettings, useUpsertAutoMessageSetting, MESSAGE_TYPES, LABELS } from "@/hooks/useAutoMessageSettings";
@@ -200,6 +200,10 @@ const SettingsPage = () => {
   const [companyLogoPreview, setCompanyLogoPreview] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [brandColor, setBrandColor] = useState<string>("");
+  const [customDomain, setCustomDomain] = useState("");
+  const [customDomainSaving, setCustomDomainSaving] = useState(false);
+  const [customDomainStatus, setCustomDomainStatus] = useState<{ verified?: boolean; configured?: boolean } | null>(null);
+  const [customDomainSaved, setCustomDomainSaved] = useState(false);
   
   const tabs = BASE_TABS.filter((tab) => {
     const requiredFeature = TAB_FEATURE_MAP[tab];
@@ -513,6 +517,7 @@ const SettingsPage = () => {
         setEbConnected(!!(companyData as any).eboekhouden_ledger_id);
         setCompanyLogoPreview((companyData as any).logo_url ?? null);
         setBrandColor((companyData as any).brand_color ?? "");
+        setCustomDomain((companyData as any).custom_domain ?? "");
         // Rompslomp
         setRompslompConnected(!!(companyData as any).rompslomp_company_id);
         setRompslompCompanyName((companyData as any).rompslomp_company_name ?? "");
@@ -964,6 +969,77 @@ const SettingsPage = () => {
               className={inputClass}
               placeholder="mijn-bedrijf"
             />
+          </div>
+          {/* Custom domain section */}
+          <div className="border-t border-border pt-4 mt-2">
+            <label className={labelClass}>
+              <Globe className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
+              Eigen domein (optioneel)
+            </label>
+            <p className="text-[11px] text-t3 mb-1">
+              Koppel je eigen domein, bijv. <strong>app.jouwbedrijf.nl</strong>
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={customDomain}
+                onChange={(e) => {
+                  setCustomDomain(e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ""));
+                  setCustomDomainSaved(false);
+                }}
+                className={inputClass + " flex-1"}
+                placeholder="app.jouwbedrijf.nl"
+              />
+              <button
+                onClick={async () => {
+                  if (!customDomain) return;
+                  setCustomDomainSaving(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke("manage-custom-domain", {
+                      method: "POST",
+                      body: { domain: customDomain },
+                    });
+                    if (error) throw error;
+                    if (data?.error) throw new Error(data.error);
+                    setCustomDomainSaved(true);
+                    setCustomDomainStatus(data?.vercel ?? null);
+                    toast({ title: "Custom domein opgeslagen" });
+                  } catch (err: any) {
+                    toast({ title: "Fout", description: err.message, variant: "destructive" });
+                  }
+                  setCustomDomainSaving(false);
+                }}
+                disabled={customDomainSaving || !customDomain}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {customDomainSaving ? "Opslaan..." : "Koppelen"}
+              </button>
+            </div>
+            {customDomainSaved && customDomain && (
+              <div className="mt-3 p-3 bg-muted/50 border border-border rounded-md space-y-2">
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <div className="text-[12px] space-y-1">
+                    <p className="font-bold">DNS instellen</p>
+                    <p>Stel bij je domeinprovider het volgende CNAME-record in:</p>
+                    <div className="bg-card border border-border rounded p-2 font-mono text-[11px]">
+                      <span className="text-primary">{customDomain.split('.')[0]}</span>
+                      {' '}CNAME{' '}
+                      <span className="text-primary">cname.vercel-dns.com</span>
+                    </div>
+                    <p className="text-t3">SSL wordt automatisch geregeld door Vercel na verificatie.</p>
+                  </div>
+                </div>
+                {customDomainStatus && (
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    {customDomainStatus.verified ? (
+                      <><CheckCircle className="h-3.5 w-3.5 text-green-600" /> <span className="text-green-700 font-bold">Geverifieerd — domein is actief</span></>
+                    ) : (
+                      <><XCircle className="h-3.5 w-3.5 text-amber-500" /> <span className="text-amber-600 font-bold">Wacht op DNS-verificatie</span></>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
