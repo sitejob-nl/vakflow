@@ -17,6 +17,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 
 interface NoteItem {
   text: string;
@@ -38,6 +39,7 @@ const statusLabel: Record<string, string> = {
 const WorkOrderDetailPage = () => {
   const { navigate, params } = useNavigation();
   const { toast } = useToast();
+  const { labels } = useIndustryConfig();
   const { data: wo, isLoading } = useWorkOrder(params.workOrderId);
   const updateWO = useUpdateWorkOrder();
   const createInvoice = useCreateInvoice();
@@ -61,7 +63,7 @@ const WorkOrderDetailPage = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Werkbon_${wo.work_order_number || wo.id}.pdf`;
+      a.download = `${labels.workOrder}_${wo.work_order_number || wo.id}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: any) {
@@ -77,8 +79,8 @@ const WorkOrderDetailPage = () => {
   if (!wo) {
     return (
       <div className="text-center py-20">
-        <p className="text-muted-foreground">Werkbon niet gevonden</p>
-        <button onClick={() => navigate("workorders")} className="mt-4 text-primary text-sm font-bold hover:underline">Terug naar werkbonnen</button>
+        <p className="text-muted-foreground">{labels.workOrder} niet gevonden</p>
+        <button onClick={() => navigate("workorders")} className="mt-4 text-primary text-sm font-bold hover:underline">Terug naar {labels.workOrders.toLowerCase()}</button>
       </div>
     );
   }
@@ -202,7 +204,7 @@ const WorkOrderDetailPage = () => {
       </div>
 
       <h2 className="text-lg md:text-xl font-extrabold mb-1">
-        {(wo as any).services?.name ?? "Werkbon"}
+        {(wo as any).services?.name ?? labels.workOrder}
       </h2>
         <p className="text-secondary-foreground text-sm mb-4">
         {(wo as any).customers?.name} · {[(wo as any).customers?.address, (wo as any).customers?.city].filter(Boolean).join(", ")} · €{totalInclBtw.toFixed(2)}
@@ -212,7 +214,7 @@ const WorkOrderDetailPage = () => {
       <div className="flex gap-2 mb-5 flex-wrap">
         {wo.status === "open" && (
           <button onClick={() => handleStatusChange("bezig")} className="px-4 py-2 bg-warning text-warning-foreground rounded-sm text-[13px] font-bold hover:opacity-90 transition-colors">
-            ▶ Start werkbon
+            ▶ Start {labels.workOrder.toLowerCase()}
           </button>
         )}
         {wo.status === "bezig" && (
@@ -444,9 +446,9 @@ const WorkOrderDetailPage = () => {
       <AlertDialog open={confirmFinish} onOpenChange={setConfirmFinish}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Werkbon afronden?</AlertDialogTitle>
+            <AlertDialogTitle>{labels.workOrder} afronden?</AlertDialogTitle>
             <AlertDialogDescription>
-              Weet je zeker dat je deze werkbon wilt afronden? Dit markeert de werkbon als voltooid.
+              Weet je zeker dat je deze {labels.workOrder.toLowerCase()} wilt afronden? Dit markeert de {labels.workOrder.toLowerCase()} als voltooid.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -16,6 +16,7 @@ import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import type { Tables } from "@/integrations/supabase/types";
 
 interface Props {
@@ -27,6 +28,7 @@ interface Props {
 const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { labels } = useIndustryConfig();
   const { isAdmin, user, role } = useAuth();
   const { data: customers } = useCustomers();
   const { data: services } = useServices();
@@ -111,10 +113,10 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
     try {
       if (isEdit) {
         await updateWO.mutateAsync({ id: workOrder!.id, ...payload });
-        toast({ title: "Werkbon bijgewerkt" });
+        toast({ title: `${labels.workOrder} bijgewerkt` });
       } else {
         await createWO.mutateAsync(payload as any);
-        toast({ title: "Werkbon aangemaakt" });
+        toast({ title: `${labels.workOrder} aangemaakt` });
       }
       onOpenChange(false);
     } catch (err: any) {
@@ -220,7 +222,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
     </form>
   );
 
-  const title = isEdit ? "Werkbon bewerken" : "Nieuwe werkbon";
+  const title = isEdit ? `${labels.workOrder} bewerken` : `Nieuwe ${labels.workOrder.toLowerCase()}`;
 
   if (isMobile) {
     return (

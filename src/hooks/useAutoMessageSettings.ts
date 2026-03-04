@@ -29,7 +29,7 @@ const MESSAGE_TYPES: MessageType[] = [
 
 const LABELS: Record<MessageType, string> = {
   appointment_confirmation: "Afspraakbevestiging",
-  work_order_summary: "Werkbon samenvatting",
+  work_order_summary: "Samenvatting na afronding",
   review_request: "Reviewverzoek",
   repeat_reminder: "Herhaalreminder",
 };

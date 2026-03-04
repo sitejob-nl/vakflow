@@ -8,45 +8,33 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useNotifications } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 import { nl } from "date-fns/locale";
-
-const pageTitles: Record<Page, { title: string; sub: string }> = {
-  dashboard: { title: "Dashboard", sub: "Overzicht van vandaag" },
-  planning: { title: "Planning", sub: "Weekoverzicht" },
-  customers: { title: "Klanten", sub: "Klantenoverzicht" },
-  custDetail: { title: "Klantdetail", sub: "Klantinformatie" },
-  workorders: { title: "Werkbonnen", sub: "Alle werkbonnen" },
-  woDetail: { title: "Werkbon", sub: "Werkbondetails" },
-  invoices: { title: "Facturatie", sub: "Factuuroverzicht" },
-  quotes: { title: "Offertes", sub: "Offerteoverzicht" },
-  reports: { title: "Rapportages", sub: "KPI's & inzichten" },
-  communication: { title: "Logboek", sub: "Telefoon & notities" },
-  email: { title: "E-mail", sub: "Inbox & verzonden" },
-  whatsapp: { title: "WhatsApp", sub: "Gesprekken" },
-  reminders: { title: "Reminders", sub: "Herinneringen" },
-  assets: { title: "Objecten", sub: "Objectbeheer" },
-  marketing: { title: "Marketing", sub: "Meta leads & berichten" },
-  settings: { title: "Instellingen", sub: "Profiel & voorkeuren" },
-  superadmin: { title: "Super Admin", sub: "Bedrijvenbeheer" },
-};
-
-const extraPages: { id: Page; label: string }[] = [
-  { id: "email", label: "E-mail" },
-  { id: "whatsapp", label: "WhatsApp" },
-  { id: "communication", label: "Logboek" },
-  { id: "reminders", label: "Reminders" },
-  { id: "settings", label: "Instellingen" },
-];
-
-interface SearchResult {
-  type: "customer" | "workorder";
-  id: string;
-  label: string;
-  sub: string;
-}
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 
 const Header = () => {
   const { currentPage, navigate } = useNavigation();
   const { companyLogoUrl } = useAuth();
+  const { labels } = useIndustryConfig();
+
+  const pageTitles: Record<Page, { title: string; sub: string }> = {
+    dashboard: { title: "Dashboard", sub: "Overzicht van vandaag" },
+    planning: { title: "Planning", sub: "Weekoverzicht" },
+    customers: { title: "Klanten", sub: "Klantenoverzicht" },
+    custDetail: { title: "Klantdetail", sub: "Klantinformatie" },
+    workorders: { title: labels.workOrders, sub: `Alle ${labels.workOrders.toLowerCase()}` },
+    woDetail: { title: labels.workOrder, sub: `${labels.workOrder}details` },
+    invoices: { title: "Facturatie", sub: "Factuuroverzicht" },
+    quotes: { title: "Offertes", sub: "Offerteoverzicht" },
+    reports: { title: "Rapportages", sub: "KPI's & inzichten" },
+    communication: { title: "Logboek", sub: "Telefoon & notities" },
+    email: { title: "E-mail", sub: "Inbox & verzonden" },
+    whatsapp: { title: "WhatsApp", sub: "Gesprekken" },
+    reminders: { title: "Reminders", sub: "Herinneringen" },
+    assets: { title: labels.assets, sub: `${labels.asset}beheer` },
+    marketing: { title: "Marketing", sub: "Meta leads & berichten" },
+    settings: { title: "Instellingen", sub: "Profiel & voorkeuren" },
+    superadmin: { title: "Super Admin", sub: "Bedrijvenbeheer" },
+  };
+
   const info = pageTitles[currentPage];
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,6 +45,14 @@ const Header = () => {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
+
+  const extraPages: { id: Page; label: string }[] = [
+    { id: "email", label: "E-mail" },
+    { id: "whatsapp", label: "WhatsApp" },
+    { id: "communication", label: "Logboek" },
+    { id: "reminders", label: "Reminders" },
+    { id: "settings", label: "Instellingen" },
+  ];
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -83,14 +79,14 @@ const Header = () => {
       ]);
       const results: SearchResult[] = [];
       custRes.data?.forEach((c) => results.push({ type: "customer", id: c.id, label: c.name, sub: c.city || "" }));
-      woRes.data?.forEach((w) => results.push({ type: "workorder", id: w.id, label: w.work_order_number || "Werkbon", sub: (w.customers as any)?.name || "" }));
+      woRes.data?.forEach((w) => results.push({ type: "workorder", id: w.id, label: w.work_order_number || labels.workOrder, sub: (w.customers as any)?.name || "" }));
       setSearchResults(results);
       setSearchOpen(results.length > 0);
     } catch {
       setSearchResults([]);
     }
     setSearchLoading(false);
-  }, []);
+  }, [labels.workOrder]);
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
@@ -138,7 +134,7 @@ const Header = () => {
           value={searchQuery}
           onChange={(e) => handleSearchChange(e.target.value)}
           onFocus={() => searchResults.length > 0 && setSearchOpen(true)}
-          placeholder="Zoek klant, werkbon..."
+          placeholder={`Zoek klant, ${labels.workOrder.toLowerCase()}...`}
           className="pl-9 w-40 md:w-60 bg-background border border-border rounded-sm py-2 px-3.5 text-[13px] outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary-muted"
         />
         {searchOpen && (
@@ -245,5 +241,12 @@ const Header = () => {
     </header>
   );
 };
+
+interface SearchResult {
+  type: "customer" | "workorder";
+  id: string;
+  label: string;
+  sub: string;
+}
 
 export default Header;
