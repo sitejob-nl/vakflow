@@ -1,12 +1,21 @@
 import { useRegisterSW } from "virtual:pwa-register/react";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 const PWAUpdatePrompt = () => {
   const {
     needRefresh: [needRefresh],
+    offlineReady: [offlineReady],
     updateServiceWorker,
   } = useRegisterSW();
+
+  useEffect(() => {
+    if (offlineReady) {
+      toast.success("App is klaar voor offline gebruik", { duration: 3000 });
+    }
+  }, [offlineReady]);
 
   if (!needRefresh) return null;
 
