@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCreateQuoteTemplate, useUpdateQuoteTemplate, type QuoteTemplateDB } from "@/hooks/useQuoteTemplates";
 import { useToast } from "@/hooks/use-toast";
 import type { QuoteItem, OptionalItem } from "@/hooks/useQuotes";
@@ -11,6 +12,7 @@ import QuoteTemplateBuilder, {
   blocksToLegacy,
   legacyToBlocks,
 } from "@/components/QuoteTemplateBuilder";
+import QuoteTemplatePreview from "@/components/QuoteTemplatePreview";
 
 interface Props {
   open: boolean;
@@ -75,7 +77,7 @@ const TemplateDialog = ({ open, onOpenChange, editTemplate, prefill }: Props) =>
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editTemplate ? "Sjabloon bewerken" : "Nieuw sjabloon"}</DialogTitle>
         </DialogHeader>
@@ -86,7 +88,34 @@ const TemplateDialog = ({ open, onOpenChange, editTemplate, prefill }: Props) =>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Bijv. Itho Euro Custom" />
           </div>
 
-          <QuoteTemplateBuilder blocks={blocks} onChange={setBlocks} />
+          {/* Desktop: side-by-side | Mobile: tabs */}
+          <div className="hidden md:grid md:grid-cols-2 md:gap-4">
+            <div>
+              <Label className="mb-2 block text-muted-foreground text-xs uppercase tracking-wide">Builder</Label>
+              <QuoteTemplateBuilder blocks={blocks} onChange={setBlocks} />
+            </div>
+            <div>
+              <Label className="mb-2 block text-muted-foreground text-xs uppercase tracking-wide">Preview</Label>
+              <div className="sticky top-0">
+                <QuoteTemplatePreview blocks={blocks} templateName={name} />
+              </div>
+            </div>
+          </div>
+
+          <div className="md:hidden">
+            <Tabs defaultValue="builder">
+              <TabsList className="w-full">
+                <TabsTrigger value="builder" className="flex-1">Builder</TabsTrigger>
+                <TabsTrigger value="preview" className="flex-1">Preview</TabsTrigger>
+              </TabsList>
+              <TabsContent value="builder">
+                <QuoteTemplateBuilder blocks={blocks} onChange={setBlocks} />
+              </TabsContent>
+              <TabsContent value="preview">
+                <QuoteTemplatePreview blocks={blocks} templateName={name} />
+              </TabsContent>
+            </Tabs>
+          </div>
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
