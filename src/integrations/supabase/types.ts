@@ -2743,6 +2743,7 @@ export type Database = {
           eboekhouden_template_id: number | null
           email_provider: string | null
           enabled_features: string[] | null
+          has_eboekhouden_token: boolean | null
           iban: string | null
           id: string | null
           industry: string | null
@@ -2780,6 +2781,7 @@ export type Database = {
           eboekhouden_template_id?: number | null
           email_provider?: string | null
           enabled_features?: string[] | null
+          has_eboekhouden_token?: never
           iban?: string | null
           id?: string | null
           industry?: string | null
@@ -2817,6 +2819,7 @@ export type Database = {
           eboekhouden_template_id?: number | null
           email_provider?: string | null
           enabled_features?: string[] | null
+          has_eboekhouden_token?: never
           iban?: string | null
           id?: string | null
           industry?: string | null

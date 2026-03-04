@@ -559,7 +559,7 @@ const SettingsPage = () => {
         setEbTemplateId(String((companyData as any).eboekhouden_template_id ?? ""));
         setEbLedgerId(String((companyData as any).eboekhouden_ledger_id ?? ""));
         setEbDebtorLedgerId(String((companyData as any).eboekhouden_debtor_ledger_id ?? ""));
-        setEbConnected(!!(companyData as any).eboekhouden_ledger_id);
+        setEbConnected(!!(companyData as any).has_eboekhouden_token);
         setCompanyLogoPreview((companyData as any).logo_url ?? null);
         setBrandColor((companyData as any).brand_color ?? "");
         setCustomDomain((companyData as any).custom_domain ?? "");
@@ -736,7 +736,7 @@ const SettingsPage = () => {
           eboekhouden_debtor_ledger_id: ebDebtorLedgerId ? Number(ebDebtorLedgerId) : null,
         } as any).eq("id", cid);
       }
-      setEbConnected(!!ebToken);
+      setEbConnected(true);
       toast({ title: "e-Boekhouden instellingen opgeslagen" });
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
