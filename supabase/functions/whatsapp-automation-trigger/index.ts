@@ -83,6 +83,16 @@ Deno.serve(async (req) => {
     const fullContext: Record<string, any> = { customer, ...(ctx || {}) };
     const results: any[] = [];
 
+    // Fetch whatsapp_config for this company to resolve template previews
+    const { data: waConfig } = await supabase
+      .from("whatsapp_config")
+      .select("access_token, waba_id")
+      .eq("company_id", customer.company_id)
+      .single();
+
+    // Cache fetched template bodies to avoid duplicate API calls
+    const templateBodyCache: Record<string, string> = {};
+
     for (const automation of automations) {
       try {
         const cooldownHours = automation.cooldown_hours ?? 720;
@@ -123,6 +133,39 @@ Deno.serve(async (req) => {
         const components: any[] = [];
         if (parameters.length > 0) components.push({ type: "body", parameters });
 
+        // Build preview text from template body
+        let preview = "";
+        try {
+          const cacheKey = `${automation.template_name}_${automation.template_language || "nl"}`;
+          if (!(cacheKey in templateBodyCache) && waConfig?.access_token && waConfig?.waba_id) {
+            const tplRes = await fetch(
+              `https://graph.facebook.com/v25.0/${waConfig.waba_id}/message_templates?name=${automation.template_name}&fields=components,language`,
+              { headers: { Authorization: `Bearer ${waConfig.access_token}` } }
+            );
+            const tplData = await tplRes.json();
+            const lang = automation.template_language || "nl";
+            const match = tplData.data?.find((t: any) => t.language === lang) || tplData.data?.[0];
+            const bodyComp = match?.components?.find((c: any) => c.type === "BODY");
+            templateBodyCache[cacheKey] = bodyComp?.text || "";
+          }
+          let bodyText = templateBodyCache[cacheKey] || "";
+          if (bodyText) {
+            // Replace positional {{1}}, {{2}} etc. or named {{name}}
+            for (const param of parameters) {
+              if (param.parameter_name) {
+                bodyText = bodyText.replace(`{{${param.parameter_name}}}`, param.text);
+              }
+            }
+            // Replace positional params by index
+            parameters.forEach((param: any, idx: number) => {
+              bodyText = bodyText.replace(`{{${idx + 1}}}`, param.text);
+            });
+            preview = bodyText;
+          }
+        } catch (previewErr) {
+          console.error("Preview build failed (non-fatal):", previewErr);
+        }
+
         const sendResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
           method: "POST",
           headers: {
@@ -138,6 +181,7 @@ Deno.serve(async (req) => {
               language: { code: automation.template_language || "nl" },
               components,
             },
+            ...(preview ? { preview } : {}),
           }),
         });
 

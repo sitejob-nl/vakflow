@@ -100,6 +100,7 @@ export default function ComposeWhatsAppDialog({ open, onOpenChange, customerPhon
             components,
           },
           customer_id: customerId,
+          preview,
         });
       }
 

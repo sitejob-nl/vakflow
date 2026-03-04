@@ -78,7 +78,7 @@ function contentSummary(body: Record<string, unknown>): string {
   const t = (body.type as string) || "text";
   switch (t) {
     case "text": return body.message as string || "";
-    case "template": return `Template: ${(body.template as any)?.name}`;
+    case "template": return (body.preview as string) || `Template: ${(body.template as any)?.name}`;
     case "image": return body.caption ? `📷 ${body.caption}` : "📷 Afbeelding";
     case "video": return body.caption ? `🎥 ${body.caption}` : "🎥 Video";
     case "audio": return "🎵 Audio";
