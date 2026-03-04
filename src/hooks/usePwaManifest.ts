@@ -1,13 +1,17 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * Dynamically overrides the PWA manifest <link> with company-specific
  * pwa_name and pwa_icon_url when available.
+ * Call refresh() after saving new PWA settings.
  */
 export function usePwaManifest() {
   const { user } = useAuth();
+  const [version, setVersion] = useState(0);
+
+  const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
     if (!user) return;
@@ -89,6 +93,11 @@ export function usePwaManifest() {
         }
       }
 
+      // Update document title to match PWA name
+      if (c.pwa_name) {
+        document.title = pwaName;
+      }
+
       return () => {
         URL.revokeObjectURL(url);
       };
@@ -97,5 +106,7 @@ export function usePwaManifest() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, version]);
+
+  return { refresh };
 }
