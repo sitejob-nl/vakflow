@@ -1,35 +1,35 @@
 
 
-# Plan: Custom Domain als betaalde module
+# Fix: WhatsApp registratie faalt door unique constraint op `phone_number_id`
 
-## Wat er verandert
+## Probleem
 
-De custom domain functionaliteit wordt achter een feature flag gezet (`custom_domain`) in het bestaande `enabled_features` systeem. Alleen bedrijven waarvoor een SuperAdmin deze module heeft aangezet, zien het custom domain blok op de instellingenpagina.
-
-## Wijzigingen
-
-### 1. SuperAdminPage: nieuwe feature toevoegen
-
-In de `ALL_FEATURES` array een nieuw item toevoegen:
-```ts
-{ slug: "custom_domain", label: "Custom Domein" }
+De edge function log toont:
+```
+duplicate key value violates unique constraint "idx_whatsapp_config_phone_number_id"
+Key (phone_number_id)=(pending) already exists.
 ```
 
-Dit verschijnt dan als toggle in het SuperAdmin bedrijfsbeheer. Standaard staat het **niet** aan (het zit niet in de default `enabled_features` array van nieuwe bedrijven).
+Bij registratie wordt `phone_number_id` op `"pending"` gezet. Maar er is een UNIQUE index op die kolom, en een ander bedrijf heeft al `"pending"` staan. Daardoor kan geen tweede bedrijf meer registreren.
 
-### 2. SettingsPage: custom domain sectie verbergen
+## Oplossing
 
-Het custom domain invoerveld + DNS-instructies alleen tonen als `enabledFeatures.includes("custom_domain")`. De `enabledFeatures` is al beschikbaar via `useAuth()`.
+1. **Database migratie**: Verwijder de unique index `idx_whatsapp_config_phone_number_id` en maak een partial unique index aan die alleen niet-null en niet-"pending" waarden afdwingt:
 
-### 3. Edge function: server-side check
+```sql
+DROP INDEX IF EXISTS idx_whatsapp_config_phone_number_id;
+CREATE UNIQUE INDEX idx_whatsapp_config_phone_number_id 
+  ON whatsapp_config (phone_number_id) 
+  WHERE phone_number_id IS NOT NULL AND phone_number_id != 'pending';
+```
 
-De `manage-custom-domain` edge function checkt ook server-side of het bedrijf de `custom_domain` feature heeft in `enabled_features`, zodat iemand niet via de API het domein kan instellen zonder de module.
+Dit zorgt ervoor dat echte phone_number_id's uniek blijven, maar meerdere bedrijven tegelijk de waarde `"pending"` kunnen hebben.
 
-### Bestanden
+## Bestanden
 
 | Bestand | Actie |
 |---------|-------|
-| `src/pages/SuperAdminPage.tsx` | `custom_domain` toevoegen aan `ALL_FEATURES` |
-| `src/pages/SettingsPage.tsx` | Custom domain sectie wrappen in `enabledFeatures.includes("custom_domain")` check |
-| `supabase/functions/manage-custom-domain/index.ts` | Server-side check op `enabled_features` |
+| Database migratie | Partial unique index op `phone_number_id` |
+
+Geen code-wijzigingen nodig — alleen de database constraint moet worden aangepast.
 
