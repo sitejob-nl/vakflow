@@ -1527,6 +1527,7 @@ export type Database = {
       }
       quote_templates: {
         Row: {
+          blocks: Json | null
           company_id: string | null
           created_at: string
           id: string
@@ -1537,6 +1538,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          blocks?: Json | null
           company_id?: string | null
           created_at?: string
           id?: string
@@ -1547,6 +1549,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          blocks?: Json | null
           company_id?: string | null
           created_at?: string
           id?: string
