@@ -189,6 +189,8 @@ const SettingsPage = () => {
   const [smtpPassword, setSmtpPassword] = useState("");
   const [smtpHost, setSmtpHost] = useState("smtp.transip.email");
   const [smtpPort, setSmtpPort] = useState("465");
+  const [imapHost, setImapHost] = useState("");
+  const [imapPort, setImapPort] = useState("");
   const [smtpHasCredentials, setSmtpHasCredentials] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
@@ -546,6 +548,8 @@ const SettingsPage = () => {
         setSmtpEmail((companyData as any).smtp_email || user?.email || "");
         setSmtpHost((companyData as any).smtp_host || "smtp.transip.email");
         setSmtpPort(String((companyData as any).smtp_port || "465"));
+        setImapHost((companyData as any).imap_host || "");
+        setImapPort((companyData as any).imap_port ? String((companyData as any).imap_port) : "");
         setSmtpHasCredentials(!!(companyData as any).smtp_email);
         setAccountingProvider((companyData as any).accounting_provider ?? null);
         setEmailProvider((companyData as any).email_provider ?? "smtp");
@@ -671,7 +675,7 @@ const SettingsPage = () => {
         return;
       }
       const res = await supabase.functions.invoke("save-smtp-credentials", {
-        body: { smtp_email: smtpEmail, smtp_password: smtpPassword || undefined, smtp_host: smtpHost, smtp_port: parseInt(smtpPort) || 465 },
+        body: { smtp_email: smtpEmail, smtp_password: smtpPassword || undefined, smtp_host: smtpHost, smtp_port: parseInt(smtpPort) || 465, imap_host: imapHost || undefined, imap_port: imapPort ? parseInt(imapPort) : undefined },
       });
       if (res.error) {
         toast({ title: "Fout", description: res.error.message, variant: "destructive" });
@@ -2418,7 +2422,17 @@ const SettingsPage = () => {
                     <input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} className={inputClass} placeholder="465" type="number" />
                   </div>
                 </div>
-                <div className="text-[11px] text-t3">SSL/TLS wordt automatisch gebruikt</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>IMAP Server</label>
+                    <input value={imapHost} onChange={(e) => setImapHost(e.target.value)} className={inputClass} placeholder="imap.transip.email" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>IMAP Poort</label>
+                    <input value={imapPort} onChange={(e) => setImapPort(e.target.value)} className={inputClass} placeholder="993" type="number" />
+                  </div>
+                </div>
+                <div className="text-[11px] text-t3">SSL/TLS wordt automatisch gebruikt. IMAP wordt gebruikt voor het ophalen van inkomende e-mails.</div>
                 <button onClick={handleSaveSmtp} disabled={savingSmtp} className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
                   {savingSmtp ? "Opslaan..." : "E-mail opslaan"}
                 </button>

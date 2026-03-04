@@ -571,6 +571,8 @@ export type Database = {
           enabled_features: string[]
           iban: string | null
           id: string
+          imap_host: string | null
+          imap_port: number | null
           industry: string
           kvk_number: string | null
           logo_url: string | null
@@ -614,6 +616,8 @@ export type Database = {
           enabled_features?: string[]
           iban?: string | null
           id?: string
+          imap_host?: string | null
+          imap_port?: number | null
           industry?: string
           kvk_number?: string | null
           logo_url?: string | null
@@ -657,6 +661,8 @@ export type Database = {
           enabled_features?: string[]
           iban?: string | null
           id?: string
+          imap_host?: string | null
+          imap_port?: number | null
           industry?: string
           kvk_number?: string | null
           logo_url?: string | null
