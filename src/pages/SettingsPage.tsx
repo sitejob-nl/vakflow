@@ -1068,7 +1068,7 @@ const SettingsPage = () => {
                             {customDomainStatus.verification.map((record, i) => (
                               <tr key={i} className="border-b border-border last:border-0">
                                 <td className="px-2 py-1.5 text-muted-foreground uppercase">{record.type}</td>
-                                <td className="px-2 py-1.5 text-primary">{record.domain}</td>
+                                <td className="px-2 py-1.5 text-primary">{record.domain.replace(`.${customDomain}`, '') || record.domain}</td>
                                 <td className="px-2 py-1.5 text-primary break-all max-w-[200px]">{record.value}</td>
                                 <td className="px-1 py-1.5">
                                   <button
