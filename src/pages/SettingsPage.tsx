@@ -338,6 +338,19 @@ const SettingsPage = () => {
   const syncQuotesExact = useSyncQuotesExact();
   const pullQuotesExact = usePullQuotesExact();
 
+  // SnelStart state
+  const { data: snelstartConn, isLoading: snelstartLoading } = useSnelstartConnection();
+  const saveSnelstart = useSaveSnelstartConnection();
+  const testSnelstart = useTestSnelstartConnection();
+  const deleteSnelstart = useDeleteSnelstartConnection();
+  const { data: snelstartSyncStatus } = useSnelstartSyncStatus();
+  const triggerSnelstartSync = useTriggerSnelstartSync();
+  const [snelstartClientKey, setSnelstartClientKey] = useState("");
+  const [snelstartSubKey, setSnelstartSubKey] = useState("");
+  const [snelstartSaving, setSnelstartSaving] = useState(false);
+  const [snelstartTesting, setSnelstartTesting] = useState(false);
+  const [snelstartSyncing, setSnelstartSyncing] = useState(false);
+
   // Team members state
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [teamRoles, setTeamRoles] = useState<Record<string, string>>({});
