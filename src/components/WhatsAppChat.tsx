@@ -57,8 +57,11 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
   const [mode, setMode] = useState<"text" | "template">("text");
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [templateVars, setTemplateVars] = useState<string[]>([]);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const approvedTemplates = useMemo(
     () => (templates ?? []).filter((t: any) => t.status === "APPROVED"),
@@ -124,6 +127,30 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
     queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
   }, [sortedMessages, queryClient]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Max 16MB (Meta limit)
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error("Bestand is te groot (max 16 MB)");
+      return;
+    }
+    setPendingFile(file);
+    if (file.type.startsWith("image/")) {
+      setPendingPreview(URL.createObjectURL(file));
+    } else {
+      setPendingPreview(null);
+    }
+    // Reset file input so same file can be selected again
+    e.target.value = "";
+  };
+
+  const clearPendingFile = () => {
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    setPendingFile(null);
+    setPendingPreview(null);
+  };
+
   const handleSend = async () => {
     if (!customerPhone) {
       toast.error("Geen telefoonnummer bekend");
@@ -138,7 +165,6 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
           if (templateParams.type === "named") param.parameter_name = key;
           return param;
         });
-        // Build preview text
         const bodyComp = activeTemplate.components?.find((c: any) => c.type === "BODY");
         let previewText = bodyComp?.text ?? "";
         templateParams.keys.forEach((key) => {
@@ -158,6 +184,35 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
           customer_id: customerId,
           preview: previewText,
         });
+      } else if (pendingFile) {
+        // Upload file to storage, then send via link
+        const ext = pendingFile.name.split(".").pop() || "bin";
+        const fileType = pendingFile.type.startsWith("image/") ? "image"
+          : pendingFile.type.startsWith("video/") ? "video"
+          : pendingFile.type.startsWith("audio/") ? "audio"
+          : "document";
+        const storagePath = `${companyId}/${fileType}/${crypto.randomUUID()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("whatsapp-media")
+          .upload(storagePath, pendingFile, { contentType: pendingFile.type });
+        if (uploadError) throw new Error(`Upload mislukt: ${uploadError.message}`);
+
+        // Create a signed URL valid for 1 hour (Meta downloads immediately)
+        const { data: signedData, error: signError } = await supabase.storage
+          .from("whatsapp-media")
+          .createSignedUrl(storagePath, 3600);
+        if (signError || !signedData?.signedUrl) throw new Error("Signed URL mislukt");
+
+        await sendWhatsApp.mutateAsync({
+          to: customerPhone,
+          type: fileType,
+          link: signedData.signedUrl,
+          caption: message.trim() || undefined,
+          filename: fileType === "document" ? pendingFile.name : undefined,
+          customer_id: customerId,
+        });
+        clearPendingFile();
       } else {
         if (!message.trim()) return;
         await sendWhatsApp.mutateAsync({
@@ -180,7 +235,7 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey && mode === "text") {
+    if (e.key === "Enter" && !e.shiftKey && mode === "text" && !pendingFile) {
       e.preventDefault();
       handleSend();
     }
@@ -342,24 +397,61 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
         </div>
 
         {mode === "text" ? (
-          <div className="flex items-end gap-2">
-            <Textarea
-              ref={textareaRef}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Typ een bericht..."
-              className="min-h-[40px] max-h-[120px] resize-none text-[13px] flex-1"
-              rows={1}
-            />
-            <Button
-              size="sm"
-              onClick={handleSend}
-              disabled={sending || !message.trim()}
-              className="h-10 w-10 p-0 shrink-0"
-            >
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
+          <div className="space-y-2">
+            {/* Pending file preview */}
+            {pendingFile && (
+              <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                {pendingPreview ? (
+                  <img src={pendingPreview} alt="Preview" className="h-16 w-16 object-cover rounded-md" />
+                ) : (
+                  <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-medium truncate">{pendingFile.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{(pendingFile.size / 1024).toFixed(0)} KB</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={clearPendingFile} className="h-7 w-7 p-0 shrink-0">
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-10 w-10 p-0 shrink-0"
+                title="Bestand versturen"
+              >
+                <ImageIcon className="h-4 w-4" />
+              </Button>
+              <Textarea
+                ref={textareaRef}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={pendingFile ? "Bijschrift (optioneel)..." : "Typ een bericht..."}
+                className="min-h-[40px] max-h-[120px] resize-none text-[13px] flex-1"
+                rows={1}
+              />
+              <Button
+                size="sm"
+                onClick={handleSend}
+                disabled={sending || (!message.trim() && !pendingFile)}
+                className="h-10 w-10 p-0 shrink-0"
+              >
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-2">
