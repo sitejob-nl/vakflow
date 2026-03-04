@@ -1,27 +1,36 @@
 
 
-## Probleem: Klanten importeren mislukt
+## Probleem: Afbeeldingen niet zichtbaar in WhatsApp chat
 
 ### Oorzaak
 
-De import-functie in `CustomersPage.tsx` (regel 141) voegt klanten in **zonder `company_id`** mee te geven:
-
-```typescript
-const { error } = await supabase.from("customers").insert(batch);
+De `storage_url` in de metadata bevat een volledige URL zoals:
+```
+https://sigzpqwnavfxtvbyqvzj.supabase.co/storage/v1/object/whatsapp-media/2a5c7a99.../image/0fb96e1a...jpg
 ```
 
-De `batch` bevat alleen: `name`, `phone`, `email`, `address`, `postal_code`, `city`, `notes`, `type` — maar geen `company_id`.
-
-De RLS-policy op de `customers` tabel vereist dat `company_id = get_my_company_id()`, waardoor de insert wordt geweigerd met een "new row violates row-level security policy" fout.
-
-Ter vergelijking: de `useCreateCustomer` hook in `useCustomers.ts` voegt wel `company_id: companyId` toe bij elke insert.
+De `extractStoragePath()` functie in `storageUtils.ts` zoekt alleen naar het patroon `/storage/v1/object/public/<bucket>/`, maar `whatsapp-media` is een **private** bucket. De URL bevat `/storage/v1/object/whatsapp-media/` (zonder `public`). Hierdoor faalt de extractie en wordt de volledige URL als pad meegegeven aan `createSignedUrl`, wat resulteert in "Object not found".
 
 ### Oplossing
 
-**1 bestand aanpassen: `src/pages/CustomersPage.tsx`**
+**1 bestand aanpassen: `src/utils/storageUtils.ts`**
 
-- Bij het opbouwen van de `mapped` array (regel 114-124): `company_id` toevoegen aan elk object, uit de `useAuth()` context
-- De `companyId` is al beschikbaar via `useAuth` (wordt al geïmporteerd in het bestand)
+In `extractStoragePath` een extra patroon toevoegen voor private bucket URLs:
+```
+/storage/v1/object/<bucket>/
+```
 
-Concreet: in de `map` callback toevoegen: `company_id: companyId`
+Dit naast het bestaande patroon voor public buckets (`/storage/v1/object/public/<bucket>/`).
+
+### Technische details
+
+Regel 12-17 van `storageUtils.ts` aanpassen om ook het private-bucket URL-patroon te herkennen. Toevoegen na het public-patroon check:
+
+```typescript
+const privatePattern = `/storage/v1/object/${bucket}/`;
+const privateIdx = urlOrPath.indexOf(privatePattern);
+if (privateIdx !== -1) {
+  return decodeURIComponent(urlOrPath.slice(privateIdx + privatePattern.length));
+}
+```
 
