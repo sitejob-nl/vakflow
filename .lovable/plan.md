@@ -1,26 +1,32 @@
 
 
-## Analyse
+## Analyse: Is `sent_by = null` veilig?
 
-Het probleem is duidelijk: de HTML-template wordt als **platte tekst** verstuurd in plaats van als HTML.
+**Ja, het is veilig.** De data-isolatie zit niet in `sent_by` maar in `company_id`:
 
-De keten werkt zo:
-1. `CustomerEmailTab` stuurt `{ to, subject, body: resolvedBody }` via `useSendEmail`
-2. `useSendEmail` stuurt alleen `{ to, subject, body }` naar de edge function
-3. `send-email` edge function zet `body` als `content` (platte tekst) en kijkt naar een apart `html` veld voor HTML-opmaak — maar dat veld wordt nooit meegegeven
+1. **RLS policies** op `whatsapp_messages` filteren op `company_id = get_my_company_id()` — elk bedrijf ziet alleen eigen berichten
+2. **De insert** in `whatsapp-send` zet altijd `company_id: companyId` — dat is het bedrijf dat de automation triggerde
+3. `sent_by` is puur voor **attributie** (wie verstuurde het bericht), niet voor toegangscontrole
 
-### Oplossing
+Berichten komen nooit bij andere bedrijven terecht omdat:
+- De edge function haalt `companyId` op uit het `body.company_id` (bij service-role) of uit het profiel van de ingelogde gebruiker
+- Het bericht wordt opgeslagen met die `company_id`
+- RLS blokkeert toegang voor andere bedrijven
 
-**1. `useSendEmail` hook uitbreiden** (`src/hooks/useCommunicationLogs.ts` regel 63-84):
-- Parameter type uitbreiden met optioneel `html` veld
-- Het `html` veld meesturen naar de edge function
+**Maar** — `null` is niet ideaal voor traceerbaarheid. Een betere aanpak:
 
-**2. `CustomerEmailTab` aanpassen** (`src/components/CustomerEmailTab.tsx`):
-- Bij template versturen: `html_body` meesturen als `html` parameter (naast `body` als fallback platte tekst)
-- Bij vrije e-mail: alleen `body` blijft als platte tekst (tenzij je daar ook HTML wilt)
+### Plan
 
-### Bestanden
+**1. `whatsapp-send/index.ts` aanpassen** (1 regel):
+- In plaats van `sent_by: null` voor service-role calls, zet `sent_by: "system"` of bewaar het als `null` maar voeg een `metadata` veld toe met `{ source: "automation" }`.
+- Aangezien `sent_by` een UUID-kolom is (FK naar auth.users), kan je er geen string "system" in zetten. `null` is dus de correcte waarde.
 
-1. `src/hooks/useCommunicationLogs.ts` — `html` toevoegen aan `useSendEmail` params
-2. `src/components/CustomerEmailTab.tsx` — `html` meesturen bij template e-mails
+### Conclusie
+
+De huidige implementatie met `sent_by: null` is **correct en veilig**:
+- `company_id` zorgt voor isolatie, niet `sent_by`
+- `sent_by` is nullable by design (UUID type, kan geen "system" string bevatten)
+- Er is geen risico dat berichten bij andere bedrijven verschijnen
+
+**Geen code-wijziging nodig.** De beveiliging zit in `company_id` + RLS, niet in `sent_by`.
 
