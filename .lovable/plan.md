@@ -1,57 +1,41 @@
 
 
-## Plan: Betere Meta API foutmeldingen in WhatsApp
+## Plan: Test e-mail versturen + WhatsApp template variabelen mapping verbeteren
 
-### Probleem
-Wanneer een WhatsApp bericht faalt (bijv. geen betaalmethode, 24-uurs venster verlopen, rate limit), toont het systeem alleen de generieke melding "Bericht kon niet worden verstuurd". De specifieke Meta API error details worden weggegooid.
+### Feature 1: Test e-mail sturen vanuit template
 
-### Oplossing
+Een "Test versturen" knop toevoegen naast elk e-mail template in de lijst. Bij klikken wordt het template verstuurd naar het e-mailadres van de ingelogde gebruiker, met voorbeeldwaarden voor alle variabelen.
 
-**1. `supabase/functions/whatsapp-send/index.ts` -- Meta error parsing (regel 225-228)**
+**Wijzigingen:**
 
-Voeg een mapping toe van bekende Meta error codes naar Nederlandse foutmeldingen:
+1. **`src/pages/SettingsPage.tsx`** -- Bij elk template in de lijst (regel 3154-3179) een "Test" knop toevoegen
+   - Bij klik: variabelen vervangen met voorbeeldwaarden (`{{klantnaam}}` → "Jan de Vries", `{{werkbonnummer}}` → "WB-2026-0001", etc.)
+   - `supabase.functions.invoke("send-email", { body: { to: user.email, subject, body: plainText, html: resolvedHtml } })` aanroepen
+   - Toast tonen met succes/fout
 
-```typescript
-const META_ERROR_MAP: Record<number, string> = {
-  131042: "Geen betaalmethode gekoppeld in Meta Business Suite",
-  131047: "Klant heeft 24+ uur niet gereageerd — gebruik een template",
-  131026: "Bericht kon niet worden afgeleverd (nummer onbereikbaar)",
-  131051: "Dit berichttype wordt niet ondersteund",
-  130429: "Te veel berichten verstuurd — probeer later opnieuw",
-  131021: "Ontvanger is geen WhatsApp-gebruiker",
-  131031: "Bedrijfsaccount is geblokkeerd door Meta",
-  131056: "Template is afgekeurd of gepauzeerd",
-  131009: "Parameter ontbreekt of is ongeldig",
-  190:    "Toegangstoken verlopen — koppel WhatsApp opnieuw",
-};
-```
+2. **Voorbeeldwaarden mapping** (inline in SettingsPage):
+   ```
+   klantnaam → "Jan de Vries"
+   werkbonnummer → "WB-2026-0001"
+   factuurnummer → "F-2026-001"
+   bedrag → "€ 250,00"
+   datum → huidige datum
+   bedrijfsnaam → bedrijfsnaam uit profiel
+   adres → bedrijfsadres uit profiel
+   ```
 
-Wijzig de error response (regel 226-228) om de Meta error te parsen:
+### Feature 2: WhatsApp template variabelen beter mappen
 
-```typescript
-if (!metaRes.ok) {
-  const metaError = result?.error;
-  const code = metaError?.code;
-  const subcode = metaError?.error_subcode;
-  const friendlyMsg = META_ERROR_MAP[subcode] || META_ERROR_MAP[code] 
-    || metaError?.error_data?.details 
-    || metaError?.message 
-    || "Bericht kon niet worden verstuurd";
-  console.error("Meta API error:", JSON.stringify(result));
-  return jsonRes({ 
-    error: friendlyMsg, 
-    code: "META_SEND_FAILED",
-    meta_code: code,
-    meta_subcode: subcode,
-  }, metaRes.status);
-}
-```
+Momenteel moet de gebruiker handmatig een parameternummer/-naam invullen. Dit wordt vervangen door een duidelijkere UI waar de template-variabelen automatisch gedetecteerd worden en via een dropdown gekoppeld kunnen worden aan beschikbare waarden.
 
-**2. `src/hooks/useWhatsApp.ts` -- Error doorsturen**
+**Wijzigingen in `src/pages/SettingsPage.tsx`** (regel 3318-3353):
 
-Geen wijziging nodig. De `data.error` wordt al als Error message gegooid en getoond via toast. De nieuwe `friendlyMsg` komt automatisch door.
+- Huidige flow: lijst van beschikbare velden met een vrij tekstveld voor het parameternummer
+- Nieuwe flow: lijst van **template parameters** (uit de body tekst gedetecteerd, bijv. `{{1}}`, `{{2}}` of `{{name}}`) met een **Select dropdown** per parameter om een beschikbaar veld te kiezen (Klantnaam, Datum, Tijd, etc.)
+- De template body-tekst tonen als preview zodat de gebruiker ziet welke variabelen er zijn
+- Mapping wordt omgedraaid: van "template param → beschikbaar veld" met dropdown in plaats van vrije invoer
 
 ### Bestanden die wijzigen
 
-1. `supabase/functions/whatsapp-send/index.ts` -- error mapping + verbeterde error response
+1. `src/pages/SettingsPage.tsx` -- Test-knop bij email templates + WhatsApp variabelen mapping UI
 
