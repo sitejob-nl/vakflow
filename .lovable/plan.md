@@ -1,36 +1,49 @@
 
 
-## Probleem: Afbeeldingen niet zichtbaar in WhatsApp chat
+## Offerte Template Builder met Drag & Drop
 
-### Oorzaak
+### Wat wordt gebouwd
 
-De `storage_url` in de metadata bevat een volledige URL zoals:
-```
-https://sigzpqwnavfxtvbyqvzj.supabase.co/storage/v1/object/whatsapp-media/2a5c7a99.../image/0fb96e1a...jpg
-```
+De huidige `TemplateDialog` (simpele lijst van artikelen) wordt vervangen door een blok-gebaseerde builder, vergelijkbaar met de e-mail builder. Gebruikers kunnen secties toevoegen, verslepen en binnen secties items herordenen.
 
-De `extractStoragePath()` functie in `storageUtils.ts` zoekt alleen naar het patroon `/storage/v1/object/public/<bucket>/`, maar `whatsapp-media` is een **private** bucket. De URL bevat `/storage/v1/object/whatsapp-media/` (zonder `public`). Hierdoor faalt de extractie en wordt de volledige URL als pad meegegeven aan `createSignedUrl`, wat resulteert in "Object not found".
+### Bloktypen
 
-### Oplossing
+| Blok | Beschrijving |
+|---|---|
+| **Artikelgroep** | Groep regelitems (omschrijving, aantal, prijs) — items binnen de groep zijn ook versleepbaar |
+| **Koptekst** | Sectietitel (bijv. "Materialen", "Arbeid") |
+| **Vrije tekst** | Vrij tekstveld voor toelichting/voorwaarden |
+| **Scheidingslijn** | Visuele scheiding |
+| **Optionele items** | Groep optionele meerprijs-items |
 
-**1 bestand aanpassen: `src/utils/storageUtils.ts`**
+### Database
 
-In `extractStoragePath` een extra patroon toevoegen voor private bucket URLs:
-```
-/storage/v1/object/<bucket>/
-```
+Geen schema-wijzigingen nodig. De `quote_templates` tabel slaat `items` en `optional_items` al op als JSONB. We voegen een nieuw `blocks` JSONB-veld toe aan de tabel zodat de blokstructuur bewaard blijft, met fallback naar de huidige items-structuur voor bestaande templates.
 
-Dit naast het bestaande patroon voor public buckets (`/storage/v1/object/public/<bucket>/`).
+### Technische aanpak
 
-### Technische details
+**1. Database migratie** — `blocks` kolom toevoegen aan `quote_templates` (JSONB, nullable, default `null`)
 
-Regel 12-17 van `storageUtils.ts` aanpassen om ook het private-bucket URL-patroon te herkennen. Toevoegen na het public-patroon check:
+**2. Nieuw component: `src/components/QuoteTemplateBuilder.tsx`**
+- Blok-gebaseerde UI geïnspireerd op `EmailTemplateEditor.tsx`
+- Native HTML5 drag & drop (geen extra dependency) voor blokken EN items binnen blokken
+- Elke blok heeft toolbar: grip handle, type-label, omhoog/omlaag, verwijderen
+- "Blok toevoegen" knoppen onderaan
+- Bij opslaan: blokken → `blocks` JSONB + afgeleide `items`/`optional_items` arrays (voor backward compatibility met QuoteDialog en PDF-generatie)
 
-```typescript
-const privatePattern = `/storage/v1/object/${bucket}/`;
-const privateIdx = urlOrPath.indexOf(privatePattern);
-if (privateIdx !== -1) {
-  return decodeURIComponent(urlOrPath.slice(privateIdx + privatePattern.length));
-}
-```
+**3. `TemplateDialog` updaten**
+- Builder-component integreren in plaats van de huidige platte lijsten
+- Bij laden: als `blocks` bestaat → builder-modus; anders → blokken afleiden uit bestaande `items`/`optional_items`
+
+**4. `useQuoteTemplates.ts` updaten**
+- `blocks` veld toevoegen aan types en mutations
+
+### Bestanden
+
+| Bestand | Actie |
+|---|---|
+| `supabase/migrations/add_blocks_to_quote_templates.sql` | Nieuwe kolom |
+| `src/components/QuoteTemplateBuilder.tsx` | **Nieuw** — builder component |
+| `src/components/TemplateDialog.tsx` | Integreer builder |
+| `src/hooks/useQuoteTemplates.ts` | `blocks` veld in types/mutations |
 
