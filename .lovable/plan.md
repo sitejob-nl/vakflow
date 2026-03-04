@@ -1,28 +1,38 @@
 
 
-# Fix: Vercel 404 bij directe navigatie (SPA rewrite)
+# Fix: Auto-resolve customer_id bij WhatsApp versturen
 
-## Probleem
-
-Vercel weet niet dat dit een Single Page Application is. Bij directe navigatie naar bijv. `/dashboard` zoekt Vercel naar een bestand `/dashboard/index.html`, dat niet bestaat → 404.
-
-Netlify heeft `public/_redirects`, maar Vercel gebruikt `vercel.json`.
+## Huidige situatie
+- RLS op `whatsapp_messages` dwingt `company_id` isolatie af -- berichten zijn al veilig per bedrijf
+- Probleem: als `customer_id` niet wordt meegegeven, wordt het bericht opgeslagen zonder koppeling en is het onzichtbaar in de chat UI
 
 ## Oplossing
 
-Voeg een `vercel.json` toe in de project root met een catch-all rewrite naar `index.html`:
+### `supabase/functions/whatsapp-send/index.ts`
 
-```json
-{
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+Na het succesvol versturen via Meta, voor de database-insert: als `customer_id` ontbreekt, zoek de klant op basis van telefoonnummer binnen hetzelfde bedrijf. Gebruik de bestaande `findCustomerByPhone` functie uit `_shared/phone.ts` die al meerdere telefoonformaten probeert (internationaal, +prefix, 06-formaat).
+
+```typescript
+// Bestaande code:
+const { to, customer_id, type = "text" } = body;
+const normalizedTo = normalizePhone(to);
+
+// Toevoegen na Meta API call, voor de insert:
+let resolvedCustomerId = customer_id || null;
+if (!resolvedCustomerId && companyId) {
+  const found = await findCustomerByPhone(supabaseAdmin, normalizedTo, companyId);
+  if (found) resolvedCustomerId = found.id;
 }
+
+// In de insert: customer_id: resolvedCustomerId (ipv customer_id || null)
 ```
 
-Eén bestand, klaar.
+### Veiligheid
+- `findCustomerByPhone` wordt aangeroepen met `companyId` -- zoekt alleen binnen het eigen bedrijf
+- RLS op `whatsapp_messages` voorkomt cross-tenant reads
+- De edge function haalt `companyId` uit de authenticated user's profile
 
-| Bestand | Actie |
-|---------|-------|
-| `vercel.json` | Nieuw — SPA rewrite regel |
+| Bestand | Wijziging |
+|---------|-----------|
+| `supabase/functions/whatsapp-send/index.ts` | Import `findCustomerByPhone`, auto-resolve `customer_id` voor insert |
 
