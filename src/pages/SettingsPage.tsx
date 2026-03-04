@@ -3583,6 +3583,7 @@ const SettingsPage = () => {
                 <SelectContent>
                   <SelectItem value="eboekhouden">e-Boekhouden</SelectItem>
                   <SelectItem value="exact">Exact Online</SelectItem>
+                  <SelectItem value="snelstart">SnelStart</SelectItem>
                   <SelectItem value="rompslomp">Rompslomp</SelectItem>
                   <SelectItem value="moneybird">Moneybird</SelectItem>
                   <SelectItem value="__none__">Geen</SelectItem>
