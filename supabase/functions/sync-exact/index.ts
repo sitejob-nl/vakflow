@@ -350,32 +350,95 @@ Deno.serve(async (req) => {
       }
 
       case "pull-invoices": {
-        // Read-only: list invoices from Exact (no import — customer mapping is ambiguous)
+        // Import invoices from Exact into local DB
         const invoices = await exactGetAll(
           base_url, division, "salesinvoice/SalesInvoices", access_token,
-          "$select=InvoiceID,InvoiceNumber,InvoiceDate,AmountDC,Status,Description&$orderby=InvoiceDate desc"
+          "$select=InvoiceID,InvoiceNumber,InvoiceDate,AmountDC,Status,Description,OrderedBy,DueDate&$orderby=InvoiceDate desc"
         );
 
-        // Check which are already linked locally
-        const exactIds = invoices.map((i: any) => i.InvoiceID).filter(Boolean);
-        const { data: linkedInvoices } = await supabaseAdmin
+        // Get all local customers with exact_account_id for this company
+        const { data: localCustomers } = await supabaseAdmin
+          .from("customers")
+          .select("id, exact_account_id, name")
+          .eq("company_id", companyId)
+          .not("exact_account_id", "is", null);
+
+        const customerMap = new Map<string, { id: string; name: string }>();
+        for (const c of localCustomers || []) {
+          if (c.exact_account_id) customerMap.set(c.exact_account_id, { id: c.id, name: c.name });
+        }
+
+        // Get already imported exact_ids
+        const allExactIds = invoices.map((i: any) => i.InvoiceID).filter(Boolean);
+        const { data: existingInvoices } = await supabaseAdmin
           .from("invoices")
           .select("exact_id")
           .eq("company_id", companyId)
-          .in("exact_id", exactIds.length ? exactIds : ["__none__"]);
+          .in("exact_id", allExactIds.length ? allExactIds : ["__none__"]);
+        const existingSet = new Set((existingInvoices || []).map((i: any) => i.exact_id));
 
-        const linkedSet = new Set((linkedInvoices || []).map((i: any) => i.exact_id));
+        let imported = 0, already_linked = 0;
+        const errors: string[] = [];
+        const unlinkedAccountIds = new Set<string>();
 
-        const result = invoices.map((inv: any) => ({
-          exact_id: inv.InvoiceID,
-          number: inv.InvoiceNumber,
-          date: inv.InvoiceDate,
-          amount: inv.AmountDC,
-          description: inv.Description,
-          linked: linkedSet.has(inv.InvoiceID),
-        }));
+        for (const inv of invoices) {
+          if (existingSet.has(inv.InvoiceID)) { already_linked++; continue; }
 
-        return jsonRes({ total_in_exact: invoices.length, linked: linkedSet.size, invoices: result });
+          const orderedBy = inv.OrderedBy;
+          if (!orderedBy || !customerMap.has(orderedBy)) {
+            if (orderedBy) unlinkedAccountIds.add(orderedBy);
+            continue;
+          }
+
+          const customer = customerMap.get(orderedBy)!;
+          try {
+            const amount = Number(inv.AmountDC) || 0;
+            const { error: insertErr } = await supabaseAdmin.from("invoices").insert({
+              company_id: companyId,
+              customer_id: customer.id,
+              exact_id: inv.InvoiceID,
+              invoice_number: inv.InvoiceNumber ? String(inv.InvoiceNumber) : null,
+              status: "verstuurd",
+              total: amount,
+              subtotal: Math.round(amount / 1.21 * 100) / 100,
+              vat_amount: Math.round((amount - amount / 1.21) * 100) / 100,
+              vat_percentage: 21,
+              issued_at: inv.InvoiceDate ? inv.InvoiceDate.split("T")[0] : null,
+              due_at: inv.DueDate ? inv.DueDate.split("T")[0] : null,
+              notes: inv.Description || null,
+              items: [],
+            });
+            if (insertErr) {
+              errors.push(`${inv.InvoiceNumber}: ${insertErr.message}`);
+            } else {
+              imported++;
+            }
+          } catch (err: any) {
+            errors.push(`${inv.InvoiceNumber}: ${err.message}`);
+          }
+        }
+
+        // Lookup names for unlinked accounts
+        const unlinked_customers: { name: string; exact_account_id: string }[] = [];
+        if (unlinkedAccountIds.size > 0) {
+          for (const accountId of unlinkedAccountIds) {
+            try {
+              const accounts = await exactGetAll(
+                base_url, division, "crm/Accounts", access_token,
+                `$select=ID,Name&$filter=ID eq guid'${accountId}'`
+              );
+              unlinked_customers.push({
+                name: accounts[0]?.Name || "Onbekend",
+                exact_account_id: accountId,
+              });
+            } catch {
+              unlinked_customers.push({ name: "Onbekend", exact_account_id: accountId });
+            }
+          }
+        }
+
+        await logUsage(supabaseAdmin, companyId, "exact_pull_invoices", { imported, already_linked, unlinked: unlinked_customers.length, errors: errors.length });
+        return jsonRes({ total_in_exact: invoices.length, imported, already_linked, unlinked_customers, errors });
       }
 
       case "pull-status": {
