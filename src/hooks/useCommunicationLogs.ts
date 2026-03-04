@@ -62,7 +62,7 @@ export const useDeleteCommunicationLog = () => {
 
 export const useSendEmail = () => {
   return useMutation({
-    mutationFn: async (params: { to: string; subject: string; body: string }) => {
+    mutationFn: async (params: { to: string; subject: string; body: string; html?: string }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Niet ingelogd");
 
