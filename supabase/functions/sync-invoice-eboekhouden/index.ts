@@ -164,24 +164,25 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, company_id, eboekhouden_api_token, eboekhouden_template_id, eboekhouden_ledger_id, eboekhouden_debtor_ledger_id")
+      // Get companies with e-Boekhouden tokens configured
+      const { data: companies } = await supabase
+        .from("companies")
+        .select("id, eboekhouden_api_token, eboekhouden_template_id, eboekhouden_ledger_id, eboekhouden_debtor_ledger_id")
         .not("eboekhouden_api_token", "is", null);
 
-      if (!profiles || profiles.length === 0) {
-        return new Response(JSON.stringify({ message: "Geen profielen met e-Boekhouden token gevonden" }), {
+      if (!companies || companies.length === 0) {
+        return new Response(JSON.stringify({ message: "Geen bedrijven met e-Boekhouden token gevonden" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       const results: any[] = [];
 
-      for (const prof of profiles) {
+      for (const comp of companies) {
         try {
-          const apiToken = await decryptToken(prof.eboekhouden_api_token!);
+          const apiToken = await decryptToken(comp.eboekhouden_api_token!);
           const sess = await ebSession(apiToken);
-          const log: any = { profile_id: prof.id };
+          const log: any = { company_id: comp.id };
 
           // 1. Pull contacts
           try {
@@ -208,12 +209,12 @@ Deno.serve(async (req) => {
                   phone: sanitizePhone(detail.phoneNumber) || null,
                   eboekhouden_relation_id: rel.id,
                 };
-                const { data: existing } = await supabase.from("customers").select("id").eq("eboekhouden_relation_id", rel.id).eq("company_id", prof.company_id).maybeSingle();
+                const { data: existing } = await supabase.from("customers").select("id").eq("eboekhouden_relation_id", rel.id).eq("company_id", comp.id).maybeSingle();
                 if (existing) {
                   await supabase.from("customers").update(customerData).eq("id", existing.id);
                   cUpdated++;
                 } else {
-                  customerData.company_id = prof.company_id;
+                  customerData.company_id = comp.id;
                   await supabase.from("customers").insert(customerData);
                   cCreated++;
                 }
@@ -236,20 +237,20 @@ Deno.serve(async (req) => {
               if (items.length < limit) break;
               offset += limit;
             }
-            const { data: existingInvoices } = await supabase.from("invoices").select("eboekhouden_id").eq("company_id", prof.company_id).not("eboekhouden_id", "is", null);
+            const { data: existingInvoices } = await supabase.from("invoices").select("eboekhouden_id").eq("company_id", comp.id).not("eboekhouden_id", "is", null);
             const existingIds = new Set((existingInvoices || []).map((i: any) => String(i.eboekhouden_id)));
             const notImported = allInvoices.filter((inv: any) => !existingIds.has(String(inv.id)));
             let imported = 0;
             for (const ebInv of notImported) {
               try {
-                const { data: customer } = await supabase.from("customers").select("id").eq("eboekhouden_relation_id", ebInv.relationId).eq("company_id", prof.company_id).maybeSingle();
+                const { data: customer } = await supabase.from("customers").select("id").eq("eboekhouden_relation_id", ebInv.relationId).eq("company_id", comp.id).maybeSingle();
                 if (!customer) continue;
                 const subtotal = Number(ebInv.totalExcl || 0);
                 const total = Number(ebInv.totalAmount || ebInv.totalIncl || 0);
                 const vatAmount = Number(ebInv.vatAmount || (total - subtotal));
                 await supabase.from("invoices").insert({
                   customer_id: customer.id,
-                  company_id: prof.company_id,
+                  company_id: comp.id,
                   eboekhouden_id: String(ebInv.id),
                   invoice_number: ebInv.invoiceNumber || null,
                   subtotal, total, vat_amount: vatAmount,
@@ -266,7 +267,7 @@ Deno.serve(async (req) => {
 
           // 3. Pull invoice status (mark paid)
           try {
-            const { data: unpaid } = await supabase.from("invoices").select("id, eboekhouden_id").eq("company_id", prof.company_id).not("eboekhouden_id", "is", null).neq("status", "betaald");
+            const { data: unpaid } = await supabase.from("invoices").select("id, eboekhouden_id").eq("company_id", comp.id).not("eboekhouden_id", "is", null).neq("status", "betaald");
             let statusUpdated = 0;
             for (const inv of (unpaid || [])) {
               try {
@@ -284,7 +285,7 @@ Deno.serve(async (req) => {
 
           // 4. Push: sync customers without eboekhouden_relation_id
           try {
-            const { data: unsyncedCustomers } = await supabase.from("customers").select("*").eq("company_id", prof.company_id).is("eboekhouden_relation_id", null);
+            const { data: unsyncedCustomers } = await supabase.from("customers").select("*").eq("company_id", comp.id).is("eboekhouden_relation_id", null);
             let pushed = 0;
             for (const cust of (unsyncedCustomers || [])) {
               try {
@@ -308,12 +309,12 @@ Deno.serve(async (req) => {
           }
 
           // 5. Push: sync invoices without eboekhouden_id (only if template/ledger configured)
-          if (prof.eboekhouden_template_id && prof.eboekhouden_ledger_id) {
+          if (comp.eboekhouden_template_id && comp.eboekhouden_ledger_id) {
             try {
               const { data: unsyncedInvoices } = await supabase
                 .from("invoices")
                 .select("*, customers(id, name, type, contact_person, address, city, postal_code, email, phone, eboekhouden_relation_id), work_orders(work_order_number, services(name, price))")
-                .eq("company_id", prof.company_id)
+                .eq("company_id", comp.id)
                 .is("eboekhouden_id", null);
               let pushedInv = 0;
               for (const invoice of (unsyncedInvoices || [])) {
@@ -338,9 +339,9 @@ Deno.serve(async (req) => {
                     date: invoice.issued_at || new Date().toISOString().split("T")[0],
                     inExVat: "IN",
                     termOfPayment: calcTermOfPayment(invoice),
-                    templateId: prof.eboekhouden_template_id,
-                    mutation: { ledgerId: prof.eboekhouden_debtor_ledger_id || prof.eboekhouden_ledger_id },
-                    items: mapInvoiceItems(invoice, prof.eboekhouden_ledger_id),
+                    templateId: comp.eboekhouden_template_id,
+                    mutation: { ledgerId: comp.eboekhouden_debtor_ledger_id || comp.eboekhouden_ledger_id },
+                    items: mapInvoiceItems(invoice, comp.eboekhouden_ledger_id),
                   });
                   const ebId = String(ebInvoice.id ?? ebInvoice.Id ?? ebInvoice.invoiceId);
                   await supabase.from("invoices").update({ eboekhouden_id: ebId }).eq("id", invoice.id);
@@ -355,7 +356,7 @@ Deno.serve(async (req) => {
 
           results.push(log);
         } catch (err: any) {
-          results.push({ profile_id: prof.id, error: err.message });
+          results.push({ company_id: comp.id, error: err.message });
         }
       }
 
@@ -387,35 +388,38 @@ Deno.serve(async (req) => {
 
     if (!roleCheck) throw new Error("Niet geautoriseerd");
 
-    // Get profile with e-boekhouden token + company_id
-    const { data: profile } = await supabase
+    // Get company_id from profile
+    const { data: userProfile } = await supabase
       .from("profiles")
-      .select("company_id, eboekhouden_api_token, eboekhouden_template_id, eboekhouden_ledger_id, eboekhouden_debtor_ledger_id")
+      .select("company_id")
       .eq("id", user.id)
       .single();
 
-    if (!profile?.eboekhouden_api_token) {
-      throw new Error("e-Boekhouden API-token niet ingesteld. Ga naar Instellingen.");
+    if (!userProfile?.company_id) {
+      throw new Error("Geen bedrijf gevonden voor deze gebruiker.");
     }
 
     // Rate limit: max 5 syncs per minute per company
-    if (profile.company_id) {
-      await checkRateLimit(supabase, profile.company_id, "sync_eboekhouden", 5);
+    await checkRateLimit(supabase, userProfile.company_id, "sync_eboekhouden", 5);
+
+    // Get e-Boekhouden config from companies table (where save-smtp-credentials stores it)
+    const { data: companyConfig } = await supabase
+      .from("companies")
+      .select("eboekhouden_api_token, eboekhouden_template_id, eboekhouden_ledger_id, eboekhouden_debtor_ledger_id")
+      .eq("id", userProfile.company_id)
+      .single();
+
+    if (!companyConfig?.eboekhouden_api_token) {
+      throw new Error("e-Boekhouden API-token niet ingesteld. Ga naar Instellingen.");
     }
 
-    // Override template/ledger config from companies table (preferred source since SettingsPage saves there)
-    if (profile.company_id) {
-      const { data: companyConfig } = await supabase
-        .from("companies")
-        .select("eboekhouden_template_id, eboekhouden_ledger_id, eboekhouden_debtor_ledger_id")
-        .eq("id", profile.company_id)
-        .single();
-      if (companyConfig) {
-        if (companyConfig.eboekhouden_template_id != null) profile.eboekhouden_template_id = companyConfig.eboekhouden_template_id;
-        if (companyConfig.eboekhouden_ledger_id != null) profile.eboekhouden_ledger_id = companyConfig.eboekhouden_ledger_id;
-        if (companyConfig.eboekhouden_debtor_ledger_id != null) profile.eboekhouden_debtor_ledger_id = companyConfig.eboekhouden_debtor_ledger_id;
-      }
-    }
+    const profile = {
+      company_id: userProfile.company_id,
+      eboekhouden_api_token: companyConfig.eboekhouden_api_token,
+      eboekhouden_template_id: companyConfig.eboekhouden_template_id,
+      eboekhouden_ledger_id: companyConfig.eboekhouden_ledger_id,
+      eboekhouden_debtor_ledger_id: companyConfig.eboekhouden_debtor_ledger_id,
+    };
 
     // Decrypt the stored token
     const apiToken = await decryptToken(profile.eboekhouden_api_token);
