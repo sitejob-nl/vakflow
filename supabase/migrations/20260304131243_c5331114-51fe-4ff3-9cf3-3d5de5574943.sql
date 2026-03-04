@@ -1,0 +1,1 @@
+DELETE FROM whatsapp_config WHERE id = '00000000-0000-0000-0000-000000000001' AND company_id = '62ab95a0-c2d1-4ca2-907b-54244fa653e8' AND phone_number_id = 'pending';
