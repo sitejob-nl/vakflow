@@ -2,6 +2,7 @@ import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 import { decrypt } from "../_shared/crypto.ts";
+import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
 async function rompslompGet(companyId: string, path: string, token: string) {
   const url = `${ROMPSLOMP_BASE}/companies/${companyId}${path}`;
@@ -52,6 +53,9 @@ Deno.serve(async (req) => {
   try {
     const { userId, companyId } = await authenticateRequest(req);
     const supabaseAdmin = createAdminClient();
+
+    // Rate limit: max 5 syncs per minute per company
+    await checkRateLimit(supabaseAdmin, companyId, "sync_rompslomp", 5);
 
     const { data: company } = await supabaseAdmin
       .from("companies")
@@ -801,6 +805,7 @@ Deno.serve(async (req) => {
     return jsonRes({ error: `Onbekende actie: ${action}` }, 400);
   } catch (err: any) {
     if (err instanceof AuthError) return jsonRes({ error: err.message }, err.status);
+    if (err instanceof RateLimitError) return jsonRes({ error: err.message }, 429);
     console.error("sync-rompslomp error:", err.message);
     await logEdgeFunctionError(createAdminClient(), "sync-rompslomp", err.message, { stack: err.stack });
     return jsonRes({ error: err.message }, 500);

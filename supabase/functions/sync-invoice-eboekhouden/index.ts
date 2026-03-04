@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -395,6 +396,11 @@ Deno.serve(async (req) => {
 
     if (!profile?.eboekhouden_api_token) {
       throw new Error("e-Boekhouden API-token niet ingesteld. Ga naar Instellingen.");
+    }
+
+    // Rate limit: max 5 syncs per minute per company
+    if (profile.company_id) {
+      await checkRateLimit(supabase, profile.company_id, "sync_eboekhouden", 5);
     }
 
     // Override template/ledger config from companies table (preferred source since SettingsPage saves there)
@@ -1043,6 +1049,11 @@ Deno.serve(async (req) => {
 
     throw new Error("Onbekende actie");
   } catch (err: any) {
+    if (err instanceof RateLimitError) {
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("sync-invoice-eboekhouden error:", err);
     // Only expose known user-facing messages, not internal details
     const safeMessages = [
