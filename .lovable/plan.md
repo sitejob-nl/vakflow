@@ -1,38 +1,73 @@
 
 
-# Fix: Companies SELECT policy terugzetten
+# Plan: WhatsApp Connect per bedrijf (multi-tenant)
 
-## Probleem
+## Huidige situatie
 
-De migratie heeft de `companies` SELECT policy beperkt tot alleen `super_admin`. Omdat `companies_safe` view `security_invoker=on` heeft, erft die dezelfde restrictie. Resultaat: niemand behalve super_admins kan bedrijfsdata lezen — geen logo, geen kleur, geen Outlook-koppeling.
+De `whatsapp_config` tabel heeft al een `company_id` kolom en `whatsapp-send` + `whatsapp-webhook` zijn al multi-tenant aware. Maar `whatsapp-register` werkt nog globaal:
 
-## Oplossing
+1. **Globale tenant check** — zoekt ANY tenant_id zonder company filter
+2. **Hardcoded UUID** — upsert naar `00000000-0000-0000-0000-000000000001` i.p.v. per bedrijf
+3. **Geen company_id** — slaat geen company_id op bij registratie
 
-Eén database migratie die de SELECT policy op `companies` terugzet naar de originele staat: bedrijfsmedewerkers kunnen hun eigen bedrijf lezen, super_admins kunnen alles lezen.
+## Wat wordt aangepast
 
-```sql
-DROP POLICY IF EXISTS "Only super admins can view companies directly" ON companies;
+### 1. Edge function `whatsapp-register` herschrijven
 
-CREATE POLICY "Company members can view own company"
-  ON companies FOR SELECT TO authenticated
-  USING (
-    id = (SELECT get_my_company_id())
-    OR (SELECT is_super_admin())
-  );
-```
+- `authenticateRequest` retourneert al `companyId` — gebruik dit
+- Check bestaande tenant_id **gefilterd op company_id**
+- Upsert met `company_id` als key (niet hardcoded UUID)
+- Geeft elk bedrijf zijn eigen tenant bij SiteJob Connect
 
-Dit herstelt:
-- **Monteurs**: zien logo en kleur via AuthContext (leest companies_safe → companies)
-- **Admins**: zien alle bedrijfsinstellingen + Outlook-koppeling
-- **Super admins**: zien alles
+### 2. Edge function `whatsapp-config` (config push van Connect)
 
-De `companies_safe` view en alle frontend-wijzigingen die al naar `companies_safe` lezen blijven intact — dat is een extra veiligheidslaag voor de toekomst. De gevoelige tokens (smtp_password, outlook_refresh_token, etc.) zijn wel leesbaar voor admins via de base table, maar niet via de `companies_safe` view die in de meeste componenten wordt gebruikt.
+- Na upsert op `phone_number_id`, zorg dat `company_id` behouden blijft (al correct via upsert op bestaand record)
+- Geen wijzigingen nodig — de config push matcht op `phone_number_id` dat al gekoppeld is aan een company
+
+### 3. Database: unique constraint op company_id
+
+- Voeg `UNIQUE(company_id)` toe zodat elk bedrijf maximaal één WhatsApp config heeft
+- Verwijder de hardcoded UUID-afhankelijkheid
+
+### 4. Frontend: SettingsPage
+
+- Stuur `company_id` niet mee (edge function haalt dit uit auth) — al correct
+- Geen wijzigingen nodig
 
 ## Bestanden
 
 | Bestand | Wijziging |
 |---------|-----------|
-| `supabase/migrations/...` | Revert companies SELECT policy |
+| `supabase/functions/whatsapp-register/index.ts` | Company-scoped tenant registratie |
+| `supabase/migrations/...` | UNIQUE constraint op `whatsapp_config.company_id` |
 
-Geen frontend wijzigingen nodig.
+## Technisch detail
+
+```typescript
+// whatsapp-register: company-scoped
+const { companyId } = await authenticateRequest(req);
+
+// Check bestaande tenant voor DIT bedrijf
+const { data: existingConfig } = await supabaseAdmin
+  .from("whatsapp_config")
+  .select("tenant_id")
+  .eq("company_id", companyId)
+  .maybeSingle();
+
+if (existingConfig?.tenant_id) {
+  return jsonRes({ tenant_id: existingConfig.tenant_id, existing: true });
+}
+
+// Registreer nieuwe tenant bij Connect
+// ...
+
+// Upsert met company_id als scope (gen_random_uuid voor id)
+await supabaseAdmin.from("whatsapp_config").upsert({
+  company_id: companyId,
+  phone_number_id: "pending",
+  access_token: "pending",
+  tenant_id,
+  webhook_secret,
+}, { onConflict: "company_id" });
+```
 
