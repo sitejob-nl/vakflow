@@ -37,7 +37,7 @@ const slots = Array.from({ length: 64 }, (_, i) => ({
   label: `${Math.floor((i + 24) / 4).toString().padStart(2, "0")}:${(((i + 24) % 4) * 15).toString().padStart(2, "0")}`,
 })).filter((s) => s.hour >= 6 && s.hour <= 21);
 
-const SLOT_HEIGHT = 20;
+const SLOT_HEIGHT = 28;
 const defaultEventColor = "#3b82f6";
 
 const statusDot: Record<string, string> = {
@@ -323,7 +323,7 @@ const PlanningPage = () => {
   return (
     <div className="flex flex-col lg:grid lg:grid-cols-[1fr_310px] gap-5 lg:h-[calc(100vh-58px-48px)]">
       {/* Calendar */}
-      <div className="bg-card border border-border rounded-lg shadow-card flex flex-col overflow-hidden min-h-[400px] md:min-h-[500px] lg:min-h-0">
+      <div className="bg-card border border-border rounded-xl shadow-sm flex flex-col overflow-hidden min-h-[400px] md:min-h-[500px] lg:min-h-0">
         {/* Toolbar */}
         {isMobile ? (
           /* Mobile toolbar: day navigation */
@@ -362,39 +362,53 @@ const PlanningPage = () => {
           </div>
         ) : (
           /* Desktop toolbar */
-          <div className="px-3 md:px-4 py-3 md:py-3.5 flex items-center gap-2 md:gap-2.5 border-b border-border flex-wrap">
-            {viewMode === "week" ? (
-              <>
-                <button onClick={() => setCurrentWeekStart((w) => subWeeks(w, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">‹</button>
-                <button onClick={() => setCurrentWeekStart((w) => addWeeks(w, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">›</button>
-                <span className="text-base font-extrabold min-w-[170px]">{weekLabel}</span>
-              </>
-            ) : (
-              <>
-                <button onClick={() => setCurrentMonth((m) => subMonths(m, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">‹</button>
-                <button onClick={() => setCurrentMonth((m) => addMonths(m, 1))} className="w-8 h-8 flex items-center justify-center rounded-sm text-t3 hover:bg-bg-hover transition-colors">›</button>
-                <span className="text-base font-extrabold min-w-[170px]">{format(currentMonth, "MMMM yyyy", { locale: nl })}</span>
-              </>
-            )}
-            {appointments && <span className="bg-primary-muted text-primary px-2.5 py-[3px] rounded-full text-[11px] font-bold">{appointments.length} afspraken</span>}
-            <button onClick={() => { setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 })); setCurrentMonth(new Date()); }} className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors">Vandaag</button>
+          <div className="px-3 md:px-5 py-3 md:py-3.5 flex items-center gap-2 md:gap-3 border-b border-border flex-wrap">
+            {/* Navigation group */}
+            <div className="flex items-center gap-1">
+              {viewMode === "week" ? (
+                <>
+                  <button onClick={() => setCurrentWeekStart((w) => subWeeks(w, 1))} className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setCurrentWeekStart((w) => addWeeks(w, 1))} className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setCurrentMonth((m) => subMonths(m, 1))} className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setCurrentMonth((m) => addMonths(m, 1))} className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </div>
+            <span className="text-base font-extrabold min-w-[170px]">
+              {viewMode === "week" ? weekLabel : format(currentMonth, "MMMM yyyy", { locale: nl })}
+            </span>
+            {appointments && <span className="text-muted-foreground text-[12px] font-semibold">{appointments.length} afspraken</span>}
+
+            {/* Separator */}
+            <div className="w-px h-5 bg-border hidden md:block" />
+
+            <button onClick={() => { setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 })); setCurrentMonth(new Date()); }} className="px-3 py-1.5 bg-card border border-border rounded-lg text-[12px] font-bold text-secondary-foreground hover:bg-muted transition-colors">Vandaag</button>
             {viewMode === "week" && (
-              <button onClick={() => setShowWeekend((v) => !v)} className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors">
+              <button onClick={() => setShowWeekend((v) => !v)} className="px-3 py-1.5 bg-card border border-border rounded-lg text-[12px] font-bold text-secondary-foreground hover:bg-muted transition-colors">
                 {showWeekend ? "Ma–Vr" : "Ma–Zo"}
               </button>
             )}
-            {/* View mode toggle */}
             <button
               onClick={() => setViewMode(viewMode === "week" ? "month" : "week")}
-              className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors flex items-center gap-1"
+              className="px-3 py-1.5 bg-card border border-border rounded-lg text-[12px] font-bold text-secondary-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
             >
               <CalendarIcon className="h-3.5 w-3.5" />
               {viewMode === "week" ? "Maand" : "Week"}
             </button>
-            {/* Employee filter - alleen voor admins */}
             {!isMonteur && teamMembers && teamMembers.length > 1 && (
               <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-                <SelectTrigger className="w-[160px] h-8 text-[12px]">
+                <SelectTrigger className="w-[160px] h-9 text-[12px] rounded-lg">
                   <Users className="h-3.5 w-3.5 mr-1 flex-shrink-0" />
                   <SelectValue placeholder="Alle medewerkers" />
                 </SelectTrigger>
@@ -406,7 +420,6 @@ const PlanningPage = () => {
                 </SelectContent>
               </Select>
             )}
-            {/* Outlook toggle */}
             {outlookConnected && (
               <label className="flex items-center gap-1.5 text-[12px] font-bold text-secondary-foreground cursor-pointer">
                 <Switch checked={showOutlook} onCheckedChange={setShowOutlook} className="scale-75" />
@@ -418,7 +431,7 @@ const PlanningPage = () => {
               <button
                 onClick={handleOptimize}
                 disabled={optimizeLoading}
-                className="px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors flex items-center gap-1 disabled:opacity-50"
+                className="px-3 py-1.5 bg-card border border-border rounded-lg text-[12px] font-bold text-secondary-foreground hover:bg-muted transition-colors flex items-center gap-1.5 disabled:opacity-50"
               >
                 {optimizeLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Route className="h-3.5 w-3.5" />}
                 Route {format(optimizeTargetDate, "EEEE d MMM", { locale: nl })}
@@ -426,9 +439,9 @@ const PlanningPage = () => {
             )}
             <button
               onClick={() => { setEditAppointment(null); setDefaultDate(undefined); setDialogOpen(true); }}
-              className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors flex items-center gap-1"
+              className="h-9 px-4 bg-primary text-primary-foreground rounded-lg text-[13px] font-bold hover:bg-primary-hover transition-colors flex items-center gap-1.5 shadow-sm"
             >
-              <Plus className="h-3.5 w-3.5" /> Nieuwe afspraak
+              <Plus className="h-4 w-4" /> Nieuwe afspraak
             </button>
           </div>
         )}
@@ -479,23 +492,25 @@ const PlanningPage = () => {
                               </div>
                             )}
                             <div
-                              className="rounded-md px-2 py-[3px] text-[12px] font-bold cursor-pointer overflow-hidden hover:shadow-card-hover transition-all relative border-l-[3px]"
+                              className="rounded-lg px-2.5 py-1 text-[13px] font-bold cursor-pointer overflow-hidden transition-all relative border-l-[3px]"
                               style={{
                                 height: `${eventHeight}px`,
-                                backgroundColor: `${hexColor}20`,
+                                backgroundColor: `${hexColor}18`,
                                 color: hexColor,
                                 borderLeftColor: hexColor,
+                                boxShadow: `0 1px 3px ${hexColor}15`,
                               }}
                             >
                               <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-medium opacity-70 font-mono">
+                                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot[ev.status] ?? "bg-border"}`} />
+                                <span className="text-[11px] font-medium opacity-70 font-mono">
                                   {format(startDate, "HH:mm")}
                                 </span>
-                                <span className="truncate">{ev.customers?.name ?? "Onbekend"}</span>
-                                {hasWorkOrder && <FileText className="h-3 w-3 opacity-60 flex-shrink-0" />}
+                                <span className="truncate font-extrabold">{ev.customers?.name ?? "Onbekend"}</span>
+                                {hasWorkOrder && <FileText className="h-3 w-3 opacity-50 flex-shrink-0" />}
                               </div>
                               {eventHeight > SLOT_HEIGHT && (
-                                <div className="text-[10px] opacity-60 truncate mt-0.5">
+                                <div className="text-[11px] opacity-60 truncate mt-0.5">
                                   {ev.services?.name} · {ev.customers?.city}
                                 </div>
                               )}
@@ -557,22 +572,39 @@ const PlanningPage = () => {
             /* ===== DESKTOP WEEK VIEW ===== */
             <div className={`relative grid ${showWeekend ? "grid-cols-[58px_repeat(7,1fr)]" : "grid-cols-[58px_repeat(5,1fr)]"}`}>
               <div className="sticky top-0 bg-card z-10 p-2.5 border-b border-border" />
-              {days.map((d) => (
-                <div
-                  key={d.toISOString()}
-                  className={`sticky top-0 z-10 p-2.5 text-center text-[11px] font-bold uppercase tracking-wide border-b border-border cursor-pointer transition-colors ${
-                    selectedDay && isSameDay(d, selectedDay)
-                      ? "text-primary bg-primary-muted ring-2 ring-primary/30 ring-inset"
-                      : isToday(d)
-                        ? "text-primary bg-primary-muted"
-                        : "text-t3 bg-card hover:bg-muted/50"
-                  }`}
-                  onClick={() => setSelectedDay((prev) => prev && isSameDay(prev, d) ? null : d)}
-                  title="Klik om dag te selecteren voor route optimalisatie"
-                >
-                  {format(d, "EEE d", { locale: nl })}
-                </div>
-              ))}
+              {days.map((d) => {
+                const isSelected = selectedDay && isSameDay(d, selectedDay);
+                const isTodayCol = isToday(d);
+                return (
+                  <div
+                    key={d.toISOString()}
+                    className={`sticky top-0 z-10 py-2.5 px-1 text-center border-b border-border cursor-pointer transition-colors ${
+                      isSelected
+                        ? "bg-primary-muted ring-2 ring-primary/30 ring-inset"
+                        : isTodayCol
+                          ? "bg-primary-muted"
+                          : "bg-card hover:bg-muted/50"
+                    }`}
+                    onClick={() => setSelectedDay((prev) => prev && isSameDay(prev, d) ? null : d)}
+                    title="Klik om dag te selecteren voor route optimalisatie"
+                  >
+                    <div className={`text-[11px] font-semibold uppercase tracking-wide ${isTodayCol || isSelected ? "text-primary" : "text-muted-foreground"}`}>
+                      {format(d, "EEE", { locale: nl })}
+                    </div>
+                    <div className="flex items-center justify-center mt-0.5">
+                      <span className={`inline-flex items-center justify-center text-[15px] font-extrabold ${
+                        isTodayCol
+                          ? "w-8 h-8 rounded-full bg-primary text-primary-foreground"
+                          : isSelected
+                            ? "text-primary"
+                            : "text-foreground"
+                      }`}>
+                        {format(d, "d")}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
               {slots.map((slot) => (
                 <div key={slot.label} className="contents">
                   <div className={`pr-2.5 text-right text-[10px] text-t3 font-mono flex items-start justify-end border-r border-border pt-0.5 ${slot.minute === 0 ? "border-b border-b-border/60" : "border-b border-b-border/20"}`} style={{ height: `${SLOT_HEIGHT}px` }}>
@@ -613,21 +645,28 @@ const PlanningPage = () => {
                                 </div>
                               )}
                               <div
-                                className="rounded-md px-1.5 py-[2px] text-[10px] font-bold cursor-pointer overflow-hidden hover:scale-[1.02] hover:z-[5] hover:shadow-card-hover transition-all relative border-l-[3px]"
+                                className="rounded-lg px-2 py-1 text-[11px] font-bold cursor-pointer overflow-hidden hover:scale-[1.02] hover:z-[5] transition-all relative border-l-[3px]"
                                 style={{
                                   height: `${eventHeight}px`,
-                                  backgroundColor: `${hexColor}20`,
+                                  backgroundColor: `${hexColor}18`,
                                   color: hexColor,
                                   borderLeftColor: hexColor,
+                                  boxShadow: `0 1px 3px ${hexColor}15`,
                                 }}
                               >
-                                <div className="flex items-center gap-1">
-                                  <span className="text-[9px] font-medium opacity-70 font-mono">
+                                <div className="flex items-center gap-1.5">
+                                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot[ev.status] ?? "bg-border"}`} />
+                                  <span className="text-[10px] font-medium opacity-70 font-mono">
                                     {format(new Date(ev.scheduled_at), "HH:mm")}
                                   </span>
-                                  <span className="truncate">{ev.customers?.name ?? "Onbekend"}</span>
-                                  {hasWorkOrder && <FileText className="h-2.5 w-2.5 opacity-60 flex-shrink-0" />}
+                                  <span className="truncate font-extrabold">{ev.customers?.name ?? "Onbekend"}</span>
+                                  {hasWorkOrder && <FileText className="h-3 w-3 opacity-50 flex-shrink-0" />}
                                 </div>
+                                {eventHeight > SLOT_HEIGHT * 1.5 && (
+                                  <div className="text-[10px] opacity-60 truncate mt-0.5">
+                                    {ev.services?.name}{ev.customers?.city ? ` · ${ev.customers.city}` : ""}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
@@ -679,10 +718,10 @@ const PlanningPage = () => {
 
       {/* Side panels */}
       <div className="flex flex-col gap-4 overflow-y-auto">
-        <div className="bg-card border border-border rounded-lg shadow-card overflow-hidden">
-          <div className="px-4 py-3.5 border-b border-border flex items-center justify-between">
-            <h3 className="text-sm font-bold">{sideTitlePrefix} — {sideDateLabel}</h3>
-            <span className="bg-primary-muted text-primary px-2.5 py-[3px] rounded-full text-[11px] font-bold">{sideAppointments.length}</span>
+        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+          <div className="px-4 py-4 border-b border-border flex items-center justify-between">
+            <h3 className="text-[15px] font-extrabold">{sideTitlePrefix} — {sideDateLabel}</h3>
+            <span className="text-muted-foreground text-[12px] font-semibold">{sideAppointments.length} afspraken</span>
           </div>
           <div className="px-4 py-3">
             {sideAppointments.length === 0 ? (
@@ -717,19 +756,19 @@ const PlanningPage = () => {
                       <TravelTimeBadge from={[prevLat, prevLng]} to={[curLat, curLng]} />
                     )}
                     <div
-                      className="flex items-start gap-3 py-2.5 border-b border-border last:border-b-0 cursor-pointer hover:bg-bg-hover rounded-sm px-1 -mx-1 transition-colors"
+                      className="flex items-start gap-3 py-3 border-b border-border/60 last:border-b-0 cursor-pointer hover:bg-muted/50 rounded-lg px-2 -mx-2 transition-colors"
                       onClick={() => { setDetailAppointment(a); setDetailOpen(true); }}
                     >
-                      <div className={`w-2 h-2 rounded-full mt-[5px] flex-shrink-0 ${statusDot[a.status] ?? "bg-border"}`} />
-                      <div className="font-mono text-[11.5px] text-t3 min-w-[44px] pt-px">
+                      <div className={`w-2.5 h-2.5 rounded-full mt-[5px] flex-shrink-0 ${statusDot[a.status] ?? "bg-border"}`} />
+                      <div className="font-mono text-[12px] text-muted-foreground min-w-[44px] pt-px font-semibold">
                         {format(new Date(a.scheduled_at), "HH:mm")}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-bold truncate flex items-center gap-1">
+                        <div className="text-[13px] font-extrabold truncate flex items-center gap-1.5">
                           {a.customers?.name ?? "Onbekend"}
                           {appointmentWoMap.has(a.id) && <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
                         </div>
-                        <div className="text-[12px] text-secondary-foreground truncate">
+                        <div className="text-[12px] text-muted-foreground truncate mt-0.5">
                           {a.services?.name ?? ""} · {a.customers?.city ?? ""}
                         </div>
                       </div>
@@ -770,9 +809,9 @@ const PlanningPage = () => {
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-lg shadow-card overflow-hidden">
-          <div className="px-4 py-3.5 border-b border-border">
-            <h3 className="text-sm font-bold">Diensten {isMobile && !isToday(mobileDay) ? format(mobileDay, "EEEE", { locale: nl }) : "vandaag"}</h3>
+        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+          <div className="px-4 py-4 border-b border-border">
+            <h3 className="text-[15px] font-extrabold">Diensten {isMobile && !isToday(mobileDay) ? format(mobileDay, "EEEE", { locale: nl }) : "vandaag"}</h3>
           </div>
           <div className="px-4 py-3 text-[13px]">
             {dailyRevenue.length === 0 ? (
