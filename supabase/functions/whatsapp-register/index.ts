@@ -11,13 +11,19 @@ Deno.serve(async (req) => {
     // Check bestaande tenant voor DIT bedrijf
     const { data: existingConfig } = await supabaseAdmin
       .from("whatsapp_config")
-      .select("tenant_id")
+      .select("tenant_id, phone_number_id")
       .eq("company_id", companyId)
       .maybeSingle();
 
     if (existingConfig?.tenant_id) {
-      console.log("Bestaande tenant_id gevonden voor company:", companyId);
-      return jsonRes({ tenant_id: existingConfig.tenant_id, existing: true });
+      if (existingConfig.phone_number_id === 'pending') {
+        // Previous registration never completed — delete stale row and re-register
+        console.log("Stale pending config gevonden, verwijderen voor company:", companyId);
+        await supabaseAdmin.from("whatsapp_config").delete().eq("company_id", companyId);
+      } else {
+        console.log("Bestaande tenant_id gevonden voor company:", companyId);
+        return jsonRes({ tenant_id: existingConfig.tenant_id, existing: true });
+      }
     }
 
     const body = await req.json();
