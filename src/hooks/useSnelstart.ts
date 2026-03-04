@@ -24,14 +24,13 @@ export function useSaveSnelstartConnection() {
   const { user } = useAuth();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ clientKey, subscriptionKey }: { clientKey: string; subscriptionKey: string }) => {
+    mutationFn: async ({ clientKey }: { clientKey: string }) => {
       const { data: profile } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
       if (!profile?.company_id) throw new Error("Geen bedrijf gevonden");
       const { error } = await supabase.from("snelstart_connections" as any).upsert(
         {
           company_id: profile.company_id,
           client_key: clientKey,
-          subscription_key: subscriptionKey,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "company_id" }

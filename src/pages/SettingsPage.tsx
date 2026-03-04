@@ -345,8 +345,7 @@ const SettingsPage = () => {
   const deleteSnelstart = useDeleteSnelstartConnection();
   const { data: snelstartSyncStatus } = useSnelstartSyncStatus();
   const triggerSnelstartSync = useTriggerSnelstartSync();
-  const [snelstartClientKey, setSnelstartClientKey] = useState("");
-  const [snelstartSubKey, setSnelstartSubKey] = useState("");
+   const [snelstartClientKey, setSnelstartClientKey] = useState("");
   const [snelstartSaving, setSnelstartSaving] = useState(false);
   const [snelstartTesting, setSnelstartTesting] = useState(false);
   const [snelstartSyncing, setSnelstartSyncing] = useState(false);
@@ -3834,24 +3833,19 @@ const SettingsPage = () => {
                       <label className={labelClass}>Koppelingssleutel (Client Key)</label>
                       <input value={snelstartClientKey} onChange={(e) => setSnelstartClientKey(e.target.value)} className={inputClass} placeholder="Je SnelStart koppelingssleutel" type="password" />
                     </div>
-                    <div>
-                      <label className={labelClass}>Subscription Key</label>
-                      <input value={snelstartSubKey} onChange={(e) => setSnelstartSubKey(e.target.value)} className={inputClass} placeholder="Je Ocp-Apim-Subscription-Key" type="password" />
-                    </div>
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!snelstartClientKey || !snelstartSubKey) {
-                            toast({ title: "Vul beide sleutels in", variant: "destructive" });
-                            return;
-                          }
-                          setSnelstartSaving(true);
-                          try {
-                            await saveSnelstart.mutateAsync({ clientKey: snelstartClientKey, subscriptionKey: snelstartSubKey });
-                            toast({ title: "SnelStart koppeling opgeslagen" });
-                            setSnelstartClientKey("");
-                            setSnelstartSubKey("");
+                       <button
+                         type="button"
+                         onClick={async () => {
+                           if (!snelstartClientKey) {
+                             toast({ title: "Vul de koppelingssleutel in", variant: "destructive" });
+                             return;
+                           }
+                           setSnelstartSaving(true);
+                           try {
+                             await saveSnelstart.mutateAsync({ clientKey: snelstartClientKey });
+                             toast({ title: "SnelStart koppeling opgeslagen" });
+                             setSnelstartClientKey("");
                           } catch (err: any) {
                             toast({ title: "Fout", description: err.message, variant: "destructive" });
                           }
@@ -3864,14 +3858,14 @@ const SettingsPage = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={async () => {
-                          if (!snelstartClientKey || !snelstartSubKey) {
-                            toast({ title: "Vul beide sleutels in", variant: "destructive" });
-                            return;
-                          }
-                          setSnelstartSaving(true);
-                          try {
-                            await saveSnelstart.mutateAsync({ clientKey: snelstartClientKey, subscriptionKey: snelstartSubKey });
+                         onClick={async () => {
+                           if (!snelstartClientKey) {
+                             toast({ title: "Vul de koppelingssleutel in", variant: "destructive" });
+                             return;
+                           }
+                           setSnelstartSaving(true);
+                           try {
+                             await saveSnelstart.mutateAsync({ clientKey: snelstartClientKey });
                             setSnelstartTesting(true);
                             const result = await testSnelstart.mutateAsync();
                             toast({ title: "Verbinding geslaagd!", description: `${result.count} relaties gevonden` });

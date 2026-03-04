@@ -9,9 +9,14 @@ export interface SnelstartConnection {
   id: string;
   company_id: string;
   client_key: string;
-  subscription_key: string;
   access_token: string | null;
   token_expires_at: string | null;
+}
+
+function getSubscriptionKey(): string {
+  const key = Deno.env.get("SNELSTART_SUBSCRIPTION_KEY");
+  if (!key) throw new Error("SNELSTART_SUBSCRIPTION_KEY secret is niet geconfigureerd");
+  return key;
 }
 
 /**
@@ -86,7 +91,7 @@ export async function snelstartFetch(
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
-    "Ocp-Apim-Subscription-Key": connection.subscription_key,
+    "Ocp-Apim-Subscription-Key": getSubscriptionKey(),
     "Content-Type": "application/json",
   };
 
