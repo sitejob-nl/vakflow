@@ -1,27 +1,50 @@
 
 
-## Verificatierapport: Tweede beveiligingsaudit — AFGEROND
+## Schaalbaarheidsverbeteringen
 
-Alle code-fixes zijn doorgevoerd. Hieronder de finale status.
+Je analyse is accuraat. Hier is wat ik nu kan fixen in code/database, en wat handmatig of later moet.
 
----
+### 1. Ontbrekende FK-indexes toevoegen (migratie)
 
-### Uitgevoerde fixes
+8 foreign keys missen een index:
 
-| # | Fix | Status |
-|---|-----|--------|
-| 1 | WhatsApp `.single()` company-filter | ✅ GEFIXT (vorige ronde) |
-| 2 | eBoekhouden auto-sync X-Cron-Secret | ✅ GEFIXT (vorige ronde) |
-| 3 | SnelStart-sync X-Cron-Secret | ✅ GEFIXT (vorige ronde) |
-| 4 | WhatsApp-send unconditional companyId | ✅ GEFIXT (vorige ronde) |
-| 5 | WhatsApp automation-trigger company_id filter | ✅ GEFIXT — `if` verwijderd, nu unconditional met early return |
+| Tabel | Kolom | Impact |
+|-------|-------|--------|
+| `work_orders` | `assigned_to` | Hoog — veel rijen, veel queries |
+| `user_outlook_tokens` | `company_id` | Laag |
+| `outlook_event_overrides` | `company_id` | Laag |
+| `snelstart_relaties` | `connection_id` | Middel |
+| `snelstart_artikelen` | `connection_id` | Middel |
+| `snelstart_verkoopfacturen` | `connection_id` | Middel |
+| `snelstart_verkooporders` | `connection_id` | Middel |
+| `snelstart_offertes` | `connection_id` | Middel |
 
-### Openstaande dashboard-controles (kan niet vanuit code)
+Eenvoudige migratie: `CREATE INDEX CONCURRENTLY` voor elk.
 
-1. **companies_safe view** (MIDDEL): Controleer in Supabase dashboard of het SECURITY INVOKER of DEFINER is
-2. **Storage policies** (LAAG): Controleer in Supabase dashboard of oude permissieve policies zijn verwijderd
-3. **Rompslomp webhook** (MIDDEL): Overweeg HMAC-body-verificatie toe te voegen (optioneel)
+### 2. Rate limiting toevoegen aan zware endpoints
 
-### Conclusie
+Voeg een gedeelde `checkRateLimit()` helper toe in `_shared/rate-limit.ts` die een `usage_events`-based check doet per company. Toepassen op:
+- `generate-invoice-pdf` / `generate-quote-pdf` / `generate-workorder-pdf` (max 30/min per bedrijf)
+- `sync-exact` / `sync-moneybird` / `sync-rompslomp` / `sync-invoice-eboekhouden` (max 5/min per bedrijf)
+- `optimize-route` (max 10/min per bedrijf)
+- `send-email` (max 30/min per bedrijf)
 
-Alle kritieke en hoge beveiligingsproblemen uit beide audits zijn opgelost. Er zijn geen openstaande code-wijzigingen meer nodig.
+### 3. WhatsApp media lifecycle
+
+Niet mogelijk via code — Supabase Storage heeft geen ingebouwd lifecycle-beleid. Alternatief: een cron edge function `cleanup-old-media` die bestanden ouder dan 90 dagen verwijdert.
+
+### Wat NIET in scope is (handmatig/later)
+
+- **Subscription/billing**: Vereist Stripe-integratie + plan-management UI — apart project
+- **Feature flagging per plan**: `enabled_features` bestaat al, maar er is geen koppeling met een betalingsplan
+- **DB connection limits**: Supabase plan upgrade nodig
+- **Onboarding provisioning**: `company-signup` bestaat, maar geautomatiseerd betaal-pad ontbreekt
+- **Ongebruikte indexes opruimen**: Vereist productie-query-analyse (pg_stat_user_indexes) om te bepalen welke echt ongebruikt zijn
+
+### Aanpak
+
+1. Migratie: 8 ontbrekende indexes
+2. Nieuwe shared helper: `_shared/rate-limit.ts`
+3. Rate limiting toevoegen aan 8 edge functions
+4. Optioneel: `cleanup-old-media` cron function
+
