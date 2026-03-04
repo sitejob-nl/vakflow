@@ -48,7 +48,7 @@ function getKeyBytes(): Uint8Array {
 /** AES-256-GCM encrypt. Returns "base64(iv):base64(ciphertext)" */
 export async function encrypt(plainText: string): Promise<string> {
   const keyBytes = getKeyBytes();
-  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["encrypt"]);
+  const key = await crypto.subtle.importKey("raw", keyBytes.buffer as ArrayBuffer, { name: "AES-GCM" }, false, ["encrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(plainText));
   return `${bytesToBase64(iv)}:${bytesToBase64(new Uint8Array(encrypted))}`;
@@ -57,18 +57,18 @@ export async function encrypt(plainText: string): Promise<string> {
 /** AES-256-GCM decrypt. Expects "base64(iv):base64(ciphertext)" */
 export async function decrypt(encryptedStr: string): Promise<string> {
   const keyBytes = getKeyBytes();
-  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
+  const key = await crypto.subtle.importKey("raw", keyBytes.buffer as ArrayBuffer, { name: "AES-GCM" }, false, ["decrypt"]);
   const [ivB64, ctB64] = encryptedStr.split(":");
   const iv = base64ToBytes(ivB64);
   const ciphertext = base64ToBytes(ctB64);
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext.buffer as ArrayBuffer);
   return new TextDecoder().decode(decrypted);
 }
 
 /** HMAC-SHA256 sign a payload. Returns hex string. */
 export async function hmacSign(payload: string): Promise<string> {
   const keyBytes = getKeyBytes();
-  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const key = await crypto.subtle.importKey("raw", keyBytes.buffer as ArrayBuffer, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
 }

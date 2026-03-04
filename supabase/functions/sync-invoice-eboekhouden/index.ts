@@ -154,6 +154,15 @@ Deno.serve(async (req) => {
 
     // Action: auto-sync — cron-triggered, syncs all users with e-Boekhouden tokens
     if (action === "auto-sync") {
+      // Verify X-Cron-Secret to prevent unauthenticated access
+      const cronSecret = Deno.env.get("CRON_SECRET");
+      const requestSecret = req.headers.get("X-Cron-Secret") || req.headers.get("x-cron-secret");
+      if (!cronSecret || requestSecret !== cronSecret) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, company_id, eboekhouden_api_token, eboekhouden_template_id, eboekhouden_ledger_id, eboekhouden_debtor_ledger_id")

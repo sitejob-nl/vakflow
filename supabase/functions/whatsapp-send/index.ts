@@ -102,10 +102,13 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
 
-    // Haal config op (scoped to company)
-    const configQuery = supabaseAdmin.from("whatsapp_config").select("*");
-    if (companyId) configQuery.eq("company_id", companyId);
-    const { data: config } = await configQuery.single();
+    // Haal config op (always scoped to company)
+    if (!companyId) return jsonRes({ error: "company_id ontbreekt" }, 400);
+    const { data: config } = await supabaseAdmin
+      .from("whatsapp_config")
+      .select("*")
+      .eq("company_id", companyId)
+      .single();
 
     // === DISCONNECT ===
     if (body.action === "disconnect") {

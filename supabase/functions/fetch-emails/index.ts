@@ -44,7 +44,7 @@ async function decryptPassword(encryptedStr: string): Promise<string> {
 
   const key = await crypto.subtle.importKey(
     "raw",
-    keyBytes,
+    keyBytes.buffer as ArrayBuffer,
     { name: "AES-GCM" },
     false,
     ["decrypt"]
@@ -57,7 +57,7 @@ async function decryptPassword(encryptedStr: string): Promise<string> {
   const decrypted = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv },
     key,
-    ciphertext
+    ciphertext.buffer as ArrayBuffer
   );
 
   return new TextDecoder().decode(decrypted);
@@ -433,7 +433,7 @@ serve(async (req) => {
     const inbox = await client.selectMailbox("INBOX");
     console.log(`INBOX has ${inbox.exists} messages`);
 
-    const unreadIds = await client.search("UNSEEN");
+    const unreadIds = await client.search({ unseen: true } as any);
     console.log(`Found ${unreadIds.length} unread messages`);
 
     if (unreadIds.length === 0) {
@@ -450,8 +450,7 @@ serve(async (req) => {
     const messages = await client.fetch(fetchRange, {
       envelope: true,
       bodyStructure: true,
-      body: ["HEADER.FIELDS (MESSAGE-ID)", "1"],
-    });
+    } as any);
 
     console.log(`Fetched ${messages.length} messages`);
 
@@ -460,7 +459,7 @@ serve(async (req) => {
 
     for (const msg of messages) {
       try {
-        const headerData = msg.body?.["HEADER.FIELDS (MESSAGE-ID)"] || "";
+        const headerData = (msg as any).body?.["HEADER.FIELDS (MESSAGE-ID)"] || "";
         const msgIdMatch = typeof headerData === "string"
           ? headerData.match(/Message-ID:\s*<?([^>\r\n]+)>?/i)
           : null;
@@ -487,7 +486,7 @@ serve(async (req) => {
         const subject = env?.subject || "(geen onderwerp)";
         const sentDate = env?.date ? new Date(env.date).toISOString() : new Date().toISOString();
 
-        const bodyContent = msg.body?.["1"] || "";
+        const bodyContent = (msg as any).body?.["1"] || "";
         const rawBody = typeof bodyContent === "string" ? bodyContent : "";
         const isHtml = rawBody.includes("<html") || rawBody.includes("<div") || rawBody.includes("<p>");
         const htmlBody = isHtml ? rawBody.substring(0, 50000) : null;

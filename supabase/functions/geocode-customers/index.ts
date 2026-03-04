@@ -85,7 +85,7 @@ serve(async (req) => {
           }
         }
       } catch (err) {
-        errors.push(`Geocode ${customer.id}: ${err.message}`);
+        errors.push(`Geocode ${customer.id}: ${(err as Error).message}`);
       }
 
       // Small delay to respect rate limits
