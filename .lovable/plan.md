@@ -1,49 +1,51 @@
 
 
-## Offerte Template Builder met Drag & Drop
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-### Wat wordt gebouwd
+### Problemen
 
-De huidige `TemplateDialog` (simpele lijst van artikelen) wordt vervangen door een blok-gebaseerde builder, vergelijkbaar met de e-mail builder. Gebruikers kunnen secties toevoegen, verslepen en binnen secties items herordenen.
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-### Bloktypen
+### Aanpak
 
-| Blok | Beschrijving |
-|---|---|
-| **Artikelgroep** | Groep regelitems (omschrijving, aantal, prijs) — items binnen de groep zijn ook versleepbaar |
-| **Koptekst** | Sectietitel (bijv. "Materialen", "Arbeid") |
-| **Vrije tekst** | Vrij tekstveld voor toelichting/voorwaarden |
-| **Scheidingslijn** | Visuele scheiding |
-| **Optionele items** | Groep optionele meerprijs-items |
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-### Database
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-Geen schema-wijzigingen nodig. De `quote_templates` tabel slaat `items` en `optional_items` al op als JSONB. We voegen een nieuw `blocks` JSONB-veld toe aan de tabel zodat de blokstructuur bewaard blijft, met fallback naar de huidige items-structuur voor bestaande templates.
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-### Technische aanpak
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-**1. Database migratie** — `blocks` kolom toevoegen aan `quote_templates` (JSONB, nullable, default `null`)
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-**2. Nieuw component: `src/components/QuoteTemplateBuilder.tsx`**
-- Blok-gebaseerde UI geïnspireerd op `EmailTemplateEditor.tsx`
-- Native HTML5 drag & drop (geen extra dependency) voor blokken EN items binnen blokken
-- Elke blok heeft toolbar: grip handle, type-label, omhoog/omlaag, verwijderen
-- "Blok toevoegen" knoppen onderaan
-- Bij opslaan: blokken → `blocks` JSONB + afgeleide `items`/`optional_items` arrays (voor backward compatibility met QuoteDialog en PDF-generatie)
-
-**3. `TemplateDialog` updaten**
-- Builder-component integreren in plaats van de huidige platte lijsten
-- Bij laden: als `blocks` bestaat → builder-modus; anders → blokken afleiden uit bestaande `items`/`optional_items`
-
-**4. `useQuoteTemplates.ts` updaten**
-- `blocks` veld toevoegen aan types en mutations
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
 ### Bestanden
 
-| Bestand | Actie |
+| Bestand | Wijziging |
 |---|---|
-| `supabase/migrations/add_blocks_to_quote_templates.sql` | Nieuwe kolom |
-| `src/components/QuoteTemplateBuilder.tsx` | **Nieuw** — builder component |
-| `src/components/TemplateDialog.tsx` | Integreer builder |
-| `src/hooks/useQuoteTemplates.ts` | `blocks` veld in types/mutations |
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+
+Geen database-wijzigingen, geen nieuwe dependencies.
 
