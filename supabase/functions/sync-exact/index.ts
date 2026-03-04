@@ -2,6 +2,18 @@ import { jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { logUsage } from "../_shared/usage.ts";
 
+/** Parse OData v3 /Date(...)/ or ISO date strings to YYYY-MM-DD */
+function parseODataDate(val: unknown): string | null {
+  if (!val) return null;
+  const s = String(val);
+  const match = s.match(/\/Date\((\d+)\)\//);
+  if (match) {
+    return new Date(Number(match[1])).toISOString().split("T")[0];
+  }
+  if (s.includes("T")) return s.split("T")[0];
+  return s;
+}
+
 interface ExactToken {
   access_token: string;
   division: number;
@@ -403,8 +415,8 @@ Deno.serve(async (req) => {
               subtotal: Math.round(amount / 1.21 * 100) / 100,
               vat_amount: Math.round((amount - amount / 1.21) * 100) / 100,
               vat_percentage: 21,
-              issued_at: inv.InvoiceDate ? inv.InvoiceDate.split("T")[0] : null,
-              due_at: inv.DueDate ? inv.DueDate.split("T")[0] : null,
+              issued_at: parseODataDate(inv.InvoiceDate),
+              due_at: parseODataDate(inv.DueDate),
               notes: inv.Description || null,
               items: [],
             });
