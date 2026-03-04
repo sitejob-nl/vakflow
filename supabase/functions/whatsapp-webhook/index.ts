@@ -232,6 +232,16 @@ Deno.serve(async (req) => {
         config = await findConfigByPhoneNumberId(supabase, phoneNumberId);
       }
 
+      // Fallback: gebruik company_id uit query parameter (unieke webhook URL per tenant)
+      if (!config && queryCompanyId) {
+        const { data } = await supabase
+          .from("whatsapp_config")
+          .select("company_id, access_token")
+          .eq("company_id", queryCompanyId)
+          .maybeSingle();
+        if (data) config = data;
+      }
+
       if (!config) {
         console.warn("Could not determine company for webhook event, skipping");
         continue;
