@@ -16,6 +16,13 @@ export function extractStoragePath(urlOrPath: string, bucket: string): string {
     return decodeURIComponent(urlOrPath.slice(idx + publicPattern.length));
   }
 
+  // Private bucket URL pattern: /storage/v1/object/<bucket>/<path>
+  const privatePattern = `/storage/v1/object/${bucket}/`;
+  const privateIdx = urlOrPath.indexOf(privatePattern);
+  if (privateIdx !== -1) {
+    return decodeURIComponent(urlOrPath.slice(privateIdx + privatePattern.length));
+  }
+
   // Fallback: return the URL as-is (shouldn't happen)
   return urlOrPath;
 }
