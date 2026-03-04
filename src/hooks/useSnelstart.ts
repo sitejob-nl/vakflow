@@ -77,15 +77,16 @@ export function useDeleteSnelstartConnection() {
 export function useSnelstartSyncStatus() {
   const { data: connection } = useSnelstartConnection();
   return useQuery({
-    queryKey: ["snelstart-sync-status", connection?.id],
-    enabled: !!connection?.id,
+    queryKey: ["snelstart-sync-status", (connection as any)?.id],
+    enabled: !!(connection as any)?.id,
     queryFn: async () => {
+      const connId = (connection as any)?.id;
       const { data } = await supabase
         .from("snelstart_sync_status" as any)
         .select("*")
-        .eq("connection_id", (connection as any).id)
+        .eq("connection_id", connId)
         .order("resource_type");
-      return data ?? [];
+      return (data ?? []) as any[];
     },
     refetchInterval: 10000, // Poll every 10s while viewing
   });

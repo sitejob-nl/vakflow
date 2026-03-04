@@ -5,10 +5,11 @@ async function invoke(functionName: string, params?: Record<string, string>, met
   // Build query string
   const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 
-  const { data, error } = await supabase.functions.invoke(`${functionName}${qs}`, {
-    method: method || "GET",
-    body: body || undefined,
-  });
+  const opts: any = {};
+  if (method) opts.method = method;
+  if (body) opts.body = body;
+
+  const { data, error } = await supabase.functions.invoke(`${functionName}${qs}`, opts);
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
   return data;
