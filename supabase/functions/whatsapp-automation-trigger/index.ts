@@ -95,22 +95,6 @@ Deno.serve(async (req) => {
 
     for (const automation of automations) {
       try {
-        const cooldownHours = automation.cooldown_hours ?? 720;
-        const cooldownCutoff = new Date(Date.now() - cooldownHours * 3600 * 1000).toISOString();
-
-        const { count: recentCount } = await supabase
-          .from("automation_send_log")
-          .select("*", { count: "exact", head: true })
-          .eq("automation_id", automation.id)
-          .eq("customer_id", customer_id)
-          .gte("sent_at", cooldownCutoff);
-
-        if ((recentCount ?? 0) > 0) {
-          console.log(`Automation ${automation.name}: skipped (cooldown)`);
-          results.push({ automation: automation.name, skipped: true, reason: "cooldown" });
-          continue;
-        }
-
         const conditions = automation.conditions || {};
         if (conditions.customer_type && conditions.customer_type !== customer.type) {
           results.push({ automation: automation.name, skipped: true, reason: "condition_mismatch" });
