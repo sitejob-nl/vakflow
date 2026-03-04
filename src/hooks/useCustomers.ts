@@ -7,6 +7,16 @@ export type Customer = Tables<"customers"> & {
   services?: { name: string; color: string | null } | null;
 };
 
+/** Normalize Dutch phone numbers to international format without + prefix (e.g. 0629014011 → 31629014011) */
+function normalizePhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  let cleaned = phone.replace(/[^0-9+]/g, "");
+  if (cleaned.startsWith("06")) cleaned = "316" + cleaned.slice(2);
+  if (cleaned.startsWith("00")) cleaned = cleaned.slice(2);
+  if (cleaned.startsWith("+")) cleaned = cleaned.slice(1);
+  return cleaned || null;
+}
+
 // Fire-and-forget sync customer to accounting provider
 const syncCustomerToProvider = async (customerId: string, companyId: string | null) => {
   if (!companyId) return;
@@ -118,7 +128,8 @@ export const useCreateCustomer = () => {
   const { companyId } = useAuth();
   return useMutation({
     mutationFn: async (customer: TablesInsert<"customers">) => {
-      const { data, error } = await supabase.from("customers").insert({ ...customer, company_id: companyId } as any).select().single();
+      const normalized = { ...customer, phone: normalizePhone(customer.phone), company_id: companyId };
+      const { data, error } = await supabase.from("customers").insert(normalized as any).select().single();
       if (error) throw error;
       return data;
     },
@@ -133,6 +144,7 @@ export const useUpdateCustomer = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: TablesUpdate<"customers"> & { id: string }) => {
+      if (updates.phone !== undefined) updates.phone = normalizePhone(updates.phone);
       const { data, error } = await supabase.from("customers").update(updates).eq("id", id).select().single();
       if (error) throw error;
       return data;
