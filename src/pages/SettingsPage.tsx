@@ -551,6 +551,15 @@ const SettingsPage = () => {
         setMoneybirdConnected(!!(companyData as any).moneybird_administration_id);
         setMoneybirdApiToken("");
         setMoneybirdAdminId((companyData as any).moneybird_administration_id ?? "");
+        // Exact Online — load from exact_config table
+        if (profileData.company_id) {
+          const { data: exactData } = await supabase.from("exact_config" as any).select("*").eq("company_id", profileData.company_id).maybeSingle();
+          if (exactData && (exactData as any).status === "connected") {
+            setExactConnected(true);
+            setExactCompanyName((exactData as any).company_name_exact ?? "");
+            setExactDivision((exactData as any).division ?? null);
+          }
+        }
       }
       setLoading(false);
     })();
