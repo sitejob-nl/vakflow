@@ -139,8 +139,17 @@ Deno.serve(async (req) => {
     switch (action) {
       case "test": {
         try {
-          const me = await exactGetAll(base_url, division, "current/Me", access_token, "$select=CurrentDivision,FullName");
-          return jsonRes({ ok: true, user: me?.[0]?.FullName || "Connected", division });
+          // current/Me has no division prefix
+          const meRes = await fetch(`${base_url}/api/v1/current/Me?$select=CurrentDivision,FullName`, {
+            headers: { Authorization: `Bearer ${access_token}`, Accept: "application/json" },
+          });
+          if (!meRes.ok) {
+            const t = await meRes.text();
+            return jsonRes({ error: `Exact API ${meRes.status}: ${t.slice(0, 200)}` }, 500);
+          }
+          const meData = await meRes.json();
+          const me = meData.d?.results?.[0] || meData.d;
+          return jsonRes({ ok: true, user: me?.FullName || "Connected", division });
         } catch (err: any) {
           return jsonRes({ error: err.message }, 500);
         }
