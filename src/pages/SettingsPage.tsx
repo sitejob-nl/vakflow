@@ -12,7 +12,7 @@ import { useWhatsAppTemplates, useDeleteWhatsAppTemplate, useCreateWhatsAppTempl
 import { useWhatsAppProfile, useUpdateWhatsAppProfile, useUploadWhatsAppProfilePhoto } from "@/hooks/useWhatsAppProfile";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServices, useDeleteService } from "@/hooks/useCustomers";
-import { useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden, useSyncContactsRompslomp, useSyncInvoicesRompslomp, usePullContactsRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncQuotesRompslomp, usePullQuotesRompslomp, useSyncContactsMoneybird, usePullContactsMoneybird, useSyncInvoicesMoneybird, usePullInvoicesMoneybird, usePullInvoiceStatusMoneybird, useSyncQuotesMoneybird, usePullQuotesMoneybird, useSyncContactsExact, usePullContactsExact, useSyncInvoicesExact, usePullInvoicesExact, usePullInvoiceStatusExact } from "@/hooks/useInvoices";
+import { useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden, useSyncContactsRompslomp, useSyncInvoicesRompslomp, usePullContactsRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncQuotesRompslomp, usePullQuotesRompslomp, useSyncContactsMoneybird, usePullContactsMoneybird, useSyncInvoicesMoneybird, usePullInvoicesMoneybird, usePullInvoiceStatusMoneybird, useSyncQuotesMoneybird, usePullQuotesMoneybird, useSyncContactsExact, usePullContactsExact, useSyncInvoicesExact, usePullInvoicesExact, usePullInvoiceStatusExact, useSyncQuotesExact, usePullQuotesExact } from "@/hooks/useInvoices";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -325,11 +325,15 @@ const SettingsPage = () => {
   const [exactPullingContacts, setExactPullingContacts] = useState(false);
   const [exactPullingInvoices, setExactPullingInvoices] = useState(false);
   const [exactPullingStatus, setExactPullingStatus] = useState(false);
+  const [exactSyncingQuotes, setExactSyncingQuotes] = useState(false);
+  const [exactPullingQuotes, setExactPullingQuotes] = useState(false);
   const syncContactsExact = useSyncContactsExact();
   const syncInvoicesExact = useSyncInvoicesExact();
   const pullContactsExact = usePullContactsExact();
   const pullInvoicesExact = usePullInvoicesExact();
   const pullInvoiceStatusExact = usePullInvoiceStatusExact();
+  const syncQuotesExact = useSyncQuotesExact();
+  const pullQuotesExact = usePullQuotesExact();
 
   // Team members state
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
