@@ -1813,7 +1813,15 @@ const SettingsPage = () => {
                         setExactPullingInvoices(true);
                         try {
                           const result = await pullInvoicesExact.mutateAsync();
-                          toast({ title: "Facturen opgehaald", description: `${result.total_in_exact} facturen in Exact, ${result.linked || 0} al gekoppeld` });
+                          let desc = `${result.imported} geïmporteerd, ${result.already_linked} al aanwezig`;
+                          if (result.unlinked_customers?.length) {
+                            const names = result.unlinked_customers.map(c => c.name).join(", ");
+                            desc += `. ⚠️ ${result.unlinked_customers.length} klant(en) niet gekoppeld: ${names}. Synchroniseer eerst je klanten.`;
+                          }
+                          if (result.errors?.length) {
+                            desc += `. ${result.errors.length} fout(en)`;
+                          }
+                          toast({ title: "Facturen opgehaald", description: desc, duration: result.unlinked_customers?.length ? 15000 : 5000 });
                         } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
                         setExactPullingInvoices(false);
                       }}
