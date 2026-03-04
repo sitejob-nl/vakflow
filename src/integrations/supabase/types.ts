@@ -1703,6 +1703,405 @@ export type Database = {
           },
         ]
       }
+      snelstart_artikelen: {
+        Row: {
+          artikel_omzetgroep_id: string | null
+          artikelcode: string | null
+          connection_id: string
+          eenheid: string | null
+          id: string
+          inkoopprijs: number | null
+          is_hoofdartikel: boolean | null
+          is_non_actief: boolean | null
+          modified_on: string | null
+          omschrijving: string | null
+          raw_data: Json | null
+          synced_at: string | null
+          technische_voorraad: number | null
+          verkoopprijs: number | null
+          voorraad_controle: boolean | null
+          vrije_voorraad: number | null
+        }
+        Insert: {
+          artikel_omzetgroep_id?: string | null
+          artikelcode?: string | null
+          connection_id: string
+          eenheid?: string | null
+          id: string
+          inkoopprijs?: number | null
+          is_hoofdartikel?: boolean | null
+          is_non_actief?: boolean | null
+          modified_on?: string | null
+          omschrijving?: string | null
+          raw_data?: Json | null
+          synced_at?: string | null
+          technische_voorraad?: number | null
+          verkoopprijs?: number | null
+          voorraad_controle?: boolean | null
+          vrije_voorraad?: number | null
+        }
+        Update: {
+          artikel_omzetgroep_id?: string | null
+          artikelcode?: string | null
+          connection_id?: string
+          eenheid?: string | null
+          id?: string
+          inkoopprijs?: number | null
+          is_hoofdartikel?: boolean | null
+          is_non_actief?: boolean | null
+          modified_on?: string | null
+          omschrijving?: string | null
+          raw_data?: Json | null
+          synced_at?: string | null
+          technische_voorraad?: number | null
+          verkoopprijs?: number | null
+          voorraad_controle?: boolean | null
+          vrije_voorraad?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snelstart_artikelen_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "snelstart_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snelstart_connections: {
+        Row: {
+          access_token: string | null
+          client_key: string
+          company_id: string
+          created_at: string
+          id: string
+          subscription_key: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          client_key: string
+          company_id: string
+          created_at?: string
+          id?: string
+          subscription_key: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          client_key?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          subscription_key?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snelstart_connections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "snelstart_connections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snelstart_offertes: {
+        Row: {
+          connection_id: string
+          datum: string | null
+          id: string
+          modified_on: string | null
+          nummer: number | null
+          omschrijving: string | null
+          proces_status: string | null
+          raw_data: Json | null
+          relatie_id: string | null
+          synced_at: string | null
+          totaal_exclusief_btw: number | null
+          totaal_inclusief_btw: number | null
+        }
+        Insert: {
+          connection_id: string
+          datum?: string | null
+          id: string
+          modified_on?: string | null
+          nummer?: number | null
+          omschrijving?: string | null
+          proces_status?: string | null
+          raw_data?: Json | null
+          relatie_id?: string | null
+          synced_at?: string | null
+          totaal_exclusief_btw?: number | null
+          totaal_inclusief_btw?: number | null
+        }
+        Update: {
+          connection_id?: string
+          datum?: string | null
+          id?: string
+          modified_on?: string | null
+          nummer?: number | null
+          omschrijving?: string | null
+          proces_status?: string | null
+          raw_data?: Json | null
+          relatie_id?: string | null
+          synced_at?: string | null
+          totaal_exclusief_btw?: number | null
+          totaal_inclusief_btw?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snelstart_offertes_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "snelstart_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snelstart_relaties: {
+        Row: {
+          btw_nummer: string | null
+          connection_id: string
+          correspondentie_adres: Json | null
+          email: string | null
+          factuurkorting: number | null
+          iban: string | null
+          id: string
+          krediettermijn: number | null
+          kvk_nummer: string | null
+          mobiele_telefoon: string | null
+          modified_on: string | null
+          naam: string | null
+          non_actief: boolean | null
+          raw_data: Json | null
+          relatiecode: number | null
+          relatiesoort: string[] | null
+          synced_at: string | null
+          telefoon: string | null
+          vestigings_adres: Json | null
+          website_url: string | null
+        }
+        Insert: {
+          btw_nummer?: string | null
+          connection_id: string
+          correspondentie_adres?: Json | null
+          email?: string | null
+          factuurkorting?: number | null
+          iban?: string | null
+          id: string
+          krediettermijn?: number | null
+          kvk_nummer?: string | null
+          mobiele_telefoon?: string | null
+          modified_on?: string | null
+          naam?: string | null
+          non_actief?: boolean | null
+          raw_data?: Json | null
+          relatiecode?: number | null
+          relatiesoort?: string[] | null
+          synced_at?: string | null
+          telefoon?: string | null
+          vestigings_adres?: Json | null
+          website_url?: string | null
+        }
+        Update: {
+          btw_nummer?: string | null
+          connection_id?: string
+          correspondentie_adres?: Json | null
+          email?: string | null
+          factuurkorting?: number | null
+          iban?: string | null
+          id?: string
+          krediettermijn?: number | null
+          kvk_nummer?: string | null
+          mobiele_telefoon?: string | null
+          modified_on?: string | null
+          naam?: string | null
+          non_actief?: boolean | null
+          raw_data?: Json | null
+          relatiecode?: number | null
+          relatiesoort?: string[] | null
+          synced_at?: string | null
+          telefoon?: string | null
+          vestigings_adres?: Json | null
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snelstart_relaties_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "snelstart_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snelstart_sync_status: {
+        Row: {
+          connection_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          last_modified_filter: string | null
+          last_sync_at: string | null
+          resource_type: string
+          status: string | null
+          total_synced: number | null
+          updated_at: string
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_modified_filter?: string | null
+          last_sync_at?: string | null
+          resource_type: string
+          status?: string | null
+          total_synced?: number | null
+          updated_at?: string
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_modified_filter?: string | null
+          last_sync_at?: string | null
+          resource_type?: string
+          status?: string | null
+          total_synced?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snelstart_sync_status_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "snelstart_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snelstart_verkoopfacturen: {
+        Row: {
+          connection_id: string
+          factuur_bedrag: number | null
+          factuur_datum: string | null
+          factuurnummer: string | null
+          id: string
+          modified_on: string | null
+          openstaand_saldo: number | null
+          raw_data: Json | null
+          relatie_id: string | null
+          synced_at: string | null
+          verkoop_boeking_id: string | null
+          verval_datum: string | null
+        }
+        Insert: {
+          connection_id: string
+          factuur_bedrag?: number | null
+          factuur_datum?: string | null
+          factuurnummer?: string | null
+          id: string
+          modified_on?: string | null
+          openstaand_saldo?: number | null
+          raw_data?: Json | null
+          relatie_id?: string | null
+          synced_at?: string | null
+          verkoop_boeking_id?: string | null
+          verval_datum?: string | null
+        }
+        Update: {
+          connection_id?: string
+          factuur_bedrag?: number | null
+          factuur_datum?: string | null
+          factuurnummer?: string | null
+          id?: string
+          modified_on?: string | null
+          openstaand_saldo?: number | null
+          raw_data?: Json | null
+          relatie_id?: string | null
+          synced_at?: string | null
+          verkoop_boeking_id?: string | null
+          verval_datum?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snelstart_verkoopfacturen_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "snelstart_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snelstart_verkooporders: {
+        Row: {
+          connection_id: string
+          datum: string | null
+          id: string
+          modified_on: string | null
+          nummer: number | null
+          omschrijving: string | null
+          proces_status: string | null
+          raw_data: Json | null
+          relatie_id: string | null
+          synced_at: string | null
+          totaal_exclusief_btw: number | null
+          totaal_inclusief_btw: number | null
+          verkoop_order_status: string | null
+        }
+        Insert: {
+          connection_id: string
+          datum?: string | null
+          id: string
+          modified_on?: string | null
+          nummer?: number | null
+          omschrijving?: string | null
+          proces_status?: string | null
+          raw_data?: Json | null
+          relatie_id?: string | null
+          synced_at?: string | null
+          totaal_exclusief_btw?: number | null
+          totaal_inclusief_btw?: number | null
+          verkoop_order_status?: string | null
+        }
+        Update: {
+          connection_id?: string
+          datum?: string | null
+          id?: string
+          modified_on?: string | null
+          nummer?: number | null
+          omschrijving?: string | null
+          proces_status?: string | null
+          raw_data?: Json | null
+          relatie_id?: string | null
+          synced_at?: string | null
+          totaal_exclusief_btw?: number | null
+          totaal_inclusief_btw?: number | null
+          verkoop_order_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snelstart_verkooporders_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "snelstart_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       time_entries: {
         Row: {
           company_id: string | null
