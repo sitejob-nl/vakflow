@@ -19,29 +19,86 @@ async function getExactToken(tenantId: string, webhookSecret: string): Promise<E
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    if (err.needs_reauth) {
-      throw new Error("REAUTH_REQUIRED");
-    }
+    if (err.needs_reauth) throw new Error("REAUTH_REQUIRED");
     throw new Error(err.error || `Token request failed: ${res.status}`);
   }
 
   return res.json();
 }
 
-async function exactGet(baseUrl: string, division: number, endpoint: string, token: string, params = "") {
-  const url = `${baseUrl}/api/v1/${division}/${endpoint}${params ? "?" + params : ""}`;
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-    },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Exact API ${res.status}: ${text.slice(0, 200)}`);
+/** Paginated GET using __next URL pattern (OData v3) */
+async function exactGetAll(
+  baseUrl: string,
+  division: number,
+  endpoint: string,
+  token: string,
+  params = ""
+): Promise<any[]> {
+  let allResults: any[] = [];
+  let url: string | null = `${baseUrl}/api/v1/${division}/${endpoint}${params ? "?" + params : ""}`;
+
+  while (url) {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (res.status === 429) {
+      // Rate limited — wait 2s and retry
+      await new Promise((r) => setTimeout(r, 2000));
+      continue;
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Exact API ${res.status}: ${text.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const results = data.d?.results || (Array.isArray(data.d) ? data.d : data.d ? [data.d] : []);
+    allResults.push(...results);
+
+    // Follow __next for pagination
+    url = data.d?.__next || null;
   }
-  const data = await res.json();
-  return data.d?.results || data.d || [];
+
+  return allResults;
+}
+
+/** Single POST/PUT/DELETE to Exact with 429 retry */
+async function exactPost(
+  url: string,
+  token: string,
+  body: Record<string, unknown>
+): Promise<{ ok: boolean; data?: any; error?: string; status: number }> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (res.status === 429) {
+      await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+      continue;
+    }
+
+    if (!res.ok) {
+      const errText = await res.text();
+      return { ok: false, error: errText.slice(0, 200), status: res.status };
+    }
+
+    const data = await res.json().catch(() => ({}));
+    return { ok: true, data: data.d || data, status: res.status };
+  }
+
+  return { ok: false, error: "Rate limit exceeded after retries", status: 429 };
 }
 
 Deno.serve(async (req) => {
@@ -71,7 +128,6 @@ Deno.serve(async (req) => {
       tokenData = await getExactToken(config.tenant_id, config.webhook_secret);
     } catch (err: any) {
       if (err.message === "REAUTH_REQUIRED") {
-        // Update status
         await supabaseAdmin.from("exact_config").update({ status: "error" }).eq("company_id", companyId);
         return jsonRes({ error: "Exact Online sessie verlopen. Koppel opnieuw.", needs_reauth: true }, 401);
       }
@@ -82,22 +138,21 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case "test": {
-        // Simple connection test — fetch current division info
         try {
-          const me = await exactGet(base_url, division, "current/Me", access_token, "$select=CurrentDivision,FullName");
-          return jsonRes({ ok: true, user: me?.[0]?.FullName || me?.FullName || "Connected", division });
+          const me = await exactGetAll(base_url, division, "current/Me", access_token, "$select=CurrentDivision,FullName");
+          return jsonRes({ ok: true, user: me?.[0]?.FullName || "Connected", division });
         } catch (err: any) {
           return jsonRes({ error: err.message }, 500);
         }
       }
 
       case "sync-contacts": {
-        // Push local customers to Exact as Accounts
+        // Push local customers to Exact as Accounts — only those without exact_account_id
         const { data: customers } = await supabaseAdmin
           .from("customers")
           .select("*")
           .eq("company_id", companyId)
-          .is("eboekhouden_relation_id", null); // re-use field or add exact_account_id later
+          .is("exact_account_id", null);
 
         if (!customers?.length) return jsonRes({ synced: 0, skipped: 0, errors: [] });
 
@@ -108,6 +163,8 @@ Deno.serve(async (req) => {
           try {
             const accountData: Record<string, unknown> = {
               Name: cust.name,
+              Status: "C", // Customer
+              Country: "NL",
               Email: cust.email || undefined,
               Phone: cust.phone || undefined,
               City: cust.city || undefined,
@@ -115,20 +172,24 @@ Deno.serve(async (req) => {
               AddressLine1: cust.address || undefined,
             };
 
-            const res = await fetch(`${base_url}/api/v1/${division}/crm/Accounts`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${access_token}`,
-                "Content-Type": "application/json",
-                Accept: "application/json",
-              },
-              body: JSON.stringify(accountData),
-            });
+            const result = await exactPost(
+              `${base_url}/api/v1/${division}/crm/Accounts`,
+              access_token,
+              accountData
+            );
 
-            if (!res.ok) {
-              const errText = await res.text();
-              errors.push(`${cust.name}: ${errText.slice(0, 100)}`);
+            if (!result.ok) {
+              errors.push(`${cust.name}: ${result.error}`);
               continue;
+            }
+
+            // Store the returned Exact Account ID
+            const exactAccountId = result.data?.ID;
+            if (exactAccountId) {
+              await supabaseAdmin
+                .from("customers")
+                .update({ exact_account_id: exactAccountId })
+                .eq("id", cust.id);
             }
 
             synced++;
@@ -142,23 +203,43 @@ Deno.serve(async (req) => {
       }
 
       case "pull-contacts": {
-        // Pull Accounts from Exact into local customers
-        const accounts = await exactGet(base_url, division, "crm/Accounts", access_token, "$select=ID,Name,Email,Phone,City,Postcode,AddressLine1&$top=500");
+        // Pull Accounts from Exact into local customers — with __next pagination
+        const accounts = await exactGetAll(
+          base_url, division, "crm/Accounts", access_token,
+          "$select=ID,Name,Email,Phone,City,Postcode,AddressLine1&$filter=Status eq 'C'"
+        );
 
         let imported = 0, already = 0;
         const errors: string[] = [];
 
         for (const acc of accounts) {
           try {
-            // Check if customer already exists by name
-            const { data: existing } = await supabaseAdmin
+            // Check if customer already exists by exact_account_id or name
+            const { data: existingById } = await supabaseAdmin
+              .from("customers")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("exact_account_id", acc.ID)
+              .maybeSingle();
+
+            if (existingById) { already++; continue; }
+
+            const { data: existingByName } = await supabaseAdmin
               .from("customers")
               .select("id")
               .eq("company_id", companyId)
               .eq("name", acc.Name)
               .maybeSingle();
 
-            if (existing) { already++; continue; }
+            if (existingByName) {
+              // Link existing customer to Exact
+              await supabaseAdmin
+                .from("customers")
+                .update({ exact_account_id: acc.ID })
+                .eq("id", existingByName.id);
+              already++;
+              continue;
+            }
 
             await supabaseAdmin.from("customers").insert({
               company_id: companyId,
@@ -168,6 +249,7 @@ Deno.serve(async (req) => {
               city: acc.City || null,
               postal_code: acc.Postcode || null,
               address: acc.AddressLine1 || null,
+              exact_account_id: acc.ID,
             });
             imported++;
           } catch (err: any) {
@@ -180,12 +262,13 @@ Deno.serve(async (req) => {
       }
 
       case "sync-invoices": {
-        // Push local invoices to Exact
+        // Push local invoices to Exact — using direct invoice type (8023)
         const { data: invoices } = await supabaseAdmin
           .from("invoices")
-          .select("*, customers(name, email)")
+          .select("*, customers(name, email, exact_account_id)")
           .eq("company_id", companyId)
-          .eq("status", "verstuurd");
+          .eq("status", "verstuurd")
+          .is("exact_id", null);
 
         if (!invoices?.length) return jsonRes({ synced: 0, skipped: 0, errors: [] });
 
@@ -194,34 +277,57 @@ Deno.serve(async (req) => {
 
         for (const inv of invoices) {
           try {
+            const customer = inv.customers as any;
+            if (!customer?.exact_account_id) {
+              skipped++;
+              errors.push(`${inv.invoice_number}: Klant heeft geen Exact Account ID — sync klanten eerst`);
+              continue;
+            }
+
             const items = (inv.items as any[]) || [];
             const invoiceLines = items.map((item: any) => ({
               Description: item.description || item.name || "Regel",
               Quantity: item.quantity || 1,
-              UnitPrice: item.unit_price || item.price || 0,
-              VATPercentage: inv.vat_percentage || 21,
+              NetPrice: item.unit_price || item.price || 0,
             }));
 
-            const invoiceData = {
-              InvoiceDate: inv.issued_at || new Date().toISOString().split("T")[0],
+            if (!invoiceLines.length) {
+              skipped++;
+              errors.push(`${inv.invoice_number}: Geen factuurregels`);
+              continue;
+            }
+
+            const invoiceData: Record<string, unknown> = {
+              Journal: "70",
+              Type: 8023, // Direct sales invoice — no Item/GLAccount required
+              OrderedBy: customer.exact_account_id,
               Description: `Factuur ${inv.invoice_number || ""}`.trim(),
+              InvoiceDate: inv.issued_at || new Date().toISOString().split("T")[0],
               SalesInvoiceLines: invoiceLines,
             };
 
-            const res = await fetch(`${base_url}/api/v1/${division}/salesinvoice/SalesInvoices`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${access_token}`,
-                "Content-Type": "application/json",
-                Accept: "application/json",
-              },
-              body: JSON.stringify(invoiceData),
-            });
+            if (inv.due_at) {
+              invoiceData.DueDate = inv.due_at;
+            }
 
-            if (!res.ok) {
-              const errText = await res.text();
-              errors.push(`${inv.invoice_number}: ${errText.slice(0, 100)}`);
+            const result = await exactPost(
+              `${base_url}/api/v1/${division}/salesinvoice/SalesInvoices`,
+              access_token,
+              invoiceData
+            );
+
+            if (!result.ok) {
+              errors.push(`${inv.invoice_number}: ${result.error}`);
               continue;
+            }
+
+            // Store Exact invoice ID
+            const exactId = result.data?.InvoiceID;
+            if (exactId) {
+              await supabaseAdmin
+                .from("invoices")
+                .update({ exact_id: exactId })
+                .eq("id", inv.id);
             }
 
             synced++;
@@ -235,36 +341,40 @@ Deno.serve(async (req) => {
       }
 
       case "pull-invoices": {
-        const invoices = await exactGet(base_url, division, "salesinvoice/SalesInvoices", access_token, "$select=InvoiceID,InvoiceNumber,InvoiceDate,AmountDC,Status,Description&$top=500&$orderby=InvoiceDate desc");
+        // Read-only: list invoices from Exact (no import — customer mapping is ambiguous)
+        const invoices = await exactGetAll(
+          base_url, division, "salesinvoice/SalesInvoices", access_token,
+          "$select=InvoiceID,InvoiceNumber,InvoiceDate,AmountDC,Status,Description&$orderby=InvoiceDate desc"
+        );
 
-        let imported = 0, already = 0;
-        const errors: string[] = [];
+        // Check which are already linked locally
+        const exactIds = invoices.map((i: any) => i.InvoiceID).filter(Boolean);
+        const { data: linkedInvoices } = await supabaseAdmin
+          .from("invoices")
+          .select("exact_id")
+          .eq("company_id", companyId)
+          .in("exact_id", exactIds.length ? exactIds : ["__none__"]);
 
-        for (const inv of invoices) {
-          try {
-            const invNumber = String(inv.InvoiceNumber || inv.InvoiceID);
-            const { data: existing } = await supabaseAdmin
-              .from("invoices")
-              .select("id")
-              .eq("company_id", companyId)
-              .eq("invoice_number", invNumber)
-              .maybeSingle();
+        const linkedSet = new Set((linkedInvoices || []).map((i: any) => i.exact_id));
 
-            if (existing) { already++; continue; }
-            // Skip — we'd need customer mapping to properly import
-            imported++;
-          } catch (err: any) {
-            errors.push(`${inv.InvoiceNumber}: ${err.message}`);
-          }
-        }
+        const result = invoices.map((inv: any) => ({
+          exact_id: inv.InvoiceID,
+          number: inv.InvoiceNumber,
+          date: inv.InvoiceDate,
+          amount: inv.AmountDC,
+          description: inv.Description,
+          linked: linkedSet.has(inv.InvoiceID),
+        }));
 
-        await logUsage(supabaseAdmin, companyId, "exact_pull_invoices", { total: invoices.length, imported, already, errors: errors.length });
-        return jsonRes({ total_in_exact: invoices.length, already_imported: already, imported, errors });
+        return jsonRes({ total_in_exact: invoices.length, linked: linkedSet.size, invoices: result });
       }
 
       case "pull-status": {
         // Check payment status of synced invoices
-        const openInvoices = await exactGet(base_url, division, "salesinvoice/SalesInvoices", access_token, "$select=InvoiceNumber,Status,AmountDC&$filter=Status ne 50&$top=500");
+        const openInvoices = await exactGetAll(
+          base_url, division, "salesinvoice/SalesInvoices", access_token,
+          "$select=InvoiceID,InvoiceNumber,Status,AmountDC&$filter=Status ne 50"
+        );
         return jsonRes({ checked: openInvoices.length, updated: 0, errors: [] });
       }
 
