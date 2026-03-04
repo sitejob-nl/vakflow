@@ -1,41 +1,38 @@
 
 
-# Plan: PWA Offline Functionaliteit
+# Fix: Companies SELECT policy terugzetten
 
-## Huidige situatie
+## Probleem
 
-De PWA is geconfigureerd met `vite-plugin-pwa` maar heeft geen offline caching strategie. De workbox config is minimaal — alleen `navigateFallbackDenylist` is ingesteld. Er is geen runtime caching, geen offline fallback pagina, en geen data caching.
+De migratie heeft de `companies` SELECT policy beperkt tot alleen `super_admin`. Omdat `companies_safe` view `security_invoker=on` heeft, erft die dezelfde restrictie. Resultaat: niemand behalve super_admins kan bedrijfsdata lezen — geen logo, geen kleur, geen Outlook-koppeling.
 
-## Wat wordt gebouwd
+## Oplossing
 
-### 1. Workbox runtime caching strategie (`vite.config.ts`)
+Eén database migratie die de SELECT policy op `companies` terugzet naar de originele staat: bedrijfsmedewerkers kunnen hun eigen bedrijf lezen, super_admins kunnen alles lezen.
 
-Configureer workbox met:
-- **App shell** (HTML, CSS, JS): `CacheFirst` met max 60 entries, 30 dagen geldig
-- **Supabase API calls**: `NetworkFirst` met 5 sec timeout fallback naar cache, max 100 entries, 1 uur geldig
-- **Afbeeldingen**: `CacheFirst`, max 50 entries, 30 dagen
-- **Google Fonts**: `StaleWhileRevalidate`
-- `globPatterns`: Cache alle build-assets (`**/*.{js,css,html,ico,png,svg,woff2}`)
+```sql
+DROP POLICY IF EXISTS "Only super admins can view companies directly" ON companies;
 
-### 2. Offline fallback pagina (`public/offline.html`)
+CREATE POLICY "Company members can view own company"
+  ON companies FOR SELECT TO authenticated
+  USING (
+    id = (SELECT get_my_company_id())
+    OR (SELECT is_super_admin())
+  );
+```
 
-Simpele HTML pagina met Vakflow branding die toont: "Je bent offline. Controleer je internetverbinding en probeer opnieuw." Met een "Opnieuw proberen" knop.
+Dit herstelt:
+- **Monteurs**: zien logo en kleur via AuthContext (leest companies_safe → companies)
+- **Admins**: zien alle bedrijfsinstellingen + Outlook-koppeling
+- **Super admins**: zien alles
 
-### 3. Offline status banner (`src/components/OfflineBanner.tsx`)
-
-React component dat `navigator.onLine` + `online`/`offline` events luistert. Toont een gele banner bovenaan het scherm wanneer de gebruiker offline gaat: "Je bent offline — sommige functies zijn beperkt."
-
-### 4. PWAUpdatePrompt uitbreiden
-
-Voeg `offlineReady` state toe aan de bestaande `useRegisterSW` hook en toon een korte toast wanneer de app klaar is voor offline gebruik.
+De `companies_safe` view en alle frontend-wijzigingen die al naar `companies_safe` lezen blijven intact — dat is een extra veiligheidslaag voor de toekomst. De gevoelige tokens (smtp_password, outlook_refresh_token, etc.) zijn wel leesbaar voor admins via de base table, maar niet via de `companies_safe` view die in de meeste componenten wordt gebruikt.
 
 ## Bestanden
 
 | Bestand | Wijziging |
 |---------|-----------|
-| `vite.config.ts` | Workbox runtime caching, offline fallback, globPatterns |
-| `public/offline.html` | Nieuw: offline fallback pagina |
-| `src/components/OfflineBanner.tsx` | Nieuw: online/offline status banner |
-| `src/components/PWAUpdatePrompt.tsx` | offlineReady feedback toevoegen |
-| `src/components/AppLayout.tsx` | OfflineBanner integreren |
+| `supabase/migrations/...` | Revert companies SELECT policy |
+
+Geen frontend wijzigingen nodig.
 
