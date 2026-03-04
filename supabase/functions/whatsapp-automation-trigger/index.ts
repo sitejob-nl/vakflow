@@ -175,6 +175,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             to: customer.phone,
             customer_id: customer.id,
+            company_id: customer.company_id,
             type: "template",
             template: {
               name: automation.template_name,

@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import AddressDialog from "@/components/AddressDialog";
 import WhatsAppChat from "@/components/WhatsAppChat";
+import CustomerEmailTab from "@/components/CustomerEmailTab";
 import { Loader2, Trash2, MapPin, Plus, MessageSquare } from "lucide-react";
 import { useState, useMemo } from "react";
 import CustomerDialog from "@/components/CustomerDialog";
@@ -101,8 +102,8 @@ const CustomerDetailPage = () => {
   };
 
   const tabLabels = isBusinessCustomer
-    ? [labels.workOrders, "Facturen", "WhatsApp", "Communicatie", "Panden"]
-    : [labels.workOrders, "Facturen", "WhatsApp", "Communicatie"];
+    ? [labels.workOrders, "Facturen", "E-mail", "WhatsApp", "Communicatie", "Panden"]
+    : [labels.workOrders, "Facturen", "E-mail", "WhatsApp", "Communicatie"];
 
   const tabContent = [
     // Werkbonnen
@@ -147,6 +148,14 @@ const CustomerDetailPage = () => {
           ))}
         </div>
       </>
+    ),
+    // E-mail tab
+    () => (
+      <CustomerEmailTab
+        customerId={customer.id}
+        customerEmail={customer.email}
+        customerName={customer.name}
+      />
     ),
     // Facturen
     () => customerInvoices.length === 0 ? (

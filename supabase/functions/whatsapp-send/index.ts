@@ -110,10 +110,27 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return jsonRes({ error: "Method not allowed" }, 405);
 
   try {
-    const { userId, companyId } = await authenticateRequest(req);
+    // Clone request so we can read body even if authenticateRequest consumed it
+    const body = await req.json();
     const supabaseAdmin = createAdminClient();
 
-    const body = await req.json();
+    // Support service-role calls (e.g. from whatsapp-automation-trigger)
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader?.replace("Bearer ", "") || "";
+    const isServiceRole = token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    let userId: string | null = null;
+    let companyId: string | null = null;
+
+    if (isServiceRole) {
+      // Service role call — get company_id from body
+      companyId = body.company_id || null;
+      userId = "service-role";
+    } else {
+      const auth = await authenticateRequest(req);
+      userId = auth.userId;
+      companyId = auth.companyId;
+    }
 
     // Haal config op (always scoped to company)
     if (!companyId) return jsonRes({ error: "company_id ontbreekt" }, 400);
