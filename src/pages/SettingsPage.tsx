@@ -364,7 +364,7 @@ const SettingsPage = () => {
   // WhatsApp status
   const queryClient = useQueryClient();
   const { data: waStatus } = useWhatsAppStatus();
-  const { data: waTemplates } = useWhatsAppTemplates(activeTab === "WhatsApp" && !!waStatus?.connected);
+  const { data: waTemplates } = useWhatsAppTemplates((activeTab === "WhatsApp" || activeTab === "Automatiseringen") && !!waStatus?.connected);
   const deleteWaTemplate = useDeleteWhatsAppTemplate();
   const createWaTemplate = useCreateWhatsAppTemplate();
   const [deletingWaTemplateName, setDeletingWaTemplateName] = useState<string | null>(null);
