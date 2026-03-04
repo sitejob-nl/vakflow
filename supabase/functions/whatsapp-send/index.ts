@@ -4,6 +4,19 @@ import { normalizePhone, findCustomerByPhone } from "../_shared/phone.ts";
 import { logUsage } from "../_shared/usage.ts";
 import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
+const META_ERROR_MAP: Record<number, string> = {
+  131042: "Geen betaalmethode gekoppeld in Meta Business Suite",
+  131047: "Klant heeft 24+ uur niet gereageerd — gebruik een template",
+  131026: "Bericht kon niet worden afgeleverd (nummer onbereikbaar)",
+  131051: "Dit berichttype wordt niet ondersteund",
+  130429: "Te veel berichten verstuurd — probeer later opnieuw",
+  131021: "Ontvanger is geen WhatsApp-gebruiker",
+  131031: "Bedrijfsaccount is geblokkeerd door Meta",
+  131056: "Template is afgekeurd of gepauzeerd",
+  131009: "Parameter ontbreekt of is ongeldig",
+  190:    "Toegangstoken verlopen — koppel WhatsApp opnieuw",
+};
+
 /** Build the Meta API request body for any supported message type */
 function buildMetaBody(body: Record<string, unknown>, normalizedTo: string): Record<string, unknown> {
   const { type = "text" } = body;
@@ -224,8 +237,20 @@ Deno.serve(async (req) => {
 
     const result = await metaRes.json();
     if (!metaRes.ok) {
+      const metaError = result?.error;
+      const code = metaError?.code;
+      const subcode = metaError?.error_subcode;
+      const friendlyMsg = META_ERROR_MAP[subcode] || META_ERROR_MAP[code]
+        || metaError?.error_data?.details
+        || metaError?.message
+        || "Bericht kon niet worden verstuurd";
       console.error("Meta API error:", JSON.stringify(result));
-      return jsonRes({ error: "Bericht kon niet worden verstuurd", code: "META_SEND_FAILED" }, metaRes.status);
+      return jsonRes({
+        error: friendlyMsg,
+        code: "META_SEND_FAILED",
+        meta_code: code,
+        meta_subcode: subcode,
+      }, metaRes.status);
     }
 
     if (!isReaction && result.messages?.[0]?.id) {
