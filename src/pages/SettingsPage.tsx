@@ -175,6 +175,7 @@ const SettingsPage = () => {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [companySlug, setCompanySlug] = useState("");
   const [location, setLocation] = useState("");
   const [kvkNumber, setKvkNumber] = useState("");
   const [btwNumber, setBtwNumber] = useState("");
@@ -485,6 +486,7 @@ const SettingsPage = () => {
       const { data: companyData } = await supabase.from("companies_safe" as any).select("*").limit(1).single();
       if (companyData) {
         setCompanyName((companyData as any).name ?? "");
+        setCompanySlug((companyData as any).slug ?? "");
         setKvkNumber((companyData as any).kvk_number ?? "");
         setBtwNumber((companyData as any).btw_number ?? "");
         setCompanyAddress((companyData as any).address ?? "");
@@ -575,6 +577,7 @@ const SettingsPage = () => {
     setSaving(true);
     const { error } = await supabase.from("companies").update({
       name: companyName,
+      slug: companySlug,
       kvk_number: kvkNumber,
       btw_number: btwNumber,
       address: companyAddress,
@@ -947,6 +950,16 @@ const SettingsPage = () => {
           <div>
             <label className={labelClass}>Bedrijfsnaam</label>
             <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={inputClass} placeholder="Vakflow" />
+          </div>
+          <div>
+            <label className={labelClass}>Slug (subdomain)</label>
+            <p className="text-[11px] text-t3 mb-1">Je bedrijf is bereikbaar op <strong>{companySlug || "..."}.vakflow.nl</strong></p>
+            <input
+              value={companySlug}
+              onChange={(e) => setCompanySlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+              className={inputClass}
+              placeholder="mijn-bedrijf"
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
