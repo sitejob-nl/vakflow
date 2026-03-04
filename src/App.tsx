@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { TenantProvider } from "@/contexts/TenantContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminRoute from "@/components/AdminRoute";
 import SuperAdminRoute from "@/components/SuperAdminRoute";
@@ -55,6 +56,7 @@ const App = () => (
       <Sonner />
       <PWAUpdatePrompt />
       <BrowserRouter>
+        <TenantProvider>
         <AuthProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
@@ -94,6 +96,7 @@ const App = () => (
             </Routes>
           </Suspense>
         </AuthProvider>
+        </TenantProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

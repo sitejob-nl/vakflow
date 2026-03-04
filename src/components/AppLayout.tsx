@@ -7,6 +7,7 @@ import ImpersonationBanner from "@/components/ImpersonationBanner";
 import OfflineBanner from "@/components/OfflineBanner";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 import { useEffect } from "react";
 
 /** Convert hex color (#4F46E5) to HSL string like "237 84% 58%" */
@@ -42,11 +43,15 @@ function darkenHsl(hsl: string, amount: number): string {
 const AppLayout = () => {
   const { currentPage } = useNavigation();
   const { companyBrandColor } = useAuth();
+  const { tenant, isTenantSite } = useTenant();
+
+  // Tenant brand color takes priority over company brand color
+  const activeBrandColor = (isTenantSite && tenant?.brand_color) ? tenant.brand_color : companyBrandColor;
 
   useEffect(() => {
     const root = document.documentElement;
-    if (companyBrandColor && /^#[0-9a-fA-F]{6}$/.test(companyBrandColor)) {
-      const hsl = hexToHsl(companyBrandColor);
+    if (activeBrandColor && /^#[0-9a-fA-F]{6}$/.test(activeBrandColor)) {
+      const hsl = hexToHsl(activeBrandColor);
       const hslHover = darkenHsl(hsl, 8);
       root.style.setProperty("--primary", hsl);
       root.style.setProperty("--primary-hover", hslHover);
@@ -79,7 +84,7 @@ const AppLayout = () => {
       root.style.removeProperty("--bg-hover");
       root.style.removeProperty("--bg-active");
     };
-  }, [companyBrandColor]);
+  }, [activeBrandColor]);
 
   return (
     <div className="flex h-screen overflow-hidden">
