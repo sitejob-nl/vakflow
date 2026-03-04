@@ -562,6 +562,7 @@ export type Database = {
           btw_number: string | null
           city: string | null
           created_at: string
+          custom_domain: string | null
           eboekhouden_api_token: string | null
           eboekhouden_debtor_ledger_id: number | null
           eboekhouden_ledger_id: number | null
@@ -602,6 +603,7 @@ export type Database = {
           btw_number?: string | null
           city?: string | null
           created_at?: string
+          custom_domain?: string | null
           eboekhouden_api_token?: string | null
           eboekhouden_debtor_ledger_id?: number | null
           eboekhouden_ledger_id?: number | null
@@ -642,6 +644,7 @@ export type Database = {
           btw_number?: string | null
           city?: string | null
           created_at?: string
+          custom_domain?: string | null
           eboekhouden_api_token?: string | null
           eboekhouden_debtor_ledger_id?: number | null
           eboekhouden_ledger_id?: number | null
@@ -2263,6 +2266,7 @@ export type Database = {
           btw_number: string | null
           city: string | null
           created_at: string | null
+          custom_domain: string | null
           eboekhouden_debtor_ledger_id: number | null
           eboekhouden_ledger_id: number | null
           eboekhouden_template_id: number | null
@@ -2297,6 +2301,7 @@ export type Database = {
           btw_number?: string | null
           city?: string | null
           created_at?: string | null
+          custom_domain?: string | null
           eboekhouden_debtor_ledger_id?: number | null
           eboekhouden_ledger_id?: number | null
           eboekhouden_template_id?: number | null
@@ -2331,6 +2336,7 @@ export type Database = {
           btw_number?: string | null
           city?: string | null
           created_at?: string | null
+          custom_domain?: string | null
           eboekhouden_debtor_ledger_id?: number | null
           eboekhouden_ledger_id?: number | null
           eboekhouden_template_id?: number | null

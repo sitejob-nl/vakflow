@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.tenant-lookup]
 verify_jwt = false
+
+[functions.manage-custom-domain]
+verify_jwt = false

@@ -20,6 +20,7 @@ export interface TenantData {
 interface TenantContextType {
   tenant: TenantData | null;
   tenantSlug: string | null;
+  customDomain: string | null;
   brandIndustry: Industry | null;
   isTenantSite: boolean;
   loading: boolean;
@@ -28,12 +29,19 @@ interface TenantContextType {
 const TenantContext = createContext<TenantContextType>({
   tenant: null,
   tenantSlug: null,
+  customDomain: null,
   brandIndustry: null,
   isTenantSite: false,
   loading: false,
 });
 
-function detectTenant(hostname: string) {
+interface DetectResult {
+  subdomain?: string;
+  brandIndustry?: Industry;
+  customDomain?: string;
+}
+
+function detectTenant(hostname: string): DetectResult | null {
   // Skip dev / preview environments
   if (
     hostname === "localhost" ||
@@ -46,14 +54,17 @@ function detectTenant(hostname: string) {
 
   const parts = hostname.split(".");
   const baseDomain = parts.slice(-2).join("."); // "vakflow.nl"
-  const subdomain = parts.length >= 3 ? parts[0] : null;
 
-  if (!subdomain || subdomain === "app" || subdomain === "www") return null;
-
+  // Path 1: known brand domain → subdomain lookup
   const brandIndustry = BRAND_DOMAINS[baseDomain] ?? null;
-  if (!brandIndustry) return null; // unknown domain
+  if (brandIndustry) {
+    const subdomain = parts.length >= 3 ? parts[0] : null;
+    if (!subdomain || subdomain === "app" || subdomain === "www") return null;
+    return { subdomain, brandIndustry };
+  }
 
-  return { subdomain, brandIndustry, baseDomain };
+  // Path 2: unknown domain → custom domain lookup
+  return { customDomain: hostname };
 }
 
 export const TenantProvider = ({ children }: { children: ReactNode }) => {
@@ -62,18 +73,22 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
 
   const detected = detectTenant(window.location.hostname);
   const tenantSlug = detected?.subdomain ?? null;
+  const customDomain = detected?.customDomain ?? null;
   const brandIndustry = detected?.brandIndustry ?? null;
   const isTenantSite = !!detected;
 
   useEffect(() => {
-    if (!tenantSlug) return;
+    if (!tenantSlug && !customDomain) return;
 
     const fetchTenant = async () => {
       setLoading(true);
       try {
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const param = tenantSlug
+          ? `slug=${encodeURIComponent(tenantSlug)}`
+          : `domain=${encodeURIComponent(customDomain!)}`;
         const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/tenant-lookup?slug=${encodeURIComponent(tenantSlug)}`
+          `https://${projectId}.supabase.co/functions/v1/tenant-lookup?${param}`
         );
         if (res.ok) {
           const data = await res.json();
@@ -87,10 +102,10 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
     };
 
     fetchTenant();
-  }, [tenantSlug]);
+  }, [tenantSlug, customDomain]);
 
   return (
-    <TenantContext.Provider value={{ tenant, tenantSlug, brandIndustry, isTenantSite, loading }}>
+    <TenantContext.Provider value={{ tenant, tenantSlug, customDomain, brandIndustry, isTenantSite, loading }}>
       {children}
     </TenantContext.Provider>
   );

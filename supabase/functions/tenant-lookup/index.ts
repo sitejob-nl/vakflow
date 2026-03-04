@@ -14,10 +14,26 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const slug = url.searchParams.get("slug");
+    const domain = url.searchParams.get("domain");
 
-    if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
+    if (!slug && !domain) {
       return new Response(
-        JSON.stringify({ error: "Invalid or missing slug" }),
+        JSON.stringify({ error: "Missing slug or domain parameter" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate inputs
+    if (slug && !/^[a-z0-9-]+$/.test(slug)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid slug" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (domain && !/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(domain)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid domain" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -27,11 +43,17 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("companies")
-      .select("id, name, logo_url, brand_color, industry, subcategory")
-      .eq("slug", slug)
-      .single();
+      .select("id, name, logo_url, brand_color, industry, subcategory");
+
+    if (slug) {
+      query = query.eq("slug", slug);
+    } else if (domain) {
+      query = query.eq("custom_domain", domain);
+    }
+
+    const { data, error } = await query.single();
 
     if (error || !data) {
       return new Response(
@@ -40,7 +62,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Only return public branding fields — no internal data
     return new Response(
       JSON.stringify({
         id: data.id,
