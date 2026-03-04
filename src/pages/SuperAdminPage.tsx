@@ -40,6 +40,7 @@ const ALL_FEATURES = [
   { slug: "communication", label: "Logboek" },
   { slug: "reminders", label: "Reminders" },
   { slug: "assets", label: "Objecten" },
+  { slug: "custom_domain", label: "Custom Domein" },
 ];
 
 const emptyForm = {

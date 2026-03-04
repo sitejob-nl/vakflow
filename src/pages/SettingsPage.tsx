@@ -970,8 +970,8 @@ const SettingsPage = () => {
               placeholder="mijn-bedrijf"
             />
           </div>
-          {/* Custom domain section */}
-          <div className="border-t border-border pt-4 mt-2">
+          {/* Custom domain section — alleen zichtbaar als module is ingeschakeld */}
+          {enabledFeatures.includes("custom_domain") && <div className="border-t border-border pt-4 mt-2">
             <label className={labelClass}>
               <Globe className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
               Eigen domein (optioneel)
@@ -1040,7 +1040,7 @@ const SettingsPage = () => {
                 )}
               </div>
             )}
-          </div>
+          </div>}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>KvK-nummer</label>
