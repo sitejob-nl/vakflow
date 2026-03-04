@@ -138,6 +138,13 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
           if (templateParams.type === "named") param.parameter_name = key;
           return param;
         });
+        // Build preview text
+        const bodyComp = activeTemplate.components?.find((c: any) => c.type === "BODY");
+        let previewText = bodyComp?.text ?? "";
+        templateParams.keys.forEach((key) => {
+          previewText = previewText.replace(`{{${key}}}`, templateVarMap[key] || `{{${key}}}`);
+        });
+
         await sendWhatsApp.mutateAsync({
           to: customerPhone,
           type: "template",
@@ -149,6 +156,7 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
               : [],
           },
           customer_id: customerId,
+          preview: previewText,
         });
       } else {
         if (!message.trim()) return;
