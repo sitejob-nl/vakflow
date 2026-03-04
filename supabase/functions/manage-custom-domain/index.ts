@@ -80,10 +80,11 @@ Deno.serve(async (req) => {
       console.log("Vercel POST response:", JSON.stringify(vercelData));
 
       let verification = vercelData.verification ?? [];
+      const cnameTarget = vercelData.cnames?.[0] ?? vercelData.configuredBy ?? 'cname.vercel-dns.com';
       if (!vercelData.verified && !verification.some((r: any) => r.type === 'CNAME')) {
         const subdomain = domain.split('.')[0];
         verification = [
-          { type: 'CNAME', domain: subdomain, value: 'cname.vercel-dns.com' },
+          { type: 'CNAME', domain: subdomain, value: cnameTarget },
           ...verification,
         ];
       }
@@ -131,10 +132,11 @@ Deno.serve(async (req) => {
       console.log("Vercel GET response:", JSON.stringify(vercelData));
 
       let verification = vercelData.verification ?? [];
+      const cnameTarget = vercelData.cnames?.[0] ?? vercelData.configuredBy ?? 'cname.vercel-dns.com';
       if (!vercelData.verified && !verification.some((r: any) => r.type === 'CNAME')) {
         const subdomain = domain.split('.')[0];
         verification = [
-          { type: 'CNAME', domain: subdomain, value: 'cname.vercel-dns.com' },
+          { type: 'CNAME', domain: subdomain, value: cnameTarget },
           ...verification,
         ];
       }
