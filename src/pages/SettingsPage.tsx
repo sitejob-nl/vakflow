@@ -3,7 +3,7 @@ import { usePersonalOutlookToken, useDeletePersonalOutlookToken } from "@/hooks/
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Upload, UserPlus, Users, MessageSquare, ChevronDown, ChevronUp, BookOpen, AlertTriangle, HelpCircle, Mail, Eye, Globe, Info } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Upload, UserPlus, Users, MessageSquare, ChevronDown, ChevronUp, BookOpen, AlertTriangle, HelpCircle, Mail, Eye, Globe, Info, Copy } from "lucide-react";
 import { useEmailTemplates, useCreateEmailTemplate, useUpdateEmailTemplate, useDeleteEmailTemplate, type EmailTemplate } from "@/hooks/useEmailTemplates";
 import EmailTemplateEditor, { DEFAULT_TEMPLATE } from "@/components/EmailTemplateEditor";
 import { useAutoMessageSettings, useUpsertAutoMessageSetting, MESSAGE_TYPES, LABELS } from "@/hooks/useAutoMessageSettings";
@@ -202,7 +202,7 @@ const SettingsPage = () => {
   const [brandColor, setBrandColor] = useState<string>("");
   const [customDomain, setCustomDomain] = useState("");
   const [customDomainSaving, setCustomDomainSaving] = useState(false);
-  const [customDomainStatus, setCustomDomainStatus] = useState<{ verified?: boolean; configured?: boolean } | null>(null);
+  const [customDomainStatus, setCustomDomainStatus] = useState<{ verified?: boolean; configured?: boolean; verification?: Array<{ type: string; domain: string; value: string }> } | null>(null);
   const [customDomainSaved, setCustomDomainSaved] = useState(false);
   
   const tabs = BASE_TABS.filter((tab) => {
@@ -1018,14 +1018,51 @@ const SettingsPage = () => {
               <div className="mt-3 p-3 bg-muted/50 border border-border rounded-md space-y-2">
                 <div className="flex items-start gap-2">
                   <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                  <div className="text-[12px] space-y-1">
+                  <div className="text-[12px] space-y-1 w-full">
                     <p className="font-bold">DNS instellen</p>
-                    <p>Stel bij je domeinprovider het volgende CNAME-record in:</p>
-                    <div className="bg-card border border-border rounded p-2 font-mono text-[11px]">
-                      <span className="text-primary">{customDomain.split('.')[0]}</span>
-                      {' '}CNAME{' '}
-                      <span className="text-primary">cname.vercel-dns.com</span>
-                    </div>
+                    <p>Stel de volgende records in bij je domeinprovider:</p>
+                    {customDomainStatus?.verification && customDomainStatus.verification.length > 0 ? (
+                      <div className="bg-card border border-border rounded overflow-hidden">
+                        <table className="w-full text-[11px] font-mono">
+                          <thead>
+                            <tr className="border-b border-border bg-muted/30">
+                              <th className="text-left px-2 py-1.5 font-bold text-foreground">Type</th>
+                              <th className="text-left px-2 py-1.5 font-bold text-foreground">Name</th>
+                              <th className="text-left px-2 py-1.5 font-bold text-foreground">Value</th>
+                              <th className="w-8"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {customDomainStatus.verification.map((record, i) => (
+                              <tr key={i} className="border-b border-border last:border-0">
+                                <td className="px-2 py-1.5 text-muted-foreground uppercase">{record.type}</td>
+                                <td className="px-2 py-1.5 text-primary">{record.domain}</td>
+                                <td className="px-2 py-1.5 text-primary break-all max-w-[200px]">{record.value}</td>
+                                <td className="px-1 py-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(record.value);
+                                      toast({ title: "Gekopieerd" });
+                                    }}
+                                    className="p-1 hover:bg-muted rounded transition-colors"
+                                    title="Kopieer waarde"
+                                  >
+                                    <Copy className="h-3 w-3 text-muted-foreground" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="bg-card border border-border rounded p-2 font-mono text-[11px]">
+                        <span className="text-primary">{customDomain.split('.')[0]}</span>
+                        {' '}CNAME{' '}
+                        <span className="text-primary">cname.vercel-dns.com</span>
+                      </div>
+                    )}
                     <p className="text-t3">SSL wordt automatisch geregeld door Vercel na verificatie.</p>
                   </div>
                 </div>
