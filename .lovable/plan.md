@@ -1,36 +1,27 @@
 
 
-## Probleem analyse
+## Probleem: Klanten importeren mislukt
 
-Er zijn twee problemen:
+### Oorzaak
 
-### 1. Token "verdwijnt" na herladen
+De import-functie in `CustomersPage.tsx` (regel 141) voegt klanten in **zonder `company_id`** mee te geven:
 
-De `companies_safe` view (die de frontend gebruikt om instellingen te laden) bevat **geen** `eboekhouden_api_token` veld — dit is bewust, voor beveiliging. Maar er is ook geen indicator of de token wl is ingesteld.
-
-De UI bepaalt `ebConnected` op basis van `eboekhouden_ledger_id`. Als je alleen een token opslaat (zonder template/ledger te configureren), denkt de UI dat er geen verbinding is, en toont het veld "Plak hier je token" in plaats van "ongewijzigd".
-
-### 2. e-Boekhouden login mislukt
-
-De logs tonen: `"Login failed", status: 400`. Dit betekent dat de token correct wordt ontsleuteld en verstuurd, maar dat e-Boekhouden de credentials afwijst. Dit is waarschijnlijk een onjuiste API-token (verkeerde waarde of verlopen).
-
-### Plan
-
-**1. `companies_safe` view aanpassen** — een boolean kolom `has_eboekhouden_token` toevoegen:
-```sql
-(eboekhouden_api_token IS NOT NULL AND eboekhouden_api_token <> '') AS has_eboekhouden_token
+```typescript
+const { error } = await supabase.from("customers").insert(batch);
 ```
 
-**2. Frontend `SettingsPage.tsx` aanpassen**:
-- Bij het laden: `setEbConnected` baseren op `has_eboekhouden_token` (uit de view) in plaats van `eboekhouden_ledger_id`
-- Na opslaan: `setEbConnected(true)` als er een token was ingevuld of al bestond
+De `batch` bevat alleen: `name`, `phone`, `email`, `address`, `postal_code`, `city`, `notes`, `type` — maar geen `company_id`.
 
-**3. Login-fout**: Dit is geen code-probleem maar een configuratieprobleem. De API-token die voor MV Solutions is ingevoerd wordt afgewezen door e-Boekhouden. Na de UI-fix kan de token correct worden bewaard en is het duidelijk of deze al is opgeslagen. De gebruiker moet verifiëren dat de token klopt in het e-Boekhouden portaal.
+De RLS-policy op de `customers` tabel vereist dat `company_id = get_my_company_id()`, waardoor de insert wordt geweigerd met een "new row violates row-level security policy" fout.
 
-### Technische details
+Ter vergelijking: de `useCreateCustomer` hook in `useCustomers.ts` voegt wel `company_id: companyId` toe bij elke insert.
 
-- Migration: `ALTER VIEW` voor `companies_safe` met extra computed kolom
-- SettingsPage regel ~562: wijzig `setEbConnected` check
-- SettingsPage regel ~739: wijzig `setEbConnected` na save
-- Geen wijzigingen aan edge functions nodig
+### Oplossing
+
+**1 bestand aanpassen: `src/pages/CustomersPage.tsx`**
+
+- Bij het opbouwen van de `mapped` array (regel 114-124): `company_id` toevoegen aan elk object, uit de `useAuth()` context
+- De `companyId` is al beschikbaar via `useAuth` (wordt al geïmporteerd in het bestand)
+
+Concreet: in de `map` callback toevoegen: `company_id: companyId`
 
