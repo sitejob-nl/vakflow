@@ -8,10 +8,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return jsonRes({ error: "Method not allowed" }, 405);
 
   try {
-    await authenticateRequest(req);
+    const { companyId } = await authenticateRequest(req);
     const supabaseAdmin = createAdminClient();
 
-    const { data: config } = await supabaseAdmin.from("whatsapp_config").select("*").single();
+    const { data: config } = await supabaseAdmin.from("whatsapp_config").select("*").eq("company_id", companyId).single();
     if (!config?.access_token || !config?.phone_number_id) {
       return jsonRes({ error: "WhatsApp niet gekoppeld" }, 400);
     }

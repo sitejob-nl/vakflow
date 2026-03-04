@@ -135,16 +135,9 @@ async function findConfigByPhoneNumberId(
 
   if (data) return data;
 
-  // Fallback voor legacy single-tenant: pak eerste config
-  // TODO: verwijder deze fallback zodra alle tenants phone_number_id hebben
-  console.warn(`No config for phone_number_id ${phoneNumberId}, falling back to first config`);
-  const { data: fallback } = await supabase
-    .from("whatsapp_config")
-    .select("company_id, access_token, webhook_secret")
-    .limit(1)
-    .maybeSingle();
-
-  return fallback;
+  // Geen fallback meer — elke tenant moet phone_number_id geconfigureerd hebben
+  console.error(`No config found for phone_number_id ${phoneNumberId}`);
+  return null;
 }
 
 Deno.serve(async (req) => {

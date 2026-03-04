@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
                   phone: sanitizePhone(detail.phoneNumber) || null,
                   eboekhouden_relation_id: rel.id,
                 };
-                const { data: existing } = await supabase.from("customers").select("id").eq("eboekhouden_relation_id", rel.id).maybeSingle();
+                const { data: existing } = await supabase.from("customers").select("id").eq("eboekhouden_relation_id", rel.id).eq("company_id", prof.company_id).maybeSingle();
                 if (existing) {
                   await supabase.from("customers").update(customerData).eq("id", existing.id);
                   cUpdated++;
@@ -226,13 +226,13 @@ Deno.serve(async (req) => {
               if (items.length < limit) break;
               offset += limit;
             }
-            const { data: existingInvoices } = await supabase.from("invoices").select("eboekhouden_id").not("eboekhouden_id", "is", null);
+            const { data: existingInvoices } = await supabase.from("invoices").select("eboekhouden_id").eq("company_id", prof.company_id).not("eboekhouden_id", "is", null);
             const existingIds = new Set((existingInvoices || []).map((i: any) => String(i.eboekhouden_id)));
             const notImported = allInvoices.filter((inv: any) => !existingIds.has(String(inv.id)));
             let imported = 0;
             for (const ebInv of notImported) {
               try {
-                const { data: customer } = await supabase.from("customers").select("id").eq("eboekhouden_relation_id", ebInv.relationId).maybeSingle();
+                const { data: customer } = await supabase.from("customers").select("id").eq("eboekhouden_relation_id", ebInv.relationId).eq("company_id", prof.company_id).maybeSingle();
                 if (!customer) continue;
                 const subtotal = Number(ebInv.totalExcl || 0);
                 const total = Number(ebInv.totalAmount || ebInv.totalIncl || 0);
@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
 
           // 3. Pull invoice status (mark paid)
           try {
-            const { data: unpaid } = await supabase.from("invoices").select("id, eboekhouden_id").not("eboekhouden_id", "is", null).neq("status", "betaald");
+            const { data: unpaid } = await supabase.from("invoices").select("id, eboekhouden_id").eq("company_id", prof.company_id).not("eboekhouden_id", "is", null).neq("status", "betaald");
             let statusUpdated = 0;
             for (const inv of (unpaid || [])) {
               try {
@@ -274,7 +274,7 @@ Deno.serve(async (req) => {
 
           // 4. Push: sync customers without eboekhouden_relation_id
           try {
-            const { data: unsyncedCustomers } = await supabase.from("customers").select("*").is("eboekhouden_relation_id", null);
+            const { data: unsyncedCustomers } = await supabase.from("customers").select("*").eq("company_id", prof.company_id).is("eboekhouden_relation_id", null);
             let pushed = 0;
             for (const cust of (unsyncedCustomers || [])) {
               try {
@@ -303,6 +303,7 @@ Deno.serve(async (req) => {
               const { data: unsyncedInvoices } = await supabase
                 .from("invoices")
                 .select("*, customers(id, name, type, contact_person, address, city, postal_code, email, phone, eboekhouden_relation_id), work_orders(work_order_number, services(name, price))")
+                .eq("company_id", prof.company_id)
                 .is("eboekhouden_id", null);
               let pushedInv = 0;
               for (const invoice of (unsyncedInvoices || [])) {
@@ -584,7 +585,8 @@ Deno.serve(async (req) => {
     if (action === "sync-all-contacts") {
       const { data: customers, error: custErr } = await supabase
         .from("customers")
-        .select("*");
+        .select("*")
+        .eq("company_id", profile.company_id);
 
       if (custErr) throw custErr;
       let synced = 0, skipped = 0;
@@ -638,6 +640,7 @@ Deno.serve(async (req) => {
       const { data: invoices, error: invErr } = await supabase
         .from("invoices")
         .select("*, customers(id, name, type, contact_person, address, city, postal_code, email, phone, eboekhouden_relation_id), work_orders(work_order_number, services(name, price))")
+        .eq("company_id", profile.company_id)
         .is("eboekhouden_id", null);
 
       if (invErr) throw invErr;
@@ -752,6 +755,7 @@ Deno.serve(async (req) => {
             .from("customers")
             .select("id")
             .eq("eboekhouden_relation_id", rel.id)
+            .eq("company_id", profile.company_id)
             .maybeSingle();
 
           if (existing) {
@@ -763,7 +767,7 @@ Deno.serve(async (req) => {
           } else {
             await supabase
               .from("customers")
-              .insert(customerData);
+              .insert({ ...customerData, company_id: profile.company_id });
             created++;
           }
         } catch (err: any) {
@@ -792,6 +796,7 @@ Deno.serve(async (req) => {
       const { data: existingInvoices } = await supabase
         .from("invoices")
         .select("eboekhouden_id")
+        .eq("company_id", profile.company_id)
         .not("eboekhouden_id", "is", null);
 
       const existingIds = new Set((existingInvoices || []).map((i: any) => String(i.eboekhouden_id)));
@@ -808,6 +813,7 @@ Deno.serve(async (req) => {
             .from("customers")
             .select("id")
             .eq("eboekhouden_relation_id", ebInv.relationId)
+            .eq("company_id", profile.company_id)
             .maybeSingle();
 
           if (!customer) {
@@ -827,6 +833,7 @@ Deno.serve(async (req) => {
 
           await supabase.from("invoices").insert({
             customer_id: customer.id,
+            company_id: profile.company_id,
             eboekhouden_id: String(ebInv.id),
             invoice_number: ebInv.invoiceNumber || null,
             subtotal,
@@ -859,6 +866,7 @@ Deno.serve(async (req) => {
       const { data: unpaidInvoices } = await supabase
         .from("invoices")
         .select("id, eboekhouden_id, invoice_number, status")
+        .eq("company_id", profile.company_id)
         .not("eboekhouden_id", "is", null)
         .neq("status", "betaald");
 
