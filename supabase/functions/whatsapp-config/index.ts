@@ -10,66 +10,63 @@ Deno.serve(async (req) => {
 
   const supabase = createAdminClient();
 
-  // Read the incoming secret from header
-  const incomingSecret = req.headers.get("X-Webhook-Secret");
-  console.log("whatsapp-config called, has X-Webhook-Secret:", !!incomingSecret);
+  // Read body first — we need tenant_id for scoped secret lookup
+  const body = await req.json();
+  const tenantId = body.tenant_id;
 
-  // Verify against stored webhook_secret (fallback to env var)
+  if (!tenantId) {
+    return jsonRes({ error: "tenant_id is verplicht" }, 400);
+  }
+
+  console.log("whatsapp-config called, action:", body.action || "config-push", "tenant_id:", tenantId);
+
+  // Scoped webhook secret lookup on tenant_id
   const { data: existingConfig } = await supabase
     .from("whatsapp_config")
     .select("webhook_secret")
-    .limit(1)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   const storedSecret = existingConfig?.webhook_secret || Deno.env.get("WHATSAPP_WEBHOOK_SECRET");
 
   if (!storedSecret) {
-    console.error("Geen webhook_secret gevonden in database of env var");
+    console.error("Geen webhook_secret gevonden voor tenant:", tenantId);
     return new Response("Server misconfigured", { status: 500, headers: corsHeaders });
   }
 
+  const incomingSecret = req.headers.get("X-Webhook-Secret");
   if (incomingSecret !== storedSecret) {
-    console.error("Webhook secret mismatch");
+    console.error("Webhook secret mismatch voor tenant:", tenantId);
     return new Response("Unauthorized", { status: 401, headers: corsHeaders });
   }
 
-  const body = await req.json();
-  console.log("whatsapp-config body action:", body.action || "config-push", "tenant_id:", body.tenant_id);
-
   // Disconnect actie — scoped op tenant_id
   if (body.action === "disconnect") {
-    if (!body.tenant_id) {
-      return jsonRes({ error: "tenant_id is verplicht voor disconnect" }, 400);
-    }
-    await supabase.from("whatsapp_config").delete().eq("tenant_id", body.tenant_id);
+    await supabase.from("whatsapp_config").delete().eq("tenant_id", tenantId);
     return jsonRes({ ok: true, disconnected: true });
   }
 
-  // Upsert credentials (config push from SiteJob Connect)
-  // Use phone_number_id as natural key instead of hardcoded UUID
+  // Config push: UPDATE existing row WHERE tenant_id instead of upsert on phone_number_id
   if (!body.phone_number_id) {
     return jsonRes({ error: "phone_number_id is verplicht" }, 400);
   }
 
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from("whatsapp_config")
-    .upsert(
-      {
-        phone_number_id: body.phone_number_id,
-        access_token: body.access_token,
-        display_phone: body.display_phone || null,
-        waba_id: body.waba_id || null,
-        tenant_id: body.tenant_id || null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "phone_number_id" }
-    );
+    .update({
+      phone_number_id: body.phone_number_id,
+      access_token: body.access_token,
+      display_phone: body.display_phone || null,
+      waba_id: body.waba_id || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("tenant_id", tenantId);
 
   if (error) {
-    console.error("Config upsert failed:", error.message);
+    console.error("Config update failed:", error.message);
     return jsonRes({ error: error.message }, 500);
   }
 
-  console.log("Config push succesvol opgeslagen voor tenant:", body.tenant_id);
+  console.log("Config push succesvol opgeslagen voor tenant:", tenantId);
   return jsonRes({ ok: true });
 });
