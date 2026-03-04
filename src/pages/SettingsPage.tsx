@@ -201,6 +201,10 @@ const SettingsPage = () => {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [brandColor, setBrandColor] = useState<string>("");
   const [customDomain, setCustomDomain] = useState("");
+  const [pwaName, setPwaName] = useState("");
+  const [pwaIconPreview, setPwaIconPreview] = useState<string | null>(null);
+  const [uploadingPwaIcon, setUploadingPwaIcon] = useState(false);
+  const [savingPwa, setSavingPwa] = useState(false);
   const [customDomainSaving, setCustomDomainSaving] = useState(false);
   const [customDomainChecking, setCustomDomainChecking] = useState(false);
   const [customDomainStatus, setCustomDomainStatus] = useState<{ verified?: boolean; configured?: boolean; verification?: Array<{ type: string; domain: string; value: string }> } | null>(null);
@@ -519,6 +523,8 @@ const SettingsPage = () => {
         setCompanyLogoPreview((companyData as any).logo_url ?? null);
         setBrandColor((companyData as any).brand_color ?? "");
         setCustomDomain((companyData as any).custom_domain ?? "");
+        setPwaName((companyData as any).pwa_name ?? "");
+        setPwaIconPreview((companyData as any).pwa_icon_url ?? null);
         // Rompslomp
         setRompslompConnected(!!(companyData as any).rompslomp_company_id);
         setRompslompCompanyName((companyData as any).rompslomp_company_name ?? "");
@@ -1167,10 +1173,126 @@ const SettingsPage = () => {
           </div>
           <div className="border-t border-border pt-5">
             <h3 className="text-[14px] font-bold mb-1">PWA Installatie</h3>
-            <p className="text-[12px] text-secondary-foreground mb-3">Installeer VentFlow als app op je telefoon voor snelle toegang.</p>
+            <p className="text-[12px] text-secondary-foreground mb-3">Installeer de app op je telefoon voor snelle toegang.</p>
             <div className="text-[12px] text-secondary-foreground space-y-1">
               <p><strong>iOS:</strong> Tik op het deel-icoon → "Zet op beginscherm"</p>
               <p><strong>Android:</strong> Tik op het menu (⋮) → "Toevoegen aan startscherm"</p>
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-5">
+            <h3 className="text-[14px] font-bold mb-1">PWA Branding</h3>
+            <p className="text-[12px] text-secondary-foreground mb-3">Pas de naam en het icoon aan die gebruikers zien wanneer ze de app installeren op hun telefoon.</p>
+
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass}>App-naam</label>
+                <input
+                  value={pwaName}
+                  onChange={(e) => setPwaName(e.target.value)}
+                  className={inputClass}
+                  placeholder="Bijv. MijnBedrijf"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">Deze naam verschijnt op het startscherm van de gebruiker</p>
+              </div>
+
+              <div>
+                <label className={labelClass}>App-icoon (512×512 PNG aanbevolen)</label>
+                <div className="flex items-center gap-4 mt-1">
+                  {pwaIconPreview && (
+                    <img src={pwaIconPreview} alt="PWA icon" className="w-16 h-16 rounded-xl border border-border object-cover" />
+                  )}
+                  <div className="flex gap-2">
+                    <label className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors cursor-pointer flex items-center gap-1.5">
+                      <Upload className="h-3.5 w-3.5" />
+                      {uploadingPwaIcon ? "Uploaden..." : "Upload icoon"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        disabled={uploadingPwaIcon}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !user) return;
+                          setUploadingPwaIcon(true);
+                          try {
+                            const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user.id).single();
+                            const cid = profileData?.company_id;
+                            if (!cid) throw new Error("Geen bedrijf gevonden");
+                            const ext = file.name.split(".").pop() || "png";
+                            const path = `${cid}/pwa-icon.${ext}`;
+                            // Remove old pwa icon files
+                            const { data: existing } = await supabase.storage.from("company-logos").list(cid);
+                            const pwaFiles = existing?.filter(f => f.name.startsWith("pwa-icon")) ?? [];
+                            if (pwaFiles.length) {
+                              await supabase.storage.from("company-logos").remove(pwaFiles.map(f => `${cid}/${f.name}`));
+                            }
+                            const { error: uploadError } = await supabase.storage.from("company-logos").upload(path, file, { upsert: true });
+                            if (uploadError) throw uploadError;
+                            const { data: { publicUrl } } = supabase.storage.from("company-logos").getPublicUrl(path);
+                            const iconUrl = `${publicUrl}?t=${Date.now()}`;
+                            await supabase.from("companies").update({ pwa_icon_url: iconUrl } as any).eq("id", cid);
+                            setPwaIconPreview(iconUrl);
+                            toast({ title: "PWA-icoon geüpload" });
+                          } catch (err: any) {
+                            toast({ title: "Fout bij uploaden", description: err.message, variant: "destructive" });
+                          }
+                          setUploadingPwaIcon(false);
+                        }}
+                      />
+                    </label>
+                    {pwaIconPreview && (
+                      <button
+                        onClick={async () => {
+                          if (!user) return;
+                          setUploadingPwaIcon(true);
+                          try {
+                            const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user.id).single();
+                            const cid = profileData?.company_id;
+                            if (!cid) throw new Error("Geen bedrijf gevonden");
+                            const { data: existing } = await supabase.storage.from("company-logos").list(cid);
+                            const pwaFiles = existing?.filter(f => f.name.startsWith("pwa-icon")) ?? [];
+                            if (pwaFiles.length) {
+                              await supabase.storage.from("company-logos").remove(pwaFiles.map(f => `${cid}/${f.name}`));
+                            }
+                            await supabase.from("companies").update({ pwa_icon_url: null } as any).eq("id", cid);
+                            setPwaIconPreview(null);
+                            toast({ title: "PWA-icoon verwijderd" });
+                          } catch (err: any) {
+                            toast({ title: "Fout", description: err.message, variant: "destructive" });
+                          }
+                          setUploadingPwaIcon(false);
+                        }}
+                        disabled={uploadingPwaIcon}
+                        className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-destructive hover:bg-bg-hover transition-colors flex items-center gap-1.5"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Verwijderen
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={async () => {
+                  if (!user) return;
+                  setSavingPwa(true);
+                  try {
+                    const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user.id).single();
+                    const cid = profileData?.company_id;
+                    if (!cid) throw new Error("Geen bedrijf gevonden");
+                    await supabase.from("companies").update({ pwa_name: pwaName || null } as any).eq("id", cid);
+                    toast({ title: "PWA-instellingen opgeslagen" });
+                  } catch (err: any) {
+                    toast({ title: "Fout", description: err.message, variant: "destructive" });
+                  }
+                  setSavingPwa(false);
+                }}
+                disabled={savingPwa}
+                className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
+              >
+                {savingPwa ? "Opslaan..." : "PWA-instellingen opslaan"}
+              </button>
             </div>
           </div>
         </div>

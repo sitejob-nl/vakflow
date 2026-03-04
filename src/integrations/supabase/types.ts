@@ -584,6 +584,8 @@ export type Database = {
           outlook_tenant_id: string | null
           phone: string | null
           postal_code: string | null
+          pwa_icon_url: string | null
+          pwa_name: string | null
           rompslomp_api_token: string | null
           rompslomp_company_id: string | null
           rompslomp_company_name: string | null
@@ -625,6 +627,8 @@ export type Database = {
           outlook_tenant_id?: string | null
           phone?: string | null
           postal_code?: string | null
+          pwa_icon_url?: string | null
+          pwa_name?: string | null
           rompslomp_api_token?: string | null
           rompslomp_company_id?: string | null
           rompslomp_company_name?: string | null
@@ -666,6 +670,8 @@ export type Database = {
           outlook_tenant_id?: string | null
           phone?: string | null
           postal_code?: string | null
+          pwa_icon_url?: string | null
+          pwa_name?: string | null
           rompslomp_api_token?: string | null
           rompslomp_company_id?: string | null
           rompslomp_company_name?: string | null
@@ -2285,6 +2291,8 @@ export type Database = {
           outlook_tenant_id: string | null
           phone: string | null
           postal_code: string | null
+          pwa_icon_url: string | null
+          pwa_name: string | null
           rompslomp_company_id: string | null
           rompslomp_company_name: string | null
           rompslomp_tenant_id: string | null
@@ -2320,6 +2328,8 @@ export type Database = {
           outlook_tenant_id?: string | null
           phone?: string | null
           postal_code?: string | null
+          pwa_icon_url?: string | null
+          pwa_name?: string | null
           rompslomp_company_id?: string | null
           rompslomp_company_name?: string | null
           rompslomp_tenant_id?: string | null
@@ -2355,6 +2365,8 @@ export type Database = {
           outlook_tenant_id?: string | null
           phone?: string | null
           postal_code?: string | null
+          pwa_icon_url?: string | null
+          pwa_name?: string | null
           rompslomp_company_id?: string | null
           rompslomp_company_name?: string | null
           rompslomp_tenant_id?: string | null

@@ -8,6 +8,7 @@ import OfflineBanner from "@/components/OfflineBanner";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { usePwaManifest } from "@/hooks/usePwaManifest";
 import { useEffect } from "react";
 
 /** Convert hex color (#4F46E5) to HSL string like "237 84% 58%" */
@@ -44,6 +45,7 @@ const AppLayout = () => {
   const { currentPage } = useNavigation();
   const { companyBrandColor } = useAuth();
   const { tenant, isTenantSite } = useTenant();
+  usePwaManifest();
 
   // Tenant brand color takes priority over company brand color
   const activeBrandColor = (isTenantSite && tenant?.brand_color) ? tenant.brand_color : companyBrandColor;
