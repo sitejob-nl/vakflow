@@ -3,7 +3,7 @@ import { usePersonalOutlookToken, useDeletePersonalOutlookToken } from "@/hooks/
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Upload, Download, UserPlus, Users, MessageSquare, ChevronDown, ChevronUp, BookOpen, AlertTriangle, HelpCircle, Mail, Eye, Globe, Info, Copy } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, CheckCircle, XCircle, Upload, Download, UserPlus, Users, MessageSquare, ChevronDown, ChevronUp, BookOpen, AlertTriangle, HelpCircle, Mail, Eye, Globe, Info, Copy, Send } from "lucide-react";
 import { useEmailTemplates, useCreateEmailTemplate, useUpdateEmailTemplate, useDeleteEmailTemplate, type EmailTemplate } from "@/hooks/useEmailTemplates";
 import EmailTemplateEditor, { DEFAULT_TEMPLATE } from "@/components/EmailTemplateEditor";
 import { useAutoMessageSettings, useUpsertAutoMessageSetting, MESSAGE_TYPES, LABELS } from "@/hooks/useAutoMessageSettings";
@@ -3160,6 +3160,44 @@ const SettingsPage = () => {
                       </div>
                       <Button
                         variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1 text-[12px]"
+                        onClick={async () => {
+                          const EXAMPLE_VALUES: Record<string, string> = {
+                            klantnaam: "Jan de Vries",
+                            werkbonnummer: "WB-2026-0001",
+                            factuurnummer: "F-2026-001",
+                            bedrag: "€ 250,00",
+                            datum: new Date().toLocaleDateString("nl-NL"),
+                            bedrijfsnaam: companyName || "Mijn Bedrijf",
+                            adres: companyAddress || "Voorbeeldstraat 1",
+                            stad: companyCity || "Amsterdam",
+                            postcode: companyPostalCode || "1234 AB",
+                            telefoon: companyPhone || "06-12345678",
+                            email: user?.email || "info@voorbeeld.nl",
+                          };
+                          let resolvedHtml = tpl.html_body;
+                          let resolvedSubject = tpl.subject || tpl.name;
+                          for (const [key, val] of Object.entries(EXAMPLE_VALUES)) {
+                            const regex = new RegExp(`\\{\\{${key}\\}\\}`, "gi");
+                            resolvedHtml = resolvedHtml.replace(regex, val);
+                            resolvedSubject = resolvedSubject.replace(regex, val);
+                          }
+                          try {
+                            const { error } = await supabase.functions.invoke("send-email", {
+                              body: { to: user?.email, subject: `[TEST] ${resolvedSubject}`, html: resolvedHtml },
+                            });
+                            if (error) throw error;
+                            toast({ title: "Test e-mail verstuurd", description: `Verzonden naar ${user?.email}` });
+                          } catch (err: any) {
+                            toast({ title: "Verzenden mislukt", description: err.message, variant: "destructive" });
+                          }
+                        }}
+                      >
+                        <Send className="h-3.5 w-3.5" /> Test
+                      </Button>
+                      <Button
+                        variant="ghost"
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => {
@@ -3315,42 +3353,62 @@ const SettingsPage = () => {
                   <input type="number" value={autoCooldown} onChange={(e) => setAutoCooldown(e.target.value)} className={inputClass} placeholder="720" />
                 </div>
               </div>
-              {autoTrigger && AVAILABLE_VARIABLES[autoTrigger] && (
-                <div>
-                  <label className={labelClass}>Variabelen koppelen (template param → veld)</label>
-                  <p className="text-[11px] text-muted-foreground mb-1.5">
-                    {(() => {
-                      const tpl = waTemplates?.find((t: any) => t.name === autoTemplate);
-                      const isPositional = !tpl?.parameter_format || tpl?.parameter_format === "POSITIONAL";
-                      return isPositional
-                        ? "Voer het parameternummer in (1, 2, 3...) dat overeenkomt met de template variabele."
-                        : "Voer de parameternaam in (bijv. first_name, date) die overeenkomt met de template variabele.";
-                    })()}
-                  </p>
-                  <div className="space-y-1.5">
-                    {AVAILABLE_VARIABLES[autoTrigger].map((v) => (
-                      <div key={v.path} className="flex items-center gap-2 text-[12px]">
-                        <input
-                          className={`${inputClass} flex-1`}
-                          placeholder={(() => {
-                            const tpl = waTemplates?.find((t: any) => t.name === autoTemplate);
-                            const isPositional = !tpl?.parameter_format || tpl?.parameter_format === "POSITIONAL";
-                            return isPositional ? "Nummer (bijv. 1)" : "Naam (bijv. first_name)";
-                          })()}
-                          value={Object.entries(autoMapping).find(([, val]) => val === v.path)?.[0] ?? ""}
-                          onChange={(e) => {
-                            const newMapping = { ...autoMapping };
-                            for (const [k, val] of Object.entries(newMapping)) { if (val === v.path) delete newMapping[k]; }
-                            if (e.target.value) newMapping[e.target.value] = v.path;
-                            setAutoMapping(newMapping);
-                          }}
-                        />
-                        <span className="text-t3 whitespace-nowrap">→ {v.label}</span>
+              {autoTemplate && autoTrigger && AVAILABLE_VARIABLES[autoTrigger] && (() => {
+                const selectedTpl = waTemplates?.find((t: any) => t.name === autoTemplate);
+                if (!selectedTpl) return null;
+                const isPositional = !selectedTpl.parameter_format || selectedTpl.parameter_format === "POSITIONAL";
+                const bodyComp = selectedTpl.components?.find((c: any) => c.type === "BODY");
+                const bodyText: string = bodyComp?.text || "";
+                const paramMatches = isPositional
+                  ? [...bodyText.matchAll(/\{\{(\d+)\}\}/g)].map(m => m[1])
+                  : [...bodyText.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
+                const templateParams = [...new Set(paramMatches)];
+                const availableVars = AVAILABLE_VARIABLES[autoTrigger];
+
+                if (!templateParams.length) return (
+                  <p className="text-[11px] text-muted-foreground">Geen variabelen gevonden in dit template.</p>
+                );
+
+                return (
+                  <div>
+                    <label className={labelClass}>Variabelen koppelen</label>
+                    {bodyText && (
+                      <div className="bg-muted/40 rounded-md p-2.5 mb-2 text-[11px] text-muted-foreground font-mono whitespace-pre-wrap break-words border border-border">
+                        {bodyText}
                       </div>
-                    ))}
+                    )}
+                    <div className="space-y-2">
+                      {templateParams.map((param) => (
+                        <div key={param} className="flex items-center gap-2 text-[12px]">
+                          <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[11px] shrink-0 border border-border">{`{{${param}}}`}</span>
+                          <span className="text-muted-foreground shrink-0">→</span>
+                          <Select
+                            value={autoMapping[param] || ""}
+                            onValueChange={(val) => {
+                              const newMapping = { ...autoMapping };
+                              if (val) {
+                                newMapping[param] = val;
+                              } else {
+                                delete newMapping[param];
+                              }
+                              setAutoMapping(newMapping);
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-[12px] flex-1">
+                              <SelectValue placeholder="Kies veld..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableVars.map((v) => (
+                                <SelectItem key={v.path} value={v.path}>{v.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={async () => {
