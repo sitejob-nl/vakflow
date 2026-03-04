@@ -696,6 +696,7 @@ export type Database = {
           default_service_id: string | null
           eboekhouden_relation_id: number | null
           email: string | null
+          exact_account_id: string | null
           id: string
           interval_months: number
           lat: number | null
@@ -719,6 +720,7 @@ export type Database = {
           default_service_id?: string | null
           eboekhouden_relation_id?: number | null
           email?: string | null
+          exact_account_id?: string | null
           id?: string
           interval_months?: number
           lat?: number | null
@@ -742,6 +744,7 @@ export type Database = {
           default_service_id?: string | null
           eboekhouden_relation_id?: number | null
           email?: string | null
+          exact_account_id?: string | null
           id?: string
           interval_months?: number
           lat?: number | null
@@ -937,6 +940,7 @@ export type Database = {
           customer_id: string
           due_at: string | null
           eboekhouden_id: string | null
+          exact_id: string | null
           id: string
           invoice_number: string | null
           issued_at: string | null
@@ -959,6 +963,7 @@ export type Database = {
           customer_id: string
           due_at?: string | null
           eboekhouden_id?: string | null
+          exact_id?: string | null
           id?: string
           invoice_number?: string | null
           issued_at?: string | null
@@ -981,6 +986,7 @@ export type Database = {
           customer_id?: string
           due_at?: string | null
           eboekhouden_id?: string | null
+          exact_id?: string | null
           id?: string
           invoice_number?: string | null
           issued_at?: string | null
