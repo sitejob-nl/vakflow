@@ -18,6 +18,18 @@ Deno.serve(async (req) => {
       return jsonRes({ error: "Alleen admins kunnen custom domains beheren" }, 403);
     }
 
+    // Check of het bedrijf de custom_domain module heeft
+    const { data: companyCheck } = await admin
+      .from("companies")
+      .select("enabled_features")
+      .eq("id", companyId)
+      .single();
+
+    const features: string[] = companyCheck?.enabled_features ?? [];
+    if (!features.includes("custom_domain")) {
+      return jsonRes({ error: "Custom domain module is niet geactiveerd voor dit bedrijf" }, 403);
+    }
+
     if (req.method === "POST") {
       const { domain } = await req.json();
 
