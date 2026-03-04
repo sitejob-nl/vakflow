@@ -1726,10 +1726,169 @@ const SettingsPage = () => {
           )}
           </>
           ) : accountingProvider === "exact" ? (
-            <div>
+            <div className="space-y-4">
               <h3 className="text-[14px] font-bold mb-1">Exact Online</h3>
-              <p className="text-[12px] text-secondary-foreground mb-3">Exact Online wordt gekoppeld via SiteJob Connect. Neem contact op voor de configuratie.</p>
-              <p className="text-[12px] text-muted-foreground">🔧 Binnenkort beschikbaar</p>
+              <p className="text-[12px] text-secondary-foreground mb-3">Synchroniseer contacten en facturen met je Exact Online administratie via SiteJob Connect.</p>
+
+              {exactConnected ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-1.5 text-[12px] font-bold text-success">
+                    <CheckCircle className="h-4 w-4" />
+                    Verbonden{exactCompanyName ? ` — ${exactCompanyName}` : ""}{exactDivision ? ` (${exactDivision})` : ""}
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      setExactTesting(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("sync-exact", { body: { action: "test" } });
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        toast({ title: "Verbinding OK", description: `Ingelogd als ${data.user}` });
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
+                      }
+                      setExactTesting(false);
+                    }}
+                    disabled={exactTesting}
+                    className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {exactTesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>🔗</>}
+                    Verbinding testen
+                  </button>
+
+                  <h4 className="text-[13px] font-bold pt-2">Synchronisatie</h4>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={async () => {
+                        setExactSyncingContacts(true);
+                        try {
+                          const result = await syncContactsExact.mutateAsync();
+                          toast({ title: "Contacten gesynchroniseerd", description: `${result.synced} gesynct${result.errors.length ? `, ${result.errors.length} fouten` : ""}`, variant: result.errors.length ? "destructive" : "default" });
+                        } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
+                        setExactSyncingContacts(false);
+                      }}
+                      disabled={exactSyncingContacts || exactSyncingInvoices}
+                      className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {exactSyncingContacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      Contacten pushen
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setExactPullingContacts(true);
+                        try {
+                          const result = await pullContactsExact.mutateAsync();
+                          toast({ title: "Contacten opgehaald", description: `${result.imported} geïmporteerd, ${result.already_imported} bestonden al` });
+                        } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
+                        setExactPullingContacts(false);
+                      }}
+                      disabled={exactPullingContacts || exactPullingInvoices}
+                      className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {exactPullingContacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>}
+                      Contacten ophalen
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setExactSyncingInvoices(true);
+                        try {
+                          const result = await syncInvoicesExact.mutateAsync();
+                          toast({ title: "Facturen gesynchroniseerd", description: `${result.synced} gesynct${result.errors.length ? `, ${result.errors.length} fouten` : ""}`, variant: result.errors.length ? "destructive" : "default" });
+                        } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
+                        setExactSyncingInvoices(false);
+                      }}
+                      disabled={exactSyncingContacts || exactSyncingInvoices}
+                      className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {exactSyncingInvoices ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      Facturen pushen
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setExactPullingStatus(true);
+                        try {
+                          const result = await pullInvoiceStatusExact.mutateAsync();
+                          toast({ title: "Betaalstatus opgehaald", description: `${result.checked} gecontroleerd` });
+                        } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
+                        setExactPullingStatus(false);
+                      }}
+                      disabled={exactPullingStatus}
+                      className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {exactPullingStatus ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>💰</>}
+                      Betaalstatus ophalen
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Weet je zeker dat je Exact Online wilt ontkoppelen?")) return;
+                      try {
+                        const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user?.id ?? "").single();
+                        if (profileData?.company_id) {
+                          await supabase.from("exact_config" as any).delete().eq("company_id", profileData.company_id);
+                        }
+                        setExactConnected(false);
+                        setExactCompanyName("");
+                        setExactDivision(null);
+                        toast({ title: "Exact Online ontkoppeld" });
+                      } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
+                    }}
+                    className="px-4 py-2 bg-destructive/10 text-destructive rounded-sm text-[12px] font-medium hover:bg-destructive/20 transition-colors"
+                  >
+                    Ontkoppelen
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={async () => {
+                    setExactConnecting(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke("exact-register");
+                      if (error) throw error;
+                      if (data?.error) throw new Error(data.error);
+
+                      const tenantId = data.tenant_id;
+                      // Open setup popup
+                      const popup = window.open(
+                        `https://connect.sitejob.nl/exact-setup?tenant_id=${tenantId}`,
+                        "exact-setup",
+                        "width=600,height=700"
+                      );
+
+                      // Listen for postMessage
+                      const messageHandler = async (e: MessageEvent) => {
+                        if (e.data?.type === "exact-connected") {
+                          window.removeEventListener("message", messageHandler);
+                          // Reload exact config
+                          const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user?.id ?? "").single();
+                          if (profileData?.company_id) {
+                            const { data: exactData } = await supabase.from("exact_config" as any).select("*").eq("company_id", profileData.company_id).maybeSingle();
+                            if (exactData && (exactData as any).status === "connected") {
+                              setExactConnected(true);
+                              setExactCompanyName((exactData as any).company_name_exact ?? "");
+                              setExactDivision((exactData as any).division ?? null);
+                            }
+                          }
+                          toast({ title: "Exact Online gekoppeld!" });
+                        }
+                      };
+                      window.addEventListener("message", messageHandler);
+
+                      // Cleanup after 5 min
+                      setTimeout(() => window.removeEventListener("message", messageHandler), 300000);
+                    } catch (err: any) {
+                      toast({ title: "Fout", description: err.message, variant: "destructive" });
+                    }
+                    setExactConnecting(false);
+                  }}
+                  disabled={exactConnecting}
+                  className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
+                >
+                  {exactConnecting ? "Bezig..." : "Koppel Exact Online"}
+                </button>
+              )}
             </div>
           ) : accountingProvider === "rompslomp" ? (
             <div className="space-y-4">
