@@ -9,6 +9,7 @@ export interface CreateWorkOrderPayload {
   appointment_id: string;
   address_id?: string;
   assigned_to?: string;
+  vehicle_id?: string;
   checklist: { label: string; checked: boolean }[];
   total_amount: number;
   status: string;
