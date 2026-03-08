@@ -142,6 +142,7 @@ const WorkOrderDetailPage = () => {
         id: wo.id,
         status,
         completed_at: status === "afgerond" ? new Date().toISOString() : null,
+        ...mileageUpdates,
       });
       toast({ title: `Status gewijzigd naar ${statusLabel[status]}` });
       setMileageInput("");
