@@ -72,7 +72,7 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice, projectId, prefillCust
       setVatPercentage(editInvoice.vat_percentage ?? 21);
     } else {
       setSelectedTemplate("");
-      setCustomerId("");
+      setCustomerId(prefillCustomerId || "");
       setItems([emptyItem()]);
       setOptionalItems([]);
       setNotes("");
