@@ -203,7 +203,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
             </div>
           </div>
         </>
-      )
+      )}
       <div className="space-y-1.5">
         <Label>Dienst</Label>
         <Select value={form.service_id} onValueChange={(v) => set("service_id", v)}>
