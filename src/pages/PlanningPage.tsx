@@ -19,6 +19,7 @@ import CurrentTimeIndicator from "@/components/planning/CurrentTimeIndicator";
 import MonthView from "@/components/planning/MonthView";
 import RouteMap from "@/components/planning/RouteMap";
 import WorkshopBayView from "@/components/planning/WorkshopBayView";
+import WorkshopCapacityOverview from "@/components/planning/WorkshopCapacityOverview";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useToast } from "@/hooks/use-toast";
