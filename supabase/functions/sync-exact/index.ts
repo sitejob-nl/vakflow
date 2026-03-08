@@ -656,6 +656,11 @@ Deno.serve(async (req) => {
               errors.push(`${q.quote_number}: ${result.error}`);
               continue;
             }
+
+            const exactQuoteId = result.data?.QuotationID;
+            if (exactQuoteId) {
+              await supabaseAdmin.from("quotes").update({ exact_id: exactQuoteId }).eq("id", q.id);
+            }
             synced++;
           } catch (err: any) {
             errors.push(`${q.quote_number}: ${err.message}`);
