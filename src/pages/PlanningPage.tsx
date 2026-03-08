@@ -18,6 +18,8 @@ import AppointmentDetailSheet from "@/components/AppointmentDetailSheet";
 import CurrentTimeIndicator from "@/components/planning/CurrentTimeIndicator";
 import MonthView from "@/components/planning/MonthView";
 import RouteMap from "@/components/planning/RouteMap";
+import WorkshopBayView from "@/components/planning/WorkshopBayView";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useToast } from "@/hooks/use-toast";
 import { useDirections, useOptimizeRoute, type OptimizedStop } from "@/hooks/useMapbox";
