@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Wrench, Sparkles, ClipboardCheck, Car, Fuel, Shield, Circle as TireIcon, AlertTriangle, MoreHorizontal } from "lucide-react";
+import { Loader2, Wrench, Sparkles, ClipboardCheck, Car, Fuel, Shield, Circle as TireIcon, AlertTriangle, MoreHorizontal, Star } from "lucide-react";
+import PhotoUpload from "@/components/PhotoUpload";
 import AiIntakePanel from "@/components/AiIntakePanel";
 import type { AiIntakeSuggestion } from "@/hooks/useAiIntake";
 import { useCreateWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
