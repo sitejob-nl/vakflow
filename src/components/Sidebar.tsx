@@ -66,6 +66,7 @@ const Sidebar = () => {
   const { labels, industry } = useIndustryConfig();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { data: lowStockCount } = useLowStockCount();
 
   const handleNav = (page: Page) => {
     navigate(page);
