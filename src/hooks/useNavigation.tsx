@@ -49,6 +49,7 @@ const routeMap: Record<Page, string> = {
 const pathToPage: [RegExp, Page][] = [
   [/^\/customers\/(.+)$/, "custDetail"],
   [/^\/workorders\/(.+)$/, "woDetail"],
+  [/^\/vehicles\/(.+)$/, "vehDetail"],
   [/^\/dashboard\/?$/, "dashboard"],
   [/^\/planning\/?$/, "planning"],
   [/^\/customers\/?$/, "customers"],
@@ -62,6 +63,7 @@ const pathToPage: [RegExp, Page][] = [
   [/^\/reminders\/?$/, "reminders"],
   [/^\/contracts\/?$/, "contracts"],
   [/^\/assets\/?$/, "assets"],
+  [/^\/vehicles\/?$/, "vehicles"],
   [/^\/marketing\/?$/, "marketing"],
   [/^\/settings\/?$/, "settings"],
   [/^\/superadmin\/?$/, "superadmin"],
