@@ -94,10 +94,11 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
 
   const { subtotal, vatAmount, total } = useMemo(() => {
     const totalIncl = items.reduce((s, i) => s + i.qty * i.unit_price, 0);
-    const sub = Number((totalIncl / 1.21).toFixed(2));
+    const divisor = 1 + vatPercentage / 100;
+    const sub = Number((totalIncl / divisor).toFixed(2));
     const vat = Number((totalIncl - sub).toFixed(2));
     return { subtotal: sub, vatAmount: vat, total: Number(totalIncl.toFixed(2)) };
-  }, [items]);
+  }, [items, vatPercentage]);
 
   const handleSave = async () => {
     if (!customerId) { toast({ title: "Selecteer een klant", variant: "destructive" }); return; }
