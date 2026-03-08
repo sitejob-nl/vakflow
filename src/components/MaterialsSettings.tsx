@@ -248,6 +248,38 @@ export default function MaterialsSettings() {
             </div>
           </div>
 
+          {/* Stock section */}
+          <div className="border-t border-border pt-3 mt-2">
+            <p className="text-[11px] font-bold text-t3 uppercase tracking-wide mb-2">Voorraad</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] text-t3 font-semibold mb-1 block">Huidige voorraad</label>
+                <Input
+                  placeholder="0"
+                  type="number"
+                  value={stockQuantity}
+                  onChange={(e) => setStockQuantity(e.target.value)}
+                  className="text-[13px]"
+                  min="0"
+                  step="1"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-t3 font-semibold mb-1 block">Minimale voorraad</label>
+                <Input
+                  placeholder="0"
+                  type="number"
+                  value={minStockLevel}
+                  onChange={(e) => setMinStockLevel(e.target.value)}
+                  className="text-[13px]"
+                  min="0"
+                  step="1"
+                />
+                <p className="text-[10px] text-t3 mt-1">Alert als voorraad onder dit niveau zakt</p>
+              </div>
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <Button
               size="sm"
