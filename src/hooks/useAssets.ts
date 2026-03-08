@@ -77,7 +77,7 @@ export const useAssets = () => {
     queryFn: async () => {
       let q = supabase
         .from("assets" as any)
-        .select("*, customer:customers(id, name), address:addresses(id, street, house_number, city)")
+        .select("*, customer:customers(id, name), address:addresses(id, street, house_number, city, lat, lng)")
         .order("name");
       if (companyId) q = q.eq("company_id", companyId);
       const { data, error } = await q;
