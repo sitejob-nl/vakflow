@@ -65,11 +65,13 @@ const DashboardPage = () => {
   const queryClient = useQueryClient();
   const { labels, industry } = useIndustryConfig();
   const isAutomotive = industry === "automotive";
+  const isCleaning = industry === "cleaning";
   const { data: todayAppts, isLoading: loadingAppts } = useTodayAppointments();
   const { data: stats, isLoading: loadingStats } = useDashboardStats();
   const { data: reminders, isLoading: loadingReminders } = useReminders();
   const { data: recentWOs } = useRecentWorkOrders();
   const { data: autoStats } = useAutomotiveDashboardStats();
+  const { data: cleaningStats } = useCleaningDashboardStats();
 
   const [apptDialogOpen, setApptDialogOpen] = useState(false);
   const [woDialogOpen, setWoDialogOpen] = useState(false);
