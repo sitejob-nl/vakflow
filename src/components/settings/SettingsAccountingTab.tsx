@@ -140,7 +140,7 @@ const SettingsAccountingTab = () => {
       {provider === "eboekhouden" && (
         <div className="border-t border-border pt-5 space-y-3">
           <h3 className="text-[14px] font-bold">e-Boekhouden instellingen</h3>
-          {tokenField("API Token", "eboekhouden_api_token", hasTokens.eboekhouden)}
+          <TokenField label="API Token" fieldName="eboekhouden_api_token" hasToken={hasTokens.eboekhouden} saving={saving} onSave={handleSaveToken} />
           {field("Grootboek-ID", "eboekhouden_ledger_id", "Bijv. 8000")}
           {field("Template-ID", "eboekhouden_template_id", "Bijv. 1")}
           {field("Debiteuren Grootboek-ID", "eboekhouden_debtor_ledger_id", "Bijv. 1300")}
