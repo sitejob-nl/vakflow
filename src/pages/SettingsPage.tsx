@@ -48,7 +48,7 @@ const TAB_FEATURE_MAP: Record<string, string> = {
 const ADMIN_ONLY_TABS = new Set([
   "Bedrijfsgegevens", "Diensten", "Materialen", "Objectvelden", "Sjablonen",
   "Werkplaats", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates",
-  "Automatiseringen", "APK-herinneringen", "Teamleden", "Koppelingen", "Meta", "Leads",
+  "Automatiseringen", "APK-herinneringen", "Teamleden", "Koppelingen", "Meta", "Leads", "API Keys",
 ]);
 
 const TabFallback = () => (
