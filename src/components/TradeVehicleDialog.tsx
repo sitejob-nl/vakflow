@@ -27,6 +27,7 @@ const severityColors: Record<string, string> = {
 };
 
 export const TradeVehicleDialog = ({ open, onOpenChange, vehicle, onSave }: Props) => {
+  const { data: customers } = useCustomers();
   const [form, setForm] = useState({
     license_plate: "",
     brand: "",
