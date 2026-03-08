@@ -11,6 +11,8 @@ const PortalLayout = () => {
   const tabs = [
     { path: "/portal/quotes", label: "Offertes", icon: FileText },
     { path: "/portal/workorders", label: "Werkbonnen", icon: Wrench },
+    { path: "/portal/appointments", label: "Afspraken", icon: CalendarPlus },
+    { path: "/portal/vehicles", label: "Voertuigen", icon: Car },
   ];
 
   return (

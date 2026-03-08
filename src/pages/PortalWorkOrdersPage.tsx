@@ -30,6 +30,23 @@ const statusLabels: Record<string, string> = {
 const PortalWorkOrdersPage = () => {
   const { customerId } = usePortalAuth();
   const [selected, setSelected] = useState<any | null>(null);
+  const queryClient = useQueryClient();
+
+  // Realtime subscription for work order status changes
+  useEffect(() => {
+    if (!customerId) return;
+    const channel = supabase
+      .channel("portal-wo-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "work_orders", filter: `customer_id=eq.${customerId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["portal-workorders", customerId] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [customerId, queryClient]);
 
   const { data: workOrders, isLoading } = useQuery({
     queryKey: ["portal-workorders", customerId],

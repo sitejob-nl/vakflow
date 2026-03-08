@@ -112,6 +112,8 @@ const App = () => (
                 <Route index element={<Navigate to="/portal/quotes" replace />} />
                 <Route path="quotes" element={<PortalQuotesPage />} />
                 <Route path="workorders" element={<PortalWorkOrdersPage />} />
+                <Route path="appointments" element={<PortalAppointmentsPage />} />
+                <Route path="vehicles" element={<PortalVehiclesPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
