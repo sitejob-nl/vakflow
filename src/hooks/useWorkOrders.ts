@@ -80,7 +80,7 @@ export const useWorkOrder = (id: string | undefined) => {
     queryFn: async () => {
       let q = supabase
         .from("work_orders")
-        .select("*, customers(name, address, city, contact_person, phone, email), services(name, color, price, category)")
+        .select("*, customers(name, address, city, contact_person, phone, email), services(name, color, price, category), vehicles(license_plate, brand, model, mileage_current)")
         .eq("id", id!);
       if (companyId) q = q.eq("company_id", companyId);
       const { data, error } = await q.maybeSingle();

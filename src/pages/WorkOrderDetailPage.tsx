@@ -1,23 +1,26 @@
 import { useNavigation } from "@/hooks/useNavigation";
 import { useWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
 import { useCreateInvoice } from "@/hooks/useInvoices";
-import { Loader2, Plus, Download } from "lucide-react";
+import { Loader2, Plus, Download, AlertTriangle } from "lucide-react";
 import PhotoUpload from "@/components/PhotoUpload";
 import WorkOrderTimer from "@/components/WorkOrderTimer";
 import WorkOrderMaterials from "@/components/WorkOrderMaterials";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { useCreateMileageLog } from "@/hooks/useVehicles";
 
 interface NoteItem {
   text: string;
@@ -50,6 +53,22 @@ const WorkOrderDetailPage = () => {
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [mileageInput, setMileageInput] = useState("");
+  const createMileageLog = useCreateMileageLog();
+
+  // Determine if this work order has a vehicle
+  const vehicleId = (wo as any)?.vehicle_id as string | null;
+  const currentMileage = (wo as any)?.vehicles?.mileage_current as number | null;
+
+  // Mileage anomaly detection
+  const mileageValue = mileageInput ? parseInt(mileageInput, 10) : null;
+  const mileageAnomaly = (() => {
+    if (!mileageValue || !currentMileage) return null;
+    if (mileageValue < currentMileage) return "De ingevoerde kilometerstand is lager dan de huidige stand. Controleer of dit klopt.";
+    const diff = mileageValue - currentMileage;
+    if (diff > 50000) return `De ingevoerde stand is ${diff.toLocaleString("nl-NL")} km hoger dan de huidige. Controleer of dit klopt.`;
+    return null;
+  })();
 
   const handleDownloadPdf = async () => {
     if (!wo) return;
@@ -112,12 +131,27 @@ const WorkOrderDetailPage = () => {
 
   const handleStatusChange = async (status: string) => {
     try {
+      // Log mileage if provided and vehicle is linked
+      if (status === "afgerond" && vehicleId && mileageValue && mileageValue > 0) {
+        try {
+          await createMileageLog.mutateAsync({
+            vehicle_id: vehicleId,
+            mileage: mileageValue,
+            work_order_id: wo.id,
+            recorded_at: new Date().toISOString(),
+          } as any);
+        } catch (mileageErr: any) {
+          console.error("Mileage log failed:", mileageErr);
+        }
+      }
+
       await updateWO.mutateAsync({
         id: wo.id,
         status,
         completed_at: status === "afgerond" ? new Date().toISOString() : null,
       });
       toast({ title: `Status gewijzigd naar ${statusLabel[status]}` });
+      setMileageInput("");
 
       // Trigger automation on completion
       if (status === "afgerond") {
@@ -443,7 +477,7 @@ const WorkOrderDetailPage = () => {
       <WorkOrderDialog open={editOpen} onOpenChange={setEditOpen} workOrder={wo} />
 
       {/* Confirmation dialog for finishing */}
-      <AlertDialog open={confirmFinish} onOpenChange={setConfirmFinish}>
+      <AlertDialog open={confirmFinish} onOpenChange={(open) => { setConfirmFinish(open); if (!open) setMileageInput(""); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{labels.workOrder} afronden?</AlertDialogTitle>
@@ -451,6 +485,35 @@ const WorkOrderDetailPage = () => {
               Weet je zeker dat je deze {labels.workOrder.toLowerCase()} wilt afronden? Dit markeert de {labels.workOrder.toLowerCase()} als voltooid.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {/* Mileage input — only show when vehicle is linked */}
+          {vehicleId && (
+            <div className="space-y-2 py-2">
+              <Label htmlFor="mileage-input" className="text-sm font-medium">
+                Kilometerstand bij aflevering
+              </Label>
+              <Input
+                id="mileage-input"
+                type="number"
+                placeholder={currentMileage ? `Huidige stand: ${currentMileage.toLocaleString("nl-NL")} km` : "Voer kilometerstand in"}
+                value={mileageInput}
+                onChange={(e) => setMileageInput(e.target.value)}
+                min={0}
+              />
+              {currentMileage != null && (
+                <p className="text-xs text-muted-foreground">
+                  Laatst geregistreerde stand: {currentMileage.toLocaleString("nl-NL")} km
+                </p>
+              )}
+              {mileageAnomaly && (
+                <div className="flex items-start gap-2 p-2.5 rounded-md bg-destructive/10 border border-destructive/20">
+                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                  <p className="text-xs text-destructive font-medium">{mileageAnomaly}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           <AlertDialogFooter>
             <AlertDialogCancel>Annuleren</AlertDialogCancel>
             <AlertDialogAction onClick={() => handleStatusChange("afgerond")}>Afronden</AlertDialogAction>
