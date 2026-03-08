@@ -1,51 +1,62 @@
 
 
-## Agenda UI Verbetering — Look & Feel + Leesbaarheid
+# Ontbrekende Indexen, Edge Function Fixes & Branche-afronding
 
-### Problemen
+## Samenvatting
 
-1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
-2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
+Vijf ontbrekende database-indexen toevoegen, twee edge function bugs fixen (ai-intake `work_order_type` conditie en rdw-lookup caching), en de bestaande CleanFlow Fase 2 frontend + AutoFlow rapportages afronden.
 
-### Aanpak
+---
 
-**1. Grotere tijdslots en events**
-- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
-- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
-- Meer ruimte voor service-naam en stad onder de klantnaam
+## 1. Database — Ontbrekende indexen
 
-**2. Event cards verbeteren**
-- Subtielere achtergrondkleur met betere contrast
-- Lichte shadow toevoegen aan events voor diepte
-- Rounded corners vergroten, padding verruimen
-- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
-- Hover-effect verbeteren met schaal + shadow
+Eén migratie met vijf `CREATE INDEX IF NOT EXISTS`:
 
-**3. Toolbar opschonen (desktop)**
-- Knoppen groeperen met visuele scheiders
-- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
-- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
-- Badge voor aantal afspraken subtieler
+| Index | Tabel | Kolom |
+|---|---|---|
+| `idx_vehicles_customer_id` | `vehicles` | `customer_id` |
+| `idx_object_rooms_asset_id` | `object_rooms` | `asset_id` |
+| `idx_fleet_vehicle_types_asset_id` | `fleet_vehicle_types` | `asset_id` |
+| `idx_quality_audits_asset_id` | `quality_audits` | `asset_id` |
+| `idx_audit_room_scores_audit_id` | `audit_room_scores` | `audit_id` |
 
-**4. Dagkolom headers verbeteren (desktop weekview)**
-- Datum groter en duidelijker, weekdag + dagnummer gescheiden
-- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+---
 
-**5. Zijpaneel styling**
-- Subtielere card-styling, betere spacing
-- Status-dots vergroten in de afsprakenlijst
-- Betere typografie-hiërarchie
+## 2. Edge Function — ai-intake fix
 
-**6. Mobile day view**
-- Zelfde slot-hoogte verbetering
-- Events met meer padding en grotere tekst
+In `supabase/functions/ai-intake/index.ts`: de `work_order_type` property wordt nu altijd in het JSON schema gezet en pas daarna conditioneel voor automotive toegevoegd. Maar het `required` array en de `properties` object worden al vóór de conditie opgebouwd — het probleem is dat `work_order_type` alleen wordt toegevoegd als `isAutomotive`, wat al correct is (regel 130-136). 
 
-### Bestanden
+**Herbeoordeling**: de huidige code voegt `work_order_type` correct alleen toe voor automotive. Geen fix nodig — dit is al goed geïmplementeerd.
 
-| Bestand | Wijziging |
+---
+
+## 3. Edge Function — rdw-lookup caching
+
+De `rdw-lookup` function heeft al een `rdw_defect_descriptions` cachetabel met 7-dagen vervaltijd. De huidige implementatie:
+- Checkt cache freshness op basis van `updated_at` van eerste record
+- Haalt max 5000 beschrijvingen op bij cache-miss
+- Upsert in batches van 500
+
+**Herbeoordeling**: caching is al geïmplementeerd. De oorspronkelijke opmerking ("haalt elke keer 2000 op") klopt niet meer — dit is al opgelost met de cachetabel.
+
+---
+
+## 4. Conclusie na inspectie
+
+Na het controleren van de code blijkt:
+- **ai-intake**: `work_order_type` wordt al conditioneel toegevoegd (alleen automotive) ✓
+- **rdw-lookup**: caching via `rdw_defect_descriptions` tabel is al geïmplementeerd ✓
+- **Ontbrekende indexen**: dit is het enige echte probleem — 5 indexen missen
+
+De enige wijziging die nodig is: **één database-migratie met 5 indexen**.
+
+De genoemde "CleanFlow Fase 2 frontend" (AuditDialog, AuditsPage, FrequencyComplianceReport) is al volledig gebouwd in de vorige implementatie. AutoFlow rapportages en voorraad zijn bestaande features (materials met stock_quantity, useAutomotiveReports hook).
+
+---
+
+## Bestandsoverzicht
+
+| Bestand | Actie |
 |---|---|
-| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
-| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
-
-Geen database-wijzigingen, geen nieuwe dependencies.
+| Migratie SQL | 5 ontbrekende indexen |
 
