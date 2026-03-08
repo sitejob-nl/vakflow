@@ -297,6 +297,8 @@ Deno.serve(async (req) => {
               City: cust.city || undefined,
               Postcode: cust.postal_code || undefined,
               AddressLine1: cust.address || undefined,
+              ...(cust.kvk_number ? { ChamberOfCommerce: cust.kvk_number } : {}),
+              ...(cust.btw_number ? { VATNumber: cust.btw_number } : {}),
             };
 
             const result = await exactPut(
