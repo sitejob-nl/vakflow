@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useAudits, useAudit, useDeleteAudit, type QualityAudit } from "@/hooks/useQualityAudits";
+import { useAssets } from "@/hooks/useAssets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7,8 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Trash2, ClipboardCheck, Loader2, Star } from "lucide-react";
+import { Plus, Search, Trash2, ClipboardCheck, Loader2, Star, TrendingUp, TrendingDown, Minus, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import AuditDialog from "@/components/AuditDialog";
@@ -28,23 +30,58 @@ const statusBadge: Record<string, string> = {
 
 const AuditsPage = () => {
   const { data: audits, isLoading } = useAudits();
+  const { data: assets } = useAssets();
   const deleteAudit = useDeleteAudit();
   const [search, setSearch] = useState("");
+  const [assetFilter, setAssetFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const { data: detailAudit } = useAudit(detailId);
 
+  const activeAssets = useMemo(() => (assets ?? []).filter((a) => a.status === "actief"), [assets]);
+
   const filtered = useMemo(() => {
     if (!audits) return [];
+    let list = audits;
+    if (assetFilter !== "all") {
+      list = list.filter((a) => a.asset_id === assetFilter);
+    }
     const q = search.toLowerCase();
-    if (!q) return audits;
-    return audits.filter((a) =>
-      [a.asset?.name, a.auditor?.full_name, a.status]
-        .filter(Boolean)
-        .some((v) => v!.toLowerCase().includes(q))
-    );
-  }, [audits, search]);
+    if (q) {
+      list = list.filter((a) =>
+        [a.asset?.name, a.auditor?.full_name, a.status]
+          .filter(Boolean)
+          .some((v) => v!.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [audits, search, assetFilter]);
+
+  // Per-asset audit summary with trend
+  const assetAuditSummary = useMemo(() => {
+    if (!audits || !assets) return [];
+    const map = new Map<string, { asset: any; audits: QualityAudit[] }>();
+    for (const audit of audits) {
+      if (audit.status !== "afgerond") continue;
+      if (!map.has(audit.asset_id)) {
+        map.set(audit.asset_id, { asset: audit.asset, audits: [] });
+      }
+      map.get(audit.asset_id)!.audits.push(audit);
+    }
+    return Array.from(map.values()).map(({ asset, audits: aList }) => {
+      const sorted = aList.sort((a, b) => new Date(b.audit_date).getTime() - new Date(a.audit_date).getTime());
+      const latest = sorted[0]?.overall_score ?? null;
+      const previous = sorted[1]?.overall_score ?? null;
+      let trend: "up" | "down" | "stable" | null = null;
+      if (latest !== null && previous !== null) {
+        if (latest > previous) trend = "up";
+        else if (latest < previous) trend = "down";
+        else trend = "stable";
+      }
+      return { assetId: asset?.id, assetName: asset?.name ?? "Onbekend", count: sorted.length, latestScore: latest, trend, lastDate: sorted[0]?.audit_date };
+    }).sort((a, b) => (a.assetName).localeCompare(b.assetName));
+  }, [audits, assets]);
 
   return (
     <div className="space-y-4">
@@ -58,13 +95,25 @@ const AuditsPage = () => {
       <Tabs defaultValue="audits">
         <TabsList>
           <TabsTrigger value="audits">Audits</TabsTrigger>
+          <TabsTrigger value="per-object">Per object</TabsTrigger>
           <TabsTrigger value="compliance">Frequentie-naleving</TabsTrigger>
         </TabsList>
 
         <TabsContent value="audits" className="space-y-4 mt-4">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Zoek op object, auditor..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative max-w-sm flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="Zoek op object, auditor..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            </div>
+            <Select value={assetFilter} onValueChange={setAssetFilter}>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Alle objecten" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle objecten</SelectItem>
+                {activeAssets.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {isLoading ? (
@@ -121,6 +170,40 @@ const AuditsPage = () => {
                 </TableBody>
               </Table>
             </Card>
+          )}
+        </TabsContent>
+
+        {/* Per-object audit overview with trends */}
+        <TabsContent value="per-object" className="space-y-4 mt-4">
+          {assetAuditSummary.length === 0 ? (
+            <Card><CardContent className="py-12 text-center text-muted-foreground">
+              <ClipboardCheck className="mx-auto w-10 h-10 mb-2 opacity-40" />
+              Nog geen afgeronde audits
+            </CardContent></Card>
+          ) : (
+            <div className="space-y-2">
+              {assetAuditSummary.map((item) => (
+                <Card key={item.assetId} className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => setAssetFilter(item.assetId!)}>
+                  <CardContent className="p-4 flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{item.assetName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {item.count} audit{item.count !== 1 ? "s" : ""}
+                        {item.lastDate && ` · Laatst: ${format(new Date(item.lastDate), "d MMM yyyy", { locale: nl })}`}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {item.trend === "up" && <TrendingUp className="w-4 h-4 text-green-600" />}
+                      {item.trend === "down" && <TrendingDown className="w-4 h-4 text-destructive" />}
+                      {item.trend === "stable" && <Minus className="w-4 h-4 text-muted-foreground" />}
+                      <Badge variant="secondary" className={scoreColor(item.latestScore)}>
+                        {item.latestScore?.toFixed(1) ?? "—"}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
         </TabsContent>
 
@@ -192,6 +275,13 @@ const AuditsPage = () => {
                     ))}
                   </div>
                 )}
+
+                {/* PDF export placeholder */}
+                <div className="pt-2 border-t">
+                  <Button variant="outline" size="sm" className="w-full" disabled>
+                    <FileText className="w-4 h-4 mr-1" /> Rapport genereren (binnenkort)
+                  </Button>
+                </div>
               </div>
             </>
           )}

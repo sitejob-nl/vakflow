@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Pencil, Trash2, History, Box, Loader2, Building2, Truck, Package } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, History, Box, Loader2, Building2, Truck, Package, Map, List } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { nl } from "date-fns/locale";
 import AssetDialog from "@/components/AssetDialog";
@@ -46,6 +46,13 @@ const getDueBadge = (nextDue: string | null) => {
   return { label: format(new Date(nextDue), "d MMM", { locale: nl }), class: "bg-muted text-muted-foreground" };
 };
 
+const qualityBadgeClass = (score: number | null) => {
+  if (!score) return "bg-muted text-muted-foreground";
+  if (score >= 4) return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+  if (score >= 3) return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
+  return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+};
+
 const AssetsPage = () => {
   const { data: assets, isLoading } = useAssets();
   const createAsset = useCreateAsset();
@@ -55,12 +62,12 @@ const AssetsPage = () => {
   const { industry } = useIndustryConfig();
   const isCleaning = industry === "cleaning";
 
-  // Load custom field config (object types with fields)
+  // Load custom field config
   const { data: rawFieldConfig } = useQuery({
     queryKey: ["asset_field_config", companyId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("companies")
+        .from("companies_safe" as any)
         .select("asset_field_config")
         .eq("id", companyId!)
         .single();
@@ -69,15 +76,32 @@ const AssetsPage = () => {
     enabled: !!companyId,
   });
 
-  // Normalize config: support both ObjectTypeDef[] and legacy flat FieldDef[]
   const objectTypes = useMemo(() => {
     if (!rawFieldConfig || rawFieldConfig.length === 0) return [] as Array<{ key: string; label: string; fields: Array<{ key: string; label: string; type: string; options?: string[] }> }>;
     if (rawFieldConfig[0]?.fields) return rawFieldConfig as Array<{ key: string; label: string; fields: Array<{ key: string; label: string; type: string; options?: string[] }> }>;
     return [{ key: "__legacy", label: "Overig", fields: rawFieldConfig as Array<{ key: string; label: string; type: string; options?: string[] }> }];
   }, [rawFieldConfig]);
 
+  // Room counts per asset for cleaning
+  const { data: roomCounts } = useQuery({
+    queryKey: ["asset_room_counts", companyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("object_rooms" as any)
+        .select("asset_id")
+        .eq("company_id", companyId!);
+      const counts: Record<string, number> = {};
+      (data ?? []).forEach((r: any) => {
+        counts[r.asset_id] = (counts[r.asset_id] || 0) + 1;
+      });
+      return counts;
+    },
+    enabled: !!companyId && isCleaning,
+  });
+
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -147,6 +171,18 @@ const AssetsPage = () => {
     );
   };
 
+  // KPI summary for cleaning
+  const kpis = useMemo(() => {
+    if (!isCleaning || !assets) return null;
+    const active = assets.filter((a) => a.status === "actief");
+    const buildings = active.filter((a) => a.object_type === "building");
+    const fleets = active.filter((a) => a.object_type === "fleet");
+    const totalSurface = buildings.reduce((s, a) => s + (a.surface_area || 0), 0);
+    const scores = active.map((a) => (a as any).avg_quality_score).filter(Boolean) as number[];
+    const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+    return { buildings: buildings.length, fleets: fleets.length, totalSurface, avgScore };
+  }, [assets, isCleaning]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -155,6 +191,30 @@ const AssetsPage = () => {
           <Plus className="w-4 h-4 mr-1" /> Object toevoegen
         </Button>
       </div>
+
+      {/* Cleaning KPI summary */}
+      {isCleaning && kpis && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card><CardContent className="p-3">
+            <div className="text-xs text-muted-foreground font-semibold uppercase">Panden</div>
+            <div className="text-2xl font-extrabold font-mono">{kpis.buildings}</div>
+          </CardContent></Card>
+          <Card><CardContent className="p-3">
+            <div className="text-xs text-muted-foreground font-semibold uppercase">Wagenparken</div>
+            <div className="text-2xl font-extrabold font-mono">{kpis.fleets}</div>
+          </CardContent></Card>
+          <Card><CardContent className="p-3">
+            <div className="text-xs text-muted-foreground font-semibold uppercase">Totaal m²</div>
+            <div className="text-2xl font-extrabold font-mono">{kpis.totalSurface.toLocaleString("nl-NL")}</div>
+          </CardContent></Card>
+          <Card><CardContent className="p-3">
+            <div className="text-xs text-muted-foreground font-semibold uppercase">Gem. score</div>
+            <div className={`text-2xl font-extrabold font-mono ${kpis.avgScore ? (kpis.avgScore >= 4 ? "text-green-600" : kpis.avgScore >= 3 ? "text-yellow-600" : "text-destructive") : ""}`}>
+              {kpis.avgScore?.toFixed(1) ?? "—"}
+            </div>
+          </CardContent></Card>
+        </div>
+      )}
 
       <div className="flex items-center gap-3 flex-wrap">
         {isCleaning && (
@@ -174,6 +234,16 @@ const AssetsPage = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Zoek op naam, type, merk..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
+        {isCleaning && (
+          <div className="flex border border-border rounded-md overflow-hidden">
+            <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" className="rounded-none h-9 w-9" onClick={() => setViewMode("list")}>
+              <List className="w-4 h-4" />
+            </Button>
+            <Button variant={viewMode === "map" ? "secondary" : "ghost"} size="icon" className="rounded-none h-9 w-9" onClick={() => setViewMode("map")}>
+              <Map className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -182,6 +252,40 @@ const AssetsPage = () => {
         <Card><CardContent className="py-12 text-center text-muted-foreground">
           <Box className="mx-auto w-10 h-10 mb-2 opacity-40" />
           {search ? "Geen objecten gevonden" : "Nog geen objecten aangemaakt"}
+        </CardContent></Card>
+      ) : viewMode === "map" && isCleaning ? (
+        /* Map view placeholder - shows objects with addresses */
+        <Card><CardContent className="py-12 text-center text-muted-foreground">
+          <Map className="mx-auto w-10 h-10 mb-2 opacity-40" />
+          <p className="text-sm font-medium mb-1">Kaartweergave</p>
+          <p className="text-xs">Objecten met een adres worden op de kaart getoond.</p>
+          <div className="mt-4 space-y-2 text-left max-w-md mx-auto">
+            {filtered.filter((a) => a.address).map((asset) => (
+              <div
+                key={asset.id}
+                className="flex items-center gap-3 p-2.5 bg-muted/50 rounded-md cursor-pointer hover:bg-muted"
+                onClick={() => setDetailAsset(asset)}
+              >
+                {asset.object_type === "fleet" ? <Truck className="w-4 h-4 text-muted-foreground" /> : <Building2 className="w-4 h-4 text-muted-foreground" />}
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{asset.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {[asset.address?.street, asset.address?.house_number, asset.address?.city].filter(Boolean).join(" ")}
+                  </div>
+                </div>
+                {(asset as any).avg_quality_score && (
+                  <Badge variant="secondary" className={qualityBadgeClass((asset as any).avg_quality_score)}>
+                    {(asset as any).avg_quality_score?.toFixed(1)}
+                  </Badge>
+                )}
+              </div>
+            ))}
+            {filtered.filter((a) => !a.address).length > 0 && (
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                {filtered.filter((a) => !a.address).length} object(en) zonder adres
+              </p>
+            )}
+          </div>
         </CardContent></Card>
       ) : (
         <>
@@ -196,6 +300,8 @@ const AssetsPage = () => {
                 {!isCleaning && <TableHead>Merk / Model</TableHead>}
                 <TableHead>Klant</TableHead>
                 {isCleaning && <TableHead>Frequentie</TableHead>}
+                {isCleaning && <TableHead className="hidden lg:table-cell">m² / Voertuigen</TableHead>}
+                {isCleaning && <TableHead className="hidden lg:table-cell">Kamers</TableHead>}
                 {isCleaning && <TableHead>Volgende beurt</TableHead>}
                 {isCleaning && <TableHead className="hidden lg:table-cell">Score</TableHead>}
                 <TableHead>Status</TableHead>
@@ -205,6 +311,7 @@ const AssetsPage = () => {
             <TableBody>
               {filtered.map((asset) => {
                 const dueBadge = isCleaning ? getDueBadge(asset.next_service_due) : null;
+                const rooms = roomCounts?.[asset.id] || 0;
                 return (
                   <TableRow key={asset.id} className="cursor-pointer" onClick={() => setDetailAsset(asset)}>
                     {isCleaning && (
@@ -230,6 +337,18 @@ const AssetsPage = () => {
                       </TableCell>
                     )}
                     {isCleaning && (
+                      <TableCell className="hidden lg:table-cell text-muted-foreground">
+                        {asset.object_type === "fleet"
+                          ? (asset.vehicle_count ? `${asset.vehicle_count} voertuigen` : "—")
+                          : (asset.surface_area ? `${asset.surface_area} m²` : "—")}
+                      </TableCell>
+                    )}
+                    {isCleaning && (
+                      <TableCell className="hidden lg:table-cell text-muted-foreground">
+                        {asset.object_type === "building" ? (rooms || "—") : "—"}
+                      </TableCell>
+                    )}
+                    {isCleaning && (
                       <TableCell>
                         {dueBadge ? (
                           <Badge variant="secondary" className={dueBadge.class}>{dueBadge.label}</Badge>
@@ -239,11 +358,7 @@ const AssetsPage = () => {
                     {isCleaning && (
                       <TableCell className="hidden lg:table-cell">
                         {(asset as any).avg_quality_score ? (
-                          <Badge variant="secondary" className={
-                            (asset as any).avg_quality_score >= 4 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
-                            (asset as any).avg_quality_score >= 3 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                            "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                          }>
+                          <Badge variant="secondary" className={qualityBadgeClass((asset as any).avg_quality_score)}>
                             {(asset as any).avg_quality_score?.toFixed(1)}
                           </Badge>
                         ) : "—"}
@@ -294,7 +409,7 @@ const AssetsPage = () => {
                   <div className="text-[13px] font-bold truncate">{asset.name}</div>
                   <div className="text-[11px] text-muted-foreground truncate">
                     {asset.customer?.name || "—"}
-                    {asset.asset_type ? ` · ${asset.asset_type}` : ""}
+                    {isCleaning && asset.surface_area ? ` · ${asset.surface_area}m²` : ""}
                     {isCleaning && asset.frequency ? ` · ${FREQUENCY_LABELS[asset.frequency] || ""}` : ""}
                   </div>
                 </div>
@@ -302,6 +417,11 @@ const AssetsPage = () => {
                   <Badge variant="secondary" className={`text-[10px] ${statusColor[asset.status] || ""}`}>
                     {asset.status}
                   </Badge>
+                  {(asset as any).avg_quality_score && (
+                    <Badge variant="secondary" className={`text-[10px] ${qualityBadgeClass((asset as any).avg_quality_score)}`}>
+                      {(asset as any).avg_quality_score?.toFixed(1)}
+                    </Badge>
+                  )}
                   {dueBadge && (
                     <Badge variant="secondary" className={`text-[10px] ${dueBadge.class}`}>{dueBadge.label}</Badge>
                   )}
@@ -368,6 +488,21 @@ const AssetsPage = () => {
                           <div className="text-muted-foreground">Voertuigen</div><div>{detailAsset.vehicle_count}</div>
                         </>
                       )}
+                      {roomCounts && roomCounts[detailAsset.id] > 0 && (
+                        <>
+                          <div className="text-muted-foreground">Kamers</div><div>{roomCounts[detailAsset.id]}</div>
+                        </>
+                      )}
+                      {(detailAsset as any).avg_quality_score && (
+                        <>
+                          <div className="text-muted-foreground">Gem. score</div>
+                          <div>
+                            <Badge variant="secondary" className={qualityBadgeClass((detailAsset as any).avg_quality_score)}>
+                              {(detailAsset as any).avg_quality_score?.toFixed(1)} / 5.0
+                            </Badge>
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
                   {!isCleaning && (
@@ -394,51 +529,28 @@ const AssetsPage = () => {
                   <div className="text-sm"><span className="text-muted-foreground">Notities:</span> {detailAsset.notes}</div>
                 )}
 
-                {/* Custom fields based on object type */}
+                {/* Custom fields */}
                 {(() => {
-                  // Find matching object type fields for this asset
                   const assetTypeKey = detailAsset.asset_type || "";
                   let activeFields: Array<{ key: string; label: string; type: string }> = [];
                   const matchedType = objectTypes.find((ot) => ot.key === assetTypeKey);
-                  if (matchedType) {
-                    activeFields = matchedType.fields;
-                  } else if (objectTypes.length === 1 && objectTypes[0].key === "__legacy") {
-                    activeFields = objectTypes[0].fields;
-                  }
-
+                  if (matchedType) activeFields = matchedType.fields;
+                  else if (objectTypes.length === 1 && objectTypes[0].key === "__legacy") activeFields = objectTypes[0].fields;
                   if (activeFields.length === 0 || !detailAsset.custom_fields) return null;
-
                   const items = activeFields.map((fd) => {
                     const val = (detailAsset.custom_fields as any)?.[fd.key];
                     if (val === null || val === undefined || val === "") return null;
                     let display: string;
-                    if (fd.type === "boolean") {
-                      display = val ? "Ja" : "Nee";
-                    } else if (fd.type === "date" && val) {
-                      try {
-                        display = fmtDate(new Date(val), "d MMM yyyy", { locale: nlLocale });
-                      } catch {
-                        display = String(val);
-                      }
-                    } else {
-                      display = String(val);
-                    }
-                    return (
-                      <div key={fd.key} className="contents">
-                        <div className="text-muted-foreground">{fd.label}</div>
-                        <div>{display}</div>
-                      </div>
-                    );
+                    if (fd.type === "boolean") display = val ? "Ja" : "Nee";
+                    else if (fd.type === "date" && val) { try { display = fmtDate(new Date(val), "d MMM yyyy", { locale: nlLocale }); } catch { display = String(val); } }
+                    else display = String(val);
+                    return (<div key={fd.key} className="contents"><div className="text-muted-foreground">{fd.label}</div><div>{display}</div></div>);
                   }).filter(Boolean);
-
                   if (items.length === 0) return null;
-
                   return (
                     <div className="pt-2 border-t">
                       <h3 className="font-semibold mb-2 text-sm">Extra velden</h3>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-                        {items}
-                      </div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">{items}</div>
                     </div>
                   );
                 })()}
