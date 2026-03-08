@@ -363,6 +363,8 @@ const SettingsPage = () => {
   const [wefactPullingStatus, setWefactPullingStatus] = useState(false);
   const [wefactSyncingQuotes, setWefactSyncingQuotes] = useState(false);
   const [wefactPullingQuotes, setWefactPullingQuotes] = useState(false);
+  const [wefactSyncingProducts, setWefactSyncingProducts] = useState(false);
+  const [wefactPullingProducts, setWefactPullingProducts] = useState(false);
   const syncContactsWefact = useSyncContactsWefact();
   const syncInvoicesWefact = useSyncInvoicesWefact();
   const pullContactsWefact = usePullContactsWefact();
@@ -370,6 +372,8 @@ const SettingsPage = () => {
   const pullInvoiceStatusWefact = usePullInvoiceStatusWefact();
   const syncQuotesWefact = useSyncQuotesWefact();
   const pullQuotesWefact = usePullQuotesWefact();
+  const syncProductsWefact = useSyncProductsWefact();
+  const pullProductsWefact = usePullProductsWefact();
 
   // Team members state
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
