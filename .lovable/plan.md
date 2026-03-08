@@ -1,51 +1,106 @@
 
 
-## Agenda UI Verbetering — Look & Feel + Leesbaarheid
+# Exact Online Sync — Fixes voor 6 problemen
 
-### Problemen
+## Overzicht
 
-1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
-2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
+Er zijn 6 problemen geïdentificeerd in de sync-exact Edge Function. Hieronder de aanpak per probleem, geordend op prioriteit.
 
-### Aanpak
+---
 
-**1. Grotere tijdslots en events**
-- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
-- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
-- Meer ruimte voor service-naam en stad onder de klantnaam
+## Probleem 1 — Factuurregels zonder GLAccount (MEDIUM)
 
-**2. Event cards verbeteren**
-- Subtielere achtergrondkleur met betere contrast
-- Lichte shadow toevoegen aan events voor diepte
-- Rounded corners vergroten, padding verruimen
-- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
-- Hover-effect verbeteren met schaal + shadow
+**Huidige situatie:** Factuurregels worden gestuurd met alleen `Description`, `Quantity`, `NetPrice`. De hardcoded `Journal: "70"` werkt niet voor elk bedrijf.
 
-**3. Toolbar opschonen (desktop)**
-- Knoppen groeperen met visuele scheiders
-- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
-- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
-- Badge voor aantal afspraken subtieler
+**Fix:**
+- Kolom `journal_code` toevoegen aan `exact_config` (default `"70"`)
+- In sync-exact de hardcoded `"70"` vervangen door `config.journal_code || "70"`
+- GLAccount/Item niet toevoegen — Type 8023 werkt zonder bij standaard Exact configuraties. Een toekomstige uitbreiding kan een `default_gl_account` veld toevoegen.
 
-**4. Dagkolom headers verbeteren (desktop weekview)**
-- Datum groter en duidelijker, weekdag + dagnummer gescheiden
-- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+---
 
-**5. Zijpaneel styling**
-- Subtielere card-styling, betere spacing
-- Status-dots vergroten in de afsprakenlijst
-- Betere typografie-hiërarchie
+## Probleem 2 — VATNumber en ChamberOfCommerce ontbreken (MEDIUM)
 
-**6. Mobile day view**
-- Zelfde slot-hoogte verbetering
-- Events met meer padding en grotere tekst
+**Huidige situatie:** Bij push van klanten naar Exact worden `btw_number` en `kvk_number` niet meegestuurd, terwijl die wel op de `customers` tabel staan (via de `companies` tabel, maar klant-specifieke waarden ontbreken).
 
-### Bestanden
+**Fix:**
+- In `sync-contacts` en `ensureExactAccount`: customer `kvk_number` en `btw_number` meesturen als `ChamberOfCommerce` en `VATNumber`.
+- Probleem: de `customers` tabel heeft geen `kvk_number` of `btw_number` kolommen. Alleen `companies` heeft die. Voor zakelijke klanten (`type = 'zakelijk'`) zou dit relevant zijn.
+- **Aanpak:** Twee kolommen toevoegen aan `customers`: `kvk_number` en `btw_number`. Dan meesturen in de Exact Account push.
 
-| Bestand | Wijziging |
+---
+
+## Probleem 3 — Offerte-sync slaat exact_id niet op (MEDIUM)
+
+**Huidige situatie:** De `quotes` tabel heeft geen `exact_id` kolom. Bij sync worden offertes telkens opnieuw gepusht — geen deduplicatie.
+
+**Fix:**
+- Kolom `exact_id text` toevoegen aan `quotes` tabel
+- In `sync-quotes` (regel 648-652): na succesvolle push het `QuotationID` opslaan
+- In `create-quote` (regel 844-847): idem
+- Filter `.is("exact_id", null)` toevoegen aan sync-quotes query (zoals bij sync-invoices)
+
+---
+
+## Probleem 4 — pull-invoices status mapping (LAAG)
+
+**Huidige situatie:** Status is al `"verzonden"` op regel 505. Dit is correct.
+
+**Fix:** Geen actie nodig — al gefixt.
+
+---
+
+## Probleem 5 — Geen product-sync (INFO)
+
+Geen actie in deze batch. Kan later worden toegevoegd als feature request.
+
+---
+
+## Probleem 6 — Geen webhook-registratie (INFO)
+
+Geen actie in deze batch. De `exact-webhook` endpoint bestaat al maar wordt niet actief geregistreerd.
+
+---
+
+## Technisch plan
+
+### Migratie (1 SQL bestand)
+
+```sql
+-- 1. exact_id op quotes
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS exact_id text;
+
+-- 2. journal_code op exact_config
+ALTER TABLE exact_config ADD COLUMN IF NOT EXISTS journal_code text DEFAULT '70';
+
+-- 3. kvk_number en btw_number op customers
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS kvk_number text;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS btw_number text;
+```
+
+### Edge Function: sync-exact/index.ts
+
+| Locatie | Wijziging |
 |---|---|
-| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
-| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+| `ensureExactAccount` (regel 146-155) | `ChamberOfCommerce` en `VATNumber` toevoegen |
+| `sync-contacts` push (regel 251-259) | Idem |
+| `sync-contacts` update (regel 289-295) | Idem |
+| `sync-invoices` (regel 412) | `Journal: config.journal_code \|\| "70"` |
+| `create-invoice` (regel 769) | Idem |
+| `sync-quotes` (regel 602) | Filter `.is("exact_id", null)` toevoegen |
+| `sync-quotes` (regel 648-652) | `exact_id` opslaan na push |
+| `create-quote` (regel 844-847) | `exact_id` opslaan na push |
 
-Geen database-wijzigingen, geen nieuwe dependencies.
+### Frontend types
+
+De types worden automatisch bijgewerkt na migratie (Supabase type gen).
+
+---
+
+## Samenvatting acties
+
+1. **Migratie**: 3 schema-wijzigingen (quotes.exact_id, exact_config.journal_code, customers.kvk_number/btw_number)
+2. **Edge Function**: 8 wijzigingen in sync-exact/index.ts
+3. **Geen frontend-wijzigingen nodig** — de nieuwe kolommen worden alleen door de Edge Function gebruikt
+4. **Herimplementatie** van de Edge Function
 
