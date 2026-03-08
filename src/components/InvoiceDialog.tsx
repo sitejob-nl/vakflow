@@ -27,7 +27,7 @@ interface Props {
 const emptyItem = (): QuoteItem => ({ description: "", qty: 1, unit_price: 0, total: 0 });
 const emptyOptional = (): OptionalItem => ({ description: "", price: 0 });
 
-const InvoiceDialog = ({ open, onOpenChange, editInvoice, projectId }: Props) => {
+const InvoiceDialog = ({ open, onOpenChange, editInvoice, projectId, prefillCustomerId }: Props) => {
   const { data: customers } = useCustomers();
   const { data: allTemplates } = useCombinedTemplates();
   const createInvoice = useCreateInvoice();
