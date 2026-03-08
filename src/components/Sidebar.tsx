@@ -1,7 +1,7 @@
 import { useNavigation, type Page } from "@/hooks/useNavigation";
 import {
   LayoutGrid, Calendar, Users, FileText, DollarSign,
-  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car, Repeat, CalendarCheck, ClipboardCheck
+  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car, Repeat, CalendarCheck, ClipboardCheck, FolderKanban
 } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { useLowStockCount } from "@/hooks/useMaterials";
