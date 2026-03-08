@@ -40,6 +40,7 @@ const QuotesPage = () => {
   const syncQuoteEb = useSyncQuoteEboekhouden();
   const convertToWorkOrder = useConvertQuoteToWorkOrder();
   const convertToInvoice = useConvertQuoteToInvoice();
+  const convertToProject = useConvertQuoteToProject();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
