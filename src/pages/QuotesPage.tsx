@@ -38,12 +38,23 @@ const QuotesPage = () => {
   const { data: quotes, isLoading } = useQuotes();
   const updateQuote = useUpdateQuote();
   const deleteQuote = useDeleteQuote();
-  const syncQuoteEb = useSyncQuoteEboekhouden();
   const convertToWorkOrder = useConvertQuoteToWorkOrder();
   const convertToInvoice = useConvertQuoteToInvoice();
   const convertToProject = useConvertQuoteToProject();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { companyId } = useAuth();
+
+  // Load accounting provider info
+  const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
+  const [syncQuotes, setSyncQuotes] = useState(false);
+  useEffect(() => {
+    if (!companyId) return;
+    supabase.from("companies_safe" as any).select("accounting_provider, sync_quotes_to_accounting").eq("id", companyId).single().then(({ data }: any) => {
+      setAccountingProvider(data?.accounting_provider ?? null);
+      setSyncQuotes(!!data?.sync_quotes_to_accounting);
+    });
+  }, [companyId]);
 
   const { containerRef, pullDistance, refreshing, isTriggered } = usePullToRefresh({
     onRefresh: () => queryClient.invalidateQueries({ queryKey: ["quotes"] }),
