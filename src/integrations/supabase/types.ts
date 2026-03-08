@@ -2682,6 +2682,139 @@ export type Database = {
           },
         ]
       }
+      trade_vehicles: {
+        Row: {
+          actual_sell_price: number | null
+          appraisal_date: string | null
+          appraised_by: string | null
+          brand: string | null
+          color: string | null
+          company_id: string
+          condition_score: number | null
+          created_at: string
+          damage_checklist: Json
+          estimated_repair_cost: number
+          fuel_type: string | null
+          general_notes: string | null
+          id: string
+          license_plate: string | null
+          mileage: number | null
+          model: string | null
+          purchase_price: number
+          purchased_from_customer_id: string | null
+          sold_at: string | null
+          sold_to_customer_id: string | null
+          status: string
+          target_sell_price: number
+          transmission: string | null
+          updated_at: string
+          vin: string | null
+          work_order_id: string | null
+          year: number | null
+        }
+        Insert: {
+          actual_sell_price?: number | null
+          appraisal_date?: string | null
+          appraised_by?: string | null
+          brand?: string | null
+          color?: string | null
+          company_id: string
+          condition_score?: number | null
+          created_at?: string
+          damage_checklist?: Json
+          estimated_repair_cost?: number
+          fuel_type?: string | null
+          general_notes?: string | null
+          id?: string
+          license_plate?: string | null
+          mileage?: number | null
+          model?: string | null
+          purchase_price?: number
+          purchased_from_customer_id?: string | null
+          sold_at?: string | null
+          sold_to_customer_id?: string | null
+          status?: string
+          target_sell_price?: number
+          transmission?: string | null
+          updated_at?: string
+          vin?: string | null
+          work_order_id?: string | null
+          year?: number | null
+        }
+        Update: {
+          actual_sell_price?: number | null
+          appraisal_date?: string | null
+          appraised_by?: string | null
+          brand?: string | null
+          color?: string | null
+          company_id?: string
+          condition_score?: number | null
+          created_at?: string
+          damage_checklist?: Json
+          estimated_repair_cost?: number
+          fuel_type?: string | null
+          general_notes?: string | null
+          id?: string
+          license_plate?: string | null
+          mileage?: number | null
+          model?: string | null
+          purchase_price?: number
+          purchased_from_customer_id?: string | null
+          sold_at?: string | null
+          sold_to_customer_id?: string | null
+          status?: string
+          target_sell_price?: number
+          transmission?: string | null
+          updated_at?: string
+          vin?: string | null
+          work_order_id?: string | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_vehicles_appraised_by_fkey"
+            columns: ["appraised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_vehicles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_vehicles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_vehicles_purchased_from_customer_id_fkey"
+            columns: ["purchased_from_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_vehicles_sold_to_customer_id_fkey"
+            columns: ["sold_to_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_vehicles_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_events: {
         Row: {
           company_id: string

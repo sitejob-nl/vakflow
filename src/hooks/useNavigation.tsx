@@ -20,6 +20,7 @@ export type Page =
   | "vehDetail"
   | "contracts"
   | "marketing"
+  | "trade"
   | "settings"
   | "superadmin";
 
@@ -42,6 +43,7 @@ const routeMap: Record<Page, string> = {
   vehicles: "/vehicles",
   vehDetail: "/vehicles/:id",
   marketing: "/marketing",
+  trade: "/trade",
   settings: "/settings",
   superadmin: "/superadmin",
 };
@@ -65,6 +67,7 @@ const pathToPage: [RegExp, Page][] = [
   [/^\/assets\/?$/, "assets"],
   [/^\/vehicles\/?$/, "vehicles"],
   [/^\/marketing\/?$/, "marketing"],
+  [/^\/trade\/?$/, "trade"],
   [/^\/settings\/?$/, "settings"],
   [/^\/superadmin\/?$/, "superadmin"],
   [/^\/$/, "dashboard"],
