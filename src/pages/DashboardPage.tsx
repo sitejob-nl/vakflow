@@ -2,6 +2,7 @@ import { useNavigation } from "@/hooks/useNavigation";
 import { useTodayAppointments, useDashboardStats, useReminders, useRecentWorkOrders } from "@/hooks/useDashboard";
 import TodoWidget from "@/components/TodoWidget";
 import MaintenancePlannerWidget from "@/components/MaintenancePlannerWidget";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { Loader2, CalendarPlus, FileText, Receipt } from "lucide-react";
@@ -91,6 +92,9 @@ const DashboardPage = () => {
           <Loader2 className={`h-5 w-5 text-primary ${refreshing ? "animate-spin" : ""}`} />
         </div>
       )}
+
+      {/* Onboarding checklist */}
+      <OnboardingChecklist />
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 mb-5 md:mb-6">
         {kpiCards.map((s) => (
