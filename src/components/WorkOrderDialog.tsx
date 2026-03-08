@@ -12,6 +12,7 @@ import { Loader2, Wrench, Sparkles } from "lucide-react";
 import AiIntakePanel from "@/components/AiIntakePanel";
 import type { AiIntakeSuggestion } from "@/hooks/useAiIntake";
 import { useCreateWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
+import { useAddWorkOrderMaterial, useMaterials } from "@/hooks/useMaterials";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
 import { useAssets, useObjectRooms, useFleetVehicleTypes } from "@/hooks/useAssets";
