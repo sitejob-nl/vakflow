@@ -26,7 +26,7 @@ const ALL_FEATURES = [
 ];
 
 const SettingsPreferencesTab = () => {
-  const { companyId } = useAuth();
+  const { companyId, refreshCompanyData } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
