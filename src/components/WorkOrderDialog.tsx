@@ -213,6 +213,16 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
           </div>
         </>
       )}
+      {/* Auto bay assignment info for automotive */}
+      {isAutomotive && !isEdit && suggestedBay && (
+        <div className="flex items-center gap-2 text-[12px] bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
+          <Wrench className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+          <span>
+            Auto-brug: <strong>{suggestedBay.name}</strong>
+            <span className="text-muted-foreground ml-1">(minste belasting)</span>
+          </span>
+        </div>
+      )}
       <div className="space-y-1.5">
         <Label>Dienst</Label>
         <Select value={form.service_id} onValueChange={(v) => set("service_id", v)}>
