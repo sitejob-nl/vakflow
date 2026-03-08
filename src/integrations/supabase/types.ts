@@ -1534,6 +1534,172 @@ export type Database = {
           },
         ]
       }
+      lead_form_fields: {
+        Row: {
+          company_id: string
+          created_at: string
+          field_label: string
+          field_name: string
+          field_type: string
+          id: string
+          is_required: boolean
+          options: Json | null
+          sort_order: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          field_label: string
+          field_name: string
+          field_type?: string
+          id?: string
+          is_required?: boolean
+          options?: Json | null
+          sort_order?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          field_label?: string
+          field_name?: string
+          field_type?: string
+          id?: string
+          is_required?: boolean
+          options?: Json | null
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_form_fields_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_form_fields_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_statuses: {
+        Row: {
+          color: string
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          color?: string
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          color?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_statuses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_statuses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          company_id: string
+          company_name: string | null
+          created_at: string
+          custom_fields: Json | null
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          sort_order: number
+          source: string | null
+          status_id: string
+          updated_at: string
+          value: number | null
+        }
+        Insert: {
+          company_id: string
+          company_name?: string | null
+          created_at?: string
+          custom_fields?: Json | null
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          sort_order?: number
+          source?: string | null
+          status_id: string
+          updated_at?: string
+          value?: number | null
+        }
+        Update: {
+          company_id?: string
+          company_name?: string | null
+          created_at?: string
+          custom_fields?: Json | null
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          sort_order?: number
+          source?: string | null
+          status_id?: string
+          updated_at?: string
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "lead_statuses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           article_number: string | null
