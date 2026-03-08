@@ -12,8 +12,9 @@ import { format, startOfDay, endOfDay, isSameDay } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
   Loader2, MapPin, Clock, CheckCircle2, FileText, Route,
-  ChevronRight, Navigation, Calendar, Wrench
+  ChevronRight, Navigation, Calendar, Wrench, Camera, Receipt
 } from "lucide-react";
+import InvoiceDialog from "@/components/InvoiceDialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
