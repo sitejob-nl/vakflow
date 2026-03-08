@@ -4421,6 +4421,9 @@ export type Database = {
         Row: {
           accounting_provider: string | null
           address: string | null
+          admin_notes: string | null
+          asset_field_config: Json | null
+          billing_email: string | null
           brand_color: string | null
           btw_number: string | null
           city: string | null
@@ -4432,14 +4435,20 @@ export type Database = {
           email_provider: string | null
           enabled_features: string[] | null
           has_eboekhouden_token: boolean | null
+          has_moneybird_token: boolean | null
+          has_rompslomp_token: boolean | null
           has_wefact_key: boolean | null
           iban: string | null
           id: string | null
+          imap_host: string | null
+          imap_port: number | null
           industry: string | null
           kvk_number: string | null
+          last_active_at: string | null
           logo_url: string | null
           max_users: number | null
           moneybird_administration_id: string | null
+          monthly_price: number | null
           name: string | null
           outlook_client_id: string | null
           outlook_email: string | null
@@ -4455,13 +4464,21 @@ export type Database = {
           smtp_email: string | null
           smtp_host: string | null
           smtp_port: number | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           subcategory: string | null
+          subscription_plan: string | null
+          subscription_status: string | null
           sync_invoices_to_accounting: boolean | null
           sync_quotes_to_accounting: boolean | null
+          trial_ends_at: string | null
         }
         Insert: {
           accounting_provider?: string | null
           address?: string | null
+          admin_notes?: string | null
+          asset_field_config?: Json | null
+          billing_email?: string | null
           brand_color?: string | null
           btw_number?: string | null
           city?: string | null
@@ -4473,14 +4490,20 @@ export type Database = {
           email_provider?: string | null
           enabled_features?: string[] | null
           has_eboekhouden_token?: never
+          has_moneybird_token?: never
+          has_rompslomp_token?: never
           has_wefact_key?: never
           iban?: string | null
           id?: string | null
+          imap_host?: string | null
+          imap_port?: number | null
           industry?: string | null
           kvk_number?: string | null
+          last_active_at?: string | null
           logo_url?: string | null
           max_users?: number | null
           moneybird_administration_id?: string | null
+          monthly_price?: number | null
           name?: string | null
           outlook_client_id?: string | null
           outlook_email?: string | null
@@ -4496,13 +4519,21 @@ export type Database = {
           smtp_email?: string | null
           smtp_host?: string | null
           smtp_port?: number | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           subcategory?: string | null
+          subscription_plan?: string | null
+          subscription_status?: string | null
           sync_invoices_to_accounting?: boolean | null
           sync_quotes_to_accounting?: boolean | null
+          trial_ends_at?: string | null
         }
         Update: {
           accounting_provider?: string | null
           address?: string | null
+          admin_notes?: string | null
+          asset_field_config?: Json | null
+          billing_email?: string | null
           brand_color?: string | null
           btw_number?: string | null
           city?: string | null
@@ -4514,14 +4545,20 @@ export type Database = {
           email_provider?: string | null
           enabled_features?: string[] | null
           has_eboekhouden_token?: never
+          has_moneybird_token?: never
+          has_rompslomp_token?: never
           has_wefact_key?: never
           iban?: string | null
           id?: string | null
+          imap_host?: string | null
+          imap_port?: number | null
           industry?: string | null
           kvk_number?: string | null
+          last_active_at?: string | null
           logo_url?: string | null
           max_users?: number | null
           moneybird_administration_id?: string | null
+          monthly_price?: number | null
           name?: string | null
           outlook_client_id?: string | null
           outlook_email?: string | null
@@ -4537,9 +4574,14 @@ export type Database = {
           smtp_email?: string | null
           smtp_host?: string | null
           smtp_port?: number | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           subcategory?: string | null
+          subscription_plan?: string | null
+          subscription_status?: string | null
           sync_invoices_to_accounting?: boolean | null
           sync_quotes_to_accounting?: boolean | null
+          trial_ends_at?: string | null
         }
         Relationships: []
       }
