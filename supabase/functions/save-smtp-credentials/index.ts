@@ -70,6 +70,11 @@ Deno.serve(async (req) => {
         ? await encrypt(moneybird_api_token)
         : null;
     }
+    if (wefact_api_key !== undefined) {
+      updateData.wefact_api_key = wefact_api_key
+        ? await encrypt(wefact_api_key)
+        : null;
+    }
 
     // Save to companies table
     const { error: updateError } = await supabaseAdmin

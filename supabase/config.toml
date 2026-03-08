@@ -59,3 +59,6 @@ verify_jwt = false
 
 [functions.cleanup-old-media]
 verify_jwt = false
+
+[functions.sync-wefact]
+verify_jwt = false
