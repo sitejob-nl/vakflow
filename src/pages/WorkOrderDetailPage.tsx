@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useCreateMileageLog } from "@/hooks/useVehicles";
+import { useWorkOrderMaterials } from "@/hooks/useMaterials";
 
 interface NoteItem {
   text: string;
