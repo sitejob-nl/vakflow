@@ -360,9 +360,12 @@ const MonteurDashboardPage = () => {
                     {wo.work_order_number} · {wo.services?.name ?? ""}
                   </div>
                 </div>
-                <span className={`inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold ${woStatusBadge[wo.status] ?? woStatusBadge.open}`}>
-                  {wo.status === "open" ? "Open" : wo.status === "bezig" ? "Bezig" : wo.status}
-                </span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setCompletingWO(wo); }}
+                  className="px-2.5 py-1 bg-accent text-accent-foreground rounded-sm text-[10px] font-bold hover:bg-accent-hover transition-colors flex-shrink-0"
+                >
+                  ✓ Afronden
+                </button>
               </div>
             ))}
           </div>
