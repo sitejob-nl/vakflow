@@ -555,6 +555,7 @@ const InvoicesPage = () => {
               <div className="divide-y divide-border">
                 {filtered.map((inv) => {
                   const cfg = statusConfig[inv.status] ?? statusConfig.concept;
+                  const isOverdue = inv.status === "verzonden" && inv.due_at && new Date(inv.due_at) < new Date();
                   return (
                     <div
                       key={inv.id}
@@ -565,9 +566,12 @@ const InvoicesPage = () => {
                         <div className="text-[13px] font-bold truncate">{inv.customers?.name ?? "—"}</div>
                         <div className="text-[11px] text-t3 font-mono">{inv.invoice_number || "Concept"} · € {Number(inv.total).toFixed(2)}</div>
                       </div>
-                      <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold flex-shrink-0 ${badgeStyles[cfg.variant]}`}>
-                        {cfg.label}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {isOverdue && <span className="inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold bg-destructive/10 text-destructive">Verlopen</span>}
+                        <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${badgeStyles[cfg.variant]}`}>
+                          {cfg.label}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
