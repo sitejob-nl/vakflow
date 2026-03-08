@@ -483,6 +483,18 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
         </div>
       )}
 
+      {/* Bay timeline for automotive */}
+      {isAutomotive && formDate && (
+        <BayTimeline
+          date={formDate}
+          onSelectSlot={(bayId, hour) => {
+            const d = new Date(formDate);
+            d.setHours(hour, 0, 0, 0);
+            set("scheduled_at", formatDateTimeLocal(d));
+          }}
+        />
+      )}
+
       {/* === Route info (collapsible, hidden for automotive "gebracht") === */}
       {showRouteSection && (
         <Collapsible open={routeOpen} onOpenChange={setRouteOpen}>
