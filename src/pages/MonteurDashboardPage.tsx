@@ -395,6 +395,76 @@ const MonteurDashboardPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Work order completion dialog */}
+      <AlertDialog open={!!completingWO} onOpenChange={(open) => !open && setCompletingWO(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Werkbon afronden</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Weet je zeker dat je deze werkbon wilt afronden?</p>
+                {completingWO && (
+                  <div className="bg-muted rounded-lg p-3 text-[13px] space-y-1.5">
+                    <div><span className="font-bold">Klant:</span> {completingWO.customers?.name ?? "—"}</div>
+                    <div><span className="font-bold">Werkbon:</span> {completingWO.work_order_number}</div>
+                    <div><span className="font-bold">Dienst:</span> {completingWO.services?.name ?? "—"}</div>
+                  </div>
+                )}
+                {completingWO && (
+                  <div>
+                    <label className="text-[12px] font-bold text-t3 flex items-center gap-1.5 mb-1">
+                      <Camera className="h-3.5 w-3.5" /> Foto toevoegen (optioneel)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => handlePhotoUpload(e, completingWO.id)}
+                      className="text-[12px] w-full"
+                      disabled={uploadingPhoto}
+                    />
+                    {uploadingPhoto && <Loader2 className="h-4 w-4 animate-spin mt-1 text-primary" />}
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuleren</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCompleteWO} disabled={uploadingPhoto}>
+              <CheckCircle2 className="h-4 w-4 mr-1" /> Afronden
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Completed WO success dialog */}
+      <AlertDialog open={!!completedWO} onOpenChange={(open) => !open && setCompletedWO(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>✓ Werkbon afgerond</AlertDialogTitle>
+            <AlertDialogDescription>
+              {completedWO?.work_order_number} is succesvol afgerond. Wil je direct een factuur aanmaken?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Sluiten</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setInvoiceDialogOpen(true);
+              setCompletedWO(null);
+            }}>
+              <Receipt className="h-4 w-4 mr-1" /> Factuur aanmaken
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <InvoiceDialog
+        open={invoiceDialogOpen}
+        onOpenChange={setInvoiceDialogOpen}
+        prefillCustomerId={completedWO?.customers ? undefined : undefined}
+      />
     </div>
   );
 };

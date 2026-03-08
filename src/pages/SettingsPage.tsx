@@ -128,6 +128,7 @@ const SettingsPage = () => {
 
   return (
     <div className="max-w-2xl">
+      <SettingsOnboarding onTabChange={setActiveTab} />
       <div className="flex gap-0 border-b-2 border-border mb-5 overflow-x-auto scrollbar-hide">
         {tabs.map((t) => (
           <button

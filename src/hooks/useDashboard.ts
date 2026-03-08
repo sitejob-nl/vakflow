@@ -136,3 +136,56 @@ export const useReminders = () => {
     staleTime: 60_000,
   });
 };
+
+export const useWeekWorkOrders = () => {
+  const { companyId } = useAuth();
+  return useQuery({
+    queryKey: ["dashboard", "week-work-orders", companyId],
+    queryFn: async () => {
+      const now = new Date();
+      const day = now.getDay();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+      monday.setHours(0, 0, 0, 0);
+      let q = supabase.from("work_orders").select("id").gte("created_at", monday.toISOString());
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data?.length ?? 0;
+    },
+    staleTime: 60_000,
+  });
+};
+
+export const useOpenQuotes = () => {
+  const { companyId } = useAuth();
+  return useQuery({
+    queryKey: ["dashboard", "open-quotes", companyId],
+    queryFn: async () => {
+      let q = supabase.from("quotes").select("id").eq("status", "verzonden");
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data?.length ?? 0;
+    },
+    staleTime: 60_000,
+  });
+};
+
+export const useRecentActivity = () => {
+  const { companyId } = useAuth();
+  return useQuery({
+    queryKey: ["dashboard", "recent-activity", companyId],
+    queryFn: async () => {
+      let q = supabase.from("communication_logs")
+        .select("id, channel, direction, subject, body, created_at, customer_id, customers(name)")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30_000,
+  });
+};

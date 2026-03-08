@@ -233,6 +233,32 @@ const DashboardPage = () => {
         </button>
       </div>
 
+      {/* Recente activiteit */}
+      {recentActivity && recentActivity.length > 0 && (
+        <div className="bg-card border border-border rounded-lg shadow-card mb-5 overflow-hidden">
+          <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between border-b border-border">
+            <h3 className="text-[14px] md:text-[15px] font-bold">Recente activiteit</h3>
+            <button onClick={() => navigate("communication")} className="text-[11px] text-primary font-bold hover:underline">Alle →</button>
+          </div>
+          <div className="divide-y divide-border">
+            {recentActivity.map((log: any) => (
+              <div key={log.id} className="px-4 md:px-5 py-2.5 flex items-center gap-3">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] ${log.channel === "email" ? "bg-primary-muted text-primary" : "bg-accent-muted text-accent"}`}>
+                  {log.channel === "email" ? "📧" : "💬"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-bold truncate">{log.customers?.name ?? "Onbekend"}</div>
+                  <div className="text-[11px] text-t3 truncate">{log.subject || (log.body as string)?.substring(0, 60) || "—"}</div>
+                </div>
+                <div className="text-[10px] text-t3 font-mono flex-shrink-0">
+                  {format(new Date(log.created_at), "HH:mm")}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Appointments */}
       <div className="bg-card border border-border rounded-lg shadow-card mb-5 overflow-hidden">
         <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between border-b border-border">

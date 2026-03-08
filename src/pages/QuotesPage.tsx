@@ -278,6 +278,35 @@ const QuotesPage = () => {
               <button onClick={() => handleStatusChange(selected.id, "afgewezen")} className="px-3 py-1.5 bg-destructive text-destructive-foreground rounded-sm text-[12px] font-bold hover:bg-destructive/90 transition-colors">
                 ✕ Afgewezen
               </button>
+              {(selected as any).valid_until && new Date((selected as any).valid_until) < new Date() && selected.customers?.email && (
+                <button
+                  disabled={sendingReminder}
+                  onClick={async () => {
+                    setSendingReminder(true);
+                    try {
+                      const customerName = selected.customers?.name ?? "Klant";
+                      const quoteNumber = selected.quote_number ?? "—";
+                      const totalFormatted = eur(selected.total);
+                      const emailHtml = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;"><p>Beste ${customerName},</p><p>Graag herinneren wij u aan onze offerte <strong>${quoteNumber}</strong> met een bedrag van <strong>${totalFormatted}</strong>.</p><p>De geldigheid van deze offerte is verlopen. Wij horen graag of u nog interesse heeft.</p><br/><p>Met vriendelijke groet</p></div>`;
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) throw new Error("Niet ingelogd");
+                      const emailRes = await fetch(`https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/send-email`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+                        body: JSON.stringify({ to: selected.customers!.email, subject: `Herinnering offerte ${quoteNumber}`, body: `Herinnering offerte ${quoteNumber}`, html: emailHtml }),
+                      });
+                      if (!emailRes.ok) { const j = await emailRes.json(); throw new Error(j.error || "Mislukt"); }
+                      toast({ title: `✓ Herinnering verstuurd naar ${selected.customers!.email}` });
+                    } catch (err: any) {
+                      toast({ title: "E-mail fout", description: err.message, variant: "destructive" });
+                    } finally { setSendingReminder(false); }
+                  }}
+                  className="px-3 py-1.5 bg-warning/10 text-warning rounded-sm text-[12px] font-bold hover:bg-warning/20 transition-colors flex items-center gap-1 disabled:opacity-50"
+                >
+                  {sendingReminder ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                  Herinnering sturen
+                </button>
+              )}
             </>
           )}
           {selected.status === "geaccepteerd" && (
