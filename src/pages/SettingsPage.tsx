@@ -4216,6 +4216,13 @@ const SettingsPage = () => {
         </div>
       )}
 
+      {/* APK-herinneringen tab */}
+      {activeTab === "APK-herinneringen" && (
+        <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6">
+          <ApkReminderSettings inputClass={inputClass} labelClass={labelClass} />
+        </div>
+      )}
+
       {/* Meta tab */}
       {activeTab === "Meta" && (
         <MetaSettingsTab inputClass={inputClass} labelClass={labelClass} />
