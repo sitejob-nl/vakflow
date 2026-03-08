@@ -27,18 +27,29 @@ const VehiclesPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"name" | "apk">("name");
 
   const filtered = useMemo(() => {
     if (!vehicles) return [];
     const q = search.toLowerCase();
-    return vehicles.filter(
+    let list = vehicles.filter(
       (v) =>
         v.license_plate.toLowerCase().includes(q) ||
         (v.brand ?? "").toLowerCase().includes(q) ||
         (v.model ?? "").toLowerCase().includes(q) ||
         (v.customers?.name ?? "").toLowerCase().includes(q)
     );
-  }, [vehicles, search]);
+    if (sortBy === "apk") {
+      list = [...list].sort((a, b) => {
+        // Vehicles without APK date go to the end
+        if (!a.apk_expiry_date && !b.apk_expiry_date) return 0;
+        if (!a.apk_expiry_date) return 1;
+        if (!b.apk_expiry_date) return -1;
+        return new Date(a.apk_expiry_date).getTime() - new Date(b.apk_expiry_date).getTime();
+      });
+    }
+    return list;
+  }, [vehicles, search, sortBy]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
