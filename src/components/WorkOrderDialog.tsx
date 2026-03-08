@@ -654,6 +654,8 @@ const WorkOrderDialog = forwardRef<HTMLDivElement, Props>(({ open, onOpenChange,
       </DialogContent>
     </Dialog>
   );
-};
+});
+
+WorkOrderDialog.displayName = "WorkOrderDialog";
 
 export default WorkOrderDialog;
