@@ -9,6 +9,12 @@ const corsHeaders = {
 
 const EB_BASE = "https://api.e-boekhouden.nl/v1";
 
+function eboekhoudenVatCode(vatPct: number): string {
+  if (vatPct === 0) return "VRIJ_VERK";
+  if (vatPct === 9) return "LAAG_VERK_9";
+  return "HOOG_VERK_21";
+}
+
 function sanitizeEmail(email: string | null): string {
   if (!email) return "";
   const trimmed = email.trim();
