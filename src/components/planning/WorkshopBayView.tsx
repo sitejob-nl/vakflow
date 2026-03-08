@@ -79,7 +79,35 @@ const WorkshopBayView = ({ currentDate }: Props) => {
     return map;
   }, [dayWorkOrders]);
 
+  // Backlog: all WOs without bay_id (not just for selected day)
   const unassignedWOs = useMemo(() => dayWorkOrders.filter((wo) => !(wo as any).bay_id), [dayWorkOrders]);
+  const [backlogFilter, setBacklogFilter] = useState<string>("all");
+  const [backlogExpanded, setBacklogExpanded] = useState(true);
+
+  // Full backlog: all open WOs without bay across all days
+  const globalBacklog = useMemo(() => {
+    if (!allWorkOrders) return [];
+    return allWorkOrders.filter(
+      (wo) => !(wo as any).bay_id && wo.status !== "afgerond" && wo.status !== "geannuleerd"
+    );
+  }, [allWorkOrders]);
+
+  const filteredBacklog = useMemo(() => {
+    const source = globalBacklog;
+    if (backlogFilter === "all") return source;
+    return source.filter((wo) => ((wo as any).work_order_type ?? "").toLowerCase() === backlogFilter);
+  }, [globalBacklog, backlogFilter]);
+
+  // Sort backlog: prioritize by status (storing first), then by age
+  const sortedBacklog = useMemo(() => {
+    return [...filteredBacklog].sort((a, b) => {
+      const priorityOrder: Record<string, number> = { storing: 0, reparatie: 1, apk: 2, onderhoud: 3, banden: 4 };
+      const pA = priorityOrder[((a as any).work_order_type ?? "").toLowerCase()] ?? 5;
+      const pB = priorityOrder[((b as any).work_order_type ?? "").toLowerCase()] ?? 5;
+      if (pA !== pB) return pA - pB;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+  }, [filteredBacklog]);
 
   // Get horizontal position and width for a WO block
   const getWoLayout = (wo: WorkOrder) => {
