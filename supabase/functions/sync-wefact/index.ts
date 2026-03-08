@@ -390,7 +390,7 @@ Deno.serve(async (req) => {
     if (action === "pull-invoice-status") {
       const { data: unpaid } = await supabaseAdmin
         .from("invoices")
-        .select("id, wefact_id")
+        .select("id, wefact_id, notes")
         .eq("company_id", companyId)
         .not("wefact_id", "is", null)
         .neq("status", "betaald");
@@ -403,11 +403,29 @@ Deno.serve(async (req) => {
           const result = await wefactRequest(apiKey, "invoice", "show", { Identifier: inv.wefact_id });
           const wInv = result?.invoice;
           checked++;
-          if (wInv && String(wInv.Status) === "4") {
+          if (!wInv) continue;
+
+          const status = String(wInv.Status);
+          const amountPaid = parseFloat(wInv.AmountPaid || "0");
+          const amountOutstanding = parseFloat(wInv.AmountOutstanding || "0");
+
+          if (status === "4") {
+            // Fully paid
             await supabaseAdmin
               .from("invoices")
               .update({ status: "betaald", paid_at: wInv.PayDate || new Date().toISOString().split("T")[0] })
               .eq("id", inv.id);
+            updated++;
+          } else if (status === "3" && amountPaid > 0) {
+            // Partially paid — keep status as "verzonden" but update notes
+            const partNote = `Deelbetaling: €${amountPaid.toFixed(2)} ontvangen, €${amountOutstanding.toFixed(2)} openstaand`;
+            const existingNotes = inv.notes || "";
+            if (!existingNotes.includes("Deelbetaling:")) {
+              await supabaseAdmin
+                .from("invoices")
+                .update({ notes: existingNotes ? `${existingNotes}\n${partNote}` : partNote })
+                .eq("id", inv.id);
+            }
             updated++;
           }
         } catch (err: any) {
@@ -597,6 +615,94 @@ Deno.serve(async (req) => {
         skipped_no_customer: skippedNoCustomer,
         errors,
       });
+    }
+
+    // === SYNC PRODUCTS (push materials to WeFact) ===
+    if (action === "sync-products") {
+      const { data: materials } = await supabaseAdmin
+        .from("materials")
+        .select("*")
+        .eq("company_id", companyId)
+        .is("wefact_product_id", null);
+
+      let synced = 0;
+      const errors: string[] = [];
+
+      for (const mat of materials || []) {
+        try {
+          const result = await wefactRequest(apiKey, "product", "add", {
+            ProductName: mat.name,
+            ProductKeyPhrase: mat.name,
+            PriceExcl: mat.unit_price,
+            NumberSuffix: mat.unit || "stuk",
+            TaxCode: "V21",
+            ...(mat.article_number ? { ProductCode: mat.article_number } : {}),
+          });
+
+          const productId = result?.product?.Identifier;
+          if (productId) {
+            await supabaseAdmin.from("materials").update({ wefact_product_id: productId } as any).eq("id", mat.id);
+            synced++;
+          }
+        } catch (err: any) {
+          errors.push(`${mat.name}: ${err.message}`);
+        }
+      }
+
+      return jsonRes({ synced, errors });
+    }
+
+    // === PULL PRODUCTS (from WeFact into materials) ===
+    if (action === "pull-products") {
+      let offset = 0;
+      let allProducts: any[] = [];
+      while (true) {
+        const result = await wefactRequest(apiKey, "product", "list", { limit: 100, offset });
+        const products = result?.products || [];
+        if (!Array.isArray(products) || products.length === 0) break;
+        allProducts = allProducts.concat(products);
+        if (products.length < 100) break;
+        offset += 100;
+      }
+
+      let created = 0, updated = 0;
+      const errors: string[] = [];
+
+      for (const prod of allProducts) {
+        try {
+          const productId = prod.Identifier;
+          if (!productId) continue;
+
+          const materialData: any = {
+            name: prod.ProductName || `Product ${prod.ProductCode || productId}`,
+            unit_price: parseFloat(prod.PriceExcl || "0"),
+            cost_price: parseFloat(prod.PriceExcl || "0"),
+            unit: prod.NumberSuffix || "stuk",
+            article_number: prod.ProductCode || null,
+            wefact_product_id: productId,
+          };
+
+          const { data: existing } = await supabaseAdmin
+            .from("materials")
+            .select("id")
+            .eq("wefact_product_id", productId)
+            .eq("company_id", companyId)
+            .maybeSingle();
+
+          if (existing) {
+            await supabaseAdmin.from("materials").update(materialData).eq("id", existing.id);
+            updated++;
+          } else {
+            materialData.company_id = companyId;
+            await supabaseAdmin.from("materials").insert(materialData);
+            created++;
+          }
+        } catch (err: any) {
+          errors.push(`Product ${prod.ProductCode}: ${err.message}`);
+        }
+      }
+
+      return jsonRes({ total: allProducts.length, created, updated, errors });
     }
 
     return jsonRes({ error: `Onbekende actie: ${action}` }, 400);

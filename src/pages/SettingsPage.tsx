@@ -12,7 +12,7 @@ import { useWhatsAppTemplates, useDeleteWhatsAppTemplate, useCreateWhatsAppTempl
 import { useWhatsAppProfile, useUpdateWhatsAppProfile, useUploadWhatsAppProfilePhoto } from "@/hooks/useWhatsAppProfile";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServices, useDeleteService } from "@/hooks/useCustomers";
-import { useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden, useSyncContactsRompslomp, useSyncInvoicesRompslomp, usePullContactsRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncQuotesRompslomp, usePullQuotesRompslomp, useSyncContactsMoneybird, usePullContactsMoneybird, useSyncInvoicesMoneybird, usePullInvoicesMoneybird, usePullInvoiceStatusMoneybird, useSyncQuotesMoneybird, usePullQuotesMoneybird, useSyncContactsExact, usePullContactsExact, useSyncInvoicesExact, usePullInvoicesExact, usePullInvoiceStatusExact, useSyncQuotesExact, usePullQuotesExact, useSyncContactsWefact, usePullContactsWefact, useSyncInvoicesWefact, usePullInvoicesWefact, usePullInvoiceStatusWefact, useSyncQuotesWefact, usePullQuotesWefact } from "@/hooks/useInvoices";
+import { useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden, useSyncContactsRompslomp, useSyncInvoicesRompslomp, usePullContactsRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncQuotesRompslomp, usePullQuotesRompslomp, useSyncContactsMoneybird, usePullContactsMoneybird, useSyncInvoicesMoneybird, usePullInvoicesMoneybird, usePullInvoiceStatusMoneybird, useSyncQuotesMoneybird, usePullQuotesMoneybird, useSyncContactsExact, usePullContactsExact, useSyncInvoicesExact, usePullInvoicesExact, usePullInvoiceStatusExact, useSyncQuotesExact, usePullQuotesExact, useSyncContactsWefact, usePullContactsWefact, useSyncInvoicesWefact, usePullInvoicesWefact, usePullInvoiceStatusWefact, useSyncQuotesWefact, usePullQuotesWefact, useSyncProductsWefact, usePullProductsWefact } from "@/hooks/useInvoices";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -363,6 +363,8 @@ const SettingsPage = () => {
   const [wefactPullingStatus, setWefactPullingStatus] = useState(false);
   const [wefactSyncingQuotes, setWefactSyncingQuotes] = useState(false);
   const [wefactPullingQuotes, setWefactPullingQuotes] = useState(false);
+  const [wefactSyncingProducts, setWefactSyncingProducts] = useState(false);
+  const [wefactPullingProducts, setWefactPullingProducts] = useState(false);
   const syncContactsWefact = useSyncContactsWefact();
   const syncInvoicesWefact = useSyncInvoicesWefact();
   const pullContactsWefact = usePullContactsWefact();
@@ -370,6 +372,8 @@ const SettingsPage = () => {
   const pullInvoiceStatusWefact = usePullInvoiceStatusWefact();
   const syncQuotesWefact = useSyncQuotesWefact();
   const pullQuotesWefact = usePullQuotesWefact();
+  const syncProductsWefact = useSyncProductsWefact();
+  const pullProductsWefact = usePullProductsWefact();
 
   // Team members state
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -2373,7 +2377,10 @@ const SettingsPage = () => {
                         {wefactSyncingInvoices ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Facturen pushen
                       </button>
                       <button onClick={async () => { setWefactSyncingQuotes(true); try { const r = await syncQuotesWefact.mutateAsync(); toast({ title: "Offertes gepusht", description: `${r.synced} gesynchroniseerd, ${r.skipped} overgeslagen` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactSyncingQuotes(false); }} disabled={wefactSyncingQuotes} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
-                        {wefactSyncingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Offertes pushen
+                      {wefactSyncingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Offertes pushen
+                      </button>
+                      <button onClick={async () => { setWefactSyncingProducts(true); try { const r = await syncProductsWefact.mutateAsync(); toast({ title: "Producten gepusht", description: `${r.synced} gesynchroniseerd${r.errors.length ? `, ${r.errors.length} fouten` : ""}` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactSyncingProducts(false); }} disabled={wefactSyncingProducts} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {wefactSyncingProducts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Producten pushen
                       </button>
                     </div>
                   </div>
@@ -2392,6 +2399,9 @@ const SettingsPage = () => {
                       </button>
                       <button onClick={async () => { setWefactPullingQuotes(true); try { const r = await pullQuotesWefact.mutateAsync(); toast({ title: "Offertes opgehaald", description: `${r.total_in_wefact} in WeFact, ${r.imported} geïmporteerd` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactPullingQuotes(false); }} disabled={wefactPullingQuotes} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
                         {wefactPullingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Offertes ophalen
+                      </button>
+                      <button onClick={async () => { setWefactPullingProducts(true); try { const r = await pullProductsWefact.mutateAsync(); toast({ title: "Producten opgehaald", description: `${r.total} in WeFact, ${r.created} nieuw, ${r.updated} bijgewerkt` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactPullingProducts(false); }} disabled={wefactPullingProducts} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {wefactPullingProducts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Producten ophalen
                       </button>
                     </div>
                   </div>
