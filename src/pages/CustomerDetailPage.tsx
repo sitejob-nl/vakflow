@@ -455,6 +455,50 @@ const CustomerDetailPage = () => {
           address={editingAddress}
         />
       )}
+
+      {/* Portal invite dialog */}
+      <Dialog open={portalDialogOpen} onOpenChange={setPortalDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Portaal account aanmaken</DialogTitle>
+            <DialogDescription>
+              De klant kan hiermee inloggen op het klantportaal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-sm font-medium">E-mailadres</Label>
+              <Input value={customer?.email || ""} disabled className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Wachtwoord</Label>
+              <div className="relative mt-1">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={portalPassword}
+                  onChange={(e) => setPortalPassword(e.target.value)}
+                  placeholder="Kies een wachtwoord"
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPortalDialogOpen(false)}>Annuleren</Button>
+            <Button onClick={handleCreatePortalAccount} disabled={portalLoading || portalPassword.length < 6}>
+              {portalLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Aanmaken
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
