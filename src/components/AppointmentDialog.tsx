@@ -44,7 +44,7 @@ const statusOptions = [
 const FALLBACK_START: [number, number] = [52.507, 4.678];
 const FALLBACK_START_LABEL = "Heemskerk (standaard)";
 
-const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefill }: Props) => {
+const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefill, projectId }: Props) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { industry } = useIndustryConfig();
