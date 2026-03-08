@@ -32,10 +32,14 @@ const QuotesPage = () => {
   const [mobilePreview, setMobilePreview] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editQuote, setEditQuote] = useState<Quote | null>(null);
+  const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
+  const [appointmentPrefill, setAppointmentPrefill] = useState<{ customer_id?: string; notes?: string } | undefined>(undefined);
   const { data: quotes, isLoading } = useQuotes();
   const updateQuote = useUpdateQuote();
   const deleteQuote = useDeleteQuote();
   const syncQuoteEb = useSyncQuoteEboekhouden();
+  const convertToWorkOrder = useConvertQuoteToWorkOrder();
+  const convertToInvoice = useConvertQuoteToInvoice();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
