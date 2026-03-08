@@ -57,6 +57,7 @@ const InvoicesPage = () => {
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const createLog = useCreateCommunicationLog();
+  const [sendingReminder, setSendingReminder] = useState(false);
   const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
   const [syncInvoices, setSyncInvoices] = useState(true);
 
@@ -318,6 +319,37 @@ const InvoicesPage = () => {
               ✓ Betaald
             </button>
           )}
+          {selected.status === "verzonden" && selected.due_at && new Date(selected.due_at) < new Date() && selected.customers?.email && (
+            <button
+              disabled={sendingReminder}
+              onClick={async () => {
+                setSendingReminder(true);
+                try {
+                  const customerName = selected.customers?.name ?? "Klant";
+                  const invoiceNumber = selected.invoice_number ?? "—";
+                  const totalFormatted = `€ ${Number(selected.total).toFixed(2)}`;
+                  const dueDate = selected.due_at ? format(new Date(selected.due_at), "dd-MM-yyyy") : "—";
+                  const emailHtml = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;"><p>Beste ${customerName},</p><p>Graag herinneren wij u aan factuur <strong>${invoiceNumber}</strong> met een bedrag van <strong>${totalFormatted}</strong> (incl. BTW).</p><p>De vervaldatum was <strong>${dueDate}</strong>. Wij verzoeken u vriendelijk het bedrag zo spoedig mogelijk over te maken.</p><p>Mocht u de betaling reeds hebben voldaan, kunt u deze herinnering als niet verzonden beschouwen.</p><br/><p>Met vriendelijke groet</p></div>`;
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (!session) throw new Error("Niet ingelogd");
+                  const emailRes = await fetch(`https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/send-email`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ to: selected.customers!.email, subject: `Betalingsherinnering factuur ${invoiceNumber}`, body: `Herinnering factuur ${invoiceNumber}`, html: emailHtml }),
+                  });
+                  if (!emailRes.ok) { const j = await emailRes.json(); throw new Error(j.error || "Mislukt"); }
+                  await createLog.mutateAsync({ channel: "email", direction: "outbound", customer_id: selected.customer_id, subject: `Betalingsherinnering factuur ${invoiceNumber}`, body: emailHtml, status: "sent", sent_at: new Date().toISOString() });
+                  toast({ title: `✓ Herinnering verstuurd naar ${selected.customers!.email}` });
+                } catch (err: any) {
+                  toast({ title: "E-mail fout", description: err.message, variant: "destructive" });
+                } finally { setSendingReminder(false); }
+              }}
+              className="px-3 py-1.5 bg-destructive/10 text-destructive rounded-sm text-[12px] font-bold hover:bg-destructive/20 transition-colors flex items-center gap-1 disabled:opacity-50"
+            >
+              {sendingReminder ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+              Herinnering sturen
+            </button>
+          )}
           {/* PDF button - use accounting provider PDF when available, otherwise generate own */}
           {(selected.rompslomp_id || (selected as any).moneybird_id) ? (
             <button
@@ -554,6 +586,7 @@ const InvoicesPage = () => {
               <div className="divide-y divide-border">
                 {filtered.map((inv) => {
                   const cfg = statusConfig[inv.status] ?? statusConfig.concept;
+                  const isOverdue = inv.status === "verzonden" && inv.due_at && new Date(inv.due_at) < new Date();
                   return (
                     <div
                       key={inv.id}
@@ -564,9 +597,12 @@ const InvoicesPage = () => {
                         <div className="text-[13px] font-bold truncate">{inv.customers?.name ?? "—"}</div>
                         <div className="text-[11px] text-t3 font-mono">{inv.invoice_number || "Concept"} · € {Number(inv.total).toFixed(2)}</div>
                       </div>
-                      <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold flex-shrink-0 ${badgeStyles[cfg.variant]}`}>
-                        {cfg.label}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {isOverdue && <span className="inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold bg-destructive/10 text-destructive">Verlopen</span>}
+                        <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${badgeStyles[cfg.variant]}`}>
+                          {cfg.label}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -601,6 +637,7 @@ const InvoicesPage = () => {
               <tbody>
                 {filtered.map((inv) => {
                   const cfg = statusConfig[inv.status] ?? statusConfig.concept;
+                  const isOverdue = inv.status === "verzonden" && inv.due_at && new Date(inv.due_at) < new Date();
                   return (
                     <tr
                       key={inv.id}
@@ -612,9 +649,12 @@ const InvoicesPage = () => {
                       <td className="px-5 py-3 text-[13.5px]">{serviceName(inv)}</td>
                       <td className="px-5 py-3 font-mono">€ {Number(inv.total).toFixed(2)}</td>
                       <td className="px-5 py-3">
-                        <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${badgeStyles[cfg.variant]}`}>
-                          {cfg.label}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {isOverdue && <span className="inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold bg-destructive/10 text-destructive">Verlopen</span>}
+                          <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${badgeStyles[cfg.variant]}`}>
+                            {cfg.label}
+                          </span>
+                        </div>
                       </td>
                     </tr>
                   );

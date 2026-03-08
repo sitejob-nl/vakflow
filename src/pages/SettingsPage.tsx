@@ -20,6 +20,7 @@ import MaterialsSettings from "@/components/MaterialsSettings";
 import WorkshopBaySettings from "@/components/WorkshopBaySettings";
 import ApkReminderSettings from "@/components/ApkReminderSettings";
 import MetaSettingsTab from "@/components/MetaSettingsTab";
+import SettingsOnboarding from "@/components/SettingsOnboarding";
 import { SETTINGS_INPUT_CLASS, SETTINGS_LABEL_CLASS } from "@/components/settings/shared";
 
 const SettingsAssetFieldsTab = lazy(() => import("@/components/settings/SettingsAssetFieldsTab"));
@@ -127,6 +128,7 @@ const SettingsPage = () => {
 
   return (
     <div className="max-w-2xl">
+      <SettingsOnboarding onTabChange={setActiveTab} />
       <div className="flex gap-0 border-b-2 border-border mb-5 overflow-x-auto scrollbar-hide">
         {tabs.map((t) => (
           <button

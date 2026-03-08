@@ -12,8 +12,9 @@ import { format, startOfDay, endOfDay, isSameDay } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
   Loader2, MapPin, Clock, CheckCircle2, FileText, Route,
-  ChevronRight, Navigation, Calendar, Wrench
+  ChevronRight, Navigation, Calendar, Wrench, Camera, Receipt
 } from "lucide-react";
+import InvoiceDialog from "@/components/InvoiceDialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -87,6 +88,10 @@ const MonteurDashboardPage = () => {
   const updateAppointment = useUpdateAppointment();
   const [optimizeDialogOpen, setOptimizeDialogOpen] = useState(false);
   const [applyingOptimize, setApplyingOptimize] = useState(false);
+  const [completingWO, setCompletingWO] = useState<any>(null);
+  const [completedWO, setCompletedWO] = useState<any>(null);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const canOptimize = (todayAppts?.length ?? 0) >= 2;
 
@@ -138,6 +143,37 @@ const MonteurDashboardPage = () => {
       setApplyingOptimize(false);
     }
   }, [optimizeResult, todayAppts, updateAppointment, queryClient, toast, resetOptimize]);
+
+  const handleCompleteWO = async () => {
+    if (!completingWO) return;
+    try {
+      const { error } = await supabase.from("work_orders").update({ status: "afgerond", completed_at: new Date().toISOString() }).eq("id", completingWO.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["monteur-dashboard-wos"] });
+      queryClient.invalidateQueries({ queryKey: ["monteur-dashboard-appts"] });
+      setCompletedWO(completingWO);
+      setCompletingWO(null);
+      toast({ title: `${completingWO.work_order_number} afgerond ✓` });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, woId: string) => {
+    const file = e.target.files?.[0];
+    if (!file || !companyId) return;
+    setUploadingPhoto(true);
+    try {
+      const path = `${companyId}/${woId}/${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage.from("work-order-photos").upload(path, file);
+      if (error) throw error;
+      toast({ title: "Foto geüpload ✓" });
+    } catch (err: any) {
+      toast({ title: "Upload mislukt", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   // Stats
   const completedToday = todayAppts?.filter((a: any) => a.status === "afgerond").length ?? 0;
@@ -324,9 +360,12 @@ const MonteurDashboardPage = () => {
                     {wo.work_order_number} · {wo.services?.name ?? ""}
                   </div>
                 </div>
-                <span className={`inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold ${woStatusBadge[wo.status] ?? woStatusBadge.open}`}>
-                  {wo.status === "open" ? "Open" : wo.status === "bezig" ? "Bezig" : wo.status}
-                </span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setCompletingWO(wo); }}
+                  className="px-2.5 py-1 bg-accent text-accent-foreground rounded-sm text-[10px] font-bold hover:bg-accent-hover transition-colors flex-shrink-0"
+                >
+                  ✓ Afronden
+                </button>
               </div>
             ))}
           </div>
@@ -356,6 +395,76 @@ const MonteurDashboardPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Work order completion dialog */}
+      <AlertDialog open={!!completingWO} onOpenChange={(open) => !open && setCompletingWO(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Werkbon afronden</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Weet je zeker dat je deze werkbon wilt afronden?</p>
+                {completingWO && (
+                  <div className="bg-muted rounded-lg p-3 text-[13px] space-y-1.5">
+                    <div><span className="font-bold">Klant:</span> {completingWO.customers?.name ?? "—"}</div>
+                    <div><span className="font-bold">Werkbon:</span> {completingWO.work_order_number}</div>
+                    <div><span className="font-bold">Dienst:</span> {completingWO.services?.name ?? "—"}</div>
+                  </div>
+                )}
+                {completingWO && (
+                  <div>
+                    <label className="text-[12px] font-bold text-t3 flex items-center gap-1.5 mb-1">
+                      <Camera className="h-3.5 w-3.5" /> Foto toevoegen (optioneel)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => handlePhotoUpload(e, completingWO.id)}
+                      className="text-[12px] w-full"
+                      disabled={uploadingPhoto}
+                    />
+                    {uploadingPhoto && <Loader2 className="h-4 w-4 animate-spin mt-1 text-primary" />}
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuleren</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCompleteWO} disabled={uploadingPhoto}>
+              <CheckCircle2 className="h-4 w-4 mr-1" /> Afronden
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Completed WO success dialog */}
+      <AlertDialog open={!!completedWO} onOpenChange={(open) => !open && setCompletedWO(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>✓ Werkbon afgerond</AlertDialogTitle>
+            <AlertDialogDescription>
+              {completedWO?.work_order_number} is succesvol afgerond. Wil je direct een factuur aanmaken?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Sluiten</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setInvoiceDialogOpen(true);
+              setCompletedWO(null);
+            }}>
+              <Receipt className="h-4 w-4 mr-1" /> Factuur aanmaken
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <InvoiceDialog
+        open={invoiceDialogOpen}
+        onOpenChange={setInvoiceDialogOpen}
+        prefillCustomerId={completedWO?.customers ? undefined : undefined}
+      />
     </div>
   );
 };

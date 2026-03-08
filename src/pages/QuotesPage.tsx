@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuotes, useUpdateQuote, useDeleteQuote, useConvertQuoteToWorkOrder, useConvertQuoteToInvoice, useConvertQuoteToProject, type Quote } from "@/hooks/useQuotes";
 import { format } from "date-fns";
-import { Loader2, ChevronLeft, FileDown, Plus, RefreshCw, Trash2, FileText, Receipt, CalendarPlus, FolderKanban } from "lucide-react";
+import { Loader2, ChevronLeft, FileDown, Plus, RefreshCw, Trash2, FileText, Receipt, CalendarPlus, FolderKanban, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,6 +44,7 @@ const QuotesPage = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { companyId } = useAuth();
+  const [sendingReminder, setSendingReminder] = useState(false);
 
   // Load accounting provider info
   const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
@@ -277,6 +278,35 @@ const QuotesPage = () => {
               <button onClick={() => handleStatusChange(selected.id, "afgewezen")} className="px-3 py-1.5 bg-destructive text-destructive-foreground rounded-sm text-[12px] font-bold hover:bg-destructive/90 transition-colors">
                 ✕ Afgewezen
               </button>
+              {(selected as any).valid_until && new Date((selected as any).valid_until) < new Date() && selected.customers?.email && (
+                <button
+                  disabled={sendingReminder}
+                  onClick={async () => {
+                    setSendingReminder(true);
+                    try {
+                      const customerName = selected.customers?.name ?? "Klant";
+                      const quoteNumber = selected.quote_number ?? "—";
+                      const totalFormatted = eur(selected.total);
+                      const emailHtml = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;"><p>Beste ${customerName},</p><p>Graag herinneren wij u aan onze offerte <strong>${quoteNumber}</strong> met een bedrag van <strong>${totalFormatted}</strong>.</p><p>De geldigheid van deze offerte is verlopen. Wij horen graag of u nog interesse heeft.</p><br/><p>Met vriendelijke groet</p></div>`;
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) throw new Error("Niet ingelogd");
+                      const emailRes = await fetch(`https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/send-email`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+                        body: JSON.stringify({ to: selected.customers!.email, subject: `Herinnering offerte ${quoteNumber}`, body: `Herinnering offerte ${quoteNumber}`, html: emailHtml }),
+                      });
+                      if (!emailRes.ok) { const j = await emailRes.json(); throw new Error(j.error || "Mislukt"); }
+                      toast({ title: `✓ Herinnering verstuurd naar ${selected.customers!.email}` });
+                    } catch (err: any) {
+                      toast({ title: "E-mail fout", description: err.message, variant: "destructive" });
+                    } finally { setSendingReminder(false); }
+                  }}
+                  className="px-3 py-1.5 bg-warning/10 text-warning rounded-sm text-[12px] font-bold hover:bg-warning/20 transition-colors flex items-center gap-1 disabled:opacity-50"
+                >
+                  {sendingReminder ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                  Herinnering sturen
+                </button>
+              )}
             </>
           )}
           {selected.status === "geaccepteerd" && (
@@ -373,13 +403,17 @@ const QuotesPage = () => {
               <div className="divide-y divide-border">
                 {filtered.map((q) => {
                   const cfg = statusConfig[q.status] ?? statusConfig.concept;
+                  const isExpired = q.status === "verzonden" && (q as any).valid_until && new Date((q as any).valid_until) < new Date();
                   return (
                     <div key={q.id} onClick={() => handleSelect(q.id)} className="px-4 py-3 flex items-center gap-3 active:bg-bg-hover transition-colors cursor-pointer">
                       <div className="flex-1 min-w-0">
                         <div className="text-[13px] font-bold truncate">{q.customers?.name ?? "—"}</div>
                         <div className="text-[11px] text-t3 font-mono">{q.quote_number ?? "—"} · {eur(q.total)}</div>
                       </div>
-                      <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold flex-shrink-0 ${badgeStyles[cfg.variant]}`}>{cfg.label}</span>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {isExpired && <span className="inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold bg-warning/10 text-warning">Verlopen</span>}
+                        <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${badgeStyles[cfg.variant]}`}>{cfg.label}</span>
+                      </div>
                     </div>
                   );
                 })}
@@ -409,13 +443,17 @@ const QuotesPage = () => {
               <tbody>
                 {filtered.map((q) => {
                   const cfg = statusConfig[q.status] ?? statusConfig.concept;
+                  const isExpired = q.status === "verzonden" && (q as any).valid_until && new Date((q as any).valid_until) < new Date();
                   return (
                     <tr key={q.id} onClick={() => setSelectedId(q.id)} className={`hover:bg-bg-hover transition-colors cursor-pointer ${selected?.id === q.id ? "bg-bg-active" : ""}`}>
                       <td className="px-5 py-3 text-[12px] font-mono">{q.quote_number ?? "—"}</td>
                       <td className="px-5 py-3 text-[13.5px]">{q.customers?.name ?? "—"}</td>
                       <td className="px-5 py-3 font-mono">{eur(q.total)}</td>
                       <td className="px-5 py-3">
-                        <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${badgeStyles[cfg.variant]}`}>{cfg.label}</span>
+                        <div className="flex items-center gap-1.5">
+                          {isExpired && <span className="inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold bg-warning/10 text-warning">Verlopen</span>}
+                          <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${badgeStyles[cfg.variant]}`}>{cfg.label}</span>
+                        </div>
                       </td>
                     </tr>
                   );

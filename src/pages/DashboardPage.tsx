@@ -1,5 +1,5 @@
 import { useNavigation } from "@/hooks/useNavigation";
-import { useTodayAppointments, useDashboardStats, useReminders, useRecentWorkOrders } from "@/hooks/useDashboard";
+import { useTodayAppointments, useDashboardStats, useReminders, useRecentWorkOrders, useWeekWorkOrders, useOpenQuotes, useRecentActivity } from "@/hooks/useDashboard";
 import TodoWidget from "@/components/TodoWidget";
 import MaintenancePlannerWidget from "@/components/MaintenancePlannerWidget";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
@@ -70,6 +70,9 @@ const DashboardPage = () => {
   const { data: stats, isLoading: loadingStats } = useDashboardStats();
   const { data: reminders, isLoading: loadingReminders } = useReminders();
   const { data: recentWOs } = useRecentWorkOrders();
+  const { data: weekWOs } = useWeekWorkOrders();
+  const { data: openQuotes } = useOpenQuotes();
+  const { data: recentActivity } = useRecentActivity();
   const { data: autoStats } = useAutomotiveDashboardStats();
   const { data: cleaningStats } = useCleaningDashboardStats();
 
@@ -84,10 +87,10 @@ const DashboardPage = () => {
   const loading = loadingAppts || loadingStats;
 
   const kpiCards = [
-    { label: "Afspraken vandaag", value: stats?.appointmentsToday ?? "—", page: "planning" as const },
-    { label: `Open ${labels.workOrders.toLowerCase()}`, value: stats?.openWorkOrders ?? "—", page: "workorders" as const },
-    { label: `Betaalde omzet ${format(new Date(), "MMM", { locale: nl })}`, value: stats ? formatCurrency(stats.revenueMonth) : "—", page: "invoices" as const },
     { label: "Openstaand", value: stats ? formatCurrency(stats.outstandingAmount) : "—", sub: stats ? `${stats.outstandingCount} facturen` : undefined, page: "invoices" as const },
+    { label: `Omzet ${format(new Date(), "MMM", { locale: nl })}`, value: stats ? formatCurrency(stats.revenueMonth) : "—", page: "invoices" as const },
+    { label: `${labels.workOrders} deze week`, value: weekWOs ?? "—", page: "workorders" as const },
+    { label: "Open offertes", value: openQuotes ?? "—", page: "quotes" as const },
   ];
 
   return (
@@ -229,6 +232,32 @@ const DashboardPage = () => {
           <Receipt className="h-3.5 w-3.5" /> Nieuwe factuur
         </button>
       </div>
+
+      {/* Recente activiteit */}
+      {recentActivity && recentActivity.length > 0 && (
+        <div className="bg-card border border-border rounded-lg shadow-card mb-5 overflow-hidden">
+          <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between border-b border-border">
+            <h3 className="text-[14px] md:text-[15px] font-bold">Recente activiteit</h3>
+            <button onClick={() => navigate("communication")} className="text-[11px] text-primary font-bold hover:underline">Alle →</button>
+          </div>
+          <div className="divide-y divide-border">
+            {recentActivity.map((log: any) => (
+              <div key={log.id} className="px-4 md:px-5 py-2.5 flex items-center gap-3">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] ${log.channel === "email" ? "bg-primary-muted text-primary" : "bg-accent-muted text-accent"}`}>
+                  {log.channel === "email" ? "📧" : "💬"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-bold truncate">{log.customers?.name ?? "Onbekend"}</div>
+                  <div className="text-[11px] text-t3 truncate">{log.subject || (log.body as string)?.substring(0, 60) || "—"}</div>
+                </div>
+                <div className="text-[10px] text-t3 font-mono flex-shrink-0">
+                  {format(new Date(log.created_at), "HH:mm")}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Appointments */}
       <div className="bg-card border border-border rounded-lg shadow-card mb-5 overflow-hidden">
