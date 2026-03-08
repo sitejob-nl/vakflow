@@ -15,10 +15,13 @@ const buildItems = (workOrderLabel: string) => [
 const MobileNav = forwardRef<HTMLElement>((_props, ref) => {
   const { currentPage, navigate } = useNavigation();
   const { isAdmin, enabledFeatures } = useAuth();
-  const { labels } = useIndustryConfig();
+  const { labels, config } = useIndustryConfig();
+
+  const industryModules = config.modules;
 
   const items = buildItems(labels.workOrders).filter((item) =>
     (!item.adminOnly || isAdmin) &&
+    industryModules.includes(item.id) &&
     (enabledFeatures.length === 0 || enabledFeatures.includes(item.id))
   );
 

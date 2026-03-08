@@ -20,12 +20,13 @@ export const useWorkOrders = (assignedToFilter?: string | null) => {
   useRealtimeSubscription("work_orders", keys, companyId);
   return useQuery({
     queryKey: ["work_orders", companyId, effectiveAssignedTo],
+    enabled: !!companyId,
     queryFn: async () => {
       let q = supabase
         .from("work_orders")
         .select("*, customers(name, address, city), services(name, color, price, category)")
+        .eq("company_id", companyId!)
         .order("created_at", { ascending: false });
-      if (companyId) q = q.eq("company_id", companyId);
       if (effectiveAssignedTo) q = q.eq("assigned_to", effectiveAssignedTo);
       const { data, error } = await q;
       if (error) throw error;
@@ -49,6 +50,7 @@ export const usePaginatedWorkOrders = (params: PaginatedWorkOrdersParams) => {
 
   return useQuery({
     queryKey: ["work_orders-paginated", companyId, page, pageSize, statusFilter, effectiveAssignedTo],
+    enabled: !!companyId,
     queryFn: async () => {
       const from = page * pageSize;
       const to = from + pageSize - 1;
@@ -56,9 +58,9 @@ export const usePaginatedWorkOrders = (params: PaginatedWorkOrdersParams) => {
       let q = supabase
         .from("work_orders")
         .select("*, customers(name, address, city), services(name, color, price, category)", { count: "exact" })
+        .eq("company_id", companyId!)
         .order("created_at", { ascending: false });
 
-      if (companyId) q = q.eq("company_id", companyId);
       if (statusFilter) q = q.eq("status", statusFilter);
       if (effectiveAssignedTo) q = q.eq("assigned_to", effectiveAssignedTo);
 

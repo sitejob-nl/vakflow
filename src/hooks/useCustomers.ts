@@ -50,13 +50,13 @@ export const useCustomers = () => {
   const { companyId } = useAuth();
   return useQuery({
     queryKey: ["customers", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
-      let q = supabase
+      const { data, error } = await supabase
         .from("customers")
         .select("*, services:default_service_id(name, color)")
+        .eq("company_id", companyId!)
         .order("name");
-      if (companyId) q = q.eq("company_id", companyId);
-      const { data, error } = await q;
       if (error) throw error;
       return data as Customer[];
     },
@@ -171,10 +171,14 @@ export const useServices = () => {
   const { companyId } = useAuth();
   return useQuery({
     queryKey: ["services", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
-      let q = supabase.from("services").select("*").order("category").order("price");
-      if (companyId) q = q.eq("company_id", companyId);
-      const { data, error } = await q;
+      const { data, error } = await supabase
+        .from("services")
+        .select("*")
+        .eq("company_id", companyId!)
+        .order("category")
+        .order("price");
       if (error) throw error;
       return data;
     },

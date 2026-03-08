@@ -95,14 +95,15 @@ export const useAppointments = (weekStart: Date, weekEnd: Date) => {
 
   return useQuery({
     queryKey: ["appointments", weekStart.toISOString(), weekEnd.toISOString(), companyId, isMonteur ? user?.id : null],
+    enabled: !!companyId,
     queryFn: async () => {
       let q = supabase
         .from("appointments")
         .select("*, customers(name, address, postal_code, city, lat, lng), services(name, color, price), profiles:assigned_to(full_name), addresses(street, house_number, apartment, postal_code, city, notes)")
+        .eq("company_id", companyId!)
         .gte("scheduled_at", weekStart.toISOString())
         .lt("scheduled_at", weekEnd.toISOString())
         .order("scheduled_at");
-      if (companyId) q = q.eq("company_id", companyId);
       if (isMonteur && user?.id) q = q.eq("assigned_to", user.id);
       const { data, error } = await q;
       if (error) throw error;
