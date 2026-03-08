@@ -87,10 +87,10 @@ const DashboardPage = () => {
   const loading = loadingAppts || loadingStats;
 
   const kpiCards = [
-    { label: "Afspraken vandaag", value: stats?.appointmentsToday ?? "—", page: "planning" as const },
-    { label: `Open ${labels.workOrders.toLowerCase()}`, value: stats?.openWorkOrders ?? "—", page: "workorders" as const },
-    { label: `Betaalde omzet ${format(new Date(), "MMM", { locale: nl })}`, value: stats ? formatCurrency(stats.revenueMonth) : "—", page: "invoices" as const },
     { label: "Openstaand", value: stats ? formatCurrency(stats.outstandingAmount) : "—", sub: stats ? `${stats.outstandingCount} facturen` : undefined, page: "invoices" as const },
+    { label: `Omzet ${format(new Date(), "MMM", { locale: nl })}`, value: stats ? formatCurrency(stats.revenueMonth) : "—", page: "invoices" as const },
+    { label: `${labels.workOrders} deze week`, value: weekWOs ?? "—", page: "workorders" as const },
+    { label: "Open offertes", value: openQuotes ?? "—", page: "quotes" as const },
   ];
 
   return (
