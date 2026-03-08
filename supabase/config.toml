@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.rdw-lookup]
 verify_jwt = false
+
+[functions.apk-reminder-scan]
+verify_jwt = false
