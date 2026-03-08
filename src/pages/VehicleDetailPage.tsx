@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Car, Calendar, Gauge, Fuel, Palette, Hash, FileText, ShieldAlert, ClipboardCheck, AlertTriangle, RefreshCw } from "lucide-react";
+import TireStorageCard from "@/components/TireStorageCard";
 import { format, differenceInDays } from "date-fns";
 import { nl } from "date-fns/locale";
 import { useMemo, useEffect } from "react";
