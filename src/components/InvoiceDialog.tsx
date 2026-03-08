@@ -21,6 +21,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   editInvoice?: Invoice | null;
   projectId?: string;
+  prefillCustomerId?: string;
 }
 
 const emptyItem = (): QuoteItem => ({ description: "", qty: 1, unit_price: 0, total: 0 });
