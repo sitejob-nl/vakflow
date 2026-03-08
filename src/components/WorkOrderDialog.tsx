@@ -70,6 +70,10 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         description: (workOrder as any).description || "",
         remarks: workOrder.remarks || "",
         travel_cost: workOrder.travel_cost ?? 0,
+        vehicle_id: (workOrder as any).vehicle_id || "",
+        work_order_type: (workOrder as any).work_order_type || "",
+        mileage_start: (workOrder as any).mileage_start?.toString() || "",
+        mileage_end: (workOrder as any).mileage_end?.toString() || "",
       });
     } else {
       setForm({
@@ -81,6 +85,10 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         description: "",
         remarks: "",
         travel_cost: 0,
+        vehicle_id: "",
+        work_order_type: "",
+        mileage_start: "",
+        mileage_end: "",
       });
     }
   }, [workOrder, open, isMonteur, user?.id]);
