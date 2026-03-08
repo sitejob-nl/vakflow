@@ -853,6 +853,21 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     if (err instanceof AuthError) return jsonRes({ error: err.message }, err.status);
     if (err instanceof RateLimitError) return jsonRes({ error: err.message }, 429);
+
+    // Catch "Tenant not active" / "REAUTH_REQUIRED" from getExactToken
+    const msg = err.message || "";
+    if (msg === "REAUTH_REQUIRED" || msg === "Tenant not active" || msg.includes("Tenant not active")) {
+      try {
+        const body = await req.json().catch(() => ({}));
+        const supabaseAdmin = createAdminClient();
+        const authCtx = await authenticateRequest(req).catch(() => null);
+        if (authCtx) {
+          await supabaseAdmin.from("exact_config").update({ status: "error", updated_at: new Date().toISOString() }).eq("company_id", authCtx.companyId);
+        }
+      } catch (_) { /* best effort */ }
+      return jsonRes({ error: "Exact Online koppeling niet actief. Koppel opnieuw via instellingen.", needs_reauth: true }, 401);
+    }
+
     console.error("sync-exact error:", err);
     return jsonRes({ error: err.message || "Internal error" }, 500);
   }
