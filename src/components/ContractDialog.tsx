@@ -17,6 +17,7 @@ interface Props {
 
 const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
   const { upsert } = useContracts();
+  const { customers } = useCustomers();
 
   const [form, setForm] = useState({
     name: "",
