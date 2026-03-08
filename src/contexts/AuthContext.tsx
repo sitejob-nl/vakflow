@@ -27,6 +27,7 @@ interface AuthContextType {
   stopImpersonating: () => void;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  refreshCompanyData: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
