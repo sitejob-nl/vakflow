@@ -44,6 +44,7 @@ const QuotesPage = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { companyId } = useAuth();
+  const [sendingReminder, setSendingReminder] = useState(false);
 
   // Load accounting provider info
   const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
