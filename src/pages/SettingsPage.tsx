@@ -41,6 +41,13 @@ const TAB_FEATURE_MAP: Record<string, string> = {
   "Objectvelden": "assets",
 };
 
+// Tabs that require admin role — monteurs only see what's NOT in this list
+const ADMIN_ONLY_TABS = new Set([
+  "Bedrijfsgegevens", "Diensten", "Materialen", "Objectvelden", "Sjablonen",
+  "Werkplaats", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates",
+  "Automatiseringen", "APK-herinneringen", "Teamleden", "Koppelingen", "Meta",
+]);
+
 const TabFallback = () => (
   <div className="flex justify-center py-20">
     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -48,10 +55,14 @@ const TabFallback = () => (
 );
 
 const SettingsPage = () => {
-  const { enabledFeatures } = useAuth();
+  const { enabledFeatures, role } = useAuth();
   const [activeTab, setActiveTab] = useState("Profiel");
+  const isAdmin = role === "admin" || role === "super_admin";
 
   const tabs = BASE_TABS.filter((tab) => {
+    // Role filter: monteurs only see non-admin tabs
+    if (!isAdmin && ADMIN_ONLY_TABS.has(tab)) return false;
+    // Feature filter
     const requiredFeature = TAB_FEATURE_MAP[tab];
     if (!requiredFeature) return true;
     return enabledFeatures.length === 0 || enabledFeatures.includes(requiredFeature);
