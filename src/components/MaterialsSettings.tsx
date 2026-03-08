@@ -92,6 +92,8 @@ export default function MaterialsSettings() {
       markup_percentage: mp,
       article_number: articleNumber.trim() || null,
       category: category.trim() || null,
+      stock_quantity: parseFloat(stockQuantity) || 0,
+      min_stock_level: parseFloat(minStockLevel) || 0,
     };
 
     try {
