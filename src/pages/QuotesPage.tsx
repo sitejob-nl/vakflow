@@ -84,13 +84,23 @@ const QuotesPage = () => {
       await updateQuote.mutateAsync(updates);
       toast({ title: `Offerte status: ${statusConfig[status]?.label ?? status}` });
 
-      // Auto-sync to e-Boekhouden when status becomes "verzonden"
-      if (status === "verzonden") {
-        syncQuoteEb.mutateAsync(id).then(() => {
-          toast({ title: "✓ Offerte gesynchroniseerd met e-Boekhouden" });
-        }).catch((err: any) => {
-          toast({ title: "e-Boekhouden sync mislukt", description: err.message, variant: "destructive" });
-        });
+      // Auto-sync to accounting provider when status becomes "verzonden"
+      if (status === "verzonden" && syncQuotes && accountingProvider) {
+        const funcMap: Record<string, string> = { rompslomp: "sync-rompslomp", moneybird: "sync-moneybird", wefact: "sync-wefact", eboekhouden: "sync-invoice-eboekhouden", exact: "sync-exact" };
+        const labelMap: Record<string, string> = { rompslomp: "Rompslomp", moneybird: "Moneybird", wefact: "WeFact", eboekhouden: "e-Boekhouden", exact: "Exact Online" };
+        const funcName = funcMap[accountingProvider];
+        const providerLabel = labelMap[accountingProvider] ?? accountingProvider;
+        if (funcName) {
+          supabase.functions.invoke(funcName, {
+            body: { action: accountingProvider === "eboekhouden" ? "sync-quote" : "create-quote", quote_id: id },
+          }).then(({ data, error }) => {
+            if (error || data?.error) {
+              toast({ title: `${providerLabel} sync mislukt`, description: (data?.error || error?.message) ?? "Onbekende fout", variant: "destructive" });
+            } else {
+              toast({ title: `✓ Offerte gesynchroniseerd met ${providerLabel}` });
+            }
+          });
+        }
       }
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
