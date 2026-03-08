@@ -28,7 +28,7 @@ import { useGeocode } from "@/hooks/useMapbox";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useSnelstartConnection, useSaveSnelstartConnection, useTestSnelstartConnection, useDeleteSnelstartConnection, useSnelstartSyncStatus, useTriggerSnelstartSync } from "@/hooks/useSnelstart";
 
-const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates", "Automatiseringen", "Teamleden", "Koppelingen", "Meta"];
+const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Werkplaats", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates", "Automatiseringen", "Teamleden", "Koppelingen", "Meta"];
 
 // Map tab names to required feature slugs (tabs not listed here are always shown)
 const TAB_FEATURE_MAP: Record<string, string> = {
