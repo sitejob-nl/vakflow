@@ -855,8 +855,13 @@ Deno.serve(async (req) => {
 
         if (!result.ok) return jsonRes({ error: result.error }, 500);
 
+        const exactQuoteId = result.data?.QuotationID;
+        if (exactQuoteId) {
+          await supabaseAdmin.from("quotes").update({ exact_id: exactQuoteId }).eq("id", quote.id);
+        }
+
         await logUsage(supabaseAdmin, companyId, "exact_create_quote", { quote_id });
-        return jsonRes({ success: true });
+        return jsonRes({ success: true, exact_id: exactQuoteId });
       }
 
       default:
