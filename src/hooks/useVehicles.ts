@@ -158,6 +158,10 @@ export const useRdwLookup = () => {
         vehicle_mass?: number;
         registration_date?: string;
         apk_expiry_date?: string;
+        inspections?: { expiry_date: string }[];
+        defects?: { date: string; defect_id: string; description: string; count: number }[];
+        recalls?: { status: string; ref_code: string }[];
+        has_open_recall?: boolean;
         raw?: Record<string, unknown>;
       };
     },
