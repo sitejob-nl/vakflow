@@ -1,51 +1,84 @@
 
 
-## Agenda UI Verbetering — Look & Feel + Leesbaarheid
+# AutoFlow Feature-matrix — Implementatieplan
 
-### Problemen
+Dit is een groot en ambitieus document. AutoFlow wijkt fundamenteel af van de andere branches doordat het centrale object een **voertuig (kenteken)** is in plaats van een locatie/adres. Laten we dit faseren conform de bouwvolgorde uit het document.
 
-1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
-2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
+---
 
-### Aanpak
+## Fase 1 — Basis (focus van dit plan)
 
-**1. Grotere tijdslots en events**
-- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
-- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
-- Meer ruimte voor service-naam en stad onder de klantnaam
+### 1. Voertuigbeheer + RDW-koppeling
 
-**2. Event cards verbeteren**
-- Subtielere achtergrondkleur met betere contrast
-- Lichte shadow toevoegen aan events voor diepte
-- Rounded corners vergroten, padding verruimen
-- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
-- Hover-effect verbeteren met schaal + shadow
+**Database:**
+- Nieuwe tabel `vehicles` met kolommen: `id`, `company_id`, `customer_id`, `license_plate` (uniek per company), `vin`, `brand`, `model`, `build_year`, `fuel_type`, `color`, `apk_expiry_date`, `registration_date`, `vehicle_mass`, `mileage_current`, `mileage_updated_at`, `notes`, `status`, `rdw_data` (jsonb cache), `created_at`, `updated_at`
+- Tabel `vehicle_mileage_logs`: `id`, `vehicle_id`, `mileage`, `recorded_at`, `work_order_id`, `recorded_by`
+- RLS policies op `vehicles` en `vehicle_mileage_logs` (company_id scope)
 
-**3. Toolbar opschonen (desktop)**
-- Knoppen groeperen met visuele scheiders
-- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
-- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
-- Badge voor aantal afspraken subtieler
+**Edge Function: `rdw-lookup`**
+- Roept RDW Open Data API aan: `https://opendata.rdw.nl/resource/m9d7-ebf2.json?kenteken={plate}`
+- Gratis, geen API key nodig
+- Retourneert merk, model, bouwjaar, brandstof, APK-vervaldatum, massa, kleur
+- Wordt aangeroepen bij kentekeninvoer in de frontend
 
-**4. Dagkolom headers verbeteren (desktop weekview)**
-- Datum groter en duidelijker, weekdag + dagnummer gescheiden
-- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+**Frontend:**
+- Nieuwe pagina `VehiclesPage.tsx` — lijst voertuigen met zoeken op kenteken/klant
+- `VehicleDialog.tsx` — aanmaken/bewerken met kentekeninvoer die RDW-lookup triggert en velden automatisch invult
+- `VehicleDetailPage.tsx` — voertuigdossier met timeline (werkbonnen, facturen, km-standen)
+- Alleen zichtbaar als `industry === "automotive"` — toevoegen als route + navigatie-item
 
-**5. Zijpaneel styling**
-- Subtielere card-styling, betere spacing
-- Status-dots vergroten in de afsprakenlijst
-- Betere typografie-hiërarchie
+### 2. Werkbonnen aanpassen voor Automotive
 
-**6. Mobile day view**
-- Zelfde slot-hoogte verbetering
-- Events met meer padding en grotere tekst
+**Database:**
+- Kolommen toevoegen aan `work_orders`: `vehicle_id`, `work_order_type` (enum: apk, kleine_beurt, grote_beurt, storing, bandenwissel, aflevering, overig), `mileage_start`, `mileage_end`, `bay_id`
+- Nieuwe tabel `workshop_bays`: `id`, `company_id`, `name`, `description`, `is_active`, `sort_order`
 
-### Bestanden
+**Frontend aanpassingen:**
+- `WorkOrderDialog` — bij automotive: voertuigselector (kenteken combobox) ipv adres, werkbontype dropdown, km-stand velden
+- Werkbon detail: toon voertuiginfo header
 
-| Bestand | Wijziging |
-|---|---|
-| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
-| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+### 3. Werkplaatsplanning (Brugplanning)
 
-Geen database-wijzigingen, geen nieuwe dependencies.
+**Frontend:**
+- Nieuwe weergave in `PlanningPage` wanneer `industry === "automotive"`: grid met bruggen (Y-as) × tijdsloten (X-as)
+- Drag & drop werkbonnen naar brug + tijdslot
+- Overboeking-waarschuwing
+- `WorkshopBaySettings` component op SettingsPage om bruggen te beheren
+
+### 4. Dashboard aanpassen
+
+- Bij automotive: KPI's tonen voor voertuigen in werkplaats, brugbezetting, APK's deze maand, open werkbonnen
+
+### 5. Terminologie uitbreiden
+
+- `industryConfig.ts` automotive labels uitbreiden met extra termen (werkplaatsorder, etc.)
+- Navigatie-items aanpassen: "Voertuigen" ipv "Objecten", "Brugplanning" ipv "Route-planning"
+
+---
+
+## Fase 2 & 3 (later)
+
+APK-herinneringen, AI-intake, bandenopslag, onderdelen/voorraad, inruil & verkoop — worden apart gebouwd na Fase 1.
+
+---
+
+## Technisch overzicht
+
+| Bestand | Actie |
+|---------|-------|
+| Migratie | `vehicles`, `vehicle_mileage_logs`, `workshop_bays` tabellen + kolommen op `work_orders` |
+| `supabase/functions/rdw-lookup/index.ts` | Nieuw — RDW Open Data proxy |
+| `src/pages/VehiclesPage.tsx` | Nieuw — voertuiglijst |
+| `src/components/VehicleDialog.tsx` | Nieuw — kenteken + RDW autofill |
+| `src/pages/VehicleDetailPage.tsx` | Nieuw — voertuigdossier + timeline |
+| `src/hooks/useVehicles.ts` | Nieuw — CRUD + RDW lookup |
+| `src/components/WorkOrderDialog.tsx` | Aanpassen — voertuig/type/km-stand |
+| `src/pages/PlanningPage.tsx` | Aanpassen — brugplanning view |
+| `src/components/WorkshopBaySettings.tsx` | Nieuw — bruggen beheren |
+| `src/pages/SettingsPage.tsx` | Aanpassen — bruggen tab voor automotive |
+| `src/config/industryConfig.ts` | Uitbreiden — extra labels + modules |
+| `src/App.tsx` | Routes toevoegen |
+| `src/hooks/useNavigation.tsx` | Navigatie-items voor automotive |
+
+Dit is een groot project. Wil je dat ik met **Fase 1 compleet** begin, of eerst alleen **Voertuigbeheer + RDW-koppeling** als eerste stap?
 
