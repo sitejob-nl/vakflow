@@ -198,6 +198,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId }: Props) =>
       remarks: form.remarks || null,
       travel_cost: form.travel_cost,
       total_amount: (selectedService?.price ?? 0) + form.travel_cost,
+      ...(projectId ? { project_id: projectId } : {}),
       ...(isAutomotive ? {
         vehicle_id: form.vehicle_id || null,
         work_order_type: form.work_order_type || null,

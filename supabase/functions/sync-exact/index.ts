@@ -714,7 +714,7 @@ Deno.serve(async (req) => {
               company_id: companyId,
               customer_id: customerId,
               exact_id: q.QuotationID,
-              status: "verstuurd",
+              status: "verzonden",
               total: amount,
               subtotal,
               vat_amount: Math.round((amount - subtotal) * 100) / 100,

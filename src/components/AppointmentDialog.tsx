@@ -30,6 +30,7 @@ interface Props {
   appointment?: Tables<"appointments"> | null;
   defaultDate?: Date;
   prefill?: { customer_id?: string; notes?: string };
+  projectId?: string;
 }
 
 const statusOptions = [

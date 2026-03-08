@@ -121,6 +121,7 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice, projectId }: Props) =>
       status: editInvoice?.status ?? "concept",
       issued_at: editInvoice?.issued_at ?? today,
       due_at: dueAt,
+      ...(projectId ? { project_id: projectId } : {}),
     };
 
     try {
