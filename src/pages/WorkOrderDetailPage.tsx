@@ -1,23 +1,26 @@
 import { useNavigation } from "@/hooks/useNavigation";
 import { useWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
 import { useCreateInvoice } from "@/hooks/useInvoices";
-import { Loader2, Plus, Download } from "lucide-react";
+import { Loader2, Plus, Download, AlertTriangle } from "lucide-react";
 import PhotoUpload from "@/components/PhotoUpload";
 import WorkOrderTimer from "@/components/WorkOrderTimer";
 import WorkOrderMaterials from "@/components/WorkOrderMaterials";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { useCreateMileageLog } from "@/hooks/useVehicles";
 
 interface NoteItem {
   text: string;
