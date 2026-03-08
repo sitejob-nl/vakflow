@@ -132,6 +132,10 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
       appointment: "Onderhoudsbeurt",
       asset: "Voertuig",
       assets: "Voertuigen",
+      vehicle: "Voertuig",
+      vehicles: "Voertuigen",
+      bay: "Brug",
+      bays: "Bruggen",
     },
     subcategories: {
       garage: {
@@ -158,7 +162,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing",
+      "reminders", "vehicles", "marketing",
     ],
   },
   pest: {
