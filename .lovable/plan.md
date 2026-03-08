@@ -1,51 +1,51 @@
 
 
-## Agenda UI Verbetering — Look & Feel + Leesbaarheid
+## Plan: WeFact producten sync + uitgebreide betaalstatus
 
-### Problemen
+Twee uitbreidingen aan de bestaande `sync-wefact/index.ts`, consistent met het huidige action-routing patroon.
 
-1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
-2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
+---
 
-### Aanpak
+### 1. Producten sync (materials koppeling)
 
-**1. Grotere tijdslots en events**
-- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
-- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
-- Meer ruimte voor service-naam en stad onder de klantnaam
+Twee nieuwe actions toevoegen aan `sync-wefact/index.ts`:
 
-**2. Event cards verbeteren**
-- Subtielere achtergrondkleur met betere contrast
-- Lichte shadow toevoegen aan events voor diepte
-- Rounded corners vergroten, padding verruimen
-- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
-- Hover-effect verbeteren met schaal + shadow
+**`sync-products`** — Push materialen zonder WeFact ID naar WeFact als producten:
+- Map `name` → `ProductName`, `name` → `ProductKeyPhrase`, `unit_price` → `PriceExcl`, `unit` → `NumberSuffix`
+- Sla WeFact `Identifier` op in een nieuw `wefact_product_id` veld op `materials`
 
-**3. Toolbar opschonen (desktop)**
-- Knoppen groeperen met visuele scheiders
-- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
-- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
-- Badge voor aantal afspraken subtieler
+**`pull-products`** — Pull producten uit WeFact en upsert in `materials`:
+- Map `ProductName` → `name`, `PriceExcl` → `cost_price`, `NumberSuffix` → `unit`
+- Match op `wefact_product_id`
 
-**4. Dagkolom headers verbeteren (desktop weekview)**
-- Datum groter en duidelijker, weekdag + dagnummer gescheiden
-- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+**Database:** Eén kolom toevoegen:
+```sql
+ALTER TABLE materials ADD COLUMN wefact_product_id text;
+```
 
-**5. Zijpaneel styling**
-- Subtielere card-styling, betere spacing
-- Status-dots vergroten in de afsprakenlijst
-- Betere typografie-hiërarchie
+---
 
-**6. Mobile day view**
-- Zelfde slot-hoogte verbetering
-- Events met meer padding en grotere tekst
+### 2. Uitgebreide betaalstatus
+
+Bestaande `pull-invoice-status` action uitbreiden met extra velden:
+- `AmountPaid`, `AmountOutstanding`, `PaymentURL` ophalen en loggen
+- Bij status 3 (deels betaald) de factuur op "verzonden" laten staan maar `notes` updaten met betaald bedrag
+
+---
+
+### 3. Frontend: sync knoppen voor producten
+
+In `SettingsPage.tsx` bij de WeFact sectie twee knoppen toevoegen:
+- "Producten pushen" → `sync-products`
+- "Producten pullen" → `pull-products`
+
+---
 
 ### Bestanden
 
 | Bestand | Wijziging |
-|---|---|
-| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
-| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
-
-Geen database-wijzigingen, geen nieuwe dependencies.
+|---------|-----------|
+| Supabase migratie | `wefact_product_id` op `materials` |
+| `supabase/functions/sync-wefact/index.ts` | 2 actions toevoegen |
+| `src/pages/SettingsPage.tsx` | Sync knoppen |
 
