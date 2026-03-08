@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useMaintenanceLogs, useCreateMaintenanceLog, useDeleteMaintenanceLog, type Asset, type MaintenanceLog } from "@/hooks/useAssets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
