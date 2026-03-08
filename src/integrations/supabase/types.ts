@@ -204,10 +204,14 @@ export type Database = {
           company_id: string
           created_at: string
           customer_id: string
+          delivery_type: string | null
           duration_minutes: number
           id: string
           notes: string | null
           outlook_event_id: string | null
+          pickup_address: string | null
+          pickup_lat: number | null
+          pickup_lng: number | null
           project_id: string | null
           scheduled_at: string
           service_id: string | null
@@ -223,10 +227,14 @@ export type Database = {
           company_id: string
           created_at?: string
           customer_id: string
+          delivery_type?: string | null
           duration_minutes?: number
           id?: string
           notes?: string | null
           outlook_event_id?: string | null
+          pickup_address?: string | null
+          pickup_lat?: number | null
+          pickup_lng?: number | null
           project_id?: string | null
           scheduled_at: string
           service_id?: string | null
@@ -242,10 +250,14 @@ export type Database = {
           company_id?: string
           created_at?: string
           customer_id?: string
+          delivery_type?: string | null
           duration_minutes?: number
           id?: string
           notes?: string | null
           outlook_event_id?: string | null
+          pickup_address?: string | null
+          pickup_lat?: number | null
+          pickup_lng?: number | null
           project_id?: string | null
           scheduled_at?: string
           service_id?: string | null
