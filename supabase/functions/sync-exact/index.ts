@@ -502,7 +502,7 @@ Deno.serve(async (req) => {
               customer_id: customer.id,
               exact_id: inv.InvoiceID,
               invoice_number: inv.InvoiceNumber ? String(inv.InvoiceNumber) : null,
-              status: "verstuurd",
+              status: "verzonden",
               total: amount,
               subtotal,
               vat_amount: vatAmount,
