@@ -261,11 +261,35 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optionele notities" />
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
-            <Button onClick={handleSave} disabled={createQuote.isPending || updateQuote.isPending || syncing}>
-              {syncing ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Synchroniseren...</> : editQuote ? "Opslaan" : "Aanmaken"}
-            </Button>
+          <div className="flex justify-between gap-2">
+            <div>
+              {editQuote && editQuote.status === "geaccepteerd" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await convertToContract.mutateAsync(editQuote);
+                      toast({ title: "Contract aangemaakt vanuit offerte" });
+                      onOpenChange(false);
+                    } catch (err: any) {
+                      toast({ title: "Fout", description: err.message, variant: "destructive" });
+                    }
+                  }}
+                  disabled={convertToContract.isPending}
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
+                  Omzetten naar contract
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
+              <Button onClick={handleSave} disabled={createQuote.isPending || updateQuote.isPending || syncing}>
+                {syncing ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Synchroniseren...</> : editQuote ? "Opslaan" : "Aanmaken"}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
