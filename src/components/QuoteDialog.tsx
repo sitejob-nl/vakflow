@@ -42,11 +42,13 @@ const QuoteDialog = ({ open, onOpenChange, editQuote, onScheduleAppointment }: P
   const queryClient = useQueryClient();
   const [syncing, setSyncing] = useState(false);
   const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
+  const [syncQuotes, setSyncQuotes] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
-    (supabase.from("companies_safe" as any).select("accounting_provider").eq("id", companyId).single() as unknown as Promise<{ data: any }>).then(({ data }) => {
+    (supabase.from("companies_safe" as any).select("accounting_provider, sync_quotes_to_accounting").eq("id", companyId).single() as unknown as Promise<{ data: any }>).then(({ data }) => {
       setAccountingProvider(data?.accounting_provider ?? null);
+      setSyncQuotes(data?.sync_quotes_to_accounting ?? false);
     });
   }, [companyId]);
 
