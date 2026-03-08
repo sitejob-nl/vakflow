@@ -20,12 +20,14 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editInvoice?: Invoice | null;
+  projectId?: string;
+  prefillCustomerId?: string;
 }
 
 const emptyItem = (): QuoteItem => ({ description: "", qty: 1, unit_price: 0, total: 0 });
 const emptyOptional = (): OptionalItem => ({ description: "", price: 0 });
 
-const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
+const InvoiceDialog = ({ open, onOpenChange, editInvoice, projectId, prefillCustomerId }: Props) => {
   const { data: customers } = useCustomers();
   const { data: allTemplates } = useCombinedTemplates();
   const createInvoice = useCreateInvoice();
@@ -70,7 +72,7 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
       setVatPercentage(editInvoice.vat_percentage ?? 21);
     } else {
       setSelectedTemplate("");
-      setCustomerId("");
+      setCustomerId(prefillCustomerId || "");
       setItems([emptyItem()]);
       setOptionalItems([]);
       setNotes("");
@@ -120,6 +122,7 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
       status: editInvoice?.status ?? "concept",
       issued_at: editInvoice?.issued_at ?? today,
       due_at: dueAt,
+      ...(projectId ? { project_id: projectId } : {}),
     };
 
     try {

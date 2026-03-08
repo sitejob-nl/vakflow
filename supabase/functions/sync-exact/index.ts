@@ -502,7 +502,7 @@ Deno.serve(async (req) => {
               customer_id: customer.id,
               exact_id: inv.InvoiceID,
               invoice_number: inv.InvoiceNumber ? String(inv.InvoiceNumber) : null,
-              status: "verstuurd",
+              status: "verzonden",
               total: amount,
               subtotal,
               vat_amount: vatAmount,
@@ -599,7 +599,7 @@ Deno.serve(async (req) => {
           .from("quotes")
           .select("*, customers(name, email, exact_account_id)")
           .eq("company_id", companyId)
-          .eq("status", "verstuurd");
+          .in("status", ["verzonden", "verstuurd"]);
 
         if (!quotes?.length) return jsonRes({ synced: 0, skipped: 0, errors: [] });
 
@@ -714,7 +714,7 @@ Deno.serve(async (req) => {
               company_id: companyId,
               customer_id: customerId,
               exact_id: q.QuotationID,
-              status: "verstuurd",
+              status: "verzonden",
               total: amount,
               subtotal,
               vat_amount: Math.round((amount - subtotal) * 100) / 100,

@@ -30,6 +30,7 @@ interface Props {
   appointment?: Tables<"appointments"> | null;
   defaultDate?: Date;
   prefill?: { customer_id?: string; notes?: string };
+  projectId?: string;
 }
 
 const statusOptions = [
@@ -43,7 +44,7 @@ const statusOptions = [
 const FALLBACK_START: [number, number] = [52.507, 4.678];
 const FALLBACK_START_LABEL = "Heemskerk (standaard)";
 
-const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefill }: Props) => {
+const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefill, projectId }: Props) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { industry } = useIndustryConfig();
@@ -254,6 +255,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
       notes: form.notes || null,
       travel_time_minutes: travelInfo?.duration_minutes ?? null,
       start_location_label: startLocationLabel || null,
+      ...(projectId ? { project_id: projectId } : {}),
     };
 
     try {

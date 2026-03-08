@@ -29,9 +29,11 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workOrder?: Tables<"work_orders"> | null;
+  projectId?: string;
+  prefillCustomerId?: string;
 }
 
-const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
+const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCustomerId }: Props) => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { labels, industry } = useIndustryConfig();
@@ -136,7 +138,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
       }
     } else {
       setForm({
-        customer_id: "",
+        customer_id: prefillCustomerId || "",
         service_id: "",
         asset_id: "",
         assigned_to: isMonteur ? (user?.id ?? "") : "",
@@ -197,6 +199,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
       remarks: form.remarks || null,
       travel_cost: form.travel_cost,
       total_amount: (selectedService?.price ?? 0) + form.travel_cost,
+      ...(projectId ? { project_id: projectId } : {}),
       ...(isAutomotive ? {
         vehicle_id: form.vehicle_id || null,
         work_order_type: form.work_order_type || null,
