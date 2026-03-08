@@ -359,6 +359,28 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
           </Select>
         </div>
       )}
+
+      {/* Vehicle selector (automotive only) */}
+      {isAutomotive && form.customer_id && customerVehicles && customerVehicles.length > 0 && (
+        <div className="space-y-1.5">
+          <Label>Voertuig</Label>
+          <Select value={form.vehicle_id} onValueChange={(v) => set("vehicle_id", v === "none" ? "" : v)}>
+            <SelectTrigger>
+              <Car className="h-3.5 w-3.5 mr-1 flex-shrink-0 text-muted-foreground" />
+              <SelectValue placeholder="Kies voertuig" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Geen voertuig</SelectItem>
+              {customerVehicles.map((v) => (
+                <SelectItem key={v.id} value={v.id}>
+                  {v.license_plate}{v.brand ? ` — ${v.brand}` : ""}{v.model ? ` ${v.model}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label>Datum & tijd *</Label>
