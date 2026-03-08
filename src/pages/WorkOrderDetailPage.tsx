@@ -132,18 +132,10 @@ const WorkOrderDetailPage = () => {
 
   const handleStatusChange = async (status: string) => {
     try {
-      // Log mileage if provided and vehicle is linked
+      // Mileage end is saved on the work order; the DB trigger handles mileage_current + mileage_logs
+      const mileageUpdates: any = {};
       if (status === "afgerond" && vehicleId && mileageValue && mileageValue > 0) {
-        try {
-          await createMileageLog.mutateAsync({
-            vehicle_id: vehicleId,
-            mileage: mileageValue,
-            work_order_id: wo.id,
-            recorded_at: new Date().toISOString(),
-          } as any);
-        } catch (mileageErr: any) {
-          console.error("Mileage log failed:", mileageErr);
-        }
+        mileageUpdates.mileage_end = mileageValue;
       }
 
       await updateWO.mutateAsync({
