@@ -48,7 +48,7 @@ export const useCreateMaterial = () => {
   const qc = useQueryClient();
   const { companyId } = useAuth();
   return useMutation({
-    mutationFn: async (mat: Omit<Material, "id" | "created_at" | "company_id"> & { cost_price?: number; markup_percentage?: number }) => {
+    mutationFn: async (mat: Partial<Pick<Material, "cost_price" | "markup_percentage">> & Omit<Material, "id" | "created_at" | "company_id" | "cost_price" | "markup_percentage">) => {
       const { data, error } = await supabase
         .from("materials")
         .insert({ ...mat, company_id: companyId } as any)
