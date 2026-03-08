@@ -29,7 +29,7 @@ import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useSnelstartConnection, useSaveSnelstartConnection, useTestSnelstartConnection, useDeleteSnelstartConnection, useSnelstartSyncStatus, useTriggerSnelstartSync } from "@/hooks/useSnelstart";
 import WorkshopBaySettings from "@/components/WorkshopBaySettings";
 
-const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Werkplaats", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates", "Automatiseringen", "Teamleden", "Koppelingen", "Meta"];
+const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Werkplaats", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates", "Automatiseringen", "APK-herinneringen", "Teamleden", "Koppelingen", "Meta"];
 
 // Map tab names to required feature slugs (tabs not listed here are always shown)
 const TAB_FEATURE_MAP: Record<string, string> = {
@@ -38,6 +38,7 @@ const TAB_FEATURE_MAP: Record<string, string> = {
   "Automatiseringen": "whatsapp",
   "Meta": "marketing",
   "Werkplaats": "vehicles",
+  "APK-herinneringen": "vehicles",
 };
 
 const LocationAutocomplete = ({ value, onChange, inputClass, labelClass }: { value: string; onChange: (v: string) => void; inputClass: string; labelClass: string }) => {
