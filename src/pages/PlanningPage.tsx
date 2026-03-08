@@ -641,6 +641,9 @@ const PlanningPage = () => {
                 );
               })}
             </div>
+          ) : viewMode === "bays" ? (
+            /* ===== AUTOMOTIVE BAY VIEW ===== */
+            <WorkshopBayView currentDate={isMobile ? mobileDay : (selectedDay ?? new Date())} />
           ) : viewMode === "month" ? (
             /* ===== DESKTOP MONTH VIEW ===== */
             <MonthView
