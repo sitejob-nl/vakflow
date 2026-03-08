@@ -4,6 +4,8 @@ import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 import { decrypt } from "../_shared/crypto.ts";
 import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
+const ROMPSLOMP_BASE = "https://app.rompslomp.nl/api/v2";
+
 async function rompslompGet(companyId: string, path: string, token: string) {
   const url = `${ROMPSLOMP_BASE}/companies/${companyId}${path}`;
   const res = await fetch(url, {
