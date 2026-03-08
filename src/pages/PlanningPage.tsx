@@ -722,7 +722,7 @@ const PlanningPage = () => {
                                 </div>
                               )}
                               <div
-                                className="rounded-lg px-2 py-1 text-[11px] font-bold cursor-pointer overflow-hidden hover:scale-[1.02] hover:z-[5] transition-all relative border-l-[3px]"
+                                className="rounded-lg px-2 py-1 text-[11px] font-bold cursor-grab active:cursor-grabbing overflow-hidden hover:scale-[1.02] hover:z-[5] transition-all relative border-l-[3px]"
                                 style={{
                                   height: `${eventHeight}px`,
                                   backgroundColor: `${hexColor}18`,
