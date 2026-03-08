@@ -8,6 +8,10 @@ export interface IndustryLabels {
   appointment: string;
   asset: string;
   assets: string;
+  vehicle: string;
+  vehicles: string;
+  bay: string;
+  bays: string;
 }
 
 export interface SubcategoryConfig {
@@ -35,6 +39,10 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
       appointment: "Afspraak",
       asset: "Object",
       assets: "Objecten",
+      vehicle: "Voertuig",
+      vehicles: "Voertuigen",
+      bay: "Brug",
+      bays: "Bruggen",
     },
     subcategories: {
       installation: {
@@ -88,6 +96,10 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
       appointment: "Schoonmaakbeurt",
       asset: "Object",
       assets: "Objecten",
+      vehicle: "Voertuig",
+      vehicles: "Voertuigen",
+      bay: "Brug",
+      bays: "Bruggen",
     },
     subcategories: {
       general: {
@@ -120,6 +132,10 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
       appointment: "Onderhoudsbeurt",
       asset: "Voertuig",
       assets: "Voertuigen",
+      vehicle: "Voertuig",
+      vehicles: "Voertuigen",
+      bay: "Brug",
+      bays: "Bruggen",
     },
     subcategories: {
       garage: {
@@ -146,7 +162,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing",
+      "reminders", "vehicles", "marketing",
     ],
   },
   pest: {
@@ -160,6 +176,10 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
       appointment: "Inspectie",
       asset: "Locatie",
       assets: "Locaties",
+      vehicle: "Voertuig",
+      vehicles: "Voertuigen",
+      bay: "Brug",
+      bays: "Bruggen",
     },
     subcategories: {
       general: {
@@ -184,6 +204,10 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
       appointment: "Afspraak",
       asset: "Object",
       assets: "Objecten",
+      vehicle: "Voertuig",
+      vehicles: "Voertuigen",
+      bay: "Brug",
+      bays: "Bruggen",
     },
     subcategories: {
       gardening: {

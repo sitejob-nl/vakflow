@@ -1,7 +1,7 @@
 import { useNavigation, type Page } from "@/hooks/useNavigation";
 import {
   LayoutGrid, Calendar, Users, FileText, DollarSign,
-  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw
+  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car
 } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,7 +21,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const buildSections = (labels: { workOrders: string; assets: string }) => [
+const buildSections = (labels: { workOrders: string; assets: string; vehicles: string }) => [
   {
     label: "Overzicht",
     items: [
@@ -53,6 +53,7 @@ const buildSections = (labels: { workOrders: string; assets: string }) => [
     label: "Beheer",
     items: [
       { id: "assets" as Page, icon: Box, label: labels.assets, adminOnly: true },
+      { id: "vehicles" as Page, icon: Car, label: labels.vehicles, adminOnly: true },
       { id: "marketing" as Page, icon: Megaphone, label: "Marketing", adminOnly: true },
     ],
   },
@@ -72,7 +73,8 @@ const Sidebar = () => {
   const isActive = (id: Page) =>
     currentPage === id ||
     (id === "customers" && currentPage === "custDetail") ||
-    (id === "workorders" && currentPage === "woDetail");
+    (id === "workorders" && currentPage === "woDetail") ||
+    (id === "vehicles" && currentPage === "vehDetail");
 
   const sections = buildSections(labels)
     .map((section) => ({

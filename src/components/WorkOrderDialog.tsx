@@ -13,6 +13,7 @@ import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
 import { useAssets } from "@/hooks/useAssets";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { useCustomerVehicles } from "@/hooks/useVehicles";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -28,7 +29,8 @@ interface Props {
 const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { labels } = useIndustryConfig();
+  const { labels, industry } = useIndustryConfig();
+  const isAutomotive = industry === "automotive";
   const { isAdmin, user, role } = useAuth();
   const { data: customers } = useCustomers();
   const { data: services } = useServices();
@@ -48,7 +50,14 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
     description: "",
     remarks: "",
     travel_cost: 0,
+    vehicle_id: "",
+    work_order_type: "",
+    mileage_start: "",
+    mileage_end: "",
   });
+
+  // Vehicles for selected customer (automotive)
+  const { data: customerVehicles } = useCustomerVehicles(isAutomotive && form.customer_id ? form.customer_id : undefined);
 
   useEffect(() => {
     if (workOrder) {
@@ -61,6 +70,10 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         description: (workOrder as any).description || "",
         remarks: workOrder.remarks || "",
         travel_cost: workOrder.travel_cost ?? 0,
+        vehicle_id: (workOrder as any).vehicle_id || "",
+        work_order_type: (workOrder as any).work_order_type || "",
+        mileage_start: (workOrder as any).mileage_start?.toString() || "",
+        mileage_end: (workOrder as any).mileage_end?.toString() || "",
       });
     } else {
       setForm({
@@ -72,6 +85,10 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         description: "",
         remarks: "",
         travel_cost: 0,
+        vehicle_id: "",
+        work_order_type: "",
+        mileage_start: "",
+        mileage_end: "",
       });
     }
   }, [workOrder, open, isMonteur, user?.id]);
@@ -108,6 +125,12 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
       remarks: form.remarks || null,
       travel_cost: form.travel_cost,
       total_amount: (selectedService?.price ?? 0) + form.travel_cost,
+      ...(isAutomotive ? {
+        vehicle_id: form.vehicle_id || null,
+        work_order_type: form.work_order_type || null,
+        mileage_start: form.mileage_start ? parseInt(form.mileage_start) : null,
+        mileage_end: form.mileage_end ? parseInt(form.mileage_end) : null,
+      } : {}),
     };
 
     try {
@@ -136,6 +159,51 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
           onValueChange={(v) => set("customer_id", v)}
         />
       </div>
+      {/* Automotive: vehicle selector + type + mileage */}
+      {isAutomotive && (
+        <>
+          <div className="space-y-1.5">
+            <Label>Voertuig</Label>
+            <Select value={form.vehicle_id} onValueChange={(v) => set("vehicle_id", v === "none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="Kies voertuig (kenteken)" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Geen voertuig</SelectItem>
+                {(customerVehicles ?? []).map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.license_plate} — {v.brand} {v.model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Type werkorder</Label>
+            <Select value={form.work_order_type} onValueChange={(v) => set("work_order_type", v === "none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="Kies type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Niet gespecificeerd</SelectItem>
+                <SelectItem value="apk">APK</SelectItem>
+                <SelectItem value="kleine_beurt">Kleine beurt</SelectItem>
+                <SelectItem value="grote_beurt">Grote beurt</SelectItem>
+                <SelectItem value="storing">Storing / reparatie</SelectItem>
+                <SelectItem value="bandenwissel">Bandenwissel</SelectItem>
+                <SelectItem value="aflevering">Aflevering</SelectItem>
+                <SelectItem value="overig">Overig</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>KM-stand begin</Label>
+              <Input type="number" value={form.mileage_start} onChange={(e) => set("mileage_start", e.target.value)} placeholder="0" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>KM-stand eind</Label>
+              <Input type="number" value={form.mileage_end} onChange={(e) => set("mileage_end", e.target.value)} placeholder="0" />
+            </div>
+          </div>
+        </>
+      )}
       <div className="space-y-1.5">
         <Label>Dienst</Label>
         <Select value={form.service_id} onValueChange={(v) => set("service_id", v)}>

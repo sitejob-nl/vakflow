@@ -16,6 +16,8 @@ export type Page =
   | "whatsapp"
   | "reminders"
   | "assets"
+  | "vehicles"
+  | "vehDetail"
   | "contracts"
   | "marketing"
   | "settings"
@@ -37,6 +39,8 @@ const routeMap: Record<Page, string> = {
   reminders: "/reminders",
   contracts: "/contracts",
   assets: "/assets",
+  vehicles: "/vehicles",
+  vehDetail: "/vehicles/:id",
   marketing: "/marketing",
   settings: "/settings",
   superadmin: "/superadmin",
@@ -45,6 +49,7 @@ const routeMap: Record<Page, string> = {
 const pathToPage: [RegExp, Page][] = [
   [/^\/customers\/(.+)$/, "custDetail"],
   [/^\/workorders\/(.+)$/, "woDetail"],
+  [/^\/vehicles\/(.+)$/, "vehDetail"],
   [/^\/dashboard\/?$/, "dashboard"],
   [/^\/planning\/?$/, "planning"],
   [/^\/customers\/?$/, "customers"],
@@ -58,6 +63,7 @@ const pathToPage: [RegExp, Page][] = [
   [/^\/reminders\/?$/, "reminders"],
   [/^\/contracts\/?$/, "contracts"],
   [/^\/assets\/?$/, "assets"],
+  [/^\/vehicles\/?$/, "vehicles"],
   [/^\/marketing\/?$/, "marketing"],
   [/^\/settings\/?$/, "settings"],
   [/^\/superadmin\/?$/, "superadmin"],
@@ -81,6 +87,7 @@ export const useNavigation = () => {
     const id = urlParams.id ?? "";
     if (currentPage === "custDetail") return { customerId: id };
     if (currentPage === "woDetail") return { workOrderId: id };
+    if (currentPage === "vehDetail") return { vehicleId: id };
     return {};
   }, [currentPage, urlParams.id]);
 
@@ -94,6 +101,10 @@ export const useNavigation = () => {
       path = `/workorders/${navParams.workOrderId}`;
     } else if (page === "woDetail" && navParams?.id) {
       path = `/workorders/${navParams.id}`;
+    } else if (page === "vehDetail" && navParams?.vehicleId) {
+      path = `/vehicles/${navParams.vehicleId}`;
+    } else if (page === "vehDetail" && navParams?.id) {
+      path = `/vehicles/${navParams.id}`;
     }
     routerNavigate(path);
   };

@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.portal-invite]
 verify_jwt = false
+
+[functions.rdw-lookup]
+verify_jwt = false

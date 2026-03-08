@@ -39,6 +39,8 @@ const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
 const AssetsPage = lazy(() => import("@/pages/AssetsPage"));
 const MarketingPage = lazy(() => import("@/pages/MarketingPage"));
 const ContractsPage = lazy(() => import("@/pages/ContractsPage"));
+const VehiclesPage = lazy(() => import("@/pages/VehiclesPage"));
+const VehicleDetailPage = lazy(() => import("@/pages/VehicleDetailPage"));
 const MetaCallbackPage = lazy(() => import("@/pages/MetaCallbackPage"));
 const PortalLoginPage = lazy(() => import("@/pages/PortalLoginPage"));
 const PortalQuotesPage = lazy(() => import("@/pages/PortalQuotesPage"));
@@ -95,6 +97,8 @@ const App = () => (
                 <Route path="reminders" element={<AdminRoute><RemindersPage /></AdminRoute>} />
                 <Route path="contracts" element={<AdminRoute><ContractsPage /></AdminRoute>} />
                 <Route path="assets" element={<AdminRoute><AssetsPage /></AdminRoute>} />
+                <Route path="vehicles" element={<AdminRoute><VehiclesPage /></AdminRoute>} />
+                <Route path="vehicles/:id" element={<AdminRoute><VehicleDetailPage /></AdminRoute>} />
                 <Route path="marketing" element={<AdminRoute><MarketingPage /></AdminRoute>} />
                 <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
                 <Route path="superadmin" element={<SuperAdminRoute><SuperAdminPage /></SuperAdminRoute>} />
