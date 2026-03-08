@@ -36,10 +36,13 @@ export const useMaterials = () => {
   const { companyId } = useAuth();
   return useQuery({
     queryKey: ["materials", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
-      let q = supabase.from("materials").select("*").order("name");
-      if (companyId) q = q.eq("company_id", companyId);
-      const { data, error } = await q;
+      const { data, error } = await supabase
+        .from("materials")
+        .select("*")
+        .eq("company_id", companyId!)
+        .order("name");
       if (error) throw error;
       return data as Material[];
     },

@@ -34,6 +34,7 @@ export function buildWorkOrderPayload(
     appointment_id: appointment.id,
     address_id: (appointment as any).address_id ?? undefined,
     assigned_to: appointment.assigned_to ?? undefined,
+    vehicle_id: (appointment as any).vehicle_id ?? undefined,
     checklist,
     total_amount: service?.price ?? 0,
     status: "open",

@@ -127,8 +127,8 @@ export const useCreateCustomer = () => {
   const qc = useQueryClient();
   const { companyId } = useAuth();
   return useMutation({
-    mutationFn: async (customer: TablesInsert<"customers">) => {
-      const normalized = { ...customer, phone: normalizePhone(customer.phone), company_id: companyId };
+    mutationFn: async (customer: Omit<TablesInsert<"customers">, "company_id">) => {
+      const normalized = { ...customer, phone: normalizePhone(customer.phone), company_id: companyId! };
       const { data, error } = await supabase.from("customers").insert(normalized as any).select().single();
       if (error) throw error;
       return data;

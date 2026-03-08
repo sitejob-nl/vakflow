@@ -90,8 +90,8 @@ export const useCreateInvoice = () => {
   const qc = useQueryClient();
   const { companyId } = useAuth();
   return useMutation({
-    mutationFn: async (invoice: TablesInsert<"invoices">) => {
-      const { data, error } = await supabase.from("invoices").insert({ ...invoice, company_id: companyId } as any).select().single();
+    mutationFn: async (invoice: Omit<TablesInsert<"invoices">, "company_id">) => {
+      const { data, error } = await supabase.from("invoices").insert({ ...invoice, company_id: companyId! } as any).select().single();
       if (error) throw error;
       return data;
     },
