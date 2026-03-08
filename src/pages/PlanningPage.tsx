@@ -476,6 +476,19 @@ const PlanningPage = () => {
               <CalendarIcon className="h-3.5 w-3.5" />
               {viewMode === "week" ? "Maand" : "Week"}
             </button>
+            {isAutomotive && (
+              <button
+                onClick={() => setViewMode(viewMode === "bays" ? "week" : "bays")}
+                className={`px-3 py-1.5 border rounded-lg text-[12px] font-bold transition-colors flex items-center gap-1.5 ${
+                  viewMode === "bays"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card border-border text-secondary-foreground hover:bg-muted"
+                }`}
+              >
+                <Wrench className="h-3.5 w-3.5" />
+                Bruggen
+              </button>
+            )}
             {!isMonteur && teamMembers && teamMembers.length > 1 && (
               <Select value={filterEmployee} onValueChange={setFilterEmployee}>
                 <SelectTrigger className="w-[160px] h-9 text-[12px] rounded-lg">
