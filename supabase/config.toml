@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.work-order-public]
 verify_jwt = false
+
+[functions.leads-api]
+verify_jwt = false

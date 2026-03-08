@@ -24,12 +24,13 @@ import { SETTINGS_INPUT_CLASS, SETTINGS_LABEL_CLASS } from "@/components/setting
 
 const SettingsAssetFieldsTab = lazy(() => import("@/components/settings/SettingsAssetFieldsTab"));
 const SettingsLeadsTab = lazy(() => import("@/components/settings/SettingsLeadsTab"));
+const SettingsApiKeysTab = lazy(() => import("@/components/settings/SettingsApiKeysTab"));
 
 const BASE_TABS: string[] = [
   "Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen",
   "Objectvelden", "Sjablonen", "Werkplaats", "Boekhouding", "E-mail", "WhatsApp",
   "E-mail Templates", "Automatiseringen", "APK-herinneringen", "Teamleden",
-  "Koppelingen", "Meta", "Leads",
+  "Koppelingen", "Meta", "Leads", "API Keys",
 ];
 
 const TAB_FEATURE_MAP: Record<string, string> = {
@@ -47,7 +48,7 @@ const TAB_FEATURE_MAP: Record<string, string> = {
 const ADMIN_ONLY_TABS = new Set([
   "Bedrijfsgegevens", "Diensten", "Materialen", "Objectvelden", "Sjablonen",
   "Werkplaats", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates",
-  "Automatiseringen", "APK-herinneringen", "Teamleden", "Koppelingen", "Meta", "Leads",
+  "Automatiseringen", "APK-herinneringen", "Teamleden", "Koppelingen", "Meta", "Leads", "API Keys",
 ]);
 
 const TabFallback = () => (
@@ -116,6 +117,8 @@ const SettingsPage = () => {
         return <MetaSettingsTab inputClass={SETTINGS_INPUT_CLASS} labelClass={SETTINGS_LABEL_CLASS} />;
       case "Leads":
         return <SettingsLeadsTab />;
+      case "API Keys":
+        return <SettingsApiKeysTab />;
       default:
         return null;
     }
