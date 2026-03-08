@@ -256,6 +256,19 @@ const QuotesPage = () => {
               </button>
             </>
           )}
+          {selected.status === "geaccepteerd" && (
+            <>
+              <button onClick={() => handleConvertToWorkOrder(selected)} className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1">
+                <FileText className="h-3.5 w-3.5" /> Werkbon
+              </button>
+              <button onClick={() => handleConvertToInvoice(selected)} className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1">
+                <Receipt className="h-3.5 w-3.5" /> Factuur
+              </button>
+              <button onClick={() => handleScheduleAppointment(selected)} className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1">
+                <CalendarPlus className="h-3.5 w-3.5" /> Afspraak
+              </button>
+            </>
+          )}
           <button
             onClick={async () => {
               try {
