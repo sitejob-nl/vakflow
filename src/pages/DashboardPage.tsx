@@ -70,6 +70,9 @@ const DashboardPage = () => {
   const { data: stats, isLoading: loadingStats } = useDashboardStats();
   const { data: reminders, isLoading: loadingReminders } = useReminders();
   const { data: recentWOs } = useRecentWorkOrders();
+  const { data: weekWOs } = useWeekWorkOrders();
+  const { data: openQuotes } = useOpenQuotes();
+  const { data: recentActivity } = useRecentActivity();
   const { data: autoStats } = useAutomotiveDashboardStats();
   const { data: cleaningStats } = useCleaningDashboardStats();
 
