@@ -365,58 +365,82 @@ export type Database = {
       }
       assets: {
         Row: {
+          access_instructions: string | null
           address_id: string | null
           asset_type: string | null
           brand: string | null
           company_id: string | null
           created_at: string
           customer_id: string | null
+          facilities: string[] | null
+          frequency: string | null
+          frequency_days: number[] | null
           id: string
           install_date: string | null
           last_maintenance_date: string | null
           model: string | null
           name: string
           next_maintenance_date: string | null
+          next_service_due: string | null
           notes: string | null
+          object_type: string
           serial_number: string | null
           status: string
+          surface_area: number | null
           updated_at: string
+          vehicle_count: number | null
         }
         Insert: {
+          access_instructions?: string | null
           address_id?: string | null
           asset_type?: string | null
           brand?: string | null
           company_id?: string | null
           created_at?: string
           customer_id?: string | null
+          facilities?: string[] | null
+          frequency?: string | null
+          frequency_days?: number[] | null
           id?: string
           install_date?: string | null
           last_maintenance_date?: string | null
           model?: string | null
           name: string
           next_maintenance_date?: string | null
+          next_service_due?: string | null
           notes?: string | null
+          object_type?: string
           serial_number?: string | null
           status?: string
+          surface_area?: number | null
           updated_at?: string
+          vehicle_count?: number | null
         }
         Update: {
+          access_instructions?: string | null
           address_id?: string | null
           asset_type?: string | null
           brand?: string | null
           company_id?: string | null
           created_at?: string
           customer_id?: string | null
+          facilities?: string[] | null
+          frequency?: string | null
+          frequency_days?: number[] | null
           id?: string
           install_date?: string | null
           last_maintenance_date?: string | null
           model?: string | null
           name?: string
           next_maintenance_date?: string | null
+          next_service_due?: string | null
           notes?: string | null
+          object_type?: string
           serial_number?: string | null
           status?: string
+          surface_area?: number | null
           updated_at?: string
+          vehicle_count?: number | null
         }
         Relationships: [
           {
@@ -1177,6 +1201,61 @@ export type Database = {
           },
         ]
       }
+      fleet_vehicle_types: {
+        Row: {
+          asset_id: string
+          company_id: string
+          count: number
+          created_at: string | null
+          id: string
+          price_per_unit: number | null
+          updated_at: string | null
+          vehicle_type: string
+        }
+        Insert: {
+          asset_id: string
+          company_id: string
+          count?: number
+          created_at?: string | null
+          id?: string
+          price_per_unit?: number | null
+          updated_at?: string | null
+          vehicle_type: string
+        }
+        Update: {
+          asset_id?: string
+          company_id?: string
+          count?: number
+          created_at?: string | null
+          id?: string
+          price_per_unit?: number | null
+          updated_at?: string | null
+          vehicle_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_vehicle_types_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_vehicle_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_vehicle_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           company_id: string | null
@@ -1630,6 +1709,61 @@ export type Database = {
           },
           {
             foreignKeyName: "notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      object_rooms: {
+        Row: {
+          asset_id: string
+          checklist: Json | null
+          company_id: string
+          created_at: string | null
+          id: string
+          name: string
+          room_type: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          asset_id: string
+          checklist?: Json | null
+          company_id: string
+          created_at?: string | null
+          id?: string
+          name: string
+          room_type?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          asset_id?: string
+          checklist?: Json | null
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          room_type?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "object_rooms_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "object_rooms_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "object_rooms_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_safe"
@@ -3378,6 +3512,7 @@ export type Database = {
           photos_after: string[] | null
           photos_before: string[] | null
           remarks: string | null
+          room_checklists: Json | null
           service_id: string | null
           signature_url: string | null
           signed_at: string | null
@@ -3386,6 +3521,8 @@ export type Database = {
           total_amount: number | null
           travel_cost: number
           vehicle_id: string | null
+          vehicles_washed: Json | null
+          vehicles_washed_total: number | null
           work_order_number: string | null
           work_order_type: string | null
         }
@@ -3408,6 +3545,7 @@ export type Database = {
           photos_after?: string[] | null
           photos_before?: string[] | null
           remarks?: string | null
+          room_checklists?: Json | null
           service_id?: string | null
           signature_url?: string | null
           signed_at?: string | null
@@ -3416,6 +3554,8 @@ export type Database = {
           total_amount?: number | null
           travel_cost?: number
           vehicle_id?: string | null
+          vehicles_washed?: Json | null
+          vehicles_washed_total?: number | null
           work_order_number?: string | null
           work_order_type?: string | null
         }
@@ -3438,6 +3578,7 @@ export type Database = {
           photos_after?: string[] | null
           photos_before?: string[] | null
           remarks?: string | null
+          room_checklists?: Json | null
           service_id?: string | null
           signature_url?: string | null
           signed_at?: string | null
@@ -3446,6 +3587,8 @@ export type Database = {
           total_amount?: number | null
           travel_cost?: number
           vehicle_id?: string | null
+          vehicles_washed?: Json | null
+          vehicles_washed_total?: number | null
           work_order_number?: string | null
           work_order_type?: string | null
         }
