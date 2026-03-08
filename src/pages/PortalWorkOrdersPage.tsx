@@ -213,7 +213,7 @@ const PortalWorkOrdersPage = () => {
                     <p className="text-xs text-muted-foreground mb-2">Foto's na</p>
                     <div className="grid grid-cols-3 gap-2">
                       {(selected.photos_after as string[]).map((url, i) => (
-                        <SignedMedia key={i} path={url} bucket="work-order-photos" className="rounded-lg aspect-square object-cover w-full" />
+                        <SignedMedia key={i} url={url} bucket="work-order-photos" type="image" className="rounded-lg aspect-square object-cover w-full" />
                       ))}
                     </div>
                   </div>
