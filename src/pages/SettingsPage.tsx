@@ -309,6 +309,10 @@ const SettingsPage = () => {
   const [moneybirdPullingStatus, setMoneybirdPullingStatus] = useState(false);
   const [moneybirdSyncingQuotes, setMoneybirdSyncingQuotes] = useState(false);
   const [moneybirdPullingQuotes, setMoneybirdPullingQuotes] = useState(false);
+  const [moneybirdSyncingProducts, setMoneybirdSyncingProducts] = useState(false);
+  const [moneybirdPullingProducts, setMoneybirdPullingProducts] = useState(false);
+  const [moneybirdPullingSubscriptions, setMoneybirdPullingSubscriptions] = useState(false);
+  const [moneybirdRegisteringWebhook, setMoneybirdRegisteringWebhook] = useState(false);
   const syncContactsMoneybird = useSyncContactsMoneybird();
   const syncInvoicesMoneybird = useSyncInvoicesMoneybird();
   const pullContactsMoneybird = usePullContactsMoneybird();
@@ -316,6 +320,9 @@ const SettingsPage = () => {
   const pullInvoiceStatusMoneybird = usePullInvoiceStatusMoneybird();
   const syncQuotesMoneybird = useSyncQuotesMoneybird();
   const pullQuotesMoneybird = usePullQuotesMoneybird();
+  const syncProductsMoneybird = useSyncProductsMoneybird();
+  const pullProductsMoneybird = usePullProductsMoneybird();
+  const pullSubscriptionsMoneybird = usePullSubscriptionsMoneybird();
 
   // Exact Online state
   const [exactConnected, setExactConnected] = useState(false);
