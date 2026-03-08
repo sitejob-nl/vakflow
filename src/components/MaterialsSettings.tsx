@@ -54,6 +54,8 @@ export default function MaterialsSettings() {
     setMarkupPercentage(String(m.markup_percentage || ""));
     setArticleNumber(m.article_number ?? "");
     setCategory(m.category ?? "");
+    setStockQuantity(String(m.stock_quantity || ""));
+    setMinStockLevel(String(m.min_stock_level || ""));
     setShowForm(true);
   };
 
