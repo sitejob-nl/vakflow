@@ -2538,6 +2538,88 @@ export type Database = {
           },
         ]
       }
+      tire_storage: {
+        Row: {
+          brand: string | null
+          company_id: string
+          created_at: string
+          dot_code: string | null
+          id: string
+          location_code: string | null
+          notes: string | null
+          season: string
+          size: string | null
+          status: string
+          stored_at: string
+          tread_depth_fl: number | null
+          tread_depth_fr: number | null
+          tread_depth_rl: number | null
+          tread_depth_rr: number | null
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          brand?: string | null
+          company_id: string
+          created_at?: string
+          dot_code?: string | null
+          id?: string
+          location_code?: string | null
+          notes?: string | null
+          season?: string
+          size?: string | null
+          status?: string
+          stored_at?: string
+          tread_depth_fl?: number | null
+          tread_depth_fr?: number | null
+          tread_depth_rl?: number | null
+          tread_depth_rr?: number | null
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          brand?: string | null
+          company_id?: string
+          created_at?: string
+          dot_code?: string | null
+          id?: string
+          location_code?: string | null
+          notes?: string | null
+          season?: string
+          size?: string | null
+          status?: string
+          stored_at?: string
+          tread_depth_fl?: number | null
+          tread_depth_fr?: number | null
+          tread_depth_rl?: number | null
+          tread_depth_rr?: number | null
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tire_storage_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tire_storage_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tire_storage_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       todos: {
         Row: {
           company_id: string | null
