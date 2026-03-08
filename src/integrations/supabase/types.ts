@@ -833,6 +833,8 @@ export type Database = {
           subcategory: string
           subscription_plan: string
           subscription_status: string
+          sync_invoices_to_accounting: boolean
+          sync_quotes_to_accounting: boolean
           trial_ends_at: string | null
           wefact_api_key: string | null
         }
@@ -889,6 +891,8 @@ export type Database = {
           subcategory?: string
           subscription_plan?: string
           subscription_status?: string
+          sync_invoices_to_accounting?: boolean
+          sync_quotes_to_accounting?: boolean
           trial_ends_at?: string | null
           wefact_api_key?: string | null
         }
@@ -945,6 +949,8 @@ export type Database = {
           subcategory?: string
           subscription_plan?: string
           subscription_status?: string
+          sync_invoices_to_accounting?: boolean
+          sync_quotes_to_accounting?: boolean
           trial_ends_at?: string | null
           wefact_api_key?: string | null
         }
