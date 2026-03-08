@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCustomers } from "@/hooks/useCustomers";
-import { useCreateQuote, useUpdateQuote, useConvertQuoteToContract, type Quote, type QuoteItem, type OptionalItem } from "@/hooks/useQuotes";
+import { useCreateQuote, useUpdateQuote, useConvertQuoteToContract, useConvertQuoteToWorkOrder, useConvertQuoteToInvoice, type Quote, type QuoteItem, type OptionalItem } from "@/hooks/useQuotes";
 import { useAssets } from "@/hooks/useAssets";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useToast } from "@/hooks/use-toast";
