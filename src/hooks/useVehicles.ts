@@ -233,7 +233,7 @@ export const useVehicleMileageLogs = (vehicleId: string | undefined) => {
         .eq("vehicle_id", vehicleId!)
         .order("recorded_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as VehicleMileageLog[];
+      return (data ?? []) as unknown as VehicleMileageLog[];
     },
   });
 };
