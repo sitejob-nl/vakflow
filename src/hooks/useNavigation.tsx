@@ -23,6 +23,7 @@ export type Page =
   | "trade"
   | "schedule"
   | "settings"
+  | "audits"
   | "superadmin";
 
 const routeMap: Record<Page, string> = {
