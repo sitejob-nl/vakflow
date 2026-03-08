@@ -1,29 +1,51 @@
 
 
-## Fix: Exact Online Connection URL
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-### Problem
-The frontend opens the wrong URL when starting the Exact Online connection:
-```
-https://xeshjkznwdrxjjhbpisn.supabase.co/functions/v1/exact-connect?tenant_id=...
-```
-This function doesn't exist on the Connect project. The correct URL per the SiteJob Connect documentation is:
-```
-https://connect.sitejob.nl/exact-setup?tenant_id=...
-```
+### Problemen
 
-### Changes
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-**File: `src/components/settings/SettingsAccountingTab.tsx`**
+### Aanpak
 
-1. **Fix the connect URL** (line 41): Change from the non-existent edge function URL to `https://connect.sitejob.nl/exact-setup?tenant_id=${tenantId}`
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-2. **Open as popup instead of new tab** (line 42): Use `window.open` with popup dimensions (`width=600,height=700`) so the postMessage event works
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-3. **Add postMessage listener**: After opening the popup, listen for the `exact-connected` message event. On success, auto-refresh the Exact config status from the database (reuse existing `handleRefreshStatus` logic) instead of requiring the user to manually click "Status vernieuwen"
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-### Summary
-- 1 file changed: `SettingsAccountingTab.tsx`
-- Fix URL from edge function path to `connect.sitejob.nl/exact-setup`
-- Popup window + postMessage listener for seamless UX
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
+
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
+
+### Bestanden
+
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+
+Geen database-wijzigingen, geen nieuwe dependencies.
 
