@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
-import { useQuotes, useUpdateQuote, useDeleteQuote, useSyncQuoteEboekhouden, useConvertQuoteToWorkOrder, useConvertQuoteToInvoice, useConvertQuoteToProject, type Quote } from "@/hooks/useQuotes";
+import { useState, useMemo, useEffect } from "react";
+import { useQuotes, useUpdateQuote, useDeleteQuote, useConvertQuoteToWorkOrder, useConvertQuoteToInvoice, useConvertQuoteToProject, type Quote } from "@/hooks/useQuotes";
 import { format } from "date-fns";
 import { Loader2, ChevronLeft, FileDown, Plus, RefreshCw, Trash2, FileText, Receipt, CalendarPlus, FolderKanban } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -37,12 +38,23 @@ const QuotesPage = () => {
   const { data: quotes, isLoading } = useQuotes();
   const updateQuote = useUpdateQuote();
   const deleteQuote = useDeleteQuote();
-  const syncQuoteEb = useSyncQuoteEboekhouden();
   const convertToWorkOrder = useConvertQuoteToWorkOrder();
   const convertToInvoice = useConvertQuoteToInvoice();
   const convertToProject = useConvertQuoteToProject();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { companyId } = useAuth();
+
+  // Load accounting provider info
+  const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
+  const [syncQuotes, setSyncQuotes] = useState(false);
+  useEffect(() => {
+    if (!companyId) return;
+    supabase.from("companies_safe" as any).select("accounting_provider, sync_quotes_to_accounting").eq("id", companyId).single().then(({ data }: any) => {
+      setAccountingProvider(data?.accounting_provider ?? null);
+      setSyncQuotes(!!data?.sync_quotes_to_accounting);
+    });
+  }, [companyId]);
 
   const { containerRef, pullDistance, refreshing, isTriggered } = usePullToRefresh({
     onRefresh: () => queryClient.invalidateQueries({ queryKey: ["quotes"] }),
@@ -72,13 +84,23 @@ const QuotesPage = () => {
       await updateQuote.mutateAsync(updates);
       toast({ title: `Offerte status: ${statusConfig[status]?.label ?? status}` });
 
-      // Auto-sync to e-Boekhouden when status becomes "verzonden"
-      if (status === "verzonden") {
-        syncQuoteEb.mutateAsync(id).then(() => {
-          toast({ title: "✓ Offerte gesynchroniseerd met e-Boekhouden" });
-        }).catch((err: any) => {
-          toast({ title: "e-Boekhouden sync mislukt", description: err.message, variant: "destructive" });
-        });
+      // Auto-sync to accounting provider when status becomes "verzonden"
+      if (status === "verzonden" && syncQuotes && accountingProvider) {
+        const funcMap: Record<string, string> = { rompslomp: "sync-rompslomp", moneybird: "sync-moneybird", wefact: "sync-wefact", eboekhouden: "sync-invoice-eboekhouden", exact: "sync-exact" };
+        const labelMap: Record<string, string> = { rompslomp: "Rompslomp", moneybird: "Moneybird", wefact: "WeFact", eboekhouden: "e-Boekhouden", exact: "Exact Online" };
+        const funcName = funcMap[accountingProvider];
+        const providerLabel = labelMap[accountingProvider] ?? accountingProvider;
+        if (funcName) {
+          supabase.functions.invoke(funcName, {
+            body: { action: accountingProvider === "eboekhouden" ? "sync-quote" : "create-quote", quote_id: id },
+          }).then(({ data, error }) => {
+            if (error || data?.error) {
+              toast({ title: `${providerLabel} sync mislukt`, description: (data?.error || error?.message) ?? "Onbekende fout", variant: "destructive" });
+            } else {
+              toast({ title: `✓ Offerte gesynchroniseerd met ${providerLabel}` });
+            }
+          });
+        }
       }
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
