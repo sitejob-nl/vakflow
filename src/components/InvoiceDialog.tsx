@@ -111,7 +111,7 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
       items: items.filter((i) => i.description).map(recalcItem),
       optional_items: optionalItems.filter((o) => o.description),
       subtotal,
-      vat_percentage: 21,
+      vat_percentage: vatPercentage,
       vat_amount: vatAmount,
       total,
       notes: notes || null,
