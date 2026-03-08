@@ -24,6 +24,8 @@ export type Page =
   | "schedule"
   | "settings"
   | "audits"
+  | "projects"
+  | "projDetail"
   | "superadmin";
 
 const routeMap: Record<Page, string> = {
