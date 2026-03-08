@@ -1,51 +1,65 @@
 
 
-## Agenda UI Verbetering — Look & Feel + Leesbaarheid
+# Bugfix batch — 6 problemen (P1-P4 + P6-P7)
 
-### Problemen
+## P1: AI intake materialen koppelen aan werkbon
 
-1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
-2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
+**Bestand:** `src/components/WorkOrderDialog.tsx`
 
-### Aanpak
+Na `createWO.mutateAsync(payload)` worden `aiMaterials` als `work_order_materials` ingevoegd. Verbetering t.o.v. origineel plan: als `m.material_id` bestaat, wordt de `unit_price` opgehaald uit de `useMaterials()` data (die al geladen is). Geen extra query nodig.
 
-**1. Grotere tijdslots en events**
-- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
-- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
-- Meer ruimte voor service-naam en stad onder de klantnaam
+- Import `useAddWorkOrderMaterial` en `useMaterials` 
+- Na succesvolle create: loop over `aiMaterials`, lookup prijs via `materials.find(mat => mat.id === m.material_id)?.unit_price ?? 0`
+- Insert via `addWOMaterial.mutateAsync({ work_order_id, material_id, name, unit, quantity, unit_price })`
 
-**2. Event cards verbeteren**
-- Subtielere achtergrondkleur met betere contrast
-- Lichte shadow toevoegen aan events voor diepte
-- Rounded corners vergroten, padding verruimen
-- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
-- Hover-effect verbeteren met schaal + shadow
+## P2: NOT NULL op 4 tabellen
 
-**3. Toolbar opschonen (desktop)**
-- Knoppen groeperen met visuele scheiders
-- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
-- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
-- Badge voor aantal afspraken subtieler
+**SQL migratie:**
+```sql
+ALTER TABLE communication_logs ALTER COLUMN company_id SET NOT NULL;
+ALTER TABLE notifications ALTER COLUMN company_id SET NOT NULL;
+ALTER TABLE whatsapp_messages ALTER COLUMN company_id SET NOT NULL;
+ALTER TABLE time_entries ALTER COLUMN company_id SET NOT NULL;
+```
 
-**4. Dagkolom headers verbeteren (desktop weekview)**
-- Datum groter en duidelijker, weekdag + dagnummer gescheiden
-- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+## P3: enabled_features default uitbreiden
 
-**5. Zijpaneel styling**
-- Subtielere card-styling, betere spacing
-- Status-dots vergroten in de afsprakenlijst
-- Betere typografie-hiërarchie
+**SQL migratie:** Update de column default naar alle 18 modules inclusief `schedule`, `audits`, `vehicles`, `trade`.
 
-**6. Mobile day view**
-- Zelfde slot-hoogte verbetering
-- Events met meer padding en grotere tekst
+**Edge function:** `company-signup/index.ts` — accepteer `industry` en `subcategory` in payload, sla op bij company creation, en zet `enabled_features` op basis van `industryConfig[industry].modules`.
 
-### Bestanden
+## P4: contracts module toevoegen aan industryConfig
+
+**Bestand:** `src/config/industryConfig.ts` — `"contracts"` toevoegen aan elke industry's `modules` array.
+
+## P6: BTW-percentage instelbaar
+
+**Bestand:** `src/components/InvoiceDialog.tsx` — BTW-selector (0%, 9%, 21%) toevoegen. Herberekening van subtotal/vat/total op basis van gekozen percentage (i.p.v. hardcoded 1.21).
+
+**Bestand:** `src/pages/WorkOrderDetailPage.tsx` — `vatPercentage` variabele (regel 201) vervangen door instelbare waarde, of 21 als default behouden maar de kolom correct doorgeven.
+
+## P7: FK-indexen
+
+**SQL migratie:** ~25 `CREATE INDEX IF NOT EXISTS` statements voor de meest kritieke FK-kolommen. Zonder `CONCURRENTLY` (niet ondersteund in transacties via migratie-tool).
+
+---
+
+## Implementatievolgorde
+
+1. Database migratie (NOT NULL + default + indexen) — 1 migratie
+2. `company-signup` edge function (industry-aware features)
+3. `WorkOrderDialog.tsx` (AI materialen koppelen met prijsopzoek)
+4. `InvoiceDialog.tsx` (BTW-selector)
+5. `industryConfig.ts` (contracts module)
+
+## Bestanden
 
 | Bestand | Wijziging |
 |---|---|
-| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
-| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
-
-Geen database-wijzigingen, geen nieuwe dependencies.
+| SQL migratie | NOT NULL ×4, default enabled_features, 25 indexen |
+| `supabase/functions/company-signup/index.ts` | industry/subcategory + enabled_features |
+| `src/components/WorkOrderDialog.tsx` | AI materialen schrijven na create, prijs uit catalogus |
+| `src/components/InvoiceDialog.tsx` | BTW-selector 0/9/21% |
+| `src/pages/WorkOrderDetailPage.tsx` | BTW via selector i.p.v. hardcoded |
+| `src/config/industryConfig.ts` | contracts toevoegen aan alle modules |
 
