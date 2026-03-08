@@ -33,7 +33,7 @@ interface Props {
   prefillCustomerId?: string;
 }
 
-const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId }: Props) => {
+const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCustomerId }: Props) => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { labels, industry } = useIndustryConfig();
