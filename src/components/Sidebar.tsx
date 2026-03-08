@@ -21,7 +21,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const buildSections = (labels: { workOrders: string; assets: string }) => [
+const buildSections = (labels: { workOrders: string; assets: string; vehicles: string }) => [
   {
     label: "Overzicht",
     items: [
@@ -53,6 +53,7 @@ const buildSections = (labels: { workOrders: string; assets: string }) => [
     label: "Beheer",
     items: [
       { id: "assets" as Page, icon: Box, label: labels.assets, adminOnly: true },
+      { id: "vehicles" as Page, icon: Car, label: labels.vehicles, adminOnly: true },
       { id: "marketing" as Page, icon: Megaphone, label: "Marketing", adminOnly: true },
     ],
   },
