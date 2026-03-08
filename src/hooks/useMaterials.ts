@@ -8,6 +8,8 @@ export interface Material {
   name: string;
   unit: string;
   unit_price: number;
+  cost_price: number;
+  markup_percentage: number;
   article_number: string | null;
   category: string | null;
   created_at: string;

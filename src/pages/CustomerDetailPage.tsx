@@ -188,6 +188,14 @@ const CustomerDetailPage = () => {
         </div>
       </>
     ),
+    // E-mail tab
+    () => (
+      <CustomerEmailTab
+        customerId={customer.id}
+        customerEmail={customer.email}
+        customerName={customer.name}
+      />
+    ),
     // WhatsApp Chat
     () => (
       <WhatsAppChat

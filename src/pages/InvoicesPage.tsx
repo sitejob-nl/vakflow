@@ -520,7 +520,7 @@ const InvoicesPage = () => {
                     >
                       <div className="flex-1 min-w-0">
                         <div className="text-[13px] font-bold truncate">{inv.customers?.name ?? "—"}</div>
-                        <div className="text-[11px] text-t3 font-mono">{inv.invoice_number ?? "—"} · € {Number(inv.total).toFixed(2)}</div>
+                        <div className="text-[11px] text-t3 font-mono">{inv.invoice_number || "Concept"} · € {Number(inv.total).toFixed(2)}</div>
                       </div>
                       <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold flex-shrink-0 ${badgeStyles[cfg.variant]}`}>
                         {cfg.label}
@@ -565,7 +565,7 @@ const InvoicesPage = () => {
                       onClick={() => setSelectedId(inv.id)}
                       className={`hover:bg-bg-hover transition-colors cursor-pointer ${selected?.id === inv.id ? "bg-bg-active" : ""}`}
                     >
-                      <td className="px-5 py-3 text-[12px] font-mono">{inv.invoice_number ?? "—"}</td>
+                      <td className="px-5 py-3 text-[12px] font-mono">{inv.invoice_number || <span className="text-muted-foreground italic">Concept</span>}</td>
                       <td className="px-5 py-3 text-[13.5px]">{inv.customers?.name ?? "—"}</td>
                       <td className="px-5 py-3 text-[13.5px]">{serviceName(inv)}</td>
                       <td className="px-5 py-3 font-mono">€ {Number(inv.total).toFixed(2)}</td>
