@@ -74,7 +74,9 @@ const ProjectsPage = () => {
             </Button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Desktop table */}
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full text-[13px]">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
@@ -115,6 +117,33 @@ const ProjectsPage = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile card list */}
+          <div className="md:hidden divide-y divide-border">
+            {filtered.map((p) => {
+              const cfg = statusConfig[p.status] ?? statusConfig.gepland;
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => navigate("projDetail", { projectId: p.id })}
+                  className="px-4 py-3 flex items-center gap-3 active:bg-muted/50 transition-colors cursor-pointer"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <FolderKanban className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-bold truncate">{p.name}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {(p.customers as any)?.name ?? "—"}
+                      {p.budget_amount ? ` · ${eur(p.budget_amount)}` : ""}
+                    </div>
+                  </div>
+                  <span className={`inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold flex-shrink-0 ${cfg.className}`}>{cfg.label}</span>
+                </div>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
 

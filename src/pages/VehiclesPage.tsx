@@ -78,15 +78,16 @@ const VehiclesPage = () => {
         />
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* Desktop table */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Kenteken</TableHead>
               <TableHead>Voertuig</TableHead>
-              <TableHead className="hidden md:table-cell">Klant</TableHead>
-              <TableHead className="hidden md:table-cell">KM-stand</TableHead>
-              <TableHead className="hidden md:table-cell">APK</TableHead>
+              <TableHead>Klant</TableHead>
+              <TableHead>KM-stand</TableHead>
+              <TableHead>APK</TableHead>
               <TableHead className="w-[80px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -113,9 +114,9 @@ const VehiclesPage = () => {
                     {v.model && <span className="text-muted-foreground ml-1">{v.model}</span>}
                     {v.build_year && <span className="text-muted-foreground text-xs ml-1">({v.build_year})</span>}
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground">{v.customers?.name ?? "—"}</TableCell>
-                  <TableCell className="hidden md:table-cell">{v.mileage_current ? `${v.mileage_current.toLocaleString()} km` : "—"}</TableCell>
-                  <TableCell className="hidden md:table-cell">
+                  <TableCell className="text-muted-foreground">{v.customers?.name ?? "—"}</TableCell>
+                  <TableCell>{v.mileage_current ? `${v.mileage_current.toLocaleString()} km` : "—"}</TableCell>
+                  <TableCell>
                     {v.apk_expiry_date ? (
                       <div className="flex items-center gap-2">
                         <span className="text-xs">{format(new Date(v.apk_expiry_date), "dd-MM-yyyy")}</span>
@@ -138,6 +139,38 @@ const VehiclesPage = () => {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-2">
+        {isLoading ? (
+          <div className="flex justify-center py-8 text-muted-foreground">Laden...</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground text-sm">Geen voertuigen gevonden</div>
+        ) : (
+          filtered.map((v) => (
+            <div
+              key={v.id}
+              onClick={() => navigate("vehDetail" as any, { id: v.id })}
+              className="bg-card border border-border rounded-lg p-3.5 flex items-center gap-3 active:bg-muted/50 transition-colors cursor-pointer"
+            >
+              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                <Car className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-mono font-bold tracking-wider">{formatPlate(v.license_plate)}</div>
+                <div className="text-[11px] text-muted-foreground truncate">
+                  {[v.brand, v.model, v.build_year ? `(${v.build_year})` : null].filter(Boolean).join(" ")}
+                  {v.customers?.name ? ` · ${v.customers.name}` : ""}
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                {v.mileage_current && <span className="text-[10px] text-muted-foreground">{v.mileage_current.toLocaleString()} km</span>}
+                {apkStatus(v.apk_expiry_date)}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <VehicleDialog open={dialogOpen} onOpenChange={setDialogOpen} vehicle={editVehicle} />
