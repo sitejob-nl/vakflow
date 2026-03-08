@@ -221,6 +221,7 @@ const InvoicesPage = () => {
     setSyncingId(null);
   };
 
+  const serviceName = (inv: Invoice) => (inv.work_orders as any)?.services?.name ?? "Dienst";
   const woNumber = (inv: Invoice) => (inv.work_orders as any)?.work_order_number ?? "—";
 
   const handleSelect = (id: string) => {

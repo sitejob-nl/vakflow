@@ -170,6 +170,8 @@ const SettingsAccountingTab = () => {
   const [provider, setProvider] = useState<string>("");
   const [form, setForm] = useState<Record<string, string | number>>({});
   const [hasTokens, setHasTokens] = useState<Record<string, boolean>>({});
+  const [syncInvoices, setSyncInvoices] = useState(true);
+  const [syncQuotes, setSyncQuotes] = useState(false);
 
   // Snelstart hooks
   const { data: snelstartConn, isLoading: snelLoading } = useSnelstartConnection();
@@ -182,11 +184,13 @@ const SettingsAccountingTab = () => {
     if (!companyId) return;
     (async () => {
       const { data } = await supabase.from("companies_safe" as any).select(
-        "accounting_provider, has_eboekhouden_token, has_wefact_key, eboekhouden_ledger_id, eboekhouden_template_id, eboekhouden_debtor_ledger_id, moneybird_administration_id, rompslomp_company_name, rompslomp_company_id, rompslomp_tenant_id"
+        "accounting_provider, has_eboekhouden_token, has_wefact_key, eboekhouden_ledger_id, eboekhouden_template_id, eboekhouden_debtor_ledger_id, moneybird_administration_id, rompslomp_company_name, rompslomp_company_id, rompslomp_tenant_id, sync_invoices_to_accounting, sync_quotes_to_accounting"
       ).eq("id", companyId).single() as { data: any };
       if (data) {
         setProvider(data.accounting_provider ?? "");
         setHasTokens({ eboekhouden: !!data.has_eboekhouden_token, wefact: !!data.has_wefact_key });
+        setSyncInvoices(data.sync_invoices_to_accounting ?? true);
+        setSyncQuotes(data.sync_quotes_to_accounting ?? false);
         setForm({
           eboekhouden_ledger_id: data.eboekhouden_ledger_id ?? "",
           eboekhouden_template_id: data.eboekhouden_template_id ?? "",
