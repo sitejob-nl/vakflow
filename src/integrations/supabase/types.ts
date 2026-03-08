@@ -1087,6 +1087,7 @@ export type Database = {
       customers: {
         Row: {
           address: string | null
+          btw_number: string | null
           city: string | null
           company_id: string
           contact_person: string | null
@@ -1097,6 +1098,7 @@ export type Database = {
           exact_account_id: string | null
           id: string
           interval_months: number
+          kvk_number: string | null
           lat: number | null
           lng: number | null
           moneybird_contact_id: string | null
@@ -1112,6 +1114,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          btw_number?: string | null
           city?: string | null
           company_id: string
           contact_person?: string | null
@@ -1122,6 +1125,7 @@ export type Database = {
           exact_account_id?: string | null
           id?: string
           interval_months?: number
+          kvk_number?: string | null
           lat?: number | null
           lng?: number | null
           moneybird_contact_id?: string | null
@@ -1137,6 +1141,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          btw_number?: string | null
           city?: string | null
           company_id?: string
           contact_person?: string | null
@@ -1147,6 +1152,7 @@ export type Database = {
           exact_account_id?: string | null
           id?: string
           interval_months?: number
+          kvk_number?: string | null
           lat?: number | null
           lng?: number | null
           moneybird_contact_id?: string | null
@@ -1287,6 +1293,7 @@ export type Database = {
           created_at: string
           division: number | null
           id: string
+          journal_code: string | null
           region: string | null
           status: string
           tenant_id: string | null
@@ -1299,6 +1306,7 @@ export type Database = {
           created_at?: string
           division?: number | null
           id?: string
+          journal_code?: string | null
           region?: string | null
           status?: string
           tenant_id?: string | null
@@ -1311,6 +1319,7 @@ export type Database = {
           created_at?: string
           division?: number | null
           id?: string
+          journal_code?: string | null
           region?: string | null
           status?: string
           tenant_id?: string | null
@@ -2491,6 +2500,7 @@ export type Database = {
           contract_id: string | null
           created_at: string
           customer_id: string
+          exact_id: string | null
           id: string
           issued_at: string | null
           items: Json
@@ -2514,6 +2524,7 @@ export type Database = {
           contract_id?: string | null
           created_at?: string
           customer_id: string
+          exact_id?: string | null
           id?: string
           issued_at?: string | null
           items?: Json
@@ -2537,6 +2548,7 @@ export type Database = {
           contract_id?: string | null
           created_at?: string
           customer_id?: string
+          exact_id?: string | null
           id?: string
           issued_at?: string | null
           items?: Json

@@ -152,6 +152,8 @@ async function ensureExactAccount(
     City: customer.city || undefined,
     Postcode: customer.postal_code || undefined,
     AddressLine1: customer.address || undefined,
+    ...(customer.kvk_number ? { ChamberOfCommerce: customer.kvk_number } : {}),
+    ...(customer.btw_number ? { VATNumber: customer.btw_number } : {}),
   };
 
   const result = await exactPost(
@@ -257,6 +259,8 @@ Deno.serve(async (req) => {
               City: cust.city || undefined,
               Postcode: cust.postal_code || undefined,
               AddressLine1: cust.address || undefined,
+              ...(cust.kvk_number ? { ChamberOfCommerce: cust.kvk_number } : {}),
+              ...(cust.btw_number ? { VATNumber: cust.btw_number } : {}),
             };
 
             const result = await exactPost(
@@ -293,6 +297,8 @@ Deno.serve(async (req) => {
               City: cust.city || undefined,
               Postcode: cust.postal_code || undefined,
               AddressLine1: cust.address || undefined,
+              ...(cust.kvk_number ? { ChamberOfCommerce: cust.kvk_number } : {}),
+              ...(cust.btw_number ? { VATNumber: cust.btw_number } : {}),
             };
 
             const result = await exactPut(
@@ -409,7 +415,7 @@ Deno.serve(async (req) => {
             }
 
             const invoiceData: Record<string, unknown> = {
-              Journal: "70",
+              Journal: config.journal_code || "70",
               Type: 8023,
               OrderedBy: customer.exact_account_id,
               Description: `Factuur ${inv.invoice_number || ""}`.trim(),
@@ -599,7 +605,8 @@ Deno.serve(async (req) => {
           .from("quotes")
           .select("*, customers(name, email, exact_account_id)")
           .eq("company_id", companyId)
-          .in("status", ["verzonden", "verstuurd"]);
+          .in("status", ["verzonden", "verstuurd"])
+          .is("exact_id", null);
 
         if (!quotes?.length) return jsonRes({ synced: 0, skipped: 0, errors: [] });
 
@@ -648,6 +655,11 @@ Deno.serve(async (req) => {
             if (!result.ok) {
               errors.push(`${q.quote_number}: ${result.error}`);
               continue;
+            }
+
+            const exactQuoteId = result.data?.QuotationID;
+            if (exactQuoteId) {
+              await supabaseAdmin.from("quotes").update({ exact_id: exactQuoteId }).eq("id", q.id);
             }
             synced++;
           } catch (err: any) {
@@ -767,7 +779,7 @@ Deno.serve(async (req) => {
         }
 
         const invoiceData: Record<string, unknown> = {
-          Journal: "70",
+          Journal: config.journal_code || "70",
           Type: 8023,
           OrderedBy: exactAccountId,
           Description: `Factuur ${invoice.invoice_number || ""}`.trim(),
@@ -843,8 +855,13 @@ Deno.serve(async (req) => {
 
         if (!result.ok) return jsonRes({ error: result.error }, 500);
 
+        const exactQuoteId = result.data?.QuotationID;
+        if (exactQuoteId) {
+          await supabaseAdmin.from("quotes").update({ exact_id: exactQuoteId }).eq("id", quote.id);
+        }
+
         await logUsage(supabaseAdmin, companyId, "exact_create_quote", { quote_id });
-        return jsonRes({ success: true });
+        return jsonRes({ success: true, exact_id: exactQuoteId });
       }
 
       default:
