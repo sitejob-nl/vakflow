@@ -390,7 +390,7 @@ Deno.serve(async (req) => {
     if (action === "pull-invoice-status") {
       const { data: unpaid } = await supabaseAdmin
         .from("invoices")
-        .select("id, wefact_id")
+        .select("id, wefact_id, notes")
         .eq("company_id", companyId)
         .not("wefact_id", "is", null)
         .neq("status", "betaald");
@@ -403,11 +403,29 @@ Deno.serve(async (req) => {
           const result = await wefactRequest(apiKey, "invoice", "show", { Identifier: inv.wefact_id });
           const wInv = result?.invoice;
           checked++;
-          if (wInv && String(wInv.Status) === "4") {
+          if (!wInv) continue;
+
+          const status = String(wInv.Status);
+          const amountPaid = parseFloat(wInv.AmountPaid || "0");
+          const amountOutstanding = parseFloat(wInv.AmountOutstanding || "0");
+
+          if (status === "4") {
+            // Fully paid
             await supabaseAdmin
               .from("invoices")
               .update({ status: "betaald", paid_at: wInv.PayDate || new Date().toISOString().split("T")[0] })
               .eq("id", inv.id);
+            updated++;
+          } else if (status === "3" && amountPaid > 0) {
+            // Partially paid — keep status as "verzonden" but update notes
+            const partNote = `Deelbetaling: €${amountPaid.toFixed(2)} ontvangen, €${amountOutstanding.toFixed(2)} openstaand`;
+            const existingNotes = inv.notes || "";
+            if (!existingNotes.includes("Deelbetaling:")) {
+              await supabaseAdmin
+                .from("invoices")
+                .update({ notes: existingNotes ? `${existingNotes}\n${partNote}` : partNote })
+                .eq("id", inv.id);
+            }
             updated++;
           }
         } catch (err: any) {

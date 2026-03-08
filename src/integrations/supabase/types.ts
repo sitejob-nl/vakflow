@@ -1061,6 +1061,7 @@ export type Database = {
           name: string
           unit: string
           unit_price: number
+          wefact_product_id: string | null
         }
         Insert: {
           article_number?: string | null
@@ -1073,6 +1074,7 @@ export type Database = {
           name: string
           unit?: string
           unit_price?: number
+          wefact_product_id?: string | null
         }
         Update: {
           article_number?: string | null
@@ -1085,6 +1087,7 @@ export type Database = {
           name?: string
           unit?: string
           unit_price?: number
+          wefact_product_id?: string | null
         }
         Relationships: [
           {
