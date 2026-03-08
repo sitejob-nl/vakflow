@@ -54,7 +54,7 @@ const WorkOrderDetailPage = () => {
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [mileageInput, setMileageInput] = useState("");
-  const createMileageLog = useCreateMileageLog();
+  
 
   // Determine if this work order has a vehicle
   const vehicleId = (wo as any)?.vehicle_id as string | null;
