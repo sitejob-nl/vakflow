@@ -6,6 +6,127 @@ import { Loader2, Check, X } from "lucide-react";
 import { useSnelstartConnection, useSaveSnelstartConnection, useDeleteSnelstartConnection, useTestSnelstartConnection } from "@/hooks/useSnelstart";
 import { SETTINGS_INPUT_CLASS as inputClass, SETTINGS_LABEL_CLASS as labelClass } from "./shared";
 
+const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: string | null; saving: boolean }) => {
+  const { toast } = useToast();
+  const [exactStatus, setExactStatus] = useState<string | null>(null);
+  const [exactCompanyName, setExactCompanyName] = useState<string | null>(null);
+  const [loadingExact, setLoadingExact] = useState(true);
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  useEffect(() => {
+    if (!companyId) return;
+    supabase
+      .from("exact_config")
+      .select("status, company_name_exact, tenant_id")
+      .eq("company_id", companyId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setExactStatus(data?.status ?? null);
+        setExactCompanyName(data?.company_name_exact ?? null);
+        setLoadingExact(false);
+      });
+  }, [companyId]);
+
+  const handleConnect = async () => {
+    if (!companyId) return;
+    setConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("exact-register");
+      if (error || data?.error) throw new Error(data?.error || error?.message);
+      const tenantId = data?.tenant_id;
+      if (!tenantId) throw new Error("Geen tenant_id ontvangen");
+
+      // Open the Exact Online connect page
+      const connectUrl = `https://xeshjkznwdrxjjhbpisn.supabase.co/functions/v1/exact-connect?tenant_id=${tenantId}`;
+      window.open(connectUrl, "_blank");
+      setExactStatus("pending");
+      toast({ title: "Exact Online koppeling gestart", description: "Rond de autorisatie af in het geopende venster." });
+    } catch (err: any) {
+      toast({ title: "Fout bij koppelen", description: err.message, variant: "destructive" });
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!companyId) return;
+    setDisconnecting(true);
+    await supabase.from("exact_config").delete().eq("company_id", companyId);
+    setExactStatus(null);
+    setExactCompanyName(null);
+    setDisconnecting(false);
+    toast({ title: "Exact Online ontkoppeld" });
+  };
+
+  const handleRefreshStatus = async () => {
+    if (!companyId) return;
+    const { data } = await supabase.from("exact_config").select("status, company_name_exact").eq("company_id", companyId).maybeSingle();
+    setExactStatus(data?.status ?? null);
+    setExactCompanyName(data?.company_name_exact ?? null);
+    toast({ title: "Status vernieuwd", description: data?.status ?? "Geen configuratie gevonden" });
+  };
+
+  if (loadingExact) return <div className="border-t border-border pt-5"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>;
+
+  const isConnected = exactStatus === "connected";
+  const isPending = exactStatus === "pending";
+
+  return (
+    <div className="border-t border-border pt-5 space-y-3">
+      <h3 className="text-[14px] font-bold">Exact Online</h3>
+
+      {isConnected ? (
+        <div className="space-y-2">
+          <p className="text-[11px] text-success font-bold flex items-center gap-1">
+            <Check className="h-3 w-3" /> Exact Online gekoppeld
+          </p>
+          {exactCompanyName && <p className="text-[12px] text-muted-foreground">Administratie: {exactCompanyName}</p>}
+          <div className="flex gap-2">
+            <button onClick={handleRefreshStatus} className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors">
+              Status vernieuwen
+            </button>
+            <button onClick={handleDisconnect} disabled={disconnecting} className="px-3 py-2 bg-destructive/10 text-destructive rounded-sm text-[12px] font-medium hover:bg-destructive/20 transition-colors">
+              {disconnecting ? "Ontkoppelen..." : "Ontkoppelen"}
+            </button>
+          </div>
+        </div>
+      ) : isPending ? (
+        <div className="space-y-2">
+          <p className="text-[11px] text-warning font-bold flex items-center gap-1">
+            ⏳ Wachten op autorisatie...
+          </p>
+          <p className="text-[12px] text-muted-foreground">Rond de autorisatie af in Exact Online. Klik daarna op "Status vernieuwen".</p>
+          <div className="flex gap-2">
+            <button onClick={handleRefreshStatus} className="px-3 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors">
+              Status vernieuwen
+            </button>
+            <button onClick={handleConnect} disabled={connecting} className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors">
+              {connecting ? "Bezig..." : "Opnieuw starten"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-[12px] text-muted-foreground">Koppel Exact Online om facturen, offertes en klanten automatisch te synchroniseren.</p>
+          <button onClick={handleConnect} disabled={connecting} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
+            {connecting ? <><Loader2 className="h-3 w-3 animate-spin inline mr-1" /> Koppeling starten...</> : "Koppeling starten"}
+          </button>
+          <div className="bg-muted/50 border border-border rounded-lg p-3 text-[12px] text-muted-foreground space-y-1.5">
+            <p className="font-semibold text-secondary-foreground">Zo werkt het:</p>
+            <ol className="list-decimal list-inside space-y-0.5">
+              <li>Klik op "Koppeling starten"</li>
+              <li>Log in bij Exact Online in het nieuwe venster</li>
+              <li>Geef toestemming voor de koppeling</li>
+              <li>Kom terug en klik op "Status vernieuwen"</li>
+            </ol>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const TokenField = ({ label, fieldName, hasToken, saving, onSave }: { label: string; fieldName: string; hasToken: boolean; saving: boolean; onSave: (field: string, value: string) => void }) => {
   const [val, setVal] = useState("");
   return (
@@ -191,10 +312,7 @@ const SettingsAccountingTab = () => {
       )}
 
       {provider === "exact" && (
-        <div className="border-t border-border pt-5 space-y-3">
-          <h3 className="text-[14px] font-bold">Exact Online</h3>
-          <p className="text-[13px] text-muted-foreground">Exact Online wordt gekoppeld via SiteJob Connect. Ga naar Koppelingen voor de status.</p>
-        </div>
+        <ExactOnlineSection companyId={companyId} saving={saving} />
       )}
 
       {provider === "snelstart" && (
