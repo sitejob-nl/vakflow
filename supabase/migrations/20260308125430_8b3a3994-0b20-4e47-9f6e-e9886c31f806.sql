@@ -1,0 +1,1 @@
+UPDATE public.quotes SET status = 'concept' WHERE id = '3942c2b4-1249-493d-a5ee-3a320caed522';
