@@ -183,6 +183,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
         customer_id: "",
         service_id: "",
         address_id: "",
+        vehicle_id: "",
         scheduled_at: formatDateTimeLocal(dt),
         duration_minutes: 60,
         status: "gepland",
