@@ -238,12 +238,57 @@ const VehicleDetailPage = () => {
         </CardContent>
       </Card>
 
-      {/* Mileage history */}
+      {/* Mileage history chart */}
       {mileageLogs && mileageLogs.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Hash className="h-4 w-4" /> KM-standenhistorie</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Gauge className="h-4 w-4" /> KM-standenhistorie</CardTitle></CardHeader>
           <CardContent>
-            <div className="space-y-1">
+            {mileageLogs.length >= 2 ? (
+              <div className="h-[240px] -ml-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={[...mileageLogs].reverse().map((log) => ({
+                      date: format(new Date(log.recorded_at), "dd MMM yy", { locale: nl }),
+                      km: log.mileage,
+                    }))}
+                  >
+                    <defs>
+                      <linearGradient id="mileageGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} className="text-muted-foreground" />
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      className="text-muted-foreground"
+                      tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                      }}
+                      formatter={(value: number) => [`${value.toLocaleString("nl-NL")} km`, "KM-stand"]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="km"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      fill="url(#mileageGradient)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : null}
+
+            {/* Table fallback / detail view */}
+            <div className={`space-y-1 ${mileageLogs.length >= 2 ? "mt-4 pt-4 border-t border-border" : ""}`}>
+              <p className="text-xs text-muted-foreground font-medium mb-2">Alle registraties ({mileageLogs.length})</p>
               {mileageLogs.map((log) => (
                 <div key={log.id} className="flex items-center justify-between py-1.5 text-sm border-b border-border last:border-b-0">
                   <span className="text-muted-foreground">{format(new Date(log.recorded_at), "dd MMM yyyy HH:mm", { locale: nl })}</span>
