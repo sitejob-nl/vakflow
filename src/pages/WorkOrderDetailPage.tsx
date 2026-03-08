@@ -304,7 +304,7 @@ const WorkOrderDetailPage = () => {
               className="px-2 py-2 bg-card border border-destructive text-destructive rounded-sm text-[13px] font-bold hover:bg-destructive-muted transition-colors disabled:opacity-50"
               title="Link intrekken"
             >
-              <LinkOff className="h-3.5 w-3.5" />
+              <Link2Off className="h-3.5 w-3.5" />
             </button>
           </div>
         ) : (
