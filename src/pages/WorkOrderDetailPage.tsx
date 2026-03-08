@@ -477,7 +477,7 @@ const WorkOrderDetailPage = () => {
       <WorkOrderDialog open={editOpen} onOpenChange={setEditOpen} workOrder={wo} />
 
       {/* Confirmation dialog for finishing */}
-      <AlertDialog open={confirmFinish} onOpenChange={setConfirmFinish}>
+      <AlertDialog open={confirmFinish} onOpenChange={(open) => { setConfirmFinish(open); if (!open) setMileageInput(""); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{labels.workOrder} afronden?</AlertDialogTitle>
@@ -485,6 +485,35 @@ const WorkOrderDetailPage = () => {
               Weet je zeker dat je deze {labels.workOrder.toLowerCase()} wilt afronden? Dit markeert de {labels.workOrder.toLowerCase()} als voltooid.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {/* Mileage input — only show when vehicle is linked */}
+          {vehicleId && (
+            <div className="space-y-2 py-2">
+              <Label htmlFor="mileage-input" className="text-sm font-medium">
+                Kilometerstand bij aflevering
+              </Label>
+              <Input
+                id="mileage-input"
+                type="number"
+                placeholder={currentMileage ? `Huidige stand: ${currentMileage.toLocaleString("nl-NL")} km` : "Voer kilometerstand in"}
+                value={mileageInput}
+                onChange={(e) => setMileageInput(e.target.value)}
+                min={0}
+              />
+              {currentMileage != null && (
+                <p className="text-xs text-muted-foreground">
+                  Laatst geregistreerde stand: {currentMileage.toLocaleString("nl-NL")} km
+                </p>
+              )}
+              {mileageAnomaly && (
+                <div className="flex items-start gap-2 p-2.5 rounded-md bg-destructive/10 border border-destructive/20">
+                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                  <p className="text-xs text-destructive font-medium">{mileageAnomaly}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           <AlertDialogFooter>
             <AlertDialogCancel>Annuleren</AlertDialogCancel>
             <AlertDialogAction onClick={() => handleStatusChange("afgerond")}>Afronden</AlertDialogAction>
