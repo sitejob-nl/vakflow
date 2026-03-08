@@ -6,13 +6,49 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Industry → enabled modules mapping (mirrors src/config/industryConfig.ts)
+const industryModules: Record<string, string[]> = {
+  technical: [
+    "dashboard", "planning", "customers", "workorders", "invoices",
+    "quotes", "reports", "email", "whatsapp", "communication",
+    "reminders", "assets", "marketing", "contracts",
+  ],
+  cleaning: [
+    "dashboard", "planning", "customers", "workorders", "invoices",
+    "quotes", "reports", "email", "whatsapp", "communication",
+    "reminders", "assets", "marketing", "contracts", "schedule", "audits",
+  ],
+  automotive: [
+    "dashboard", "planning", "customers", "workorders", "invoices",
+    "quotes", "reports", "email", "whatsapp", "communication",
+    "reminders", "vehicles", "marketing", "contracts", "trade",
+  ],
+  pest: [
+    "dashboard", "planning", "customers", "workorders", "invoices",
+    "quotes", "reports", "email", "whatsapp", "communication",
+    "reminders", "assets", "marketing", "contracts",
+  ],
+  landscaping: [
+    "dashboard", "planning", "customers", "workorders", "invoices",
+    "quotes", "reports", "email", "whatsapp", "communication",
+    "reminders", "assets", "marketing", "contracts",
+  ],
+};
+
+const allModules = [
+  "dashboard", "planning", "customers", "workorders", "invoices",
+  "quotes", "reports", "email", "whatsapp", "communication",
+  "reminders", "assets", "marketing", "contracts", "schedule",
+  "audits", "vehicles", "trade",
+];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { email, password, full_name, company_name, kvk_number } = await req.json();
+    const { email, password, full_name, company_name, kvk_number, industry, subcategory } = await req.json();
 
     if (!email || !password || !company_name || !full_name) {
       return new Response(
@@ -52,10 +88,21 @@ Deno.serve(async (req) => {
       slug = `${baseSlug}-${attempt}`;
     }
 
+    // Determine enabled features based on industry
+    const safeIndustry = industry && industryModules[industry] ? industry : "technical";
+    const enabledFeatures = industryModules[safeIndustry] ?? allModules;
+
     // 1. Create the company
     const { data: company, error: companyError } = await adminClient
       .from("companies")
-      .insert({ name: company_name, slug, kvk_number: kvk_number || null })
+      .insert({
+        name: company_name,
+        slug,
+        kvk_number: kvk_number || null,
+        industry: safeIndustry,
+        subcategory: subcategory || "general",
+        enabled_features: enabledFeatures,
+      })
       .select("id")
       .single();
 

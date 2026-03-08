@@ -678,7 +678,7 @@ export type Database = {
         Row: {
           body: string | null
           channel: string
-          company_id: string | null
+          company_id: string
           created_at: string
           customer_id: string | null
           direction: string
@@ -698,7 +698,7 @@ export type Database = {
         Insert: {
           body?: string | null
           channel: string
-          company_id?: string | null
+          company_id: string
           created_at?: string
           customer_id?: string | null
           direction?: string
@@ -718,7 +718,7 @@ export type Database = {
         Update: {
           body?: string | null
           channel?: string
-          company_id?: string | null
+          company_id?: string
           created_at?: string
           customer_id?: string | null
           direction?: string
@@ -1752,7 +1752,7 @@ export type Database = {
       notifications: {
         Row: {
           body: string | null
-          company_id: string | null
+          company_id: string
           created_at: string
           id: string
           link_page: string | null
@@ -1763,7 +1763,7 @@ export type Database = {
         }
         Insert: {
           body?: string | null
-          company_id?: string | null
+          company_id: string
           created_at?: string
           id?: string
           link_page?: string | null
@@ -1774,7 +1774,7 @@ export type Database = {
         }
         Update: {
           body?: string | null
-          company_id?: string | null
+          company_id?: string
           created_at?: string
           id?: string
           link_page?: string | null
@@ -2813,7 +2813,7 @@ export type Database = {
       }
       time_entries: {
         Row: {
-          company_id: string | null
+          company_id: string
           created_at: string
           description: string | null
           duration_minutes: number | null
@@ -2825,7 +2825,7 @@ export type Database = {
           work_order_id: string | null
         }
         Insert: {
-          company_id?: string | null
+          company_id: string
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
@@ -2837,7 +2837,7 @@ export type Database = {
           work_order_id?: string | null
         }
         Update: {
-          company_id?: string | null
+          company_id?: string
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
@@ -3535,7 +3535,7 @@ export type Database = {
       }
       whatsapp_messages: {
         Row: {
-          company_id: string | null
+          company_id: string
           content: string | null
           created_at: string | null
           customer_id: string | null
@@ -3550,7 +3550,7 @@ export type Database = {
           wamid: string | null
         }
         Insert: {
-          company_id?: string | null
+          company_id: string
           content?: string | null
           created_at?: string | null
           customer_id?: string | null
@@ -3565,7 +3565,7 @@ export type Database = {
           wamid?: string | null
         }
         Update: {
-          company_id?: string | null
+          company_id?: string
           content?: string | null
           created_at?: string | null
           customer_id?: string | null
