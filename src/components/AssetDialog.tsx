@@ -64,7 +64,7 @@ const AssetDialog = ({ open, onOpenChange, asset, onSave, saving }: Props) => {
     queryKey: ["asset_field_config", companyId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("companies")
+        .from("companies_safe")
         .select("asset_field_config")
         .eq("id", companyId!)
         .single();
