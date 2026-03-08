@@ -1,51 +1,46 @@
 
 
-## Agenda UI Verbetering — Look & Feel + Leesbaarheid
+## Boekhoud-sync configureerbaar maken + Exact Online provider-fix
 
-### Problemen
+6 wijzigingen in één batch.
 
-1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
-2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
+### 1. Database: companies_safe view uitbreiden
+SQL migration: `DROP VIEW` + `CREATE VIEW` met de twee nieuwe kolommen `sync_invoices_to_accounting` en `sync_quotes_to_accounting` toegevoegd aan de bestaande kolomlijst.
 
-### Aanpak
+### 2. SettingsAccountingTab: Sync toggles
+Twee Switch-componenten toevoegen (alleen zichtbaar als `accounting_provider` is ingesteld):
+- "Facturen automatisch syncen" → `sync_invoices_to_accounting`
+- "Offertes automatisch syncen" → `sync_quotes_to_accounting`
+Direct lezen/schrijven via `supabase.from("companies")`.
 
-**1. Grotere tijdslots en events**
-- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
-- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
-- Meer ruimte voor service-naam en stad onder de klantnaam
+### 3. InvoiceDialog: Toggle + provider-fix
+- Ophalen: `sync_invoices_to_accounting` meelezen naast `accounting_provider`
+- Conditie regel 136 wordt: `if (syncInvoices && accountingProvider && newInvoice?.id)`
+- Provider-mapping uitbreiden met `accountingProvider === "exact" ? "sync-exact"` en label `"Exact Online"`
+- Sync-fout wordt waarschuwings-toast (niet destructive), factuur is wel opgeslagen
 
-**2. Event cards verbeteren**
-- Subtielere achtergrondkleur met betere contrast
-- Lichte shadow toevoegen aan events voor diepte
-- Rounded corners vergroten, padding verruimen
-- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
-- Hover-effect verbeteren met schaal + shadow
+### 4. InvoicesPage: Toggle + provider-fix
+- `sync_invoices_to_accounting` ophalen bij regel 64
+- Auto-sync bij "verzonden" (regel 94-103): alleen als toggle aan staat
+- `exact` toevoegen aan de provider-switch: `else if (accountingProvider === "exact") { handleSyncExact(); }`
+- Nieuwe `handleSyncExact` functie toevoegen (vergelijkbaar met handleSyncEb, roept `sync-exact` aan met `action: "create-invoice"`)
 
-**3. Toolbar opschonen (desktop)**
-- Knoppen groeperen met visuele scheiders
-- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
-- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
-- Badge voor aantal afspraken subtieler
+### 5. QuoteDialog: Toggle + provider-fix
+- `sync_quotes_to_accounting` ophalen
+- Conditie wordt: `if (syncQuotes && accountingProvider && newQuote?.id)`
+- Provider-mapping uitbreiden met `"exact"` → `"sync-exact"` / `"Exact Online"`
+- Sync-fout wordt waarschuwings-toast
 
-**4. Dagkolom headers verbeteren (desktop weekview)**
-- Datum groter en duidelijker, weekdag + dagnummer gescheiden
-- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
-
-**5. Zijpaneel styling**
-- Subtielere card-styling, betere spacing
-- Status-dots vergroten in de afsprakenlijst
-- Betere typografie-hiërarchie
-
-**6. Mobile day view**
-- Zelfde slot-hoogte verbetering
-- Events met meer padding en grotere tekst
+### 6. Exact Online in provider-mapping (urgent fix)
+In alle drie bestanden: `"exact"` toevoegen aan de provider-check, funcName-mapping (`"sync-exact"`), en providerLabel (`"Exact Online"`). Zonder dit valt Exact door naar de e-Boekhouden fallback.
 
 ### Bestanden
 
 | Bestand | Wijziging |
 |---|---|
-| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
-| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
-
-Geen database-wijzigingen, geen nieuwe dependencies.
+| SQL migration | `companies_safe` view + 2 sync kolommen |
+| `SettingsAccountingTab.tsx` | Twee sync toggles |
+| `InvoiceDialog.tsx` | Toggle check + exact provider + soft error |
+| `InvoicesPage.tsx` | Toggle check + exact provider + handleSyncExact |
+| `QuoteDialog.tsx` | Toggle check + exact provider + soft error |
 
