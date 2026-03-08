@@ -74,6 +74,7 @@ const ProjectsPage = () => {
             </Button>
           </div>
         ) : (
+          <>
           {/* Desktop table */}
           <div className="overflow-x-auto hidden md:block">
             <table className="w-full text-[13px]">

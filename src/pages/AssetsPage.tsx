@@ -184,6 +184,7 @@ const AssetsPage = () => {
           {search ? "Geen objecten gevonden" : "Nog geen objecten aangemaakt"}
         </CardContent></Card>
       ) : (
+        <>
         {/* Desktop table */}
         <Card className="hidden md:block">
           <Table>
