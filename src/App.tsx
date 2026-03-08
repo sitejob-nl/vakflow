@@ -53,6 +53,7 @@ const PortalWorkOrdersPage = lazy(() => import("@/pages/PortalWorkOrdersPage"));
 const PortalVehiclesPage = lazy(() => import("@/pages/PortalVehiclesPage"));
 const PortalAppointmentsPage = lazy(() => import("@/pages/PortalAppointmentsPage"));
 const PortalTireStoragePage = lazy(() => import("@/pages/PortalTireStoragePage"));
+const WorkOrderStatusPage = lazy(() => import("@/pages/WorkOrderStatusPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
