@@ -73,7 +73,8 @@ const Sidebar = () => {
   const isActive = (id: Page) =>
     currentPage === id ||
     (id === "customers" && currentPage === "custDetail") ||
-    (id === "workorders" && currentPage === "woDetail");
+    (id === "workorders" && currentPage === "woDetail") ||
+    (id === "vehicles" && currentPage === "vehDetail");
 
   const sections = buildSections(labels)
     .map((section) => ({
