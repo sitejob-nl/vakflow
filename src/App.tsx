@@ -37,6 +37,9 @@ const AssetsPage = lazy(() => import("@/pages/AssetsPage"));
 const MarketingPage = lazy(() => import("@/pages/MarketingPage"));
 const ContractsPage = lazy(() => import("@/pages/ContractsPage"));
 const MetaCallbackPage = lazy(() => import("@/pages/MetaCallbackPage"));
+const PortalLoginPage = lazy(() => import("@/pages/PortalLoginPage"));
+const PortalQuotesPage = lazy(() => import("@/pages/PortalQuotesPage"));
+const PortalWorkOrdersPage = lazy(() => import("@/pages/PortalWorkOrdersPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
