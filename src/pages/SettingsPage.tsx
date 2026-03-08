@@ -28,6 +28,7 @@ import { useGeocode } from "@/hooks/useMapbox";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useSnelstartConnection, useSaveSnelstartConnection, useTestSnelstartConnection, useDeleteSnelstartConnection, useSnelstartSyncStatus, useTriggerSnelstartSync } from "@/hooks/useSnelstart";
 import WorkshopBaySettings from "@/components/WorkshopBaySettings";
+import ApkReminderSettings from "@/components/ApkReminderSettings";
 
 const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Werkplaats", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates", "Automatiseringen", "APK-herinneringen", "Teamleden", "Koppelingen", "Meta"];
 
