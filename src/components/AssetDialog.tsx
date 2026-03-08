@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useAddresses } from "@/hooks/useAddresses";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
@@ -22,6 +21,12 @@ interface FieldDef {
   type: "text" | "number" | "date" | "select" | "boolean";
   options?: string[];
   required?: boolean;
+}
+
+interface ObjectTypeDef {
+  key: string;
+  label: string;
+  fields: FieldDef[];
 }
 
 interface Props {
@@ -55,7 +60,7 @@ const AssetDialog = ({ open, onOpenChange, asset, onSave, saving }: Props) => {
   const customerId = form.customer_id || "";
   const { data: addresses } = useAddresses(customerId || undefined);
 
-  const { data: fieldConfig } = useQuery({
+  const { data: rawConfig } = useQuery({
     queryKey: ["asset_field_config", companyId],
     queryFn: async () => {
       const { data } = await supabase
@@ -63,10 +68,26 @@ const AssetDialog = ({ open, onOpenChange, asset, onSave, saving }: Props) => {
         .select("asset_field_config")
         .eq("id", companyId!)
         .single();
-      return ((data?.asset_field_config ?? []) as unknown as FieldDef[]);
+      return ((data?.asset_field_config ?? []) as unknown as any[]);
     },
     enabled: !!companyId,
   });
+
+  // Normalize: support both new ObjectTypeDef[] and legacy flat FieldDef[]
+  const objectTypes = useMemo<ObjectTypeDef[]>(() => {
+    if (!rawConfig || rawConfig.length === 0) return [];
+    if (rawConfig[0]?.fields) return rawConfig as ObjectTypeDef[];
+    // Legacy flat fields
+    return [{ key: "__legacy", label: "Overig", fields: rawConfig as FieldDef[] }];
+  }, [rawConfig]);
+
+  // Get fields for the currently selected asset_type
+  const activeFields = useMemo<FieldDef[]>(() => {
+    if (objectTypes.length === 0) return [];
+    const selectedType = form.asset_type || "";
+    const match = objectTypes.find((ot) => ot.key === selectedType);
+    return match?.fields ?? [];
+  }, [objectTypes, form.asset_type]);
 
   const setCustomField = (key: string, value: any) => {
     setForm((prev) => ({
@@ -96,6 +117,7 @@ const AssetDialog = ({ open, onOpenChange, asset, onSave, saving }: Props) => {
   };
 
   const isBuilding = form.object_type !== "fleet";
+  const hasObjectTypes = objectTypes.length > 0 && !(objectTypes.length === 1 && objectTypes[0].key === "__legacy");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -140,7 +162,19 @@ const AssetDialog = ({ open, onOpenChange, asset, onSave, saving }: Props) => {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Type</Label>
-              <Input value={form.asset_type || ""} onChange={(e) => set("asset_type", e.target.value)} placeholder={isCleaning ? (isBuilding ? "bv. kantoor, school" : "bv. lease-vloot") : "bv. CV-ketel, airco"} />
+              {hasObjectTypes ? (
+                <Select value={form.asset_type || "__none"} onValueChange={(v) => set("asset_type", v === "__none" ? null : v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecteer type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">Geen type</SelectItem>
+                    {objectTypes.map((ot) => (
+                      <SelectItem key={ot.key} value={ot.key}>{ot.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={form.asset_type || ""} onChange={(e) => set("asset_type", e.target.value)} placeholder={isCleaning ? (isBuilding ? "bv. kantoor, school" : "bv. lease-vloot") : "bv. CV-ketel, airco"} />
+              )}
             </div>
             <div>
               <Label>Status</Label>
@@ -245,11 +279,66 @@ const AssetDialog = ({ open, onOpenChange, asset, onSave, saving }: Props) => {
             </div>
           )}
 
-          {/* Custom fields */}
-          {fieldConfig && fieldConfig.length > 0 && (
+          {/* Custom fields based on selected object type */}
+          {activeFields.length > 0 && (
             <div className="space-y-3 pt-2 border-t">
               <Label className="text-sm font-semibold">Extra velden</Label>
-              {fieldConfig.map((fd) => (
+              {activeFields.map((fd) => (
+                <div key={fd.key}>
+                  <Label>{fd.label}{fd.required ? " *" : ""}</Label>
+                  {fd.type === "text" && (
+                    <Input
+                      value={(form.custom_fields as any)?.[fd.key] ?? ""}
+                      onChange={(e) => setCustomField(fd.key, e.target.value)}
+                    />
+                  )}
+                  {fd.type === "number" && (
+                    <Input
+                      type="number"
+                      value={(form.custom_fields as any)?.[fd.key] ?? ""}
+                      onChange={(e) => setCustomField(fd.key, e.target.value ? Number(e.target.value) : null)}
+                    />
+                  )}
+                  {fd.type === "date" && (
+                    <Input
+                      type="date"
+                      value={(form.custom_fields as any)?.[fd.key] ?? ""}
+                      onChange={(e) => setCustomField(fd.key, e.target.value || null)}
+                    />
+                  )}
+                  {fd.type === "select" && (
+                    <Select
+                      value={(form.custom_fields as any)?.[fd.key] ?? "__none"}
+                      onValueChange={(v) => setCustomField(fd.key, v === "__none" ? null : v)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Kies..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none">—</SelectItem>
+                        {(fd.options ?? []).map((opt) => (
+                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {fd.type === "boolean" && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Checkbox
+                        checked={!!(form.custom_fields as any)?.[fd.key]}
+                        onCheckedChange={(checked) => setCustomField(fd.key, !!checked)}
+                      />
+                      <span className="text-sm">{fd.label}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Legacy: show all fields when no object types configured */}
+          {objectTypes.length === 1 && objectTypes[0].key === "__legacy" && objectTypes[0].fields.length > 0 && (
+            <div className="space-y-3 pt-2 border-t">
+              <Label className="text-sm font-semibold">Extra velden</Label>
+              {objectTypes[0].fields.map((fd) => (
                 <div key={fd.key}>
                   <Label>{fd.label}{fd.required ? " *" : ""}</Label>
                   {fd.type === "text" && (
