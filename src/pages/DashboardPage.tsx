@@ -1,5 +1,5 @@
 import { useNavigation } from "@/hooks/useNavigation";
-import { useTodayAppointments, useDashboardStats, useReminders, useRecentWorkOrders } from "@/hooks/useDashboard";
+import { useTodayAppointments, useDashboardStats, useReminders, useRecentWorkOrders, useWeekWorkOrders, useOpenQuotes, useRecentActivity } from "@/hooks/useDashboard";
 import TodoWidget from "@/components/TodoWidget";
 import MaintenancePlannerWidget from "@/components/MaintenancePlannerWidget";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
