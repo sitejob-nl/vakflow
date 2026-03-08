@@ -599,6 +599,7 @@ export type Database = {
           smtp_password: string | null
           smtp_port: number | null
           subcategory: string
+          wefact_api_key: string | null
         }
         Insert: {
           accounting_provider?: string | null
@@ -644,6 +645,7 @@ export type Database = {
           smtp_password?: string | null
           smtp_port?: number | null
           subcategory?: string
+          wefact_api_key?: string | null
         }
         Update: {
           accounting_provider?: string | null
@@ -689,6 +691,7 @@ export type Database = {
           smtp_password?: string | null
           smtp_port?: number | null
           subcategory?: string
+          wefact_api_key?: string | null
         }
         Relationships: []
       }
@@ -715,6 +718,7 @@ export type Database = {
           rompslomp_contact_id: string | null
           type: string
           updated_at: string
+          wefact_debtor_code: string | null
           whatsapp_optin: boolean
         }
         Insert: {
@@ -739,6 +743,7 @@ export type Database = {
           rompslomp_contact_id?: string | null
           type?: string
           updated_at?: string
+          wefact_debtor_code?: string | null
           whatsapp_optin?: boolean
         }
         Update: {
@@ -763,6 +768,7 @@ export type Database = {
           rompslomp_contact_id?: string | null
           type?: string
           updated_at?: string
+          wefact_debtor_code?: string | null
           whatsapp_optin?: boolean
         }
         Relationships: [
@@ -961,6 +967,7 @@ export type Database = {
           total: number
           vat_amount: number
           vat_percentage: number
+          wefact_id: string | null
           work_order_id: string | null
         }
         Insert: {
@@ -984,6 +991,7 @@ export type Database = {
           total?: number
           vat_amount?: number
           vat_percentage?: number
+          wefact_id?: string | null
           work_order_id?: string | null
         }
         Update: {
@@ -1007,6 +1015,7 @@ export type Database = {
           total?: number
           vat_amount?: number
           vat_percentage?: number
+          wefact_id?: string | null
           work_order_id?: string | null
         }
         Relationships: [
@@ -1602,6 +1611,7 @@ export type Database = {
           valid_until: string | null
           vat_amount: number
           vat_percentage: number
+          wefact_id: string | null
         }
         Insert: {
           company_id?: string | null
@@ -1622,6 +1632,7 @@ export type Database = {
           valid_until?: string | null
           vat_amount?: number
           vat_percentage?: number
+          wefact_id?: string | null
         }
         Update: {
           company_id?: string | null
@@ -1642,6 +1653,7 @@ export type Database = {
           valid_until?: string | null
           vat_amount?: number
           vat_percentage?: number
+          wefact_id?: string | null
         }
         Relationships: [
           {
@@ -2753,6 +2765,7 @@ export type Database = {
           email_provider: string | null
           enabled_features: string[] | null
           has_eboekhouden_token: boolean | null
+          has_wefact_key: boolean | null
           iban: string | null
           id: string | null
           industry: string | null
@@ -2791,6 +2804,7 @@ export type Database = {
           email_provider?: string | null
           enabled_features?: string[] | null
           has_eboekhouden_token?: never
+          has_wefact_key?: never
           iban?: string | null
           id?: string | null
           industry?: string | null
@@ -2829,6 +2843,7 @@ export type Database = {
           email_provider?: string | null
           enabled_features?: string[] | null
           has_eboekhouden_token?: never
+          has_wefact_key?: never
           iban?: string | null
           id?: string | null
           industry?: string | null

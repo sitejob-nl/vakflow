@@ -543,3 +543,99 @@ export const usePullQuotesExact = () => {
     },
   });
 };
+
+// ─── WeFact sync hooks ───
+
+export const useSyncContactsWefact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action: "sync-contacts" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; skipped: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+  });
+};
+
+export const usePullContactsWefact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action: "pull-contacts" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total: number; created: number; updated: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+  });
+};
+
+export const useSyncInvoicesWefact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action: "sync-invoices" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; skipped: number; errors: string[] };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
+    },
+  });
+};
+
+export const usePullInvoicesWefact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action: "pull-invoices" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total_in_wefact: number; already_imported: number; imported: number; skipped_no_customer: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+};
+
+export const usePullInvoiceStatusWefact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action: "pull-invoice-status" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { checked: number; updated: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+};
+
+export const useSyncQuotesWefact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action: "sync-quotes" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; skipped: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quotes"] }),
+  });
+};
+
+export const usePullQuotesWefact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action: "pull-quotes" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total_in_wefact: number; already_imported: number; imported: number; skipped_no_customer: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quotes"] }),
+  });
+};

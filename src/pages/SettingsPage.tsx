@@ -12,7 +12,7 @@ import { useWhatsAppTemplates, useDeleteWhatsAppTemplate, useCreateWhatsAppTempl
 import { useWhatsAppProfile, useUpdateWhatsAppProfile, useUploadWhatsAppProfilePhoto } from "@/hooks/useWhatsAppProfile";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServices, useDeleteService } from "@/hooks/useCustomers";
-import { useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden, useSyncContactsRompslomp, useSyncInvoicesRompslomp, usePullContactsRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncQuotesRompslomp, usePullQuotesRompslomp, useSyncContactsMoneybird, usePullContactsMoneybird, useSyncInvoicesMoneybird, usePullInvoicesMoneybird, usePullInvoiceStatusMoneybird, useSyncQuotesMoneybird, usePullQuotesMoneybird, useSyncContactsExact, usePullContactsExact, useSyncInvoicesExact, usePullInvoicesExact, usePullInvoiceStatusExact, useSyncQuotesExact, usePullQuotesExact } from "@/hooks/useInvoices";
+import { useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden, useSyncContactsRompslomp, useSyncInvoicesRompslomp, usePullContactsRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncQuotesRompslomp, usePullQuotesRompslomp, useSyncContactsMoneybird, usePullContactsMoneybird, useSyncInvoicesMoneybird, usePullInvoicesMoneybird, usePullInvoiceStatusMoneybird, useSyncQuotesMoneybird, usePullQuotesMoneybird, useSyncContactsExact, usePullContactsExact, useSyncInvoicesExact, usePullInvoicesExact, usePullInvoiceStatusExact, useSyncQuotesExact, usePullQuotesExact, useSyncContactsWefact, usePullContactsWefact, useSyncInvoicesWefact, usePullInvoicesWefact, usePullInvoiceStatusWefact, useSyncQuotesWefact, usePullQuotesWefact } from "@/hooks/useInvoices";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -352,6 +352,25 @@ const SettingsPage = () => {
   const [snelstartTesting, setSnelstartTesting] = useState(false);
   const [snelstartSyncing, setSnelstartSyncing] = useState(false);
 
+  // WeFact state
+  const [wefactConnected, setWefactConnected] = useState(false);
+  const [wefactApiKey, setWefactApiKey] = useState("");
+  const [wefactTesting, setWefactTesting] = useState(false);
+  const [wefactSyncingContacts, setWefactSyncingContacts] = useState(false);
+  const [wefactSyncingInvoices, setWefactSyncingInvoices] = useState(false);
+  const [wefactPullingContacts, setWefactPullingContacts] = useState(false);
+  const [wefactPullingInvoices, setWefactPullingInvoices] = useState(false);
+  const [wefactPullingStatus, setWefactPullingStatus] = useState(false);
+  const [wefactSyncingQuotes, setWefactSyncingQuotes] = useState(false);
+  const [wefactPullingQuotes, setWefactPullingQuotes] = useState(false);
+  const syncContactsWefact = useSyncContactsWefact();
+  const syncInvoicesWefact = useSyncInvoicesWefact();
+  const pullContactsWefact = usePullContactsWefact();
+  const pullInvoicesWefact = usePullInvoicesWefact();
+  const pullInvoiceStatusWefact = usePullInvoiceStatusWefact();
+  const syncQuotesWefact = useSyncQuotesWefact();
+  const pullQuotesWefact = usePullQuotesWefact();
+
   // Team members state
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [teamRoles, setTeamRoles] = useState<Record<string, string>>({});
@@ -574,6 +593,9 @@ const SettingsPage = () => {
         setMoneybirdConnected(!!(companyData as any).moneybird_administration_id);
         setMoneybirdApiToken("");
         setMoneybirdAdminId((companyData as any).moneybird_administration_id ?? "");
+        // WeFact
+        setWefactConnected(!!(companyData as any).has_wefact_key);
+        setWefactApiKey("");
         // Exact Online — load from exact_config table
         if (profileData.company_id) {
           const { data: exactData } = await supabase.from("exact_config" as any).select("*").eq("company_id", profileData.company_id).maybeSingle();
@@ -2309,6 +2331,102 @@ const SettingsPage = () => {
                 </div>
               )}
             </div>
+          ) : accountingProvider === "wefact" ? (
+            <div className="space-y-4">
+              <h3 className="text-[14px] font-bold mb-1">WeFact</h3>
+              <p className="text-[12px] text-secondary-foreground mb-3">Synchroniseer contacten, facturen en offertes met je WeFact-account.</p>
+
+              {wefactConnected ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-1.5 text-[12px] font-bold text-success">
+                    <CheckCircle className="h-4 w-4" />
+                    Verbonden met WeFact
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      setWefactTesting(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action: "test" } });
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        toast({ title: "Verbinding geslaagd!", description: "WeFact API is bereikbaar." });
+                      } catch (err: any) {
+                        toast({ title: "Verbinding mislukt", description: err.message, variant: "destructive" });
+                      }
+                      setWefactTesting(false);
+                    }}
+                    disabled={wefactTesting}
+                    className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {wefactTesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                    Test verbinding
+                  </button>
+
+                  <div>
+                    <h4 className="text-[13px] font-bold mb-2">Data pushen naar WeFact</h4>
+                    <div className="flex gap-2 flex-wrap">
+                      <button onClick={async () => { setWefactSyncingContacts(true); try { const r = await syncContactsWefact.mutateAsync(); toast({ title: "Contacten gesynchroniseerd", description: `${r.synced} gesynct${r.errors.length ? `, ${r.errors.length} fouten` : ""}` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactSyncingContacts(false); }} disabled={wefactSyncingContacts} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {wefactSyncingContacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Contacten pushen
+                      </button>
+                      <button onClick={async () => { setWefactSyncingInvoices(true); try { const r = await syncInvoicesWefact.mutateAsync(); toast({ title: "Facturen gesynchroniseerd", description: `${r.synced} gesynct, ${r.skipped} overgeslagen${r.errors.length ? `, ${r.errors.length} fouten` : ""}` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactSyncingInvoices(false); }} disabled={wefactSyncingInvoices} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {wefactSyncingInvoices ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Facturen pushen
+                      </button>
+                      <button onClick={async () => { setWefactSyncingQuotes(true); try { const r = await syncQuotesWefact.mutateAsync(); toast({ title: "Offertes gepusht", description: `${r.synced} gesynchroniseerd, ${r.skipped} overgeslagen` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactSyncingQuotes(false); }} disabled={wefactSyncingQuotes} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {wefactSyncingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Offertes pushen
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-[13px] font-bold mb-2">Data ophalen uit WeFact</h4>
+                    <div className="flex gap-2 flex-wrap">
+                      <button onClick={async () => { setWefactPullingContacts(true); try { const r = await pullContactsWefact.mutateAsync(); toast({ title: "Contacten opgehaald", description: `${r.created} nieuw, ${r.updated} bijgewerkt (${r.total} totaal)` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactPullingContacts(false); }} disabled={wefactPullingContacts} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {wefactPullingContacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Contacten ophalen
+                      </button>
+                      <button onClick={async () => { setWefactPullingInvoices(true); try { const r = await pullInvoicesWefact.mutateAsync(); toast({ title: "Facturen opgehaald", description: `${r.total_in_wefact} in WeFact, ${r.imported} geïmporteerd, ${r.skipped_no_customer} overgeslagen` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactPullingInvoices(false); }} disabled={wefactPullingInvoices} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {wefactPullingInvoices ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Facturen ophalen
+                      </button>
+                      <button onClick={async () => { setWefactPullingStatus(true); try { const r = await pullInvoiceStatusWefact.mutateAsync(); toast({ title: "Betaalstatus bijgewerkt", description: `${r.checked} gecontroleerd, ${r.updated} als betaald gemarkeerd` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactPullingStatus(false); }} disabled={wefactPullingStatus} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {wefactPullingStatus ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>💰</>} Betaalstatus ophalen
+                      </button>
+                      <button onClick={async () => { setWefactPullingQuotes(true); try { const r = await pullQuotesWefact.mutateAsync(); toast({ title: "Offertes opgehaald", description: `${r.total_in_wefact} in WeFact, ${r.imported} geïmporteerd` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactPullingQuotes(false); }} disabled={wefactPullingQuotes} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {wefactPullingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Offertes ophalen
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Weet je zeker dat je WeFact wilt ontkoppelen?")) return;
+                      try {
+                        const { data: profileData } = await supabase.from("profiles").select("company_id").eq("id", user!.id).single();
+                        if (profileData?.company_id) {
+                          await supabase.functions.invoke("save-smtp-credentials", { body: { wefact_api_key: null } });
+                          await supabase.from("companies").update({ wefact_api_key: null } as any).eq("id", profileData.company_id);
+                          setWefactConnected(false);
+                          setWefactApiKey("");
+                          toast({ title: "WeFact ontkoppeld" });
+                        }
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
+                      }
+                    }}
+                    className="px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-sm text-[12px] font-bold text-destructive hover:bg-destructive/20 transition-colors"
+                  >
+                    ❌ Ontkoppelen
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5 text-[12px] font-bold text-muted-foreground">
+                    <XCircle className="h-4 w-4" />
+                    Niet verbonden
+                  </div>
+                  <p className="text-[12px] text-muted-foreground">Vul je API key in bij het tabblad <button className="text-primary underline" onClick={() => setActiveTab("Koppelingen")}>Koppelingen</button> om de koppeling te activeren.</p>
+                </div>
+              )}
+            </div>
           ) : (
             <div>
               <p className="text-[13px] text-muted-foreground">Geen boekhoudpakket geselecteerd. Ga naar het tabblad <button className="text-primary underline" onClick={() => setActiveTab("Koppelingen")}>Koppelingen</button> om een provider te kiezen.</p>
@@ -3671,6 +3789,7 @@ const SettingsPage = () => {
                   <SelectItem value="snelstart">SnelStart</SelectItem>
                   <SelectItem value="rompslomp">Rompslomp</SelectItem>
                   <SelectItem value="moneybird">Moneybird</SelectItem>
+                  <SelectItem value="wefact">WeFact</SelectItem>
                   <SelectItem value="__none__">Geen</SelectItem>
                 </SelectContent>
               </Select>
@@ -3814,6 +3933,43 @@ const SettingsPage = () => {
                     <CheckCircle className="w-4 h-4 text-success" />
                     <span><strong>{moneybirdAdminName || `Administratie`}</strong> (ID: {moneybirdAdminId})</span>
                     <button type="button" onClick={() => { setMoneybirdAdminId(""); setMoneybirdAdminName(""); setMoneybirdAdmins([]); }} className="ml-auto text-destructive text-[11px] underline">Wijzigen</button>
+                  </div>
+                )}
+              </div>
+            )}
+            {accountingProvider === "wefact" && (
+              <div className="border-t border-border pt-4 space-y-3">
+                <h4 className="text-[13px] font-bold">WeFact API-koppeling</h4>
+                <p className="text-[11px] text-secondary-foreground">Ga naar <a href="https://www.wefact.nl" target="_blank" rel="noopener noreferrer" className="text-primary underline">WeFact</a> → Instellingen → API om een API key aan te maken. Vergeet niet je server IP te whitelisten.</p>
+                <div>
+                  <label className={labelClass}>API Key</label>
+                  <input value={wefactApiKey} onChange={(e) => setWefactApiKey(e.target.value)} className={inputClass} placeholder="Jouw WeFact API key" type="password" />
+                </div>
+                {wefactApiKey && wefactApiKey !== "••••••••" && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setWefactTesting(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action: "test", token: wefactApiKey } });
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        toast({ title: "Verbinding geslaagd!", description: "WeFact API is bereikbaar." });
+                      } catch (err: any) {
+                        toast({ title: "Verbinding mislukt", description: err.message, variant: "destructive" });
+                      }
+                      setWefactTesting(false);
+                    }}
+                    disabled={wefactTesting}
+                    className="px-4 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                  >
+                    {wefactTesting ? <><Loader2 className="inline w-3 h-3 mr-1 animate-spin" /> Testen...</> : "Test verbinding"}
+                  </button>
+                )}
+                {wefactConnected && !wefactApiKey && (
+                  <div className="flex items-center gap-2 text-[12px] text-muted-foreground bg-muted/50 p-2 rounded">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span><strong>WeFact gekoppeld</strong></span>
                   </div>
                 )}
               </div>
@@ -3984,6 +4140,9 @@ const SettingsPage = () => {
                     if (accountingProvider === "moneybird" && moneybirdApiToken && moneybirdApiToken !== "••••••••") {
                       tokenPayload.moneybird_api_token = moneybirdApiToken;
                     }
+                    if (accountingProvider === "wefact" && wefactApiKey && wefactApiKey !== "••••••••") {
+                      tokenPayload.wefact_api_key = wefactApiKey;
+                    }
                     if (Object.keys(tokenPayload).length > 0) {
                       const { error: encErr } = await supabase.functions.invoke("save-smtp-credentials", { body: tokenPayload });
                       if (encErr) console.error("Token encryption save error:", encErr);
@@ -3993,6 +4152,9 @@ const SettingsPage = () => {
                     }
                     if (accountingProvider === "moneybird") {
                       setMoneybirdConnected(!!moneybirdApiToken && !!moneybirdAdminId);
+                    }
+                    if (accountingProvider === "wefact") {
+                      setWefactConnected(!!wefactApiKey);
                     }
                     toast({ title: "Koppelingen opgeslagen" });
                   }
