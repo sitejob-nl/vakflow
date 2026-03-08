@@ -695,6 +695,122 @@ export type Database = {
         }
         Relationships: []
       }
+      contracts: {
+        Row: {
+          address_id: string | null
+          asset_id: string | null
+          assigned_to: string | null
+          company_id: string
+          created_at: string
+          customer_id: string
+          description: string | null
+          end_date: string | null
+          id: string
+          interval_months: number
+          last_generated_at: string | null
+          name: string
+          next_due_date: string
+          notes: string | null
+          price: number
+          service_id: string | null
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address_id?: string | null
+          asset_id?: string | null
+          assigned_to?: string | null
+          company_id: string
+          created_at?: string
+          customer_id: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          interval_months?: number
+          last_generated_at?: string | null
+          name: string
+          next_due_date?: string
+          notes?: string | null
+          price?: number
+          service_id?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address_id?: string | null
+          asset_id?: string | null
+          assigned_to?: string | null
+          company_id?: string
+          created_at?: string
+          customer_id?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          interval_months?: number
+          last_generated_at?: string | null
+          name?: string
+          next_due_date?: string
+          notes?: string | null
+          price?: number
+          service_id?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
