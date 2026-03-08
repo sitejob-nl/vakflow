@@ -146,10 +146,10 @@ export const useProjectWorkOrders = (projectId: string | undefined) => {
     queryKey: ["project_work_orders", projectId],
     enabled: !!projectId && !!companyId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase
         .from("work_orders")
-        .select("id, work_order_number, status, description, total_amount, created_at, customers(name)")
-        .eq("project_id" as any, projectId!)
+        .select("id, work_order_number, status, description, total_amount, created_at, customers(name)") as any)
+        .eq("project_id", projectId!)
         .eq("company_id", companyId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
