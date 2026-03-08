@@ -6,6 +6,22 @@ import { Loader2, Check, X } from "lucide-react";
 import { useSnelstartConnection, useSaveSnelstartConnection, useDeleteSnelstartConnection, useTestSnelstartConnection } from "@/hooks/useSnelstart";
 import { SETTINGS_INPUT_CLASS as inputClass, SETTINGS_LABEL_CLASS as labelClass } from "./shared";
 
+const TokenField = ({ label, fieldName, hasToken, saving, onSave }: { label: string; fieldName: string; hasToken: boolean; saving: boolean; onSave: (field: string, value: string) => void }) => {
+  const [val, setVal] = useState("");
+  return (
+    <div>
+      <label className={labelClass}>{label}</label>
+      <div className="flex gap-2">
+        <input value={val} onChange={(e) => setVal(e.target.value)} className={inputClass} placeholder={hasToken ? "••••••••" : "Plak hier je token"} />
+        <button onClick={() => { onSave(fieldName, val); setVal(""); }} disabled={saving || !val} className="px-3 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 whitespace-nowrap">
+          Opslaan
+        </button>
+      </div>
+      {hasToken && <p className="text-[11px] text-success mt-1 flex items-center gap-1"><Check className="h-3 w-3" /> Token ingesteld</p>}
+    </div>
+  );
+};
+
 const PROVIDERS = [
   { key: "eboekhouden", label: "e-Boekhouden" },
   { key: "moneybird", label: "Moneybird" },
