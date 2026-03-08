@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CustomerCombobox } from "./CustomerCombobox";
+import CustomerCombobox from "./CustomerCombobox";
 import { DAMAGE_AREAS, type DamageItem, type TradeVehicle } from "@/hooks/useTradeVehicles";
 import { Car, ClipboardCheck, DollarSign } from "lucide-react";
 
