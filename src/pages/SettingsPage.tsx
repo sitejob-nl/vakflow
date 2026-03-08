@@ -3693,6 +3693,7 @@ const SettingsPage = () => {
                   <SelectItem value="snelstart">SnelStart</SelectItem>
                   <SelectItem value="rompslomp">Rompslomp</SelectItem>
                   <SelectItem value="moneybird">Moneybird</SelectItem>
+                  <SelectItem value="wefact">WeFact</SelectItem>
                   <SelectItem value="__none__">Geen</SelectItem>
                 </SelectContent>
               </Select>
