@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCustomers } from "@/hooks/useCustomers";
-import { useCreateQuote, useUpdateQuote, type Quote, type QuoteItem, type OptionalItem } from "@/hooks/useQuotes";
+import { useCreateQuote, useUpdateQuote, useConvertQuoteToContract, type Quote, type QuoteItem, type OptionalItem } from "@/hooks/useQuotes";
+import { useAssets } from "@/hooks/useAssets";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, ArrowRightLeft } from "lucide-react";
 import { useCombinedTemplates } from "@/hooks/useQuoteTemplates";
 
 interface Props {
