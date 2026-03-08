@@ -27,6 +27,7 @@ import MetaSettingsTab from "@/components/MetaSettingsTab";
 import { useGeocode } from "@/hooks/useMapbox";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useSnelstartConnection, useSaveSnelstartConnection, useTestSnelstartConnection, useDeleteSnelstartConnection, useSnelstartSyncStatus, useTriggerSnelstartSync } from "@/hooks/useSnelstart";
+import WorkshopBaySettings from "@/components/WorkshopBaySettings";
 
 const BASE_TABS: string[] = ["Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen", "Sjablonen", "Werkplaats", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates", "Automatiseringen", "Teamleden", "Koppelingen", "Meta"];
 
