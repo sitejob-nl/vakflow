@@ -7,7 +7,7 @@ export interface MaintenanceItem {
   name: string;
   asset_type: string | null;
   brand: string | null;
-  next_maintenance_date: string | null;
+  next_service_due: string | null;
   last_maintenance_date: string | null;
   customer_id: string | null;
   customer?: { id: string; name: string; city: string | null } | null;
