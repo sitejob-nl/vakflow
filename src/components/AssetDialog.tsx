@@ -245,6 +245,61 @@ const AssetDialog = ({ open, onOpenChange, asset, onSave, saving }: Props) => {
             </div>
           )}
 
+          {/* Custom fields */}
+          {fieldConfig && fieldConfig.length > 0 && (
+            <div className="space-y-3 pt-2 border-t">
+              <Label className="text-sm font-semibold">Extra velden</Label>
+              {fieldConfig.map((fd) => (
+                <div key={fd.key}>
+                  <Label>{fd.label}{fd.required ? " *" : ""}</Label>
+                  {fd.type === "text" && (
+                    <Input
+                      value={(form.custom_fields as any)?.[fd.key] ?? ""}
+                      onChange={(e) => setCustomField(fd.key, e.target.value)}
+                    />
+                  )}
+                  {fd.type === "number" && (
+                    <Input
+                      type="number"
+                      value={(form.custom_fields as any)?.[fd.key] ?? ""}
+                      onChange={(e) => setCustomField(fd.key, e.target.value ? Number(e.target.value) : null)}
+                    />
+                  )}
+                  {fd.type === "date" && (
+                    <Input
+                      type="date"
+                      value={(form.custom_fields as any)?.[fd.key] ?? ""}
+                      onChange={(e) => setCustomField(fd.key, e.target.value || null)}
+                    />
+                  )}
+                  {fd.type === "select" && (
+                    <Select
+                      value={(form.custom_fields as any)?.[fd.key] ?? "__none"}
+                      onValueChange={(v) => setCustomField(fd.key, v === "__none" ? null : v)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Kies..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none">—</SelectItem>
+                        {(fd.options ?? []).map((opt) => (
+                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {fd.type === "boolean" && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Checkbox
+                        checked={!!(form.custom_fields as any)?.[fd.key]}
+                        onCheckedChange={(checked) => setCustomField(fd.key, !!checked)}
+                      />
+                      <span className="text-sm">{fd.label}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           <div>
             <Label>Klant</Label>
             <Select value={form.customer_id || "__none"} onValueChange={(v) => { set("customer_id", v === "__none" ? null : v); set("address_id", null); }}>

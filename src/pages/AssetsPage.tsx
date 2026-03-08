@@ -344,6 +344,37 @@ const AssetsPage = () => {
                   <div className="text-sm"><span className="text-muted-foreground">Notities:</span> {detailAsset.notes}</div>
                 )}
 
+                {/* Custom fields */}
+                {fieldConfig && fieldConfig.length > 0 && detailAsset.custom_fields && (
+                  <div className="pt-2 border-t">
+                    <h3 className="font-semibold mb-2 text-sm">Extra velden</h3>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                      {fieldConfig.map((fd) => {
+                        const val = (detailAsset.custom_fields as any)?.[fd.key];
+                        if (val === null || val === undefined || val === "") return null;
+                        let display: string;
+                        if (fd.type === "boolean") {
+                          display = val ? "Ja" : "Nee";
+                        } else if (fd.type === "date" && val) {
+                          try {
+                            display = fmtDate(new Date(val), "d MMM yyyy", { locale: nlLocale });
+                          } catch {
+                            display = String(val);
+                          }
+                        } else {
+                          display = String(val);
+                        }
+                        return (
+                          <div key={fd.key} className="contents">
+                            <div className="text-muted-foreground">{fd.label}</div>
+                            <div>{display}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Maintenance History */}
                 <div className="pt-2 border-t">
                   <h3 className="font-semibold flex items-center gap-1.5 mb-3">

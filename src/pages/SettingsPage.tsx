@@ -69,6 +69,8 @@ const SettingsPage = () => {
         return <SettingsServicesTab />;
       case "Materialen":
         return <MaterialsSettings />;
+      case "Objectvelden":
+        return <SettingsAssetFieldsTab />;
       case "Sjablonen":
         return <SettingsTemplatesTab />;
       case "Werkplaats":
