@@ -190,6 +190,22 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
             </Select>
           </div>
 
+          {/* Asset link (cleaning) */}
+          {isCleaning && (
+            <div>
+              <Label>Object (optioneel)</Label>
+              <Select value={assetId} onValueChange={(v) => setAssetId(v === "_none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Geen object" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Geen object</SelectItem>
+                  {(assets ?? []).filter((a) => !customerId || a.customer_id === customerId).map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Line items */}
           <div>
             <Label className="mb-2 block">Artikelen</Label>
