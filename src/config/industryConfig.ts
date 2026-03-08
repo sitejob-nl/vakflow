@@ -190,7 +190,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing", "contracts",
+      "reminders", "assets", "marketing", "contracts", "projects",
     ],
   },
   landscaping: {
