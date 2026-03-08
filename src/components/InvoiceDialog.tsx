@@ -48,6 +48,7 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
   const [items, setItems] = useState<QuoteItem[]>([emptyItem()]);
   const [optionalItems, setOptionalItems] = useState<OptionalItem[]>([]);
   const [notes, setNotes] = useState("");
+  const [vatPercentage, setVatPercentage] = useState(21);
   const defaultDueDate = () => {
     const d = new Date(); d.setDate(d.getDate() + 30);
     return d.toISOString().split("T")[0];
