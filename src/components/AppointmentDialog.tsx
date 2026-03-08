@@ -45,6 +45,8 @@ const FALLBACK_START_LABEL = "Heemskerk (standaard)";
 const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Props) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { industry } = useIndustryConfig();
+  const isAutomotive = industry === "automotive";
   const { data: customers } = useCustomers();
   const { data: services } = useServices();
   const createAppointment = useCreateAppointment();
