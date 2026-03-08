@@ -270,11 +270,73 @@ const PlanningPage = () => {
   const totalRevenue = dailyRevenue.reduce((sum, s) => sum + s.count * s.price, 0);
 
   const handleCellClick = (day: Date, hour: number, minute: number) => {
+    if (dragAppointmentId) return; // Don't open dialog when dropping
     const d = new Date(day);
     d.setHours(hour, minute, 0, 0);
     setDefaultDate(d);
     setEditAppointment(null);
     setDialogOpen(true);
+  };
+
+  // Drag & drop handlers
+  const handleDragStart = (e: React.DragEvent, appointmentId: string) => {
+    e.stopPropagation();
+    setDragAppointmentId(appointmentId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", appointmentId);
+    // Make ghost semi-transparent
+    if (e.currentTarget instanceof HTMLElement) {
+      setTimeout(() => {
+        (e.currentTarget as HTMLElement).style.opacity = "0.4";
+      }, 0);
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    setDragAppointmentId(null);
+    setDragOverCell(null);
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "1";
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, cellKey: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverCell !== cellKey) setDragOverCell(cellKey);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverCell(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, day: Date, hour: number, minute: number) => {
+    e.preventDefault();
+    setDragOverCell(null);
+    const appointmentId = e.dataTransfer.getData("text/plain") || dragAppointmentId;
+    setDragAppointmentId(null);
+    if (!appointmentId || !appointments) return;
+
+    const appt = appointments.find((a) => a.id === appointmentId);
+    if (!appt) return;
+
+    const newDate = new Date(day);
+    newDate.setHours(hour, minute, 0, 0);
+    const oldDate = new Date(appt.scheduled_at);
+
+    // Don't update if dropped on the same slot
+    if (newDate.getTime() === oldDate.getTime()) return;
+
+    try {
+      await updateAppointment.mutateAsync({
+        id: appointmentId,
+        scheduled_at: newDate.toISOString(),
+        _syncOutlook: true,
+      });
+      toast({ title: "Afspraak verplaatst", description: `${appt.customers?.name ?? "Afspraak"} → ${format(newDate, "EEE d MMM HH:mm", { locale: nl })}` });
+    } catch (err: any) {
+      toast({ title: "Fout bij verplaatsen", description: err.message, variant: "destructive" });
+    }
   };
 
   const handleEventClick = (e: React.MouseEvent, appointment: Appointment) => {
