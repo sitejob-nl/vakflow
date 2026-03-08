@@ -114,6 +114,8 @@ const SettingsPage = () => {
         return <SettingsIntegrationsTab />;
       case "Meta":
         return <MetaSettingsTab inputClass={SETTINGS_INPUT_CLASS} labelClass={SETTINGS_LABEL_CLASS} />;
+      case "Leads":
+        return <SettingsLeadsTab />;
       default:
         return null;
     }
