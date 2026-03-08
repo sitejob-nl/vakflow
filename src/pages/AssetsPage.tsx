@@ -3,17 +3,17 @@ import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useMaintenan
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Pencil, Trash2, History, Box, Loader2 } from "lucide-react";
-import { format } from "date-fns";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Search, Pencil, Trash2, History, Box, Loader2, Building2, Truck } from "lucide-react";
+import { format, differenceInDays } from "date-fns";
 import { nl } from "date-fns/locale";
 import AssetDialog from "@/components/AssetDialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 
 const statusColor: Record<string, string> = {
   actief: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -22,14 +22,36 @@ const statusColor: Record<string, string> = {
   afgevoerd: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
 
+const FREQUENCY_LABELS: Record<string, string> = {
+  daily: "Dagelijks",
+  "2x_week": "2x/week",
+  "3x_week": "3x/week",
+  weekly: "Wekelijks",
+  biweekly: "2-wekelijks",
+  monthly: "Maandelijks",
+  quarterly: "Per kwartaal",
+  yearly: "Jaarlijks",
+};
+
+const getDueBadge = (nextDue: string | null) => {
+  if (!nextDue) return null;
+  const days = differenceInDays(new Date(nextDue), new Date());
+  if (days < 0) return { label: `${Math.abs(days)}d te laat`, class: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" };
+  if (days <= 3) return { label: `Over ${days}d`, class: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" };
+  return { label: format(new Date(nextDue), "d MMM", { locale: nl }), class: "bg-muted text-muted-foreground" };
+};
+
 const AssetsPage = () => {
   const { data: assets, isLoading } = useAssets();
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
   const deleteAsset = useDeleteAsset();
   const { user } = useAuth();
+  const { industry } = useIndustryConfig();
+  const isCleaning = industry === "cleaning";
 
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -45,13 +67,20 @@ const AssetsPage = () => {
 
   const filtered = useMemo(() => {
     if (!assets) return [];
+    let list = assets;
+    if (isCleaning && typeFilter !== "all") {
+      list = list.filter((a) => a.object_type === typeFilter);
+    }
     const q = search.toLowerCase();
-    return assets.filter((a) =>
-      [a.name, a.asset_type, a.brand, a.model, a.serial_number, a.customer?.name]
-        .filter(Boolean)
-        .some((v) => v!.toLowerCase().includes(q))
-    );
-  }, [assets, search]);
+    if (q) {
+      list = list.filter((a) =>
+        [a.name, a.asset_type, a.brand, a.model, a.serial_number, a.customer?.name]
+          .filter(Boolean)
+          .some((v) => v!.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [assets, search, typeFilter, isCleaning]);
 
   const handleSave = (data: Partial<Asset>) => {
     if (editing) {
@@ -78,9 +107,24 @@ const AssetsPage = () => {
         </Button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input placeholder="Zoek op naam, type, merk..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      <div className="flex items-center gap-3 flex-wrap">
+        {isCleaning && (
+          <Tabs value={typeFilter} onValueChange={setTypeFilter}>
+            <TabsList>
+              <TabsTrigger value="all">Alle</TabsTrigger>
+              <TabsTrigger value="building" className="flex items-center gap-1">
+                <Building2 className="w-3.5 h-3.5" /> Panden
+              </TabsTrigger>
+              <TabsTrigger value="fleet" className="flex items-center gap-1">
+                <Truck className="w-3.5 h-3.5" /> Wagenparken
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input placeholder="Zoek op naam, type, merk..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
       </div>
 
       {isLoading ? (
@@ -95,40 +139,69 @@ const AssetsPage = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                {isCleaning && <TableHead className="w-10" />}
                 <TableHead>Naam</TableHead>
-                <TableHead className="hidden md:table-cell">Type</TableHead>
-                <TableHead className="hidden md:table-cell">Merk / Model</TableHead>
+                <TableHead className="hidden md:table-cell">{isCleaning ? "Type" : "Type"}</TableHead>
+                {!isCleaning && <TableHead className="hidden md:table-cell">Merk / Model</TableHead>}
                 <TableHead className="hidden sm:table-cell">Klant</TableHead>
+                {isCleaning && <TableHead className="hidden md:table-cell">Frequentie</TableHead>}
+                {isCleaning && <TableHead className="hidden md:table-cell">Volgende beurt</TableHead>}
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[100px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((asset) => (
-                <TableRow key={asset.id} className="cursor-pointer" onClick={() => setDetailAsset(asset)}>
-                  <TableCell className="font-medium">{asset.name}</TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground">{asset.asset_type || "—"}</TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground">
-                    {[asset.brand, asset.model].filter(Boolean).join(" ") || "—"}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground">{asset.customer?.name || "—"}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={statusColor[asset.status] || ""}>
-                      {asset.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button size="icon" variant="ghost" onClick={() => { setEditing(asset); setDialogOpen(true); }}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={() => setDeleteId(asset.id)}>
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {filtered.map((asset) => {
+                const dueBadge = isCleaning ? getDueBadge(asset.next_service_due) : null;
+                return (
+                  <TableRow key={asset.id} className="cursor-pointer" onClick={() => setDetailAsset(asset)}>
+                    {isCleaning && (
+                      <TableCell>
+                        {asset.object_type === "fleet" ? (
+                          <Truck className="w-4 h-4 text-muted-foreground" />
+                        ) : (
+                          <Building2 className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </TableCell>
+                    )}
+                    <TableCell className="font-medium">{asset.name}</TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground">{asset.asset_type || "—"}</TableCell>
+                    {!isCleaning && (
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {[asset.brand, asset.model].filter(Boolean).join(" ") || "—"}
+                      </TableCell>
+                    )}
+                    <TableCell className="hidden sm:table-cell text-muted-foreground">{asset.customer?.name || "—"}</TableCell>
+                    {isCleaning && (
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {FREQUENCY_LABELS[asset.frequency || ""] || "—"}
+                      </TableCell>
+                    )}
+                    {isCleaning && (
+                      <TableCell className="hidden md:table-cell">
+                        {dueBadge ? (
+                          <Badge variant="secondary" className={dueBadge.class}>{dueBadge.label}</Badge>
+                        ) : "—"}
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <Badge variant="secondary" className={statusColor[asset.status] || ""}>
+                        {asset.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button size="icon" variant="ghost" onClick={() => { setEditing(asset); setDialogOpen(true); }}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => setDeleteId(asset.id)}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </Card>
@@ -142,7 +215,6 @@ const AssetsPage = () => {
         saving={createAsset.isPending || updateAsset.isPending}
       />
 
-      {/* Delete confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -163,25 +235,55 @@ const AssetsPage = () => {
             <>
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
-                  <Box className="w-5 h-5" /> {detailAsset.name}
+                  {isCleaning && detailAsset.object_type === "fleet" ? <Truck className="w-5 h-5" /> : <Box className="w-5 h-5" />}
+                  {detailAsset.name}
                 </SheetTitle>
               </SheetHeader>
               <div className="mt-4 space-y-4">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <div className="text-muted-foreground">Type</div><div>{detailAsset.asset_type || "—"}</div>
-                  <div className="text-muted-foreground">Merk</div><div>{detailAsset.brand || "—"}</div>
-                  <div className="text-muted-foreground">Model</div><div>{detailAsset.model || "—"}</div>
-                  <div className="text-muted-foreground">Serienummer</div><div>{detailAsset.serial_number || "—"}</div>
+                  {isCleaning && (
+                    <>
+                      <div className="text-muted-foreground">Objecttype</div><div>{detailAsset.object_type === "fleet" ? "Wagenpark" : "Pand"}</div>
+                      <div className="text-muted-foreground">Frequentie</div><div>{FREQUENCY_LABELS[detailAsset.frequency || ""] || "—"}</div>
+                      {detailAsset.frequency_days && (
+                        <>
+                          <div className="text-muted-foreground">Vaste dagen</div>
+                          <div>{detailAsset.frequency_days.map((d) => ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"][d]).join(", ")}</div>
+                        </>
+                      )}
+                      {detailAsset.surface_area && (
+                        <>
+                          <div className="text-muted-foreground">Oppervlakte</div><div>{detailAsset.surface_area} m²</div>
+                        </>
+                      )}
+                      {detailAsset.vehicle_count && (
+                        <>
+                          <div className="text-muted-foreground">Voertuigen</div><div>{detailAsset.vehicle_count}</div>
+                        </>
+                      )}
+                    </>
+                  )}
+                  {!isCleaning && (
+                    <>
+                      <div className="text-muted-foreground">Merk</div><div>{detailAsset.brand || "—"}</div>
+                      <div className="text-muted-foreground">Model</div><div>{detailAsset.model || "—"}</div>
+                      <div className="text-muted-foreground">Serienummer</div><div>{detailAsset.serial_number || "—"}</div>
+                    </>
+                  )}
                   <div className="text-muted-foreground">Status</div>
                   <div><Badge variant="secondary" className={statusColor[detailAsset.status] || ""}>{detailAsset.status}</Badge></div>
                   <div className="text-muted-foreground">Klant</div><div>{detailAsset.customer?.name || "—"}</div>
                   <div className="text-muted-foreground">Adres</div>
                   <div>{detailAsset.address ? [detailAsset.address.street, detailAsset.address.house_number, detailAsset.address.city].filter(Boolean).join(" ") : "—"}</div>
-                  <div className="text-muted-foreground">Installatiedatum</div>
+                  <div className="text-muted-foreground">{isCleaning ? "Startdatum" : "Installatiedatum"}</div>
                   <div>{detailAsset.install_date ? format(new Date(detailAsset.install_date), "d MMM yyyy", { locale: nl }) : "—"}</div>
-                  <div className="text-muted-foreground">Volgende onderhoud</div>
-                  <div>{detailAsset.next_maintenance_date ? format(new Date(detailAsset.next_maintenance_date), "d MMM yyyy", { locale: nl }) : "—"}</div>
+                  <div className="text-muted-foreground">Volgende beurt</div>
+                  <div>{(detailAsset.next_service_due || detailAsset.next_maintenance_date) ? format(new Date(detailAsset.next_service_due || detailAsset.next_maintenance_date!), "d MMM yyyy", { locale: nl }) : "—"}</div>
                 </div>
+                {detailAsset.access_instructions && (
+                  <div className="text-sm"><span className="text-muted-foreground">Toegang:</span> {detailAsset.access_instructions}</div>
+                )}
                 {detailAsset.notes && (
                   <div className="text-sm"><span className="text-muted-foreground">Notities:</span> {detailAsset.notes}</div>
                 )}
@@ -189,9 +291,8 @@ const AssetsPage = () => {
                 {/* Maintenance History */}
                 <div className="pt-2 border-t">
                   <h3 className="font-semibold flex items-center gap-1.5 mb-3">
-                    <History className="w-4 h-4" /> Onderhoudshistorie
+                    <History className="w-4 h-4" /> {isCleaning ? "Beurthistorie" : "Onderhoudshistorie"}
                   </h3>
-
                   <div className="flex gap-2 mb-3">
                     <Input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} className="w-36" />
                     <Input placeholder="Beschrijving..." value={logDesc} onChange={(e) => setLogDesc(e.target.value)} className="flex-1" />
@@ -199,7 +300,6 @@ const AssetsPage = () => {
                       <Plus className="w-4 h-4" />
                     </Button>
                   </div>
-
                   {logs && logs.length > 0 ? (
                     <div className="space-y-2">
                       {logs.map((log) => (
@@ -219,7 +319,7 @@ const AssetsPage = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">Nog geen onderhoudshistorie</p>
+                    <p className="text-sm text-muted-foreground">{isCleaning ? "Nog geen beurthistorie" : "Nog geen onderhoudshistorie"}</p>
                   )}
                 </div>
               </div>
@@ -228,11 +328,10 @@ const AssetsPage = () => {
         </SheetContent>
       </Sheet>
 
-      {/* Delete log confirmation */}
       <AlertDialog open={!!deleteLogId} onOpenChange={() => setDeleteLogId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Onderhoudslog verwijderen?</AlertDialogTitle>
+            <AlertDialogTitle>Log verwijderen?</AlertDialogTitle>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuleren</AlertDialogCancel>

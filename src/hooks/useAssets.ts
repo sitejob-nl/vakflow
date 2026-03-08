@@ -20,6 +20,15 @@ export interface Asset {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  // CleanFlow fields
+  object_type: string;
+  frequency: string | null;
+  frequency_days: number[] | null;
+  next_service_due: string | null;
+  surface_area: number | null;
+  vehicle_count: number | null;
+  facilities: string[] | null;
+  access_instructions: string | null;
   // joined
   customer?: { id: string; name: string } | null;
   address?: { id: string; street: string | null; house_number: string | null; city: string | null } | null;
@@ -36,6 +45,28 @@ export interface MaintenanceLog {
   created_at: string;
   profile?: { full_name: string | null } | null;
   work_order?: { work_order_number: string | null } | null;
+}
+
+export interface ObjectRoom {
+  id: string;
+  asset_id: string;
+  company_id: string;
+  name: string;
+  room_type: string | null;
+  checklist: any[];
+  sort_order: number;
+  created_at: string;
+}
+
+export interface FleetVehicleType {
+  id: string;
+  asset_id: string;
+  company_id: string;
+  vehicle_type: string;
+  count: number;
+  price_per_unit: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export const useAssets = () => {
@@ -163,7 +194,7 @@ export const useCreateMaintenanceLog = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (_, vars) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["maintenance_logs"] });
       qc.invalidateQueries({ queryKey: ["assets"] });
       toast({ title: "Onderhoudslog toegevoegd" });
@@ -185,5 +216,125 @@ export const useDeleteMaintenanceLog = () => {
       toast({ title: "Log verwijderd" });
     },
     onError: (e: any) => toast({ title: "Fout", description: e.message, variant: "destructive" }),
+  });
+};
+
+// ─── Object Rooms (Ruimtes) ────────────────────────────────
+
+export const useObjectRooms = (assetId: string | undefined) => {
+  return useQuery({
+    queryKey: ["object_rooms", assetId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("object_rooms" as any)
+        .select("*")
+        .eq("asset_id", assetId!)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as unknown as ObjectRoom[];
+    },
+    enabled: !!assetId,
+  });
+};
+
+export const useCreateObjectRoom = () => {
+  const qc = useQueryClient();
+  const { companyId } = useAuth();
+  return useMutation({
+    mutationFn: async (input: Partial<ObjectRoom>) => {
+      const { data, error } = await supabase
+        .from("object_rooms" as any)
+        .insert({ ...input, company_id: companyId } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["object_rooms"] }),
+  });
+};
+
+export const useUpdateObjectRoom = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: Partial<ObjectRoom> & { id: string }) => {
+      const { error } = await supabase
+        .from("object_rooms" as any)
+        .update(input as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["object_rooms"] }),
+  });
+};
+
+export const useDeleteObjectRoom = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("object_rooms" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["object_rooms"] }),
+  });
+};
+
+// ─── Fleet Vehicle Types ───────────────────────────────────
+
+export const useFleetVehicleTypes = (assetId: string | undefined) => {
+  return useQuery({
+    queryKey: ["fleet_vehicle_types", assetId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fleet_vehicle_types" as any)
+        .select("*")
+        .eq("asset_id", assetId!)
+        .order("vehicle_type");
+      if (error) throw error;
+      return (data ?? []) as unknown as FleetVehicleType[];
+    },
+    enabled: !!assetId,
+  });
+};
+
+export const useCreateFleetVehicleType = () => {
+  const qc = useQueryClient();
+  const { companyId } = useAuth();
+  return useMutation({
+    mutationFn: async (input: Partial<FleetVehicleType>) => {
+      const { data, error } = await supabase
+        .from("fleet_vehicle_types" as any)
+        .insert({ ...input, company_id: companyId } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fleet_vehicle_types"] }),
+  });
+};
+
+export const useUpdateFleetVehicleType = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: Partial<FleetVehicleType> & { id: string }) => {
+      const { error } = await supabase
+        .from("fleet_vehicle_types" as any)
+        .update(input as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fleet_vehicle_types"] }),
+  });
+};
+
+export const useDeleteFleetVehicleType = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("fleet_vehicle_types" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fleet_vehicle_types"] }),
   });
 };
