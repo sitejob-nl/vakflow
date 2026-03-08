@@ -4140,6 +4140,9 @@ const SettingsPage = () => {
                     if (accountingProvider === "moneybird" && moneybirdApiToken && moneybirdApiToken !== "••••••••") {
                       tokenPayload.moneybird_api_token = moneybirdApiToken;
                     }
+                    if (accountingProvider === "wefact" && wefactApiKey && wefactApiKey !== "••••••••") {
+                      tokenPayload.wefact_api_key = wefactApiKey;
+                    }
                     if (Object.keys(tokenPayload).length > 0) {
                       const { error: encErr } = await supabase.functions.invoke("save-smtp-credentials", { body: tokenPayload });
                       if (encErr) console.error("Token encryption save error:", encErr);
