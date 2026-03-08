@@ -117,6 +117,8 @@ const SettingsPage = () => {
         return <MetaSettingsTab inputClass={SETTINGS_INPUT_CLASS} labelClass={SETTINGS_LABEL_CLASS} />;
       case "Leads":
         return <SettingsLeadsTab />;
+      case "API Keys":
+        return <SettingsApiKeysTab />;
       default:
         return null;
     }
