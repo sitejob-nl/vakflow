@@ -10,8 +10,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useAddresses } from "@/hooks/useAddresses";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Building2, Truck } from "lucide-react";
 import type { Asset } from "@/hooks/useAssets";
+
+interface FieldDef {
+  key: string;
+  label: string;
+  type: "text" | "number" | "date" | "select" | "boolean";
+  options?: string[];
+  required?: boolean;
+}
 
 interface Props {
   open: boolean;
