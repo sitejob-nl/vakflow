@@ -92,7 +92,7 @@ export const useCustomerVehicles = (customerId: string | undefined) => {
         .eq("status", "actief")
         .order("license_plate");
       if (error) throw error;
-      return (data ?? []) as Vehicle[];
+      return (data ?? []) as unknown as Vehicle[];
     },
   });
 };
