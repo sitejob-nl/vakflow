@@ -145,6 +145,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: error as Error | null };
   };
 
+  const refreshCompanyData = async () => {
+    const cid = impersonatedCompanyId ?? realCompanyId;
+    if (!cid) return;
+    const { data } = await supabase.from("companies_safe" as any).select("logo_url, brand_color, max_users, enabled_features, industry, subcategory").eq("id", cid).single() as { data: any };
+    if (!data) return;
+    const setters = impersonatedCompanyId
+      ? { logo: setImpersonatedLogoUrl, brand: setImpersonatedBrandColor, max: setImpersonatedMaxUsers, feat: setImpersonatedEnabledFeatures, ind: setImpersonatedIndustry, sub: setImpersonatedSubcategory }
+      : { logo: setCompanyLogoUrl, brand: setCompanyBrandColor, max: setMaxUsersState, feat: setEnabledFeaturesState, ind: setIndustryState, sub: setSubcategoryState };
+    setters.logo(data.logo_url ?? null);
+    setters.brand(data.brand_color ?? null);
+    setters.max(data.max_users ?? 2);
+    setters.feat(data.enabled_features ?? []);
+    setters.ind(data.industry ?? null);
+    setters.sub(data.subcategory ?? null);
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
