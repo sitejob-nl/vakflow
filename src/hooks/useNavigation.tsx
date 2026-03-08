@@ -20,6 +20,7 @@ export type Page =
   | "vehDetail"
   | "contracts"
   | "marketing"
+  | "trade"
   | "settings"
   | "superadmin";
 
