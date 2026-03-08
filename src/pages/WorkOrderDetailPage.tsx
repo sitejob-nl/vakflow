@@ -53,6 +53,22 @@ const WorkOrderDetailPage = () => {
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [mileageInput, setMileageInput] = useState("");
+  const createMileageLog = useCreateMileageLog();
+
+  // Determine if this work order has a vehicle
+  const vehicleId = (wo as any)?.vehicle_id as string | null;
+  const currentMileage = (wo as any)?.vehicles?.mileage_current as number | null;
+
+  // Mileage anomaly detection
+  const mileageValue = mileageInput ? parseInt(mileageInput, 10) : null;
+  const mileageAnomaly = (() => {
+    if (!mileageValue || !currentMileage) return null;
+    if (mileageValue < currentMileage) return "De ingevoerde kilometerstand is lager dan de huidige stand. Controleer of dit klopt.";
+    const diff = mileageValue - currentMileage;
+    if (diff > 50000) return `De ingevoerde stand is ${diff.toLocaleString("nl-NL")} km hoger dan de huidige. Controleer of dit klopt.`;
+    return null;
+  })();
 
   const handleDownloadPdf = async () => {
     if (!wo) return;
