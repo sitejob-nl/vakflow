@@ -39,6 +39,8 @@ const Header = () => {
     schedule: { title: "Te plannen", sub: "Objecten inplannen" },
     settings: { title: "Instellingen", sub: "Profiel & voorkeuren" },
     audits: { title: "Kwaliteit", sub: "Audits & naleving" },
+    projects: { title: "Projecten", sub: "Projectoverzicht" },
+    projDetail: { title: "Project", sub: "Projectdetails" },
     superadmin: { title: "Super Admin", sub: "Bedrijvenbeheer" },
   };
 
