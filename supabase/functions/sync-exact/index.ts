@@ -201,9 +201,9 @@ Deno.serve(async (req) => {
     try {
       tokenData = await getExactToken(config.tenant_id, config.webhook_secret);
     } catch (err: any) {
-      if (err.message === "REAUTH_REQUIRED") {
-        await supabaseAdmin.from("exact_config").update({ status: "error" }).eq("company_id", companyId);
-        return jsonRes({ error: "Exact Online sessie verlopen. Koppel opnieuw.", needs_reauth: true }, 401);
+      if (err.message === "REAUTH_REQUIRED" || err.message === "Tenant not active" || (err.message && err.message.includes("Tenant not active"))) {
+        await supabaseAdmin.from("exact_config").update({ status: "error", updated_at: new Date().toISOString() }).eq("company_id", companyId);
+        return jsonRes({ error: "Exact Online koppeling niet actief. Koppel opnieuw via instellingen.", needs_reauth: true }, 401);
       }
       throw err;
     }
