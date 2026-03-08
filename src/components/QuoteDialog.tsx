@@ -95,7 +95,7 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
     if (!customerId) { toast({ title: "Selecteer een klant", variant: "destructive" }); return; }
     if (!items.some((i) => i.description)) { toast({ title: "Voeg minimaal één artikel toe", variant: "destructive" }); return; }
 
-    const payload = {
+    const payload: any = {
       customer_id: customerId,
       items: items.filter((i) => i.description).map(recalcItem),
       optional_items: optionalItems.filter((o) => o.description),
@@ -104,6 +104,7 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
       vat_amount: vatAmount,
       total,
       notes: notes || null,
+      asset_id: assetId || null,
       status: editQuote?.status ?? "concept",
       issued_at: editQuote?.issued_at ?? null,
       valid_until: editQuote?.valid_until ?? null,
