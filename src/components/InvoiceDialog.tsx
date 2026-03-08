@@ -37,11 +37,13 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice, projectId, prefillCust
   const queryClient = useQueryClient();
   const [syncing, setSyncing] = useState(false);
   const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
+  const [syncInvoices, setSyncInvoices] = useState(true);
 
   useEffect(() => {
     if (!companyId) return;
-    (supabase.from("companies_safe" as any).select("accounting_provider").eq("id", companyId).single() as unknown as Promise<{ data: any }>).then(({ data }) => {
+    (supabase.from("companies_safe" as any).select("accounting_provider, sync_invoices_to_accounting").eq("id", companyId).single() as unknown as Promise<{ data: any }>).then(({ data }) => {
       setAccountingProvider(data?.accounting_provider ?? null);
+      setSyncInvoices(data?.sync_invoices_to_accounting ?? true);
     });
   }, [companyId]);
 
@@ -133,24 +135,29 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice, projectId, prefillCust
         const newInvoice = await createInvoice.mutateAsync(payload);
 
         // Auto-sync to accounting provider if connected
-        if ((accountingProvider === "rompslomp" || accountingProvider === "moneybird" || accountingProvider === "eboekhouden" || accountingProvider === "wefact") && newInvoice?.id) {
+        if (syncInvoices && accountingProvider && newInvoice?.id) {
           setSyncing(true);
-          const funcName = accountingProvider === "rompslomp" ? "sync-rompslomp" : accountingProvider === "moneybird" ? "sync-moneybird" : accountingProvider === "wefact" ? "sync-wefact" : "sync-invoice-eboekhouden";
-          const providerLabel = accountingProvider === "rompslomp" ? "Rompslomp" : accountingProvider === "moneybird" ? "Moneybird" : accountingProvider === "wefact" ? "WeFact" : "e-Boekhouden";
-          try {
-            const res = await supabase.functions.invoke(funcName, {
-              body: { action: "create-invoice", invoice_id: newInvoice.id },
-            });
-            if (res.error) throw res.error;
-            if (res.data?.error) throw new Error(res.data.error);
-            const rNumber = res.data?.invoice_number;
-            toast({ title: `✓ Factuur aangemaakt in ${providerLabel}`, description: rNumber ? `Factuurnummer: ${rNumber}` : undefined });
-            queryClient.invalidateQueries({ queryKey: ["invoices"] });
-          } catch (syncErr: any) {
-            toast({ title: `${providerLabel} sync mislukt`, description: syncErr.message, variant: "destructive" });
-          } finally {
-            setSyncing(false);
+          const funcMap: Record<string, string> = { rompslomp: "sync-rompslomp", moneybird: "sync-moneybird", wefact: "sync-wefact", eboekhouden: "sync-invoice-eboekhouden", exact: "sync-exact" };
+          const labelMap: Record<string, string> = { rompslomp: "Rompslomp", moneybird: "Moneybird", wefact: "WeFact", eboekhouden: "e-Boekhouden", exact: "Exact Online" };
+          const funcName = funcMap[accountingProvider];
+          const providerLabel = labelMap[accountingProvider] ?? accountingProvider;
+          if (!funcName) {
+            toast({ title: "Factuur aangemaakt" });
+          } else {
+            try {
+              const res = await supabase.functions.invoke(funcName, {
+                body: { action: "create-invoice", invoice_id: newInvoice.id },
+              });
+              if (res.error) throw res.error;
+              if (res.data?.error) throw new Error(res.data.error);
+              const rNumber = res.data?.invoice_number;
+              toast({ title: `✓ Factuur aangemaakt in ${providerLabel}`, description: rNumber ? `Factuurnummer: ${rNumber}` : undefined });
+              queryClient.invalidateQueries({ queryKey: ["invoices"] });
+            } catch (syncErr: any) {
+              toast({ title: `Boekhoudkoppeling niet compleet`, description: `Factuur is wel opgeslagen. ${syncErr.message}` });
+            }
           }
+          setSyncing(false);
         } else {
           toast({ title: "Factuur aangemaakt" });
         }

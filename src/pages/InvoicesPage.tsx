@@ -58,11 +58,13 @@ const InvoicesPage = () => {
   const [sendingEmail, setSendingEmail] = useState(false);
   const createLog = useCreateCommunicationLog();
   const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
+  const [syncInvoices, setSyncInvoices] = useState(true);
 
   useEffect(() => {
     if (!companyId) return;
-    (supabase.from("companies_safe" as any).select("accounting_provider").eq("id", companyId).single() as unknown as Promise<{ data: any }>).then(({ data }) => {
+    (supabase.from("companies_safe" as any).select("accounting_provider, sync_invoices_to_accounting").eq("id", companyId).single() as unknown as Promise<{ data: any }>).then(({ data }) => {
       setAccountingProvider(data?.accounting_provider ?? null);
+      setSyncInvoices(data?.sync_invoices_to_accounting ?? true);
     });
   }, [companyId]);
 
@@ -92,13 +94,15 @@ const InvoicesPage = () => {
       toast({ title: `Factuur status gewijzigd naar ${statusConfig[status]?.label ?? status}` });
 
       // Auto-sync when status becomes "verzonden"
-      if (status === "verzonden") {
+      if (status === "verzonden" && syncInvoices && accountingProvider) {
         if (accountingProvider === "rompslomp") {
           handleSyncRompslomp();
         } else if (accountingProvider === "moneybird") {
           handleSyncMoneybird();
         } else if (accountingProvider === "eboekhouden") {
           handleSyncEb(id);
+        } else if (accountingProvider === "exact") {
+          handleSyncExact(id);
         }
       }
 
@@ -197,6 +201,22 @@ const InvoicesPage = () => {
       }
     } catch (err: any) {
       toast({ title: "e-Boekhouden sync mislukt", description: err.message, variant: "destructive" });
+    }
+    setSyncingId(null);
+  };
+
+  const handleSyncExact = async (id: string) => {
+    setSyncingId(id);
+    try {
+      const res = await supabase.functions.invoke("sync-exact", {
+        body: { action: "create-invoice", invoice_id: id },
+      });
+      if (res.error) throw res.error;
+      if (res.data?.error) throw new Error(res.data.error);
+      toast({ title: "Gesynchroniseerd met Exact Online", description: res.data?.invoice_number ? `Factuurnummer: ${res.data.invoice_number}` : undefined });
+      queryClient.invalidateQueries({ queryKey: ["invoices-paginated"] });
+    } catch (err: any) {
+      toast({ title: "Boekhoudkoppeling niet compleet", description: `Factuur is wel opgeslagen. ${err.message}` });
     }
     setSyncingId(null);
   };
