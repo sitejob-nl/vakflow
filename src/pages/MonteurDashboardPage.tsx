@@ -88,6 +88,10 @@ const MonteurDashboardPage = () => {
   const updateAppointment = useUpdateAppointment();
   const [optimizeDialogOpen, setOptimizeDialogOpen] = useState(false);
   const [applyingOptimize, setApplyingOptimize] = useState(false);
+  const [completingWO, setCompletingWO] = useState<any>(null);
+  const [completedWO, setCompletedWO] = useState<any>(null);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const canOptimize = (todayAppts?.length ?? 0) >= 2;
 
