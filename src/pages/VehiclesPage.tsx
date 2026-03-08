@@ -90,14 +90,35 @@ const VehiclesPage = () => {
         </Button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Zoek op kenteken, merk, klant..."
-          className="pl-9"
-        />
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Zoek op kenteken, merk, klant..."
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant={sortBy === "name" ? "default" : "outline"}
+            onClick={() => setSortBy("name")}
+            className="text-xs"
+          >
+            Standaard
+          </Button>
+          <Button
+            size="sm"
+            variant={sortBy === "apk" ? "default" : "outline"}
+            onClick={() => setSortBy("apk")}
+            className="text-xs"
+          >
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            APK {apkWarningCount > 0 && <Badge variant="destructive" className="ml-1 text-[9px] px-1.5 py-0">{apkWarningCount}</Badge>}
+          </Button>
+        </div>
       </div>
 
       {/* Desktop table */}
