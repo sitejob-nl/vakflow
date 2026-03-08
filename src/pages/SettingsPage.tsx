@@ -2288,6 +2288,9 @@ const SettingsPage = () => {
                       <button onClick={async () => { setMoneybirdSyncingQuotes(true); try { const r = await syncQuotesMoneybird.mutateAsync(); toast({ title: "Offertes gepusht", description: `${r.synced} gesynct, ${r.skipped} overgeslagen` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdSyncingQuotes(false); }} disabled={moneybirdSyncingQuotes} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
                         {moneybirdSyncingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Offertes pushen
                       </button>
+                      <button onClick={async () => { setMoneybirdSyncingProducts(true); try { const r = await syncProductsMoneybird.mutateAsync(); toast({ title: "Producten gepusht", description: `${r.synced} gesynct${r.errors.length ? `, ${r.errors.length} fouten` : ""}` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdSyncingProducts(false); }} disabled={moneybirdSyncingProducts} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {moneybirdSyncingProducts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Producten pushen
+                      </button>
                     </div>
                   </div>
 
@@ -2306,7 +2309,21 @@ const SettingsPage = () => {
                       <button onClick={async () => { setMoneybirdPullingQuotes(true); try { const r = await pullQuotesMoneybird.mutateAsync(); toast({ title: "Offertes opgehaald", description: `${r.total_in_moneybird} in Moneybird, ${r.imported} geïmporteerd` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdPullingQuotes(false); }} disabled={moneybirdPullingQuotes} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
                         {moneybirdPullingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Offertes ophalen
                       </button>
+                      <button onClick={async () => { setMoneybirdPullingProducts(true); try { const r = await pullProductsMoneybird.mutateAsync(); toast({ title: "Producten opgehaald", description: `${r.total} in Moneybird, ${r.created} nieuw, ${r.updated} bijgewerkt` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdPullingProducts(false); }} disabled={moneybirdPullingProducts} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {moneybirdPullingProducts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Producten ophalen
+                      </button>
+                      <button onClick={async () => { setMoneybirdPullingSubscriptions(true); try { const r = await pullSubscriptionsMoneybird.mutateAsync(); toast({ title: "Abonnementen opgehaald", description: `${r.total} in Moneybird, ${r.created} geïmporteerd als contracten` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdPullingSubscriptions(false); }} disabled={moneybirdPullingSubscriptions} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {moneybirdPullingSubscriptions ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Abonnementen ophalen
+                      </button>
                     </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-[13px] font-bold mb-2">Webhook (realtime updates)</h4>
+                    <p className="text-[11px] text-muted-foreground mb-2">Registreer een webhook zodat factuur- en offertestatus automatisch worden bijgewerkt.</p>
+                    <button onClick={async () => { setMoneybirdRegisteringWebhook(true); try { const { data, error } = await supabase.functions.invoke("sync-moneybird", { body: { action: "register-webhook" } }); if (error) throw error; if (data?.error) throw new Error(data.error); toast({ title: "Webhook geregistreerd", description: `Callback: ${data.callback_url}` }); } catch (e: any) { toast({ title: "Fout", description: e.message, variant: "destructive" }); } setMoneybirdRegisteringWebhook(false); }} disabled={moneybirdRegisteringWebhook} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                      {moneybirdRegisteringWebhook ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>🔗</>} Webhook registreren
+                    </button>
                   </div>
 
                   <button
