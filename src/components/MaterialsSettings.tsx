@@ -333,6 +333,13 @@ export default function MaterialsSettings() {
                   <TableCell className="text-[13px] text-t3">{m.article_number || "—"}</TableCell>
                   <TableCell className="text-[13px] text-t3">{m.category || "—"}</TableCell>
                   <TableCell className="text-[13px]">{m.unit}</TableCell>
+                  <TableCell className="text-[13px] text-right">
+                    {m.min_stock_level > 0 && m.stock_quantity < m.min_stock_level ? (
+                      <Badge variant="destructive" className="text-[11px]">{m.stock_quantity}</Badge>
+                    ) : (
+                      <span className="text-t3">{m.stock_quantity > 0 ? m.stock_quantity : "—"}</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-[13px] text-right text-t3">
                     {m.cost_price > 0 ? `€${m.cost_price.toFixed(2)}` : "—"}
                   </TableCell>
