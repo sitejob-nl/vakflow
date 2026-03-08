@@ -159,6 +159,51 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
           onValueChange={(v) => set("customer_id", v)}
         />
       </div>
+      {/* Automotive: vehicle selector + type + mileage */}
+      {isAutomotive && (
+        <>
+          <div className="space-y-1.5">
+            <Label>Voertuig</Label>
+            <Select value={form.vehicle_id} onValueChange={(v) => set("vehicle_id", v === "none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="Kies voertuig (kenteken)" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Geen voertuig</SelectItem>
+                {(customerVehicles ?? []).map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.license_plate} — {v.brand} {v.model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Type werkorder</Label>
+            <Select value={form.work_order_type} onValueChange={(v) => set("work_order_type", v === "none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="Kies type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Niet gespecificeerd</SelectItem>
+                <SelectItem value="apk">APK</SelectItem>
+                <SelectItem value="kleine_beurt">Kleine beurt</SelectItem>
+                <SelectItem value="grote_beurt">Grote beurt</SelectItem>
+                <SelectItem value="storing">Storing / reparatie</SelectItem>
+                <SelectItem value="bandenwissel">Bandenwissel</SelectItem>
+                <SelectItem value="aflevering">Aflevering</SelectItem>
+                <SelectItem value="overig">Overig</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>KM-stand begin</Label>
+              <Input type="number" value={form.mileage_start} onChange={(e) => set("mileage_start", e.target.value)} placeholder="0" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>KM-stand eind</Label>
+              <Input type="number" value={form.mileage_end} onChange={(e) => set("mileage_end", e.target.value)} placeholder="0" />
+            </div>
+          </div>
+        </>
+      )
       <div className="space-y-1.5">
         <Label>Dienst</Label>
         <Select value={form.service_id} onValueChange={(v) => set("service_id", v)}>
