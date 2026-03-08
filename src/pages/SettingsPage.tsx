@@ -36,6 +36,7 @@ const TAB_FEATURE_MAP: Record<string, string> = {
   "WhatsApp": "whatsapp",
   "Automatiseringen": "whatsapp",
   "Meta": "marketing",
+  "Werkplaats": "vehicles",
 };
 
 const LocationAutocomplete = ({ value, onChange, inputClass, labelClass }: { value: string; onChange: (v: string) => void; inputClass: string; labelClass: string }) => {
