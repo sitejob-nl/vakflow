@@ -65,10 +65,21 @@ const VehiclesPage = () => {
   const apkStatus = (date: string | null) => {
     if (!date) return null;
     const days = differenceInDays(new Date(date), new Date());
-    if (days < 0) return <Badge variant="destructive" className="text-[10px]">APK verlopen</Badge>;
-    if (days <= 30) return <Badge variant="outline" className="text-[10px] border-warning text-warning"><AlertTriangle className="h-3 w-3 mr-1" />APK {days}d</Badge>;
+    if (days < 0) return <Badge variant="destructive" className="text-[10px]">Verlopen ({Math.abs(days)}d)</Badge>;
+    if (days <= 30) return <Badge variant="outline" className="text-[10px] border-destructive text-destructive bg-destructive/10"><AlertTriangle className="h-3 w-3 mr-1" />{days}d</Badge>;
+    if (days <= 60) return <Badge variant="outline" className="text-[10px] border-warning text-warning">{days}d</Badge>;
     return null;
   };
+
+  // Count vehicles with APK expiring within 30 days
+  const apkWarningCount = useMemo(() => {
+    if (!vehicles) return 0;
+    return vehicles.filter((v) => {
+      if (!v.apk_expiry_date) return false;
+      const days = differenceInDays(new Date(v.apk_expiry_date), new Date());
+      return days <= 30;
+    }).length;
+  }, [vehicles]);
 
   return (
     <div className="space-y-5">
