@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import SignedMedia from "@/components/SignedMedia";
+import { SignedMedia } from "@/components/SignedMedia";
 
 const statusColors: Record<string, string> = {
   gepland: "bg-primary/10 text-primary",
