@@ -144,7 +144,7 @@ const ProjectDialog = ({ open, onOpenChange, editProject }: Props) => {
                 <SelectContent>
                   <SelectItem value="none">Niemand</SelectItem>
                   {teamMembers.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.full_name || m.email}</SelectItem>
+                    <SelectItem key={m.id} value={m.id}>{m.full_name || (m as any).email || "Onbekend"}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

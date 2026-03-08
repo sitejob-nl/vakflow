@@ -121,6 +121,10 @@ export const useNavigation = () => {
       path = `/vehicles/${navParams.vehicleId}`;
     } else if (page === "vehDetail" && navParams?.id) {
       path = `/vehicles/${navParams.id}`;
+    } else if (page === "projDetail" && navParams?.projectId) {
+      path = `/projects/${navParams.projectId}`;
+    } else if (page === "projDetail" && navParams?.id) {
+      path = `/projects/${navParams.id}`;
     }
     routerNavigate(path);
   };

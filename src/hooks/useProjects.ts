@@ -102,18 +102,18 @@ export const useProjectStats = (projectId: string | undefined) => {
         supabase
           .from("invoices")
           .select("total, status")
-          .eq("project_id", projectId!)
-          .eq("company_id", companyId!),
+          .eq("project_id" as any, projectId!)
+          .eq("company_id", companyId!) as any,
         supabase
           .from("work_orders")
           .select("id, status")
           .eq("project_id" as any, projectId!)
-          .eq("company_id", companyId!),
+          .eq("company_id", companyId!) as any,
         supabase
           .from("time_entries")
           .select("duration_minutes")
           .eq("project_id" as any, projectId!)
-          .eq("company_id" as any, companyId!),
+          .eq("company_id" as any, companyId!) as any,
       ]);
 
       const invoices = invoicesRes.data ?? [];

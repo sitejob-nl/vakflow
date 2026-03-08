@@ -80,7 +80,8 @@ const Sidebar = () => {
     currentPage === id ||
     (id === "customers" && currentPage === "custDetail") ||
     (id === "workorders" && currentPage === "woDetail") ||
-    (id === "vehicles" && currentPage === "vehDetail");
+    (id === "vehicles" && currentPage === "vehDetail") ||
+    (id === "projects" && currentPage === "projDetail");
 
   const industryModules = config.modules;
 

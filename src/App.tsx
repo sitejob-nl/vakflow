@@ -111,6 +111,8 @@ const App = () => (
                 <Route path="trade" element={<AdminRoute><TradeVehiclesPage /></AdminRoute>} />
                 <Route path="schedule" element={<ScheduleOverviewPage />} />
                 <Route path="audits" element={<AdminRoute><AuditsPage /></AdminRoute>} />
+                <Route path="projects" element={<AdminRoute><ProjectsPage /></AdminRoute>} />
+                <Route path="projects/:id" element={<AdminRoute><ProjectDetailPage /></AdminRoute>} />
                 <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
                 <Route path="superadmin" element={<SuperAdminRoute><SuperAdminPage /></SuperAdminRoute>} />
               </Route>
