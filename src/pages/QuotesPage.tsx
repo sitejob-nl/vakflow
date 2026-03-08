@@ -355,9 +355,9 @@ const QuotesPage = () => {
           </div>
           <Button size="sm" className="shrink-0" onClick={() => { setEditQuote(null); setDialogOpen(true); }}>
             <Plus className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Nieuwe offerte</span><span className="sm:hidden">Nieuw</span>
-        </Button>
+          </Button>
+        </div>
       </div>
-
       {/* Mobile */}
       <div className="md:hidden">
         {mobilePreview ? (
