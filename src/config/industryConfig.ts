@@ -176,6 +176,10 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
       appointment: "Inspectie",
       asset: "Locatie",
       assets: "Locaties",
+      vehicle: "Voertuig",
+      vehicles: "Voertuigen",
+      bay: "Brug",
+      bays: "Bruggen",
     },
     subcategories: {
       general: {
