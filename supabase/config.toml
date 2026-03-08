@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.ai-intake]
 verify_jwt = false
+
+[functions.work-order-public]
+verify_jwt = false

@@ -118,6 +118,8 @@ const App = () => (
                 <Route path="superadmin" element={<SuperAdminRoute><SuperAdminPage /></SuperAdminRoute>} />
               </Route>
               <Route path="/meta-callback" element={<ProtectedRoute><MetaCallbackPage /></ProtectedRoute>} />
+              {/* Public work order status page */}
+              <Route path="/status/:token" element={<WorkOrderStatusPage />} />
               {/* Portal routes - separate auth context */}
               <Route path="/portal/login" element={<PortalAuthProvider><PortalLoginPage /></PortalAuthProvider>} />
               <Route path="/portal" element={<PortalAuthProvider><PortalRoute><PortalLayout /></PortalRoute></PortalAuthProvider>}>

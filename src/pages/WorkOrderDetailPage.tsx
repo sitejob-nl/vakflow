@@ -277,6 +277,58 @@ const WorkOrderDetailPage = () => {
           {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           PDF
         </button>
+        {(wo as any).share_token ? (
+          <div className="flex gap-1">
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}/status/${(wo as any).share_token}`;
+                navigator.clipboard.writeText(url);
+                toast({ title: "Link gekopieerd", description: url });
+              }}
+              className="px-4 py-2 bg-card border border-border rounded-sm text-[13px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors flex items-center gap-1.5"
+            >
+              <Link2 className="h-3.5 w-3.5" /> Kopieer link
+            </button>
+            <button
+              onClick={async () => {
+                setSharingLink(true);
+                try {
+                  await updateWO.mutateAsync({ id: wo.id, share_token: null } as any);
+                  toast({ title: "Deellink ingetrokken" });
+                } catch (err: any) {
+                  toast({ title: "Fout", description: err.message, variant: "destructive" });
+                }
+                setSharingLink(false);
+              }}
+              disabled={sharingLink}
+              className="px-2 py-2 bg-card border border-destructive text-destructive rounded-sm text-[13px] font-bold hover:bg-destructive-muted transition-colors disabled:opacity-50"
+              title="Link intrekken"
+            >
+              <LinkOff className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={async () => {
+              setSharingLink(true);
+              try {
+                const token = crypto.randomUUID();
+                await updateWO.mutateAsync({ id: wo.id, share_token: token } as any);
+                const url = `${window.location.origin}/status/${token}`;
+                navigator.clipboard.writeText(url);
+                toast({ title: "Deellink aangemaakt en gekopieerd", description: url });
+              } catch (err: any) {
+                toast({ title: "Fout", description: err.message, variant: "destructive" });
+              }
+              setSharingLink(false);
+            }}
+            disabled={sharingLink}
+            className="px-4 py-2 bg-card border border-border rounded-sm text-[13px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {sharingLink ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
+            Deel link
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
