@@ -16,6 +16,7 @@ export type Page =
   | "whatsapp"
   | "reminders"
   | "assets"
+  | "contracts"
   | "marketing"
   | "settings"
   | "superadmin";
