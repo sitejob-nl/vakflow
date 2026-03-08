@@ -337,6 +337,24 @@ const QuoteDialog = ({ open, onOpenChange, editQuote, onScheduleAppointment }: P
                       Afspraak
                     </Button>
                   )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const p = await convertToProject.mutateAsync(editQuote);
+                        toast({ title: `Project ${(p as any).project_number ?? ""} aangemaakt` });
+                        onOpenChange(false);
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
+                      }
+                    }}
+                    disabled={convertToProject.isPending}
+                  >
+                    <FolderKanban className="h-3.5 w-3.5 mr-1" />
+                    Project
+                  </Button>
                 </div>
               )}
             </div>
