@@ -271,6 +271,60 @@ const SettingsAccountingTab = () => {
         </button>
       </div>
 
+      {/* Sync toggles — only when provider is set */}
+      {provider && (
+        <div className="border-t border-border pt-5 space-y-3">
+          <h3 className="text-[14px] font-bold">Automatische synchronisatie</h3>
+          <div className="space-y-3">
+            <label className="flex items-center justify-between gap-3">
+              <div>
+                <span className="text-[13px] font-medium">Facturen automatisch syncen</span>
+                <p className="text-[11px] text-muted-foreground">Nieuwe facturen worden direct naar {PROVIDERS.find(p => p.key === provider)?.label ?? provider} gestuurd</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={syncInvoices}
+                onClick={async () => {
+                  const newVal = !syncInvoices;
+                  setSyncInvoices(newVal);
+                  if (companyId) {
+                    await supabase.from("companies").update({ sync_invoices_to_accounting: newVal }).eq("id", companyId);
+                    toast({ title: newVal ? "Factuur-sync ingeschakeld" : "Factuur-sync uitgeschakeld" });
+                  }
+                }}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${syncInvoices ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow-lg ring-0 transition-transform ${syncInvoices ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+            </label>
+            <label className="flex items-center justify-between gap-3">
+              <div>
+                <span className="text-[13px] font-medium">Offertes automatisch syncen</span>
+                <p className="text-[11px] text-muted-foreground">Nieuwe offertes worden direct naar {PROVIDERS.find(p => p.key === provider)?.label ?? provider} gestuurd</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={syncQuotes}
+                onClick={async () => {
+                  const newVal = !syncQuotes;
+                  setSyncQuotes(newVal);
+                  if (companyId) {
+                    await supabase.from("companies").update({ sync_quotes_to_accounting: newVal }).eq("id", companyId);
+                    toast({ title: newVal ? "Offerte-sync ingeschakeld" : "Offerte-sync uitgeschakeld" });
+                  }
+                }}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${syncQuotes ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow-lg ring-0 transition-transform ${syncQuotes ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+            </label>
+          </div>
+          <p className="text-[11px] text-muted-foreground">Als uitgeschakeld, kun je facturen en offertes handmatig syncen via de sync-knop op de detail-pagina.</p>
+        </div>
+      )}
+
       {/* Provider-specific fields */}
       {provider === "eboekhouden" && (
         <div className="border-t border-border pt-5 space-y-3">
