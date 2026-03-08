@@ -99,7 +99,7 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
 
           <div className="space-y-2">
             <Label>Klant *</Label>
-            <CustomerCombobox value={form.customer_id} onChange={(v) => set("customer_id", v)} />
+            <CustomerCombobox customers={customers} value={form.customer_id} onValueChange={(v) => set("customer_id", v)} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
