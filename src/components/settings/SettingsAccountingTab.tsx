@@ -164,7 +164,7 @@ const SettingsAccountingTab = () => {
       {provider === "rompslomp" && (
         <div className="border-t border-border pt-5 space-y-3">
           <h3 className="text-[14px] font-bold">Rompslomp instellingen</h3>
-          {tokenField("API Token", "rompslomp_api_token", false)}
+          <TokenField label="API Token" fieldName="rompslomp_api_token" hasToken={false} saving={saving} onSave={handleSaveToken} />
           {field("Bedrijfsnaam", "rompslomp_company_name")}
           {field("Bedrijfs-ID", "rompslomp_company_id")}
           {field("Tenant-ID", "rompslomp_tenant_id")}
