@@ -85,8 +85,10 @@ const PlanningPage = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [outlookDetailEvent, setOutlookDetailEvent] = useState<OutlookEvent | null>(null);
   const [outlookDetailOpen, setOutlookDetailOpen] = useState(false);
-  // View mode: week or month
-  const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  // View mode: week, month, or bays (automotive)
+  const { industry } = useIndustryConfig();
+  const isAutomotive = industry === "automotive";
+  const [viewMode, setViewMode] = useState<"week" | "month" | "bays">("week");
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
 
   // Drag & drop state
