@@ -2377,7 +2377,10 @@ const SettingsPage = () => {
                         {wefactSyncingInvoices ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Facturen pushen
                       </button>
                       <button onClick={async () => { setWefactSyncingQuotes(true); try { const r = await syncQuotesWefact.mutateAsync(); toast({ title: "Offertes gepusht", description: `${r.synced} gesynchroniseerd, ${r.skipped} overgeslagen` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactSyncingQuotes(false); }} disabled={wefactSyncingQuotes} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
-                        {wefactSyncingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Offertes pushen
+                      {wefactSyncingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Offertes pushen
+                      </button>
+                      <button onClick={async () => { setWefactSyncingProducts(true); try { const r = await syncProductsWefact.mutateAsync(); toast({ title: "Producten gepusht", description: `${r.synced} gesynchroniseerd${r.errors.length ? `, ${r.errors.length} fouten` : ""}` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactSyncingProducts(false); }} disabled={wefactSyncingProducts} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {wefactSyncingProducts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Producten pushen
                       </button>
                     </div>
                   </div>
