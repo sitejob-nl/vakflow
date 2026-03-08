@@ -146,6 +146,7 @@ const AssetsPage = () => {
                 <TableHead className="hidden sm:table-cell">Klant</TableHead>
                 {isCleaning && <TableHead className="hidden md:table-cell">Frequentie</TableHead>}
                 {isCleaning && <TableHead className="hidden md:table-cell">Volgende beurt</TableHead>}
+                {isCleaning && <TableHead className="hidden lg:table-cell">Score</TableHead>}
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[100px]" />
               </TableRow>
