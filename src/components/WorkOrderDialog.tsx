@@ -50,7 +50,14 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
     description: "",
     remarks: "",
     travel_cost: 0,
+    vehicle_id: "",
+    work_order_type: "",
+    mileage_start: "",
+    mileage_end: "",
   });
+
+  // Vehicles for selected customer (automotive)
+  const { data: customerVehicles } = useCustomerVehicles(isAutomotive && form.customer_id ? form.customer_id : undefined);
 
   useEffect(() => {
     if (workOrder) {
