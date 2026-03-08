@@ -70,6 +70,9 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
   const [showAiIntake, setShowAiIntake] = useState(false);
   const [aiMaterials, setAiMaterials] = useState<any[] | null>(null);
   const [selectedBayId, setSelectedBayId] = useState("");
+  const [beforePhotos, setBeforePhotos] = useState<string[]>([]);
+  const [afterPhotos, setAfterPhotos] = useState<string[]>([]);
+  const [quickScore, setQuickScore] = useState(0);
 
   const handleAiApply = (s: AiIntakeSuggestion) => {
     setForm((f) => ({

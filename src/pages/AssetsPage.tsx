@@ -67,11 +67,11 @@ const AssetsPage = () => {
     queryKey: ["asset_field_config", companyId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("companies_safe" as any)
+        .from("companies_safe")
         .select("asset_field_config")
         .eq("id", companyId!)
         .single();
-      return ((data?.asset_field_config ?? []) as unknown as any[]);
+      return (((data as any)?.asset_field_config ?? []) as unknown as any[]);
     },
     enabled: !!companyId,
   });
