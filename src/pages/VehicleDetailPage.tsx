@@ -1,15 +1,19 @@
 import { useParams } from "react-router-dom";
 import { useVehicle, useVehicleMileageLogs, useRdwLookup } from "@/hooks/useVehicles";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
+import { useApkReminderSettings, useUpsertApkReminderSettings } from "@/hooks/useApkReminders";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Car, Calendar, Gauge, Fuel, Palette, Hash, FileText, ShieldAlert, ClipboardCheck, AlertTriangle, RefreshCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Car, Calendar, Gauge, Fuel, Palette, Hash, FileText, ShieldAlert, ClipboardCheck, AlertTriangle, RefreshCw, Bell, Wrench } from "lucide-react";
 import TireStorageCard from "@/components/TireStorageCard";
 import { format, differenceInDays } from "date-fns";
 import { nl } from "date-fns/locale";
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { useNavigation } from "@/hooks/useNavigation";
 
 const formatPlate = (plate: string) => {
   const p = plate.replace(/[\s-]/g, "").toUpperCase();
@@ -19,10 +23,42 @@ const formatPlate = (plate: string) => {
 
 const VehicleDetailPage = () => {
   const { id } = useParams();
+  const { navigate } = useNavigation();
   const { data: vehicle, isLoading } = useVehicle(id);
   const { data: mileageLogs } = useVehicleMileageLogs(id);
   const { data: allWorkOrders } = useWorkOrders();
   const rdwLookup = useRdwLookup();
+  const { data: apkSettings } = useApkReminderSettings();
+  const upsertApk = useUpsertApkReminderSettings();
+
+  // APK reminder local state
+  const [apkEnabled, setApkEnabled] = useState(false);
+  const [apkDaysBefore, setApkDaysBefore] = useState("30");
+
+  useEffect(() => {
+    if (apkSettings) {
+      setApkEnabled(apkSettings.enabled);
+      setApkDaysBefore(apkSettings.days_before?.[0]?.toString() ?? "30");
+    }
+  }, [apkSettings]);
+
+  const handleApkToggle = async (enabled: boolean) => {
+    setApkEnabled(enabled);
+    await upsertApk.mutateAsync({
+      enabled,
+      days_before: [parseInt(apkDaysBefore)],
+      channel: apkSettings?.channel ?? "email",
+    });
+  };
+
+  const handleApkDaysChange = async (val: string) => {
+    setApkDaysBefore(val);
+    await upsertApk.mutateAsync({
+      enabled: apkEnabled,
+      days_before: [parseInt(val)],
+      channel: apkSettings?.channel ?? "email",
+    });
+  };
 
   // Auto-fetch RDW data when vehicle loads
   useEffect(() => {
@@ -33,7 +69,9 @@ const VehicleDetailPage = () => {
 
   const vehicleWorkOrders = useMemo(() => {
     if (!allWorkOrders || !id) return [];
-    return allWorkOrders.filter((wo: any) => wo.vehicle_id === id);
+    return allWorkOrders
+      .filter((wo: any) => wo.vehicle_id === id)
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [allWorkOrders, id]);
 
   if (isLoading) {
@@ -67,7 +105,8 @@ const VehicleDetailPage = () => {
         <div className="ml-auto flex gap-2 flex-wrap justify-end">
           <Badge variant={vehicle.status === "actief" ? "default" : "secondary"}>{vehicle.status}</Badge>
           {apkDays !== null && apkDays < 0 && <Badge variant="destructive">APK verlopen</Badge>}
-          {apkDays !== null && apkDays >= 0 && apkDays <= 30 && <Badge variant="outline" className="border-warning text-warning">APK {apkDays}d</Badge>}
+          {apkDays !== null && apkDays >= 0 && apkDays <= 30 && <Badge variant="outline" className="border-destructive text-destructive">APK {apkDays}d</Badge>}
+          {apkDays !== null && apkDays > 30 && apkDays <= 90 && <Badge className="bg-orange-500/15 text-orange-600 border-orange-500/30">{apkDays}d tot APK</Badge>}
           {rdw?.has_open_recall && <Badge variant="destructive" className="flex items-center gap-1"><ShieldAlert className="h-3 w-3" />Terugroepactie</Badge>}
         </div>
       </div>
@@ -78,6 +117,7 @@ const VehicleDetailPage = () => {
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><Gauge className="h-3.5 w-3.5" />KM-stand</div>
             <p className="font-bold text-lg">{vehicle.mileage_current ? `${vehicle.mileage_current.toLocaleString()}` : "—"}</p>
+            {vehicle.mileage_updated_at && <p className="text-[10px] text-muted-foreground">{format(new Date(vehicle.mileage_updated_at), "dd MMM yyyy", { locale: nl })}</p>}
           </CardContent>
         </Card>
         <Card>
@@ -100,7 +140,7 @@ const VehicleDetailPage = () => {
         </Card>
       </div>
 
-      {/* Details */}
+      {/* Vehicle details */}
       <Card>
         <CardHeader><CardTitle className="text-sm">Voertuiggegevens</CardTitle></CardHeader>
         <CardContent>
@@ -108,12 +148,47 @@ const VehicleDetailPage = () => {
             {vehicle.vin && <><dt className="text-muted-foreground">VIN</dt><dd className="font-mono">{vehicle.vin}</dd></>}
             {vehicle.registration_date && <><dt className="text-muted-foreground">Eerste toelating</dt><dd>{format(new Date(vehicle.registration_date), "dd-MM-yyyy")}</dd></>}
             {vehicle.vehicle_mass && <><dt className="text-muted-foreground">Massa rijklaar</dt><dd>{vehicle.vehicle_mass} kg</dd></>}
+            {vehicle.build_year && <><dt className="text-muted-foreground">Bouwjaar</dt><dd>{vehicle.build_year}</dd></>}
+            {vehicle.fuel_type && <><dt className="text-muted-foreground">Brandstof</dt><dd>{vehicle.fuel_type}</dd></>}
           </dl>
           {vehicle.notes && <p className="mt-4 text-sm text-muted-foreground border-t border-border pt-3">{vehicle.notes}</p>}
         </CardContent>
       </Card>
 
-      {/* Recalls (terugroepacties) */}
+      {/* APK Reminder Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Bell className="h-4 w-4" /> APK-herinnering
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Automatische herinnering</p>
+              <p className="text-xs text-muted-foreground">Stuur een herinnering voordat de APK verloopt</p>
+            </div>
+            <Switch checked={apkEnabled} onCheckedChange={handleApkToggle} />
+          </div>
+          {apkEnabled && (
+            <div className="mt-3 flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">Herinner</span>
+              <Select value={apkDaysBefore} onValueChange={handleApkDaysChange}>
+                <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="14">14 dagen</SelectItem>
+                  <SelectItem value="30">30 dagen</SelectItem>
+                  <SelectItem value="60">60 dagen</SelectItem>
+                  <SelectItem value="90">90 dagen</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-sm text-muted-foreground">vooraf</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recalls */}
       {rdw?.recalls && rdw.recalls.length > 0 && (
         <Card className={rdw.has_open_recall ? "border-destructive" : ""}>
           <CardHeader>
@@ -150,8 +225,7 @@ const VehicleDetailPage = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
-              <ClipboardCheck className="h-4 w-4" />
-              APK-historie ({rdw.inspections.length})
+              <ClipboardCheck className="h-4 w-4" /> APK-historie ({rdw.inspections.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -169,13 +243,12 @@ const VehicleDetailPage = () => {
         </Card>
       )}
 
-      {/* Defects (geconstateerde gebreken) */}
+      {/* Defects */}
       {rdw?.defects && rdw.defects.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              Geconstateerde gebreken ({rdw.defects.length})
+              <AlertTriangle className="h-4 w-4" /> Geconstateerde gebreken ({rdw.defects.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -206,37 +279,11 @@ const VehicleDetailPage = () => {
         </Card>
       )}
 
-      {/* Refresh RDW data button */}
       {!rdwLookup.isPending && vehicle.license_plate && (
         <Button variant="outline" size="sm" onClick={() => rdwLookup.mutate(vehicle.license_plate)} className="gap-2">
           <RefreshCw className="h-3.5 w-3.5" /> RDW data vernieuwen
         </Button>
       )}
-
-      {/* Tire storage */}
-      <TireStorageCard vehicleId={id!} />
-
-      {/* Work orders */}
-      <Card>
-        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><FileText className="h-4 w-4" /> Werkorders ({vehicleWorkOrders.length})</CardTitle></CardHeader>
-        <CardContent>
-          {vehicleWorkOrders.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Geen werkorders voor dit voertuig</p>
-          ) : (
-            <div className="space-y-2">
-              {vehicleWorkOrders.slice(0, 10).map((wo: any) => (
-                <div key={wo.id} className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
-                  <div>
-                    <span className="font-medium text-sm">{wo.work_order_number}</span>
-                    <span className="text-muted-foreground text-xs ml-2">{wo.description?.slice(0, 60) || "—"}</span>
-                  </div>
-                  <Badge variant={wo.status === "afgerond" ? "default" : "secondary"} className="text-[10px]">{wo.status}</Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Mileage history chart */}
       {mileageLogs && mileageLogs.length > 0 && (
@@ -260,33 +307,17 @@ const VehicleDetailPage = () => {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} className="text-muted-foreground" />
-                    <YAxis
-                      tick={{ fontSize: 11 }}
-                      className="text-muted-foreground"
-                      tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                    />
+                    <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "6px",
-                        fontSize: "12px",
-                      }}
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "12px" }}
                       formatter={(value: number) => [`${value.toLocaleString("nl-NL")} km`, "KM-stand"]}
                     />
-                    <Area
-                      type="monotone"
-                      dataKey="km"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2}
-                      fill="url(#mileageGradient)"
-                    />
+                    <Area type="monotone" dataKey="km" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#mileageGradient)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             ) : null}
 
-            {/* Table fallback / detail view */}
             <div className={`space-y-1 ${mileageLogs.length >= 2 ? "mt-4 pt-4 border-t border-border" : ""}`}>
               <p className="text-xs text-muted-foreground font-medium mb-2">Alle registraties ({mileageLogs.length})</p>
               {mileageLogs.map((log) => (
@@ -299,6 +330,43 @@ const VehicleDetailPage = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Tire storage */}
+      <TireStorageCard vehicleId={id!} />
+
+      {/* Work orders (maintenance history) */}
+      <Card>
+        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Wrench className="h-4 w-4" /> Onderhoudshistorie ({vehicleWorkOrders.length})</CardTitle></CardHeader>
+        <CardContent>
+          {vehicleWorkOrders.length === 0 ? (
+            <p className="text-muted-foreground text-sm">Geen werkorders voor dit voertuig</p>
+          ) : (
+            <div className="space-y-2">
+              {vehicleWorkOrders.slice(0, 15).map((wo: any) => (
+                <div
+                  key={wo.id}
+                  className="flex items-center justify-between py-2.5 border-b border-border last:border-b-0 cursor-pointer hover:bg-muted/30 rounded px-2 -mx-2 transition-colors"
+                  onClick={() => navigate("woDetail" as any, { workOrderId: wo.id })}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{wo.work_order_number}</span>
+                      {wo.work_order_type && (
+                        <Badge variant="outline" className="text-[10px]">{wo.work_order_type}</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {wo.created_at && format(new Date(wo.created_at), "dd MMM yyyy", { locale: nl })}
+                      {wo.description && ` — ${wo.description.slice(0, 60)}`}
+                    </p>
+                  </div>
+                  <Badge variant={wo.status === "afgerond" ? "default" : "secondary"} className="text-[10px] ml-2 shrink-0">{wo.status}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
