@@ -35,6 +35,7 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
       { id: "planning" as Page, icon: Calendar, label: industry === "automotive" ? "Werkplaatsplanning" : "Planning", adminOnly: false },
       { id: "customers" as Page, icon: Users, label: "Klanten", adminOnly: true },
       { id: "workorders" as Page, icon: FileText, label: labels.workOrders, adminOnly: false },
+      { id: "schedule" as Page, icon: CalendarCheck, label: "Te plannen", adminOnly: false },
       { id: "contracts" as Page, icon: RefreshCw, label: "Contracten", adminOnly: true },
     ],
   },

@@ -70,6 +70,7 @@ const pathToPage: [RegExp, Page][] = [
   [/^\/vehicles\/?$/, "vehicles"],
   [/^\/marketing\/?$/, "marketing"],
   [/^\/trade\/?$/, "trade"],
+  [/^\/schedule\/?$/, "schedule"],
   [/^\/settings\/?$/, "settings"],
   [/^\/superadmin\/?$/, "superadmin"],
   [/^\/$/, "dashboard"],
