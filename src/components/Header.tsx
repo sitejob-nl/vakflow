@@ -41,6 +41,7 @@ const Header = () => {
     audits: { title: "Kwaliteit", sub: "Audits & naleving" },
     projects: { title: "Projecten", sub: "Projectoverzicht" },
     projDetail: { title: "Project", sub: "Projectdetails" },
+    leads: { title: "Leads", sub: "Leadbeheer" },
     superadmin: { title: "Super Admin", sub: "Bedrijvenbeheer" },
   };
 
