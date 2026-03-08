@@ -8,6 +8,10 @@ export interface IndustryLabels {
   appointment: string;
   asset: string;
   assets: string;
+  vehicle: string;
+  vehicles: string;
+  bay: string;
+  bays: string;
 }
 
 export interface SubcategoryConfig {
