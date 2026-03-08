@@ -4215,6 +4215,8 @@ export type Database = {
           smtp_host: string | null
           smtp_port: number | null
           subcategory: string | null
+          sync_invoices_to_accounting: boolean | null
+          sync_quotes_to_accounting: boolean | null
         }
         Insert: {
           accounting_provider?: string | null
@@ -4254,6 +4256,8 @@ export type Database = {
           smtp_host?: string | null
           smtp_port?: number | null
           subcategory?: string | null
+          sync_invoices_to_accounting?: boolean | null
+          sync_quotes_to_accounting?: boolean | null
         }
         Update: {
           accounting_provider?: string | null
@@ -4293,6 +4297,8 @@ export type Database = {
           smtp_host?: string | null
           smtp_port?: number | null
           subcategory?: string | null
+          sync_invoices_to_accounting?: boolean | null
+          sync_quotes_to_accounting?: boolean | null
         }
         Relationships: []
       }
