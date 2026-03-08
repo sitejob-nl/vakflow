@@ -37,9 +37,19 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
       const tenantId = data?.tenant_id;
       if (!tenantId) throw new Error("Geen tenant_id ontvangen");
 
-      // Open the Exact Online connect page
-      const connectUrl = `https://xeshjkznwdrxjjhbpisn.supabase.co/functions/v1/exact-connect?tenant_id=${tenantId}`;
-      window.open(connectUrl, "_blank");
+      // Open the Exact Online setup page as popup
+      const connectUrl = `https://connect.sitejob.nl/exact-setup?tenant_id=${tenantId}`;
+      window.open(connectUrl, "exact-setup", "width=600,height=700");
+
+      // Listen for postMessage from the popup on successful connection
+      const handleMessage = (e: MessageEvent) => {
+        if (e.data?.type === "exact-connected") {
+          window.removeEventListener("message", handleMessage);
+          handleRefreshStatus();
+        }
+      };
+      window.addEventListener("message", handleMessage);
+
       setExactStatus("pending");
       toast({ title: "Exact Online koppeling gestart", description: "Rond de autorisatie af in het geopende venster." });
     } catch (err: any) {
