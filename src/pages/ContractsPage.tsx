@@ -181,6 +181,7 @@ const ContractsPage = () => {
             </div>
           ))}
         </div>
+        </>
       )}
 
       <ContractDialog open={dialogOpen} onOpenChange={setDialogOpen} contract={editing} />
