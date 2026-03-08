@@ -201,9 +201,9 @@ Deno.serve(async (req) => {
     try {
       tokenData = await getExactToken(config.tenant_id, config.webhook_secret);
     } catch (err: any) {
-      if (err.message === "REAUTH_REQUIRED") {
-        await supabaseAdmin.from("exact_config").update({ status: "error" }).eq("company_id", companyId);
-        return jsonRes({ error: "Exact Online sessie verlopen. Koppel opnieuw.", needs_reauth: true }, 401);
+      if (err.message === "REAUTH_REQUIRED" || err.message === "Tenant not active" || (err.message && err.message.includes("Tenant not active"))) {
+        await supabaseAdmin.from("exact_config").update({ status: "error", updated_at: new Date().toISOString() }).eq("company_id", companyId);
+        return jsonRes({ error: "Exact Online koppeling niet actief. Koppel opnieuw via instellingen.", needs_reauth: true }, 401);
       }
       throw err;
     }
@@ -853,6 +853,21 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     if (err instanceof AuthError) return jsonRes({ error: err.message }, err.status);
     if (err instanceof RateLimitError) return jsonRes({ error: err.message }, 429);
+
+    // Catch "Tenant not active" / "REAUTH_REQUIRED" from getExactToken
+    const msg = err.message || "";
+    if (msg === "REAUTH_REQUIRED" || msg === "Tenant not active" || msg.includes("Tenant not active")) {
+      try {
+        const body = await req.json().catch(() => ({}));
+        const supabaseAdmin = createAdminClient();
+        const authCtx = await authenticateRequest(req).catch(() => null);
+        if (authCtx) {
+          await supabaseAdmin.from("exact_config").update({ status: "error", updated_at: new Date().toISOString() }).eq("company_id", authCtx.companyId);
+        }
+      } catch (_) { /* best effort */ }
+      return jsonRes({ error: "Exact Online koppeling niet actief. Koppel opnieuw via instellingen.", needs_reauth: true }, 401);
+    }
+
     console.error("sync-exact error:", err);
     return jsonRes({ error: err.message || "Internal error" }, 500);
   }
