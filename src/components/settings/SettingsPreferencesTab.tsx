@@ -61,6 +61,7 @@ const SettingsPreferencesTab = () => {
     }).eq("id", companyId);
     setSaving(false);
     toast(error ? { title: "Fout", description: error.message, variant: "destructive" } : { title: "Voorkeuren opgeslagen" });
+    if (!error) await refreshCompanyData();
   };
 
   const handleIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
