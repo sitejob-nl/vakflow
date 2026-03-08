@@ -24,6 +24,7 @@ import { SETTINGS_INPUT_CLASS, SETTINGS_LABEL_CLASS } from "@/components/setting
 
 const SettingsAssetFieldsTab = lazy(() => import("@/components/settings/SettingsAssetFieldsTab"));
 const SettingsLeadsTab = lazy(() => import("@/components/settings/SettingsLeadsTab"));
+const SettingsApiKeysTab = lazy(() => import("@/components/settings/SettingsApiKeysTab"));
 
 const BASE_TABS: string[] = [
   "Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen",
