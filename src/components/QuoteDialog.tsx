@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Loader2, ArrowRightLeft, FileText, Receipt, CalendarPlus } from "lucide-react";
+import { Plus, Trash2, Loader2, ArrowRightLeft, FileText, Receipt, CalendarPlus, FolderKanban } from "lucide-react";
 import { useCombinedTemplates } from "@/hooks/useQuoteTemplates";
 
 interface Props {
