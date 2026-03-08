@@ -26,7 +26,7 @@ const ALL_FEATURES = [
 ];
 
 const SettingsPreferencesTab = () => {
-  const { companyId } = useAuth();
+  const { companyId, refreshCompanyData } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -61,6 +61,7 @@ const SettingsPreferencesTab = () => {
     }).eq("id", companyId);
     setSaving(false);
     toast(error ? { title: "Fout", description: error.message, variant: "destructive" } : { title: "Voorkeuren opgeslagen" });
+    if (!error) await refreshCompanyData();
   };
 
   const handleIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
