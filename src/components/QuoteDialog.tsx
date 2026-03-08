@@ -25,7 +25,7 @@ interface Props {
 const emptyItem = (): QuoteItem => ({ description: "", qty: 1, unit_price: 0, total: 0 });
 const emptyOptional = (): OptionalItem => ({ description: "", price: 0 });
 
-const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
+const QuoteDialog = ({ open, onOpenChange, editQuote, onScheduleAppointment }: Props) => {
   const { data: customers } = useCustomers();
   const { data: assets } = useAssets();
   const { data: allTemplates } = useCombinedTemplates();
