@@ -55,10 +55,14 @@ const TabFallback = () => (
 );
 
 const SettingsPage = () => {
-  const { enabledFeatures } = useAuth();
+  const { enabledFeatures, role } = useAuth();
   const [activeTab, setActiveTab] = useState("Profiel");
+  const isAdmin = role === "admin" || role === "super_admin";
 
   const tabs = BASE_TABS.filter((tab) => {
+    // Role filter: monteurs only see non-admin tabs
+    if (!isAdmin && ADMIN_ONLY_TABS.has(tab)) return false;
+    // Feature filter
     const requiredFeature = TAB_FEATURE_MAP[tab];
     if (!requiredFeature) return true;
     return enabledFeatures.length === 0 || enabledFeatures.includes(requiredFeature);
