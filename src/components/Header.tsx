@@ -36,6 +36,7 @@ const Header = () => {
     contracts: { title: "Contracten", sub: "Terugkerende contracten" },
     marketing: { title: "Marketing", sub: "Meta leads & berichten" },
     trade: { title: "Inruil & Verkoop", sub: "Inruilvoertuigen & marges" },
+    schedule: { title: "Te plannen", sub: "Objecten inplannen" },
     settings: { title: "Instellingen", sub: "Profiel & voorkeuren" },
     superadmin: { title: "Super Admin", sub: "Bedrijvenbeheer" },
   };
