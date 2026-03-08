@@ -30,6 +30,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   workOrder?: Tables<"work_orders"> | null;
   projectId?: string;
+  prefillCustomerId?: string;
 }
 
 const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId }: Props) => {
