@@ -2601,6 +2601,163 @@ export type Database = {
           },
         ]
       }
+      vehicle_mileage_logs: {
+        Row: {
+          company_id: string
+          id: string
+          mileage: number
+          recorded_at: string
+          recorded_by: string | null
+          vehicle_id: string
+          work_order_id: string | null
+        }
+        Insert: {
+          company_id: string
+          id?: string
+          mileage: number
+          recorded_at?: string
+          recorded_by?: string | null
+          vehicle_id: string
+          work_order_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          id?: string
+          mileage?: number
+          recorded_at?: string
+          recorded_by?: string | null
+          vehicle_id?: string
+          work_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_mileage_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_mileage_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_mileage_logs_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_mileage_logs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_mileage_logs_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          apk_expiry_date: string | null
+          brand: string | null
+          build_year: number | null
+          color: string | null
+          company_id: string
+          created_at: string
+          customer_id: string | null
+          fuel_type: string | null
+          id: string
+          license_plate: string
+          mileage_current: number | null
+          mileage_updated_at: string | null
+          model: string | null
+          notes: string | null
+          rdw_data: Json | null
+          registration_date: string | null
+          status: string
+          updated_at: string
+          vehicle_mass: number | null
+          vin: string | null
+        }
+        Insert: {
+          apk_expiry_date?: string | null
+          brand?: string | null
+          build_year?: number | null
+          color?: string | null
+          company_id: string
+          created_at?: string
+          customer_id?: string | null
+          fuel_type?: string | null
+          id?: string
+          license_plate: string
+          mileage_current?: number | null
+          mileage_updated_at?: string | null
+          model?: string | null
+          notes?: string | null
+          rdw_data?: Json | null
+          registration_date?: string | null
+          status?: string
+          updated_at?: string
+          vehicle_mass?: number | null
+          vin?: string | null
+        }
+        Update: {
+          apk_expiry_date?: string | null
+          brand?: string | null
+          build_year?: number | null
+          color?: string | null
+          company_id?: string
+          created_at?: string
+          customer_id?: string | null
+          fuel_type?: string | null
+          id?: string
+          license_plate?: string
+          mileage_current?: number | null
+          mileage_updated_at?: string | null
+          model?: string | null
+          notes?: string | null
+          rdw_data?: Json | null
+          registration_date?: string | null
+          status?: string
+          updated_at?: string
+          vehicle_mass?: number | null
+          vin?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_automations: {
         Row: {
           company_id: string | null
@@ -2855,6 +3012,7 @@ export type Database = {
           appointment_id: string | null
           asset_id: string | null
           assigned_to: string | null
+          bay_id: string | null
           checklist: Json | null
           company_id: string | null
           completed_at: string | null
@@ -2862,6 +3020,8 @@ export type Database = {
           customer_id: string
           description: string | null
           id: string
+          mileage_end: number | null
+          mileage_start: number | null
           notes: Json | null
           photos_after: string[] | null
           photos_before: string[] | null
@@ -2873,13 +3033,16 @@ export type Database = {
           status: string
           total_amount: number | null
           travel_cost: number
+          vehicle_id: string | null
           work_order_number: string | null
+          work_order_type: string | null
         }
         Insert: {
           address_id?: string | null
           appointment_id?: string | null
           asset_id?: string | null
           assigned_to?: string | null
+          bay_id?: string | null
           checklist?: Json | null
           company_id?: string | null
           completed_at?: string | null
@@ -2887,6 +3050,8 @@ export type Database = {
           customer_id: string
           description?: string | null
           id?: string
+          mileage_end?: number | null
+          mileage_start?: number | null
           notes?: Json | null
           photos_after?: string[] | null
           photos_before?: string[] | null
@@ -2898,13 +3063,16 @@ export type Database = {
           status?: string
           total_amount?: number | null
           travel_cost?: number
+          vehicle_id?: string | null
           work_order_number?: string | null
+          work_order_type?: string | null
         }
         Update: {
           address_id?: string | null
           appointment_id?: string | null
           asset_id?: string | null
           assigned_to?: string | null
+          bay_id?: string | null
           checklist?: Json | null
           company_id?: string | null
           completed_at?: string | null
@@ -2912,6 +3080,8 @@ export type Database = {
           customer_id?: string
           description?: string | null
           id?: string
+          mileage_end?: number | null
+          mileage_start?: number | null
           notes?: Json | null
           photos_after?: string[] | null
           photos_before?: string[] | null
@@ -2923,7 +3093,9 @@ export type Database = {
           status?: string
           total_amount?: number | null
           travel_cost?: number
+          vehicle_id?: string | null
           work_order_number?: string | null
+          work_order_type?: string | null
         }
         Relationships: [
           {
@@ -2955,6 +3127,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_orders_bay_id_fkey"
+            columns: ["bay_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_bays"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "work_orders_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -2980,6 +3159,58 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_bays: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_bays_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_bays_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
         ]
