@@ -149,14 +149,6 @@ const CustomerDetailPage = () => {
         </div>
       </>
     ),
-    // E-mail tab
-    () => (
-      <CustomerEmailTab
-        customerId={customer.id}
-        customerEmail={customer.email}
-        customerName={customer.name}
-      />
-    ),
     // Facturen
     () => customerInvoices.length === 0 ? (
       <div className="text-center py-12 text-muted-foreground text-sm">Nog geen facturen voor deze klant.</div>
@@ -195,6 +187,14 @@ const CustomerDetailPage = () => {
           ))}
         </div>
       </>
+    ),
+    // E-mail tab
+    () => (
+      <CustomerEmailTab
+        customerId={customer.id}
+        customerEmail={customer.email}
+        customerName={customer.name}
+      />
     ),
     // WhatsApp Chat
     () => (

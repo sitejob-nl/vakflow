@@ -17,12 +17,22 @@ const STATUS_COLORS: Record<string, string> = {
   open: "hsl(var(--cyan))",
   bezig: "hsl(var(--warning))",
   afgerond: "hsl(var(--success))",
+  ingepland: "hsl(var(--primary))",
+  onderweg: "hsl(var(--accent))",
+  gepland: "hsl(var(--primary))",
+  concept: "hsl(var(--muted-foreground))",
+  geannuleerd: "hsl(var(--destructive))",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   open: "Open",
   bezig: "Bezig",
   afgerond: "Afgerond",
+  ingepland: "Ingepland",
+  onderweg: "Onderweg",
+  gepland: "Gepland",
+  concept: "Concept",
+  geannuleerd: "Geannuleerd",
 };
 
 function formatDuration(hours: number) {
