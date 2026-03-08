@@ -87,6 +87,10 @@ const PlanningPage = () => {
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
 
+  // Drag & drop state
+  const [dragAppointmentId, setDragAppointmentId] = useState<string | null>(null);
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+
   // Selected day for desktop (route optimization target)
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
@@ -266,11 +270,73 @@ const PlanningPage = () => {
   const totalRevenue = dailyRevenue.reduce((sum, s) => sum + s.count * s.price, 0);
 
   const handleCellClick = (day: Date, hour: number, minute: number) => {
+    if (dragAppointmentId) return; // Don't open dialog when dropping
     const d = new Date(day);
     d.setHours(hour, minute, 0, 0);
     setDefaultDate(d);
     setEditAppointment(null);
     setDialogOpen(true);
+  };
+
+  // Drag & drop handlers
+  const handleDragStart = (e: React.DragEvent, appointmentId: string) => {
+    e.stopPropagation();
+    setDragAppointmentId(appointmentId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", appointmentId);
+    // Make ghost semi-transparent
+    if (e.currentTarget instanceof HTMLElement) {
+      setTimeout(() => {
+        (e.currentTarget as HTMLElement).style.opacity = "0.4";
+      }, 0);
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    setDragAppointmentId(null);
+    setDragOverCell(null);
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "1";
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, cellKey: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverCell !== cellKey) setDragOverCell(cellKey);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverCell(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, day: Date, hour: number, minute: number) => {
+    e.preventDefault();
+    setDragOverCell(null);
+    const appointmentId = e.dataTransfer.getData("text/plain") || dragAppointmentId;
+    setDragAppointmentId(null);
+    if (!appointmentId || !appointments) return;
+
+    const appt = appointments.find((a) => a.id === appointmentId);
+    if (!appt) return;
+
+    const newDate = new Date(day);
+    newDate.setHours(hour, minute, 0, 0);
+    const oldDate = new Date(appt.scheduled_at);
+
+    // Don't update if dropped on the same slot
+    if (newDate.getTime() === oldDate.getTime()) return;
+
+    try {
+      await updateAppointment.mutateAsync({
+        id: appointmentId,
+        scheduled_at: newDate.toISOString(),
+        _syncOutlook: true,
+      });
+      toast({ title: "Afspraak verplaatst", description: `${appt.customers?.name ?? "Afspraak"} → ${format(newDate, "EEE d MMM HH:mm", { locale: nl })}` });
+    } catch (err: any) {
+      toast({ title: "Fout bij verplaatsen", description: err.message, variant: "destructive" });
+    }
   };
 
   const handleEventClick = (e: React.MouseEvent, appointment: Appointment) => {
@@ -615,9 +681,12 @@ const PlanningPage = () => {
                     return (
                       <div
                         key={day.toISOString() + slot.label}
-                        className={`border-r border-r-border/40 relative hover:bg-bg-hover transition-colors cursor-pointer ${slot.minute === 0 ? "border-b border-b-border/60" : "border-b border-b-border/20"}`}
+                        className={`border-r border-r-border/40 relative hover:bg-bg-hover transition-colors cursor-pointer ${slot.minute === 0 ? "border-b border-b-border/60" : "border-b border-b-border/20"} ${dragOverCell === day.toISOString() + slot.label ? "bg-primary/10 ring-1 ring-inset ring-primary/30" : ""}`}
                         style={{ height: `${SLOT_HEIGHT}px` }}
                         onClick={() => handleCellClick(day, slot.hour, slot.minute)}
+                        onDragOver={(e) => handleDragOver(e, day.toISOString() + slot.label)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, day, slot.hour, slot.minute)}
                       >
                         {/* Current time indicator for today column */}
                         {slot.hour === 6 && slot.minute === 0 && isToday(day) && (
@@ -634,7 +703,15 @@ const PlanningPage = () => {
                           const travelBlockPx = travelMin ? Math.max(Math.round((travelMin / 15) * SLOT_HEIGHT), 14) : 0;
                           const hasWorkOrder = appointmentWoMap.has(ev.id);
                           return (
-                            <div key={ev.id} className="absolute left-[2px] right-[2px] z-[2]" style={{ top: `${topOffset}px` }} onClick={(e) => handleEventClick(e, ev)}>
+                            <div
+                              key={ev.id}
+                              className="absolute left-[2px] right-[2px] z-[2]"
+                              style={{ top: `${topOffset}px` }}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, ev.id)}
+                              onDragEnd={handleDragEnd}
+                              onClick={(e) => handleEventClick(e, ev)}
+                            >
                               {travelMin > 0 && (
                                 <div
                                   className="flex items-center gap-1 text-[8px] text-muted-foreground bg-muted/60 rounded-t-md px-1 border border-border/40 border-b-0"
@@ -645,7 +722,7 @@ const PlanningPage = () => {
                                 </div>
                               )}
                               <div
-                                className="rounded-lg px-2 py-1 text-[11px] font-bold cursor-pointer overflow-hidden hover:scale-[1.02] hover:z-[5] transition-all relative border-l-[3px]"
+                                className="rounded-lg px-2 py-1 text-[11px] font-bold cursor-grab active:cursor-grabbing overflow-hidden hover:scale-[1.02] hover:z-[5] transition-all relative border-l-[3px]"
                                 style={{
                                   height: `${eventHeight}px`,
                                   backgroundColor: `${hexColor}18`,
