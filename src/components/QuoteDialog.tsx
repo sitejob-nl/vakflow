@@ -124,24 +124,29 @@ const QuoteDialog = ({ open, onOpenChange, editQuote, onScheduleAppointment }: P
         const newQuote = await createQuote.mutateAsync(payload);
 
         // Auto-sync to accounting provider if connected
-        if ((accountingProvider === "rompslomp" || accountingProvider === "moneybird" || accountingProvider === "eboekhouden" || accountingProvider === "wefact") && newQuote?.id) {
+        if (syncQuotes && accountingProvider && newQuote?.id) {
           setSyncing(true);
-          const funcName = accountingProvider === "rompslomp" ? "sync-rompslomp" : accountingProvider === "moneybird" ? "sync-moneybird" : accountingProvider === "wefact" ? "sync-wefact" : "sync-invoice-eboekhouden";
-          const providerLabel = accountingProvider === "rompslomp" ? "Rompslomp" : accountingProvider === "moneybird" ? "Moneybird" : accountingProvider === "wefact" ? "WeFact" : "e-Boekhouden";
-          try {
-            const res = await supabase.functions.invoke(funcName, {
-              body: { action: "create-quote", quote_id: newQuote.id },
-            });
-            if (res.error) throw res.error;
-            if (res.data?.error) throw new Error(res.data.error);
-            const qNumber = res.data?.quote_number;
-            toast({ title: `✓ Offerte aangemaakt in ${providerLabel}`, description: qNumber ? `Offertenummer: ${qNumber}` : undefined });
-            queryClient.invalidateQueries({ queryKey: ["quotes"] });
-          } catch (syncErr: any) {
-            toast({ title: `${providerLabel} sync mislukt`, description: syncErr.message, variant: "destructive" });
-          } finally {
-            setSyncing(false);
+          const funcMap: Record<string, string> = { rompslomp: "sync-rompslomp", moneybird: "sync-moneybird", wefact: "sync-wefact", eboekhouden: "sync-invoice-eboekhouden", exact: "sync-exact" };
+          const labelMap: Record<string, string> = { rompslomp: "Rompslomp", moneybird: "Moneybird", wefact: "WeFact", eboekhouden: "e-Boekhouden", exact: "Exact Online" };
+          const funcName = funcMap[accountingProvider];
+          const providerLabel = labelMap[accountingProvider] ?? accountingProvider;
+          if (!funcName) {
+            toast({ title: "Offerte aangemaakt" });
+          } else {
+            try {
+              const res = await supabase.functions.invoke(funcName, {
+                body: { action: "create-quote", quote_id: newQuote.id },
+              });
+              if (res.error) throw res.error;
+              if (res.data?.error) throw new Error(res.data.error);
+              const qNumber = res.data?.quote_number;
+              toast({ title: `✓ Offerte aangemaakt in ${providerLabel}`, description: qNumber ? `Offertenummer: ${qNumber}` : undefined });
+              queryClient.invalidateQueries({ queryKey: ["quotes"] });
+            } catch (syncErr: any) {
+              toast({ title: `Boekhoudkoppeling niet compleet`, description: `Offerte is wel opgeslagen. ${syncErr.message}` });
+            }
           }
+          setSyncing(false);
         } else {
           toast({ title: "Offerte aangemaakt" });
         }

@@ -94,13 +94,15 @@ const InvoicesPage = () => {
       toast({ title: `Factuur status gewijzigd naar ${statusConfig[status]?.label ?? status}` });
 
       // Auto-sync when status becomes "verzonden"
-      if (status === "verzonden") {
+      if (status === "verzonden" && syncInvoices && accountingProvider) {
         if (accountingProvider === "rompslomp") {
           handleSyncRompslomp();
         } else if (accountingProvider === "moneybird") {
           handleSyncMoneybird();
         } else if (accountingProvider === "eboekhouden") {
           handleSyncEb(id);
+        } else if (accountingProvider === "exact") {
+          handleSyncExact(id);
         }
       }
 
