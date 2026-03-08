@@ -4,7 +4,9 @@ import { nl } from "date-fns/locale";
 import { useWorkshopBays } from "@/hooks/useVehicles";
 import { useWorkOrders, useUpdateWorkOrder, type WorkOrder } from "@/hooks/useWorkOrders";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Wrench, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Wrench, AlertTriangle, ChevronLeft, ChevronRight, Clock, Filter, Inbox } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const START_HOUR = 7;
 const END_HOUR = 18;
