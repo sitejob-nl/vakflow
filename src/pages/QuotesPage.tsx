@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { Loader2, ChevronLeft, FileDown, Plus, RefreshCw, Trash2, FileText, Receipt, CalendarPlus, FolderKanban } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
