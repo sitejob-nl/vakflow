@@ -51,7 +51,7 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
   const [items, setItems] = useState<QuoteItem[]>([emptyItem()]);
   const [optionalItems, setOptionalItems] = useState<OptionalItem[]>([]);
   const [notes, setNotes] = useState("");
-
+  const [assetId, setAssetId] = useState("");
   useEffect(() => {
     if (editQuote) {
       setCustomerId(editQuote.customer_id);
