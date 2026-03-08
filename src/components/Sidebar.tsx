@@ -34,6 +34,7 @@ const buildSections = (labels: { workOrders: string; assets: string }) => [
       { id: "planning" as Page, icon: Calendar, label: "Planning", adminOnly: false },
       { id: "customers" as Page, icon: Users, label: "Klanten", adminOnly: true },
       { id: "workorders" as Page, icon: FileText, label: labels.workOrders, adminOnly: false },
+      { id: "contracts" as Page, icon: RefreshCw, label: "Contracten", adminOnly: true },
     ],
   },
   {

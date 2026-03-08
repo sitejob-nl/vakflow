@@ -87,6 +87,7 @@ const App = () => (
                 <Route path="email" element={<AdminRoute><EmailPage /></AdminRoute>} />
                 <Route path="whatsapp" element={<AdminRoute><WhatsAppPage /></AdminRoute>} />
                 <Route path="reminders" element={<AdminRoute><RemindersPage /></AdminRoute>} />
+                <Route path="contracts" element={<AdminRoute><ContractsPage /></AdminRoute>} />
                 <Route path="assets" element={<AdminRoute><AssetsPage /></AdminRoute>} />
                 <Route path="marketing" element={<AdminRoute><MarketingPage /></AdminRoute>} />
                 <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />

@@ -56,6 +56,7 @@ const pathToPage: [RegExp, Page][] = [
   [/^\/email\/?$/, "email"],
   [/^\/whatsapp\/?$/, "whatsapp"],
   [/^\/reminders\/?$/, "reminders"],
+  [/^\/contracts\/?$/, "contracts"],
   [/^\/assets\/?$/, "assets"],
   [/^\/marketing\/?$/, "marketing"],
   [/^\/settings\/?$/, "settings"],
