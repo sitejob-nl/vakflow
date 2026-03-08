@@ -28,6 +28,8 @@ export default function MaterialsSettings() {
   const [markupPercentage, setMarkupPercentage] = useState("");
   const [articleNumber, setArticleNumber] = useState("");
   const [category, setCategory] = useState("");
+  const [stockQuantity, setStockQuantity] = useState("");
+  const [minStockLevel, setMinStockLevel] = useState("");
 
   const resetForm = () => {
     setName("");
