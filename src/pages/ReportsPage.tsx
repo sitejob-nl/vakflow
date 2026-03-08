@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useReportData } from "@/hooks/useReports";
 import { useAutomotiveReportData } from "@/hooks/useAutomotiveReports";
+import { useCleaningReportData } from "@/hooks/useCleaningReports";
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line,
 } from "recharts";
-import { Loader2, TrendingUp, FileText, Clock, Users, Package, CalendarIcon, Euro, Car, Warehouse } from "lucide-react";
+import { Loader2, TrendingUp, FileText, Clock, Users, Package, CalendarIcon, Euro, Car, Warehouse, ClipboardCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
