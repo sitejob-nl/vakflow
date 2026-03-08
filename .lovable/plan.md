@@ -1,51 +1,76 @@
 
 
-## Agenda UI Verbetering — Look & Feel + Leesbaarheid
+# SettingsPage — 8 stub tabs volledig uitwerken
 
-### Problemen
+## Overzicht
 
-1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
-2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
+Er zijn 8 settings-tabs die na de SettingsPage-opsplitsing als stubs zijn achtergebleven (alleen placeholder tekst). De volledige logica moet worden hersteld/gebouwd.
 
-### Aanpak
+## Per tab
 
-**1. Grotere tijdslots en events**
-- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
-- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
-- Meer ruimte voor service-naam en stad onder de klantnaam
+### 1. SettingsCompanyTab (Bedrijfsgegevens)
+Formulier voor: bedrijfsnaam, adres, postcode, stad, telefoon, KvK, BTW, IBAN, logo-upload, branche/subcategorie display. Slaat op naar `companies` tabel via `supabase.from("companies_safe")` read + `supabase.from("companies").update()`.
 
-**2. Event cards verbeteren**
-- Subtielere achtergrondkleur met betere contrast
-- Lichte shadow toevoegen aan events voor diepte
-- Rounded corners vergroten, padding verruimen
-- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
-- Hover-effect verbeteren met schaal + shadow
+### 2. SettingsPreferencesTab (App-voorkeuren)
+- PWA-naam en PWA-icoon instellen (`pwa_name`, `pwa_icon_url` op companies)
+- Brand color picker (`brand_color`)
+- Enabled features checklist (`enabled_features` array)
 
-**3. Toolbar opschonen (desktop)**
-- Knoppen groeperen met visuele scheiders
-- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
-- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
-- Badge voor aantal afspraken subtieler
+### 3. SettingsAccountingTab (Boekhouding)
+- Provider selector: e-Boekhouden, Rompslomp, Moneybird, Exact Online, WeFact, Snelstart
+- Per provider: credential-velden + connect/disconnect UI
+- Gebruikt bestaande hooks: `useSnelstartConnection`, en companies-kolommen voor overige providers
+- e-Boekhouden: api_token, ledger_id, template_id, debtor_ledger_id
+- Moneybird: api_token, administration_id  
+- Rompslomp: api_token, company_name, company_id, tenant_id
+- WeFact: api_key
+- Exact Online: via `exact_config` tabel + edge function
+- Snelstart: via `snelstart_connections` + edge function
 
-**4. Dagkolom headers verbeteren (desktop weekview)**
-- Datum groter en duidelijker, weekdag + dagnummer gescheiden
-- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+### 4. SettingsEmailTab (E-mail)
+- SMTP-instellingen: host, port, email, password (`smtp_host`, `smtp_port`, `smtp_email`, `smtp_password`)
+- IMAP-instellingen: host, port (`imap_host`, `imap_port`)
+- Email provider toggle (SMTP vs Outlook)
+- Outlook koppeling (bedrijfsniveau): client_id, tenant_id, connect flow
 
-**5. Zijpaneel styling**
-- Subtielere card-styling, betere spacing
-- Status-dots vergroten in de afsprakenlijst
-- Betere typografie-hiërarchie
+### 5. SettingsEmailTemplatesTab (E-mail Templates)
+- CRUD lijst van `email_templates`
+- Gebruikt `useEmailTemplates`, `useCreateEmailTemplate`, `useUpdateEmailTemplate`, `useDeleteEmailTemplate`
+- Opent `EmailTemplateEditor` component (blok-gebaseerde editor, 461 regels, al bestaat)
 
-**6. Mobile day view**
-- Zelfde slot-hoogte verbetering
-- Events met meer padding en grotere tekst
+### 6. SettingsWhatsAppTab (WhatsApp)
+- Verbindingsstatus tonen (`useWhatsAppStatus`)
+- API-key/telefoon configureren via `whatsapp-config` edge function
+- Business profiel bewerken (`useWhatsAppProfile`, `useUpdateWhatsAppProfile`)
+- Template lijst (`useWhatsAppTemplates`)
 
-### Bestanden
+### 7. SettingsAutomationsTab (Automatiseringen)
+- WhatsApp automations CRUD (`useWhatsAppAutomations`)
+- Auto-message settings per type (`useAutoMessageSettings`, `useUpsertAutoMessageSetting`)
+- Trigger type + template + variabelen mapping
+- Email automation settings koppelen aan `auto_message_settings`
 
-| Bestand | Wijziging |
+### 8. SettingsIntegrationsTab (Koppelingen)
+- Overzicht van alle externe koppelingen met status indicators
+- Snelstart, Exact, Moneybird, Rompslomp, WeFact, Outlook, Meta — elk met connected/disconnected badge
+- Quick-links naar de specifieke tabs (Boekhouding, E-mail, Meta, WhatsApp)
+
+## Aanpak
+
+Elke tab wordt een zelfstandig component met eigen state, hooks en save-logica. Pattern volgt de bestaande `SettingsProfileTab` en `SettingsServicesTab`: card container, shared input/label classes, toast feedback, Loader2 voor loading states.
+
+## Bestanden
+
+| Bestand | Actie |
 |---|---|
-| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
-| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+| `src/components/settings/SettingsCompanyTab.tsx` | Volledig herschrijven |
+| `src/components/settings/SettingsPreferencesTab.tsx` | Volledig herschrijven |
+| `src/components/settings/SettingsAccountingTab.tsx` | Volledig herschrijven |
+| `src/components/settings/SettingsEmailTab.tsx` | Volledig herschrijven |
+| `src/components/settings/SettingsEmailTemplatesTab.tsx` | Volledig herschrijven |
+| `src/components/settings/SettingsWhatsAppTab.tsx` | Volledig herschrijven |
+| `src/components/settings/SettingsAutomationsTab.tsx` | Volledig herschrijven |
+| `src/components/settings/SettingsIntegrationsTab.tsx` | Volledig herschrijven |
 
-Geen database-wijzigingen, geen nieuwe dependencies.
+Geen database-wijzigingen, geen nieuwe dependencies. Alle hooks en edge functions bestaan al.
 
