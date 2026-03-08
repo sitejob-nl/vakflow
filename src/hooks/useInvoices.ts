@@ -43,6 +43,7 @@ export const usePaginatedInvoices = (params: PaginatedInvoicesParams) => {
 
   return useQuery({
     queryKey: ["invoices-paginated", companyId, page, pageSize, statusFilter],
+    enabled: !!companyId,
     queryFn: async () => {
       const from = page * pageSize;
       const to = from + pageSize - 1;
@@ -50,9 +51,8 @@ export const usePaginatedInvoices = (params: PaginatedInvoicesParams) => {
       let q = supabase
         .from("invoices")
         .select("*, customers(name, address, city, postal_code, email), work_orders(work_order_number, services(name, price))", { count: "exact" })
+        .eq("company_id", companyId!)
         .order("created_at", { ascending: false });
-
-      if (companyId) q = q.eq("company_id", companyId);
 
       if (statusFilter === "openstaand") {
         q = q.in("status", ["concept", "verzonden", "verlopen"]);
