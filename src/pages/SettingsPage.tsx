@@ -1460,6 +1460,12 @@ const SettingsPage = () => {
 
       {activeTab === "Materialen" && <MaterialsSettings />}
 
+      {activeTab === "Werkplaats" && (
+        <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6">
+          <WorkshopBaySettings />
+        </div>
+      )}
+
       {activeTab === "Sjablonen" && (
         <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
           <div className="flex items-center justify-between">
