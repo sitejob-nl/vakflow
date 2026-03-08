@@ -9,6 +9,7 @@ import TireStorageCard from "@/components/TireStorageCard";
 import { format, differenceInDays } from "date-fns";
 import { nl } from "date-fns/locale";
 import { useMemo, useEffect } from "react";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
 const formatPlate = (plate: string) => {
   const p = plate.replace(/[\s-]/g, "").toUpperCase();
