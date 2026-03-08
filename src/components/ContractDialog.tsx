@@ -8,6 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useContracts, type Contract } from "@/hooks/useContracts";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -18,6 +21,8 @@ interface Props {
 const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
   const { upsert } = useContracts();
   const { data: customers } = useCustomers();
+  const { toast } = useToast();
+  const [syncingMb, setSyncingMb] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -81,6 +86,22 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
       },
       { onSuccess: () => onOpenChange(false) }
     );
+  };
+
+  const handleSyncMoneybird = async () => {
+    if (!contract?.id) return;
+    setSyncingMb(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+        body: { action: "create-subscription", contract_id: contract.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Contract gesynchroniseerd met Moneybird", description: `Subscription ID: ${data.moneybird_subscription_id}` });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+    setSyncingMb(false);
   };
 
   const set = (key: string, val: any) => setForm((p) => ({ ...p, [key]: val }));
@@ -160,9 +181,19 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
             <Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} />
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
-            <Button type="submit" disabled={upsert.isPending}>{upsert.isPending ? "Opslaan..." : "Opslaan"}</Button>
+          <div className="flex justify-between items-center pt-2">
+            <div>
+              {contract?.id && (
+                <Button type="button" variant="outline" size="sm" onClick={handleSyncMoneybird} disabled={syncingMb}>
+                  {syncingMb ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                  Sync naar Moneybird
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
+              <Button type="submit" disabled={upsert.isPending}>{upsert.isPending ? "Opslaan..." : "Opslaan"}</Button>
+            </div>
           </div>
         </form>
       </DialogContent>
