@@ -10,39 +10,55 @@ Deno.serve(async (req) => {
     // Normalize plate: uppercase, remove dashes/spaces
     const normalized = plate.replace(/[\s-]/g, "").toUpperCase();
 
-    // RDW Open Data API — free, no API key
-    const rdwUrl = `https://opendata.rdw.nl/resource/m9d7-ebf2.json?kenteken=${normalized}`;
-    const resp = await fetch(rdwUrl);
-    if (!resp.ok) return jsonRes({ error: "RDW API error" }, 502, req);
+    // --- Main vehicle data (v3 API) ---
+    const mainUrl = `https://opendata.rdw.nl/api/v3/views/m9d7-ebf2/query.json?$$query=${encodeURIComponent(`SELECT * WHERE kenteken='${normalized}'`)}`;
+    const mainResp = await fetch(mainUrl);
+    if (!mainResp.ok) return jsonRes({ error: "RDW API error" }, 502, req);
 
-    const data = await resp.json();
-    if (!data || data.length === 0) {
+    const mainJson = await mainResp.json();
+    const rows = mainJson?.rows ?? mainJson ?? [];
+    if (!rows || rows.length === 0) {
       return jsonRes({ found: false, plate: normalized }, 200, req);
     }
 
-    const v = data[0];
+    const v = rows[0];
 
-    // Also fetch APK data from separate endpoint
-    let apkExpiry: string | null = null;
+    // --- Fuel data (separate linked dataset, SODA v2 — still works fine) ---
+    let fuelType: string | null = null;
     try {
-      const apkUrl = `https://opendata.rdw.nl/resource/3huj-srit.json?kenteken=${normalized}`;
-      const apkResp = await fetch(apkUrl);
-      if (apkResp.ok) {
-        const apkData = await apkResp.json();
-        if (apkData?.length > 0) {
-          // Get the latest APK record
-          const sorted = apkData.sort((a: any, b: any) =>
-            (b.vervaldatum_apk || "").localeCompare(a.vervaldatum_apk || "")
-          );
-          const raw = sorted[0].vervaldatum_apk;
-          if (raw) {
-            // Format: YYYYMMDD → YYYY-MM-DD
-            apkExpiry = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
-          }
+      const fuelUrl = `https://opendata.rdw.nl/resource/8ys7-d773.json?kenteken=${normalized}`;
+      const fuelResp = await fetch(fuelUrl);
+      if (fuelResp.ok) {
+        const fuelData = await fuelResp.json();
+        if (fuelData?.length > 0) {
+          fuelType = fuelData[0].brandstof_omschrijving || null;
         }
       }
     } catch {
-      // APK lookup is optional
+      // Fuel lookup is optional
+    }
+
+    // Parse APK expiry — prefer ISO timestamp field, fallback to number
+    let apkExpiry: string | null = null;
+    if (v.vervaldatum_apk_dt) {
+      // ISO timestamp like "2025-06-15T00:00:00.000"
+      apkExpiry = v.vervaldatum_apk_dt.slice(0, 10);
+    } else if (v.vervaldatum_apk) {
+      const raw = String(v.vervaldatum_apk);
+      if (raw.length === 8) {
+        apkExpiry = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+      }
+    }
+
+    // Parse first registration date
+    let registrationDate: string | null = null;
+    if (v.datum_eerste_toelating_dt) {
+      registrationDate = v.datum_eerste_toelating_dt.slice(0, 10);
+    } else if (v.datum_eerste_toelating) {
+      const raw = String(v.datum_eerste_toelating);
+      if (raw.length === 8) {
+        registrationDate = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+      }
     }
 
     const result = {
@@ -51,15 +67,21 @@ Deno.serve(async (req) => {
       brand: v.merk || null,
       model: v.handelsbenaming || null,
       build_year: v.datum_eerste_toelating
-        ? parseInt(v.datum_eerste_toelating.slice(0, 4))
+        ? parseInt(String(v.datum_eerste_toelating).slice(0, 4))
         : null,
-      fuel_type: v.brandstof_omschrijving || null,
+      fuel_type: fuelType,
       color: v.eerste_kleur || null,
       vehicle_mass: v.massa_rijklaar ? parseInt(v.massa_rijklaar) : null,
-      registration_date: v.datum_eerste_toelating
-        ? `${v.datum_eerste_toelating.slice(0, 4)}-${v.datum_eerste_toelating.slice(4, 6)}-${v.datum_eerste_toelating.slice(6, 8)}`
-        : null,
+      registration_date: registrationDate,
       apk_expiry_date: apkExpiry,
+      // Extra fields
+      vehicle_type: v.voertuigsoort || null,
+      body_type: v.inrichting || null,
+      num_doors: v.aantal_deuren ? parseInt(v.aantal_deuren) : null,
+      catalog_price: v.catalogusprijs ? parseInt(v.catalogusprijs) : null,
+      eu_vehicle_category: v.europese_voertuigcategorie || null,
+      type: v.type || null,
+      odometer_judgement: v.tellerstandoordeel || null,
       raw: v,
     };
 
