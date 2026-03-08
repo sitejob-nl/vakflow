@@ -29,7 +29,8 @@ interface Props {
 const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { labels } = useIndustryConfig();
+  const { labels, industry } = useIndustryConfig();
+  const isAutomotive = industry === "automotive";
   const { isAdmin, user, role } = useAuth();
   const { data: customers } = useCustomers();
   const { data: services } = useServices();
