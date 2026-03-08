@@ -76,7 +76,7 @@ const Sidebar = () => {
     (id === "workorders" && currentPage === "woDetail") ||
     (id === "vehicles" && currentPage === "vehDetail");
 
-  const sections = buildSections(labels)
+  const sections = buildSections(labels, industry)
     .map((section) => ({
       ...section,
       items: section.items.filter((item) =>
