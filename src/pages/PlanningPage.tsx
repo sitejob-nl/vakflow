@@ -928,6 +928,11 @@ const PlanningPage = () => {
             )}
           </div>
         </div>
+
+        {/* Workshop capacity overview (automotive, bays mode) */}
+        {isAutomotive && viewMode === "bays" && (
+          <WorkshopCapacityOverview currentDate={new Date()} mode="week" />
+        )}
       </div>
 
       {/* Mobile FAB */}
