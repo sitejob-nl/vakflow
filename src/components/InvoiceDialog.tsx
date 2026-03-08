@@ -37,11 +37,13 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice, projectId, prefillCust
   const queryClient = useQueryClient();
   const [syncing, setSyncing] = useState(false);
   const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
+  const [syncInvoices, setSyncInvoices] = useState(true);
 
   useEffect(() => {
     if (!companyId) return;
-    (supabase.from("companies_safe" as any).select("accounting_provider").eq("id", companyId).single() as unknown as Promise<{ data: any }>).then(({ data }) => {
+    (supabase.from("companies_safe" as any).select("accounting_provider, sync_invoices_to_accounting").eq("id", companyId).single() as unknown as Promise<{ data: any }>).then(({ data }) => {
       setAccountingProvider(data?.accounting_provider ?? null);
+      setSyncInvoices(data?.sync_invoices_to_accounting ?? true);
     });
   }, [companyId]);
 
