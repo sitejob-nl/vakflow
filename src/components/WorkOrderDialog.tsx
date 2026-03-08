@@ -125,6 +125,12 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
       remarks: form.remarks || null,
       travel_cost: form.travel_cost,
       total_amount: (selectedService?.price ?? 0) + form.travel_cost,
+      ...(isAutomotive ? {
+        vehicle_id: form.vehicle_id || null,
+        work_order_type: form.work_order_type || null,
+        mileage_start: form.mileage_start ? parseInt(form.mileage_start) : null,
+        mileage_end: form.mileage_end ? parseInt(form.mileage_end) : null,
+      } : {}),
     };
 
     try {
