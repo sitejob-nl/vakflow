@@ -415,7 +415,7 @@ Deno.serve(async (req) => {
             }
 
             const invoiceData: Record<string, unknown> = {
-              Journal: "70",
+              Journal: config.journal_code || "70",
               Type: 8023,
               OrderedBy: customer.exact_account_id,
               Description: `Factuur ${inv.invoice_number || ""}`.trim(),
