@@ -112,6 +112,110 @@ export const useSyncQuoteEboekhouden = () => {
   });
 };
 
+export const useConvertQuoteToWorkOrder = () => {
+  const qc = useQueryClient();
+  const { companyId } = useAuth();
+  return useMutation({
+    mutationFn: async (quote: Quote) => {
+      const woPayload = {
+        company_id: companyId!,
+        customer_id: quote.customer_id,
+        quote_id: quote.id,
+        asset_id: (quote as any).asset_id || null,
+        description: quote.items.map((i) => `${i.description} (${i.qty}x)`).filter(Boolean).join("\n"),
+        total_amount: quote.total,
+        status: "open",
+      };
+      const { data: wo, error: woError } = await supabase
+        .from("work_orders")
+        .insert(woPayload as any)
+        .select("id, work_order_number")
+        .single();
+      if (woError) throw woError;
+
+      for (const item of quote.items) {
+        if (!item.description) continue;
+        await supabase.from("work_order_materials").insert({
+          work_order_id: wo.id,
+          company_id: companyId!,
+          name: item.description,
+          unit: "stuk",
+          quantity: item.qty || 1,
+          unit_price: item.unit_price || 0,
+          total: (item.qty || 1) * (item.unit_price || 0),
+        } as any);
+      }
+
+      await supabase
+        .from("quotes")
+        .update({ status: "geaccepteerd" } as any)
+        .eq("id", quote.id);
+
+      return wo;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quotes"] });
+      qc.invalidateQueries({ queryKey: ["work_orders"] });
+    },
+  });
+};
+
+export const useConvertQuoteToInvoice = () => {
+  const qc = useQueryClient();
+  const { companyId } = useAuth();
+  return useMutation({
+    mutationFn: async (quote: Quote) => {
+      const vatPct = Number(quote.vat_percentage || 21);
+      const items = quote.items.map((item) => ({
+        description: item.description || "Item",
+        qty: item.qty || 1,
+        unit_price: item.unit_price || 0,
+        total: (item.qty || 1) * (item.unit_price || 0),
+      }));
+
+      const totalIncl = items.reduce((sum, i) => sum + i.total, 0);
+      const subtotal = Math.round((totalIncl / (1 + vatPct / 100)) * 100) / 100;
+      const vatAmount = Math.round((totalIncl - subtotal) * 100) / 100;
+
+      const today = new Date().toISOString().split("T")[0];
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+
+      const { data, error } = await supabase
+        .from("invoices")
+        .insert({
+          company_id: companyId!,
+          customer_id: quote.customer_id,
+          quote_id: quote.id,
+          items: items as any,
+          optional_items: quote.optional_items as any,
+          subtotal,
+          vat_percentage: vatPct,
+          vat_amount: vatAmount,
+          total: totalIncl,
+          status: "concept",
+          issued_at: today,
+          due_at: dueDate.toISOString().split("T")[0],
+          notes: quote.notes || null,
+        } as any)
+        .select("id, invoice_number")
+        .single();
+      if (error) throw error;
+
+      await supabase
+        .from("quotes")
+        .update({ status: "geaccepteerd" } as any)
+        .eq("id", quote.id);
+
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quotes"] });
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+    },
+  });
+};
+
 export const useConvertQuoteToContract = () => {
   const qc = useQueryClient();
   const { companyId } = useAuth();

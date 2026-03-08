@@ -1,65 +1,51 @@
 
 
-# Offerte-conversieflow — 3 gaps dichten
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Overzicht
+### Problemen
 
-Voeg drie ontbrekende conversies toe aan de offerteketen: offerte → werkbon, offerte → factuur, offerte → afspraak.
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-## 1. Database migratie
+### Aanpak
 
-```sql
-ALTER TABLE work_orders ADD COLUMN quote_id uuid REFERENCES quotes(id) ON DELETE SET NULL;
-ALTER TABLE invoices ADD COLUMN quote_id uuid REFERENCES quotes(id) ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS idx_work_orders_quote_id ON work_orders(quote_id);
-CREATE INDEX IF NOT EXISTS idx_invoices_quote_id ON invoices(quote_id);
-```
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-## 2. Hooks — `src/hooks/useQuotes.ts`
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-Twee nieuwe mutation hooks naast bestaande `useConvertQuoteToContract`:
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-- **`useConvertQuoteToWorkOrder`** — insert work_order met `quote_id`, voegt items toe als `work_order_materials`, zet offerte op `geaccepteerd`
-- **`useConvertQuoteToInvoice`** — insert invoice met `quote_id`, berekent subtotal/vat/total dynamisch op basis van `vat_percentage`, zet offerte op `geaccepteerd`
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-## 3. QuoteDialog — `src/components/QuoteDialog.tsx`
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-Drie extra knoppen naast bestaande "Omzetten naar contract" (alleen bij status `geaccepteerd`):
-- **Werkbon aanmaken** — roept `useConvertQuoteToWorkOrder` aan, toont toast, sluit dialog
-- **Factuur aanmaken** — roept `useConvertQuoteToInvoice` aan, toont toast, sluit dialog
-- **Afspraak inplannen** — roept nieuwe callback `onScheduleAppointment(quote)` aan, sluit dialog
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-Nieuwe prop: `onScheduleAppointment?: (quote: Quote) => void`
-
-## 4. QuotesPage — `src/pages/QuotesPage.tsx`
-
-- Import `AppointmentDialog`, `useConvertQuoteToWorkOrder`, `useConvertQuoteToInvoice`
-- State: `appointmentDialogOpen`, `appointmentPrefill`
-- `handleScheduleAppointment(quote)` — zet prefill (customer_id, notes uit items) en opent AppointmentDialog
-- Doorgeven als prop aan QuoteDialog: `onScheduleAppointment={handleScheduleAppointment}`
-- In QuotePreview bij `geaccepteerd` status: drie actieknoppen (Werkbon, Factuur, Afspraak)
-- Render `<AppointmentDialog>` met prefill
-
-## 5. AppointmentDialog — `src/components/AppointmentDialog.tsx`
-
-- Nieuwe optionele prop: `prefill?: { customer_id?: string; notes?: string }`
-- In het form-init useEffect (regel 180-194, de `else` branch voor nieuwe afspraken): als `prefill` bestaat, zet `customer_id` en `notes` vanuit prefill
-
-## Bestanden
+### Bestanden
 
 | Bestand | Wijziging |
 |---|---|
-| SQL migratie | `quote_id` kolom op work_orders + invoices, 2 indexen |
-| `src/hooks/useQuotes.ts` | `useConvertQuoteToWorkOrder`, `useConvertQuoteToInvoice` |
-| `src/components/QuoteDialog.tsx` | 3 conversieknoppen + `onScheduleAppointment` prop |
-| `src/pages/QuotesPage.tsx` | AppointmentDialog integratie + 3 actieknoppen in preview |
-| `src/components/AppointmentDialog.tsx` | `prefill` prop |
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
 
-## Volgorde
-
-1. Database migratie
-2. Hooks
-3. AppointmentDialog prefill prop
-4. QuoteDialog knoppen
-5. QuotesPage integratie
+Geen database-wijzigingen, geen nieuwe dependencies.
 

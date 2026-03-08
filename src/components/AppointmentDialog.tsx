@@ -29,6 +29,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   appointment?: Tables<"appointments"> | null;
   defaultDate?: Date;
+  prefill?: { customer_id?: string; notes?: string };
 }
 
 const statusOptions = [
@@ -42,7 +43,7 @@ const statusOptions = [
 const FALLBACK_START: [number, number] = [52.507, 4.678];
 const FALLBACK_START_LABEL = "Heemskerk (standaard)";
 
-const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Props) => {
+const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefill }: Props) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { industry } = useIndustryConfig();
@@ -180,19 +181,19 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
     } else {
       const dt = defaultDate ?? new Date();
       setForm({
-        customer_id: "",
+        customer_id: prefill?.customer_id || "",
         service_id: "",
         address_id: "",
         vehicle_id: "",
         scheduled_at: formatDateTimeLocal(dt),
         duration_minutes: 60,
         status: "gepland",
-        notes: "",
+        notes: prefill?.notes || "",
       });
       setStartLocationLabel(DEFAULT_START_LABEL);
       setStartCoords(DEFAULT_START);
     }
-  }, [appointment, open, defaultDate]);
+  }, [appointment, open, defaultDate, prefill]);
 
   // Auto-fill previous appointment location as start point
   useEffect(() => {

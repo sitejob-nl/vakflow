@@ -1,13 +1,14 @@
 import { useState, useMemo } from "react";
-import { useQuotes, useUpdateQuote, useDeleteQuote, useSyncQuoteEboekhouden, type Quote } from "@/hooks/useQuotes";
+import { useQuotes, useUpdateQuote, useDeleteQuote, useSyncQuoteEboekhouden, useConvertQuoteToWorkOrder, useConvertQuoteToInvoice, type Quote } from "@/hooks/useQuotes";
 import { format } from "date-fns";
-import { Loader2, ChevronLeft, FileDown, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Loader2, ChevronLeft, FileDown, Plus, RefreshCw, Trash2, FileText, Receipt, CalendarPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import QuoteDialog from "@/components/QuoteDialog";
+import AppointmentDialog from "@/components/AppointmentDialog";
 
 const tabs = ["Alle", "Openstaand", "Geaccepteerd"];
 
@@ -31,10 +32,14 @@ const QuotesPage = () => {
   const [mobilePreview, setMobilePreview] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editQuote, setEditQuote] = useState<Quote | null>(null);
+  const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
+  const [appointmentPrefill, setAppointmentPrefill] = useState<{ customer_id?: string; notes?: string } | undefined>(undefined);
   const { data: quotes, isLoading } = useQuotes();
   const updateQuote = useUpdateQuote();
   const deleteQuote = useDeleteQuote();
   const syncQuoteEb = useSyncQuoteEboekhouden();
+  const convertToWorkOrder = useConvertQuoteToWorkOrder();
+  const convertToInvoice = useConvertQuoteToInvoice();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -97,6 +102,32 @@ const QuotesPage = () => {
   const handleEdit = (q: Quote) => {
     setEditQuote(q);
     setDialogOpen(true);
+  };
+
+  const handleScheduleAppointment = (quote: Quote) => {
+    setAppointmentPrefill({
+      customer_id: quote.customer_id,
+      notes: quote.items.map((i) => `${i.description} (${i.qty}x — €${Number(i.unit_price).toFixed(2)})`).join("\n"),
+    });
+    setAppointmentDialogOpen(true);
+  };
+
+  const handleConvertToWorkOrder = async (quote: Quote) => {
+    try {
+      const wo = await convertToWorkOrder.mutateAsync(quote);
+      toast({ title: `Werkbon ${(wo as any).work_order_number ?? ""} aangemaakt vanuit offerte` });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleConvertToInvoice = async (quote: Quote) => {
+    try {
+      const inv = await convertToInvoice.mutateAsync(quote);
+      toast({ title: `Factuur ${(inv as any).invoice_number ?? ""} aangemaakt als concept` });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
   };
 
   const eur = (n: number) => `€ ${Number(n).toFixed(2)}`;
@@ -225,6 +256,19 @@ const QuotesPage = () => {
               </button>
             </>
           )}
+          {selected.status === "geaccepteerd" && (
+            <>
+              <button onClick={() => handleConvertToWorkOrder(selected)} className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1">
+                <FileText className="h-3.5 w-3.5" /> Werkbon
+              </button>
+              <button onClick={() => handleConvertToInvoice(selected)} className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1">
+                <Receipt className="h-3.5 w-3.5" /> Factuur
+              </button>
+              <button onClick={() => handleScheduleAppointment(selected)} className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1">
+                <CalendarPlus className="h-3.5 w-3.5" /> Afspraak
+              </button>
+            </>
+          )}
           <button
             onClick={async () => {
               try {
@@ -349,7 +393,8 @@ const QuotesPage = () => {
         <QuotePreview />
       </div>
 
-      <QuoteDialog open={dialogOpen} onOpenChange={setDialogOpen} editQuote={editQuote} />
+      <QuoteDialog open={dialogOpen} onOpenChange={setDialogOpen} editQuote={editQuote} onScheduleAppointment={handleScheduleAppointment} />
+      <AppointmentDialog open={appointmentDialogOpen} onOpenChange={setAppointmentDialogOpen} prefill={appointmentPrefill} />
     </div>
   );
 };

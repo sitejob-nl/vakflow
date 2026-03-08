@@ -5,26 +5,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCustomers } from "@/hooks/useCustomers";
-import { useCreateQuote, useUpdateQuote, useConvertQuoteToContract, type Quote, type QuoteItem, type OptionalItem } from "@/hooks/useQuotes";
+import { useCreateQuote, useUpdateQuote, useConvertQuoteToContract, useConvertQuoteToWorkOrder, useConvertQuoteToInvoice, type Quote, type QuoteItem, type OptionalItem } from "@/hooks/useQuotes";
 import { useAssets } from "@/hooks/useAssets";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Loader2, ArrowRightLeft } from "lucide-react";
+import { Plus, Trash2, Loader2, ArrowRightLeft, FileText, Receipt, CalendarPlus } from "lucide-react";
 import { useCombinedTemplates } from "@/hooks/useQuoteTemplates";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editQuote?: Quote | null;
+  onScheduleAppointment?: (quote: Quote) => void;
 }
 
 const emptyItem = (): QuoteItem => ({ description: "", qty: 1, unit_price: 0, total: 0 });
 const emptyOptional = (): OptionalItem => ({ description: "", price: 0 });
 
-const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
+const QuoteDialog = ({ open, onOpenChange, editQuote, onScheduleAppointment }: Props) => {
   const { data: customers } = useCustomers();
   const { data: assets } = useAssets();
   const { data: allTemplates } = useCombinedTemplates();
@@ -33,6 +34,8 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
   const createQuote = useCreateQuote();
   const updateQuote = useUpdateQuote();
   const convertToContract = useConvertQuoteToContract();
+  const convertToWorkOrder = useConvertQuoteToWorkOrder();
+  const convertToInvoice = useConvertQuoteToInvoice();
   const { toast } = useToast();
   const { companyId } = useAuth();
   const queryClient = useQueryClient();
@@ -264,24 +267,76 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
           <div className="flex justify-between gap-2">
             <div>
               {editQuote && editQuote.status === "geaccepteerd" && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      await convertToContract.mutateAsync(editQuote);
-                      toast({ title: "Contract aangemaakt vanuit offerte" });
-                      onOpenChange(false);
-                    } catch (err: any) {
-                      toast({ title: "Fout", description: err.message, variant: "destructive" });
-                    }
-                  }}
-                  disabled={convertToContract.isPending}
-                >
-                  <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
-                  Omzetten naar contract
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await convertToContract.mutateAsync(editQuote);
+                        toast({ title: "Contract aangemaakt vanuit offerte" });
+                        onOpenChange(false);
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
+                      }
+                    }}
+                    disabled={convertToContract.isPending}
+                  >
+                    <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
+                    Contract
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const wo = await convertToWorkOrder.mutateAsync(editQuote);
+                        toast({ title: `Werkbon ${(wo as any).work_order_number ?? ""} aangemaakt` });
+                        onOpenChange(false);
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
+                      }
+                    }}
+                    disabled={convertToWorkOrder.isPending}
+                  >
+                    <FileText className="h-3.5 w-3.5 mr-1" />
+                    Werkbon
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const inv = await convertToInvoice.mutateAsync(editQuote);
+                        toast({ title: `Factuur ${(inv as any).invoice_number ?? ""} aangemaakt als concept` });
+                        onOpenChange(false);
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
+                      }
+                    }}
+                    disabled={convertToInvoice.isPending}
+                  >
+                    <Receipt className="h-3.5 w-3.5 mr-1" />
+                    Factuur
+                  </Button>
+                  {onScheduleAppointment && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        onScheduleAppointment(editQuote);
+                        onOpenChange(false);
+                      }}
+                    >
+                      <CalendarPlus className="h-3.5 w-3.5 mr-1" />
+                      Afspraak
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
             <div className="flex gap-2">
