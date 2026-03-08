@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Navigation, MapPin, ExternalLink, Plus, AlertTriangle, Car } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Loader2, Navigation, MapPin, ExternalLink, Plus, AlertTriangle, Car, ChevronDown, Truck } from "lucide-react";
 import { useCreateAppointment, useUpdateAppointment, useAppointmentsForDay } from "@/hooks/useAppointments";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
@@ -46,7 +47,7 @@ const FALLBACK_START_LABEL = "Heemskerk (standaard)";
 
 const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefill, projectId }: Props) => {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, companyId } = useAuth();
   const { industry } = useIndustryConfig();
   const isAutomotive = industry === "automotive";
   const { data: customers } = useCustomers();
@@ -57,7 +58,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
   const isDuplicate = appointment?.id === "__duplicate__";
   const isEdit = !!appointment && !isDuplicate;
 
-  // Fetch company start location from profile
+  // Fetch company address as default start location
   const defaultStartRef = useRef<{ coords: [number, number]; label: string }>({
     coords: FALLBACK_START,
     label: FALLBACK_START_LABEL,
@@ -68,39 +69,55 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
     if (!user?.id || defaultStartLoaded) return;
     let cancelled = false;
     (async () => {
+      // First try profile location
       const { data: profile } = await supabase
         .from("profiles")
         .select("location")
         .eq("id", user.id)
         .maybeSingle();
       const loc = profile?.location;
-      if (!loc || cancelled) { setDefaultStartLoaded(true); return; }
 
-      // Geocode the location string to get coordinates
+      // If no profile location, try company address
+      let addressToGeocode = loc;
+      let addressLabel = loc;
+      if (!loc && companyId) {
+        const { data: company } = await supabase
+          .from("companies_safe")
+          .select("address, city, postal_code, name")
+          .eq("id", companyId)
+          .maybeSingle();
+        if (company?.address) {
+          addressToGeocode = [company.address, company.postal_code, company.city].filter(Boolean).join(", ");
+          addressLabel = company.name ? `${company.name} (bedrijf)` : addressToGeocode;
+        }
+      }
+
+      if (!addressToGeocode || cancelled) { setDefaultStartLoaded(true); return; }
+
       const { data } = await supabase.functions.invoke("google-maps-proxy", {
-        body: { action: "geocode", query: loc },
+        body: { action: "geocode", query: addressToGeocode },
       });
       if (cancelled) return;
       const first = data?.[0];
       if (first?.lat && first?.lng) {
         defaultStartRef.current = {
           coords: [first.lat, first.lng],
-          label: loc,
+          label: addressLabel || addressToGeocode,
         };
       }
       setDefaultStartLoaded(true);
     })();
     return () => { cancelled = true; };
-  }, [user?.id, defaultStartLoaded]);
+  }, [user?.id, companyId, defaultStartLoaded]);
 
   const DEFAULT_START = defaultStartRef.current.coords;
   const DEFAULT_START_LABEL = defaultStartRef.current.label;
 
-  // Determine the assigned_to for filtering: use existing appointment's value or current user
   const assignedTo = appointment?.assigned_to || user?.id || null;
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const isMobile = useIsMobile();
+  const [routeOpen, setRouteOpen] = useState(!isAutomotive);
 
   const formatDateTimeLocal = (d: Date) => {
     const pad = (n: number) => n.toString().padStart(2, "0");
@@ -116,18 +133,18 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
     duration_minutes: 60,
     status: "gepland",
     notes: "",
+    delivery_type: "gebracht",
+    pickup_address: "",
+    pickup_lat: null as number | null,
+    pickup_lng: null as number | null,
   });
 
-  // Fetch vehicles for the selected customer (automotive only)
   const { data: customerVehicles } = useCustomerVehicles(isAutomotive && form.customer_id ? form.customer_id : undefined);
-
-  // Fetch addresses for the selected customer
   const { data: customerAddresses } = useAddresses(form.customer_id || undefined);
 
   const [startLocationLabel, setStartLocationLabel] = useState(DEFAULT_START_LABEL);
   const [startCoords, setStartCoords] = useState<[number, number]>(DEFAULT_START);
 
-  // Parse date from form for day-query
   const formDate = useMemo(() => {
     if (!form.scheduled_at) return null;
     const d = new Date(form.scheduled_at);
@@ -136,7 +153,6 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
 
   const { data: dayAppointments } = useAppointmentsForDay(formDate, assignedTo);
 
-  // Find previous appointment on same day (before current time)
   const previousAppointment = useMemo(() => {
     if (!dayAppointments || !formDate) return null;
     const currentTime = formDate.getTime();
@@ -149,12 +165,10 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
     return earlier[0] ?? null;
   }, [dayAppointments, formDate, appointment]);
 
-  // Conflict detection: find overlapping appointments
   const conflicts = useMemo(() => {
     if (!dayAppointments || !formDate || !form.duration_minutes) return [];
     const startMs = formDate.getTime();
     const endMs = startMs + form.duration_minutes * 60 * 1000;
-
     return dayAppointments.filter((a) => {
       if (appointment && a.id === appointment.id) return false;
       const aStart = new Date(a.scheduled_at).getTime();
@@ -177,8 +191,14 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
         duration_minutes: appointment.duration_minutes ?? 60,
         status: isDuplicate ? "gepland" : appointment.status,
         notes: appointment.notes || "",
+        delivery_type: (appointment as any).delivery_type || "gebracht",
+        pickup_address: (appointment as any).pickup_address || "",
+        pickup_lat: (appointment as any).pickup_lat || null,
+        pickup_lng: (appointment as any).pickup_lng || null,
       });
       setStartLocationLabel((appointment as any).start_location_label || DEFAULT_START_LABEL);
+      // Open route section if delivery_type is ophalen
+      if ((appointment as any).delivery_type === "ophalen") setRouteOpen(true);
     } else {
       const dt = defaultDate ?? new Date();
       setForm({
@@ -190,13 +210,17 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
         duration_minutes: 60,
         status: "gepland",
         notes: prefill?.notes || "",
+        delivery_type: "gebracht",
+        pickup_address: "",
+        pickup_lat: null,
+        pickup_lng: null,
       });
       setStartLocationLabel(DEFAULT_START_LABEL);
       setStartCoords(DEFAULT_START);
+      setRouteOpen(!isAutomotive);
     }
   }, [appointment, open, defaultDate, prefill]);
 
-  // Auto-fill previous appointment location as start point
   useEffect(() => {
     if (!previousAppointment) return;
     const c = previousAppointment.customers as any;
@@ -208,7 +232,6 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
 
   const set = (key: string, value: unknown) => setForm((f) => ({ ...f, [key]: value }));
 
-  // Auto-fill duration when service is selected
   useEffect(() => {
     if (!form.service_id || !services) return;
     const selected = services.find((s) => s.id === form.service_id);
@@ -217,8 +240,19 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
     }
   }, [form.service_id, services]);
 
-  // Calculate travel time when customer or start location changes
+  // Calculate travel time — for automotive "ophalen", use pickup coords as destination
   useEffect(() => {
+    if (isAutomotive && form.delivery_type === "gebracht") return; // no travel calc needed
+    
+    if (isAutomotive && form.delivery_type === "ophalen") {
+      // Use pickup coords
+      if (form.pickup_lat && form.pickup_lng && startCoords[0] && startCoords[1]) {
+        calcTravel(startCoords, [form.pickup_lat, form.pickup_lng]);
+      }
+      return;
+    }
+
+    // Non-automotive: use customer coords
     if (!form.customer_id || !customers) return;
     const c = customers.find((c) => c.id === form.customer_id);
     const lat = (c as any)?.lat;
@@ -226,7 +260,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
     if (lat && lng && startCoords[0] && startCoords[1]) {
       calcTravel(startCoords, [lat, lng]);
     }
-  }, [form.customer_id, customers, startCoords]);
+  }, [form.customer_id, customers, startCoords, form.delivery_type, form.pickup_lat, form.pickup_lng, isAutomotive]);
 
   const handleUsePrevious = () => {
     if (!previousAppointment) return;
@@ -255,6 +289,10 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
       notes: form.notes || null,
       travel_time_minutes: travelInfo?.duration_minutes ?? null,
       start_location_label: startLocationLabel || null,
+      delivery_type: isAutomotive ? form.delivery_type : null,
+      pickup_address: form.delivery_type === "ophalen" ? form.pickup_address || null : null,
+      pickup_lat: form.delivery_type === "ophalen" ? form.pickup_lat : null,
+      pickup_lng: form.delivery_type === "ophalen" ? form.pickup_lng : null,
       ...(projectId ? { project_id: projectId } : {}),
     };
 
@@ -275,7 +313,6 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
         });
         toast({ title: "Afspraak aangemaakt" });
 
-        // Trigger WhatsApp automation
         const selectedCustomer = customers?.find((c) => c.id === form.customer_id);
         const selectedService = services?.find((s) => s.id === form.service_id);
         const scheduledDate = new Date(form.scheduled_at);
@@ -304,9 +341,11 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
   };
 
   const loading = createAppointment.isPending || updateAppointment.isPending;
+  const showRouteSection = !isAutomotive || form.delivery_type === "ophalen";
 
   const formContent = (
     <form onSubmit={handleSubmit} className="space-y-4 px-4 pb-6">
+      {/* === Main fields === */}
       <div className="space-y-1.5">
         <Label>Klant *</Label>
         <div className="flex gap-2">
@@ -321,6 +360,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
           </Button>
         </div>
       </div>
+
       <div className="space-y-1.5">
         <Label>Dienst</Label>
         <div className="flex gap-2">
@@ -395,61 +435,123 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
         </div>
       </div>
 
-      {/* Start location */}
-      <div className="space-y-1.5">
-        <Label>Startlocatie</Label>
-        <AddressAutocomplete
-          value={startLocationLabel}
-          onChange={setStartLocationLabel}
-          onSelect={(fields) => {
-            if (fields.lat && fields.lng) {
-              setStartCoords([fields.lat, fields.lng]);
-              setStartLocationLabel([fields.street, fields.house_number, fields.city].filter(Boolean).join(" "));
-            }
-          }}
-          placeholder="Zoek startlocatie..."
-        />
-        <div className="flex gap-2 flex-wrap">
-          <Button type="button" variant="outline" size="sm" className="text-[11px] h-7" onClick={handleUseDefault}>
-            <MapPin className="h-3 w-3 mr-1" /> {DEFAULT_START_LABEL}
-          </Button>
-          {previousAppointment && (
-            <Button type="button" variant="outline" size="sm" className="text-[11px] h-7" onClick={handleUsePrevious}>
-              <Navigation className="h-3 w-3 mr-1" /> Vorige: {(previousAppointment.customers as any)?.name}
+      {/* === Automotive: delivery type toggle === */}
+      {isAutomotive && (
+        <div className="space-y-2 rounded-lg border border-border p-3">
+          <Label className="text-[13px] font-medium flex items-center gap-1.5">
+            <Truck className="h-3.5 w-3.5 text-muted-foreground" />
+            Voertuig aanlevering
+          </Label>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={form.delivery_type === "gebracht" ? "default" : "outline"}
+              size="sm"
+              className="flex-1 text-[13px]"
+              onClick={() => { set("delivery_type", "gebracht"); setRouteOpen(false); }}
+            >
+              Wordt gebracht
             </Button>
+            <Button
+              type="button"
+              variant={form.delivery_type === "ophalen" ? "default" : "outline"}
+              size="sm"
+              className="flex-1 text-[13px]"
+              onClick={() => { set("delivery_type", "ophalen"); setRouteOpen(true); }}
+            >
+              Ophalen
+            </Button>
+          </div>
+
+          {/* Pickup address (only when ophalen) */}
+          {form.delivery_type === "ophalen" && (
+            <div className="space-y-1.5 pt-1">
+              <Label className="text-[12px]">Ophaaladres</Label>
+              <AddressAutocomplete
+                value={form.pickup_address}
+                onChange={(v) => set("pickup_address", v)}
+                onSelect={(fields) => {
+                  set("pickup_address", [fields.street, fields.house_number, fields.postal_code, fields.city].filter(Boolean).join(" "));
+                  set("pickup_lat", fields.lat);
+                  set("pickup_lng", fields.lng);
+                }}
+                placeholder="Zoek ophaaladres..."
+              />
+            </div>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Travel time indicator */}
-      {form.customer_id && (() => {
-        const selectedCustomer = customers?.find((c) => c.id === form.customer_id);
-        return (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted text-[13px]">
-            <Navigation className="h-4 w-4 text-primary flex-shrink-0" />
-            {travelLoading ? (
-              <span className="text-muted-foreground">Reistijd berekenen...</span>
-            ) : travelInfo?.duration_minutes ? (
-              <span>
-                <strong>{travelInfo.duration_minutes} min</strong>
-                <span className="text-muted-foreground ml-1">({travelInfo.distance_km} km)</span>
+      {/* === Route info (collapsible, hidden for automotive "gebracht") === */}
+      {showRouteSection && (
+        <Collapsible open={routeOpen} onOpenChange={setRouteOpen}>
+          <CollapsibleTrigger asChild>
+            <button type="button" className="flex items-center justify-between w-full text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors py-1">
+              <span className="flex items-center gap-1.5">
+                <Navigation className="h-3.5 w-3.5" /> Route & reistijd
               </span>
-            ) : (
-              <span className="text-muted-foreground">Geen coördinaten voor deze klant</span>
-            )}
-            {selectedCustomer?.address && selectedCustomer?.city && (
-              <a
-                href={`https://www.google.com/maps/place/${`${selectedCustomer.address}, ${selectedCustomer.postal_code || ""} ${selectedCustomer.city}`.replace(/ /g, "+")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-auto text-primary hover:text-primary/80 transition-colors flex items-center gap-1 text-[12px] font-medium"
-              >
-                <ExternalLink className="h-3.5 w-3.5" /> Route
-              </a>
-            )}
-          </div>
-        );
-      })()}
+              <ChevronDown className={`h-4 w-4 transition-transform ${routeOpen ? "rotate-180" : ""}`} />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-3 pt-2">
+            {/* Start location */}
+            <div className="space-y-1.5">
+              <Label className="text-[12px]">Startlocatie</Label>
+              <AddressAutocomplete
+                value={startLocationLabel}
+                onChange={setStartLocationLabel}
+                onSelect={(fields) => {
+                  if (fields.lat && fields.lng) {
+                    setStartCoords([fields.lat, fields.lng]);
+                    setStartLocationLabel([fields.street, fields.house_number, fields.city].filter(Boolean).join(" "));
+                  }
+                }}
+                placeholder="Zoek startlocatie..."
+              />
+              <div className="flex gap-2 flex-wrap">
+                <Button type="button" variant="outline" size="sm" className="text-[11px] h-7" onClick={handleUseDefault}>
+                  <MapPin className="h-3 w-3 mr-1" /> {DEFAULT_START_LABEL}
+                </Button>
+                {previousAppointment && (
+                  <Button type="button" variant="outline" size="sm" className="text-[11px] h-7" onClick={handleUsePrevious}>
+                    <Navigation className="h-3 w-3 mr-1" /> Vorige: {(previousAppointment.customers as any)?.name}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Travel time indicator */}
+            {form.customer_id && (() => {
+              const selectedCustomer = customers?.find((c) => c.id === form.customer_id);
+              return (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted text-[13px]">
+                  <Navigation className="h-4 w-4 text-primary flex-shrink-0" />
+                  {travelLoading ? (
+                    <span className="text-muted-foreground">Reistijd berekenen...</span>
+                  ) : travelInfo?.duration_minutes ? (
+                    <span>
+                      <strong>{travelInfo.duration_minutes} min</strong>
+                      <span className="text-muted-foreground ml-1">({travelInfo.distance_km} km)</span>
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">Geen coördinaten voor deze klant</span>
+                  )}
+                  {selectedCustomer?.address && selectedCustomer?.city && (
+                    <a
+                      href={`https://www.google.com/maps/place/${`${selectedCustomer.address}, ${selectedCustomer.postal_code || ""} ${selectedCustomer.city}`.replace(/ /g, "+")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-auto text-primary hover:text-primary/80 transition-colors flex items-center gap-1 text-[12px] font-medium"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> Route
+                    </a>
+                  )}
+                </div>
+              );
+            })()}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* Conflict warning */}
       {conflicts.length > 0 && (

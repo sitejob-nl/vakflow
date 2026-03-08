@@ -1,60 +1,51 @@
 
 
-# Werkplaatsafspraak optimalisatie (Automotive)
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Problemen
+### Problemen
 
-1. **Geen "wordt gebracht / ophalen" keuze** -- Bij een werkplaatsafspraak ontbreekt de optie of de klant de auto brengt of dat deze opgehaald moet worden
-2. **Geen ophaallocatie** -- Als ophalen geselecteerd is, is er geen veld voor het ophaaladres
-3. **Startlocatie niet gevuld met bedrijfsadres** -- De fallback is hardcoded "Heemskerk (standaard)" i.p.v. het bedrijfsadres uit de `companies` tabel
-4. **Formulier te lang** -- Alle velden worden tegelijk getoond, ook als ze niet relevant zijn
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-## Technisch plan
+### Aanpak
 
-### 1. Database: nieuwe kolommen op `appointments`
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-```sql
-ALTER TABLE appointments ADD COLUMN IF NOT EXISTS delivery_type text DEFAULT 'gebracht';
--- 'gebracht' = klant brengt auto, 'ophalen' = auto moet opgehaald worden
-ALTER TABLE appointments ADD COLUMN IF NOT EXISTS pickup_address text;
-ALTER TABLE appointments ADD COLUMN IF NOT EXISTS pickup_lat numeric;
-ALTER TABLE appointments ADD COLUMN IF NOT EXISTS pickup_lng numeric;
-```
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-### 2. Startlocatie: bedrijfsadres als default (AppointmentDialog.tsx)
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-Huidige code haalt de startlocatie uit `profiles.location` (persoonlijk profiel). Als die leeg is, valt het terug op hardcoded `[52.507, 4.678]` "Heemskerk".
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-**Fix:** Na het profile-check, ook het bedrijfsadres ophalen uit `companies_safe` (address, city, postal_code) en dat als fallback gebruiken i.p.v. de hardcoded waarden. Het bedrijfsadres heeft al `address`, `city`, `postal_code` kolommen.
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-### 3. Formulier inkorten met secties (AppointmentDialog.tsx)
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-Voor automotive: het formulier opsplitsen in compacte secties met `Collapsible` of conditional rendering:
-
-- **Hoofdvelden** (altijd zichtbaar): Klant, Voertuig, Datum/tijd, Duur
-- **Werkplaats-specifiek** (automotive, conditionally): Wordt gebracht/Ophalen toggle, ophaaladres (alleen als "ophalen"), werkplaatsbrug
-- **Routeinfo** (inklapbaar): Startlocatie, reistijd -- standaard ingeklapt bij werkplaats (want auto wordt gebracht)
-- **Overig** (altijd zichtbaar): Status, Notities
-
-### 4. Automotive workshop flow (AppointmentDialog.tsx)
-
-Wanneer `isAutomotive`:
-- Toon `delivery_type` radio/toggle: "Wordt gebracht" | "Ophalen"
-- Als "Ophalen": toon `AddressAutocomplete` voor ophaaladres (met geocoding)
-- Als "Wordt gebracht": verberg startlocatie/reistijd secties (niet relevant)
-- Startlocatie sectie alleen tonen bij "Ophalen" (dan is het relevant voor routeberekening)
-
-### 5. Payload & opslag
-
-In `handleSubmit`: `delivery_type`, `pickup_address`, `pickup_lat`, `pickup_lng` meesturen. Bij "ophalen" de pickup-coördinaten gebruiken als bestemming voor reistijdberekening i.p.v. het klantadres.
-
-### Samenvatting wijzigingen
+### Bestanden
 
 | Bestand | Wijziging |
 |---|---|
-| Migration SQL | 4 kolommen op `appointments` |
-| `src/integrations/supabase/types.ts` | Types bijwerken |
-| `src/components/AppointmentDialog.tsx` | Bedrijfsadres als default, delivery_type toggle, ophaaladres, formulier compacter maken |
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
 
-Geen nieuwe bestanden nodig. Geen edge function wijzigingen.
+Geen database-wijzigingen, geen nieuwe dependencies.
 
