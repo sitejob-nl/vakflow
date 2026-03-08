@@ -28,6 +28,8 @@ export interface Asset {
   vehicle_count: number | null;
   facilities: string[] | null;
   access_instructions: string | null;
+  // custom fields
+  custom_fields: Record<string, any> | null;
   // joined
   customer?: { id: string; name: string } | null;
   address?: { id: string; street: string | null; house_number: string | null; city: string | null } | null;

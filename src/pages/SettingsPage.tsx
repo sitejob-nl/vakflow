@@ -22,9 +22,11 @@ import ApkReminderSettings from "@/components/ApkReminderSettings";
 import MetaSettingsTab from "@/components/MetaSettingsTab";
 import { SETTINGS_INPUT_CLASS, SETTINGS_LABEL_CLASS } from "@/components/settings/shared";
 
+const SettingsAssetFieldsTab = lazy(() => import("@/components/settings/SettingsAssetFieldsTab"));
+
 const BASE_TABS: string[] = [
   "Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen",
-  "Sjablonen", "Werkplaats", "Boekhouding", "E-mail", "WhatsApp",
+  "Objectvelden", "Sjablonen", "Werkplaats", "Boekhouding", "E-mail", "WhatsApp",
   "E-mail Templates", "Automatiseringen", "APK-herinneringen", "Teamleden",
   "Koppelingen", "Meta",
 ];
@@ -36,6 +38,7 @@ const TAB_FEATURE_MAP: Record<string, string> = {
   "Meta": "marketing",
   "Werkplaats": "vehicles",
   "APK-herinneringen": "vehicles",
+  "Objectvelden": "assets",
 };
 
 const TabFallback = () => (
@@ -66,6 +69,8 @@ const SettingsPage = () => {
         return <SettingsServicesTab />;
       case "Materialen":
         return <MaterialsSettings />;
+      case "Objectvelden":
+        return <SettingsAssetFieldsTab />;
       case "Sjablonen":
         return <SettingsTemplatesTab />;
       case "Werkplaats":

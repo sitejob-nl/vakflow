@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useMaintenanceLogs, useCreateMaintenanceLog, useDeleteMaintenanceLog, type Asset, type MaintenanceLog } from "@/hooks/useAssets";
+import { format as fmtDate } from "date-fns";
+import { nl as nlLocale } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -49,9 +51,23 @@ const AssetsPage = () => {
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
   const deleteAsset = useDeleteAsset();
-  const { user } = useAuth();
+  const { user, companyId } = useAuth();
   const { industry } = useIndustryConfig();
   const isCleaning = industry === "cleaning";
+
+  // Load custom field config
+  const { data: fieldConfig } = useQuery({
+    queryKey: ["asset_field_config", companyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("companies")
+        .select("asset_field_config")
+        .eq("id", companyId!)
+        .single();
+      return ((data?.asset_field_config as any[]) ?? []) as Array<{ key: string; label: string; type: string; options?: string[] }>;
+    },
+    enabled: !!companyId,
+  });
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -326,6 +342,37 @@ const AssetsPage = () => {
                 )}
                 {detailAsset.notes && (
                   <div className="text-sm"><span className="text-muted-foreground">Notities:</span> {detailAsset.notes}</div>
+                )}
+
+                {/* Custom fields */}
+                {fieldConfig && fieldConfig.length > 0 && detailAsset.custom_fields && (
+                  <div className="pt-2 border-t">
+                    <h3 className="font-semibold mb-2 text-sm">Extra velden</h3>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                      {fieldConfig.map((fd) => {
+                        const val = (detailAsset.custom_fields as any)?.[fd.key];
+                        if (val === null || val === undefined || val === "") return null;
+                        let display: string;
+                        if (fd.type === "boolean") {
+                          display = val ? "Ja" : "Nee";
+                        } else if (fd.type === "date" && val) {
+                          try {
+                            display = fmtDate(new Date(val), "d MMM yyyy", { locale: nlLocale });
+                          } catch {
+                            display = String(val);
+                          }
+                        } else {
+                          display = String(val);
+                        }
+                        return (
+                          <div key={fd.key} className="contents">
+                            <div className="text-muted-foreground">{fd.label}</div>
+                            <div>{display}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
 
                 {/* Maintenance History */}

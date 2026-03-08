@@ -10,8 +10,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useAddresses } from "@/hooks/useAddresses";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Building2, Truck } from "lucide-react";
 import type { Asset } from "@/hooks/useAssets";
+
+interface FieldDef {
+  key: string;
+  label: string;
+  type: "text" | "number" | "date" | "select" | "boolean";
+  options?: string[];
+  required?: boolean;
+}
 
 interface Props {
   open: boolean;
@@ -38,10 +49,31 @@ const FACILITY_OPTIONS = ["water", "stroom", "overdekt", "perslucht"];
 const AssetDialog = ({ open, onOpenChange, asset, onSave, saving }: Props) => {
   const { data: customers } = useCustomers();
   const { industry } = useIndustryConfig();
+  const { companyId } = useAuth();
   const isCleaning = industry === "cleaning";
   const [form, setForm] = useState<Partial<Asset>>({});
   const customerId = form.customer_id || "";
   const { data: addresses } = useAddresses(customerId || undefined);
+
+  const { data: fieldConfig } = useQuery({
+    queryKey: ["asset_field_config", companyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("companies")
+        .select("asset_field_config")
+        .eq("id", companyId!)
+        .single();
+      return ((data?.asset_field_config ?? []) as unknown as FieldDef[]);
+    },
+    enabled: !!companyId,
+  });
+
+  const setCustomField = (key: string, value: any) => {
+    setForm((prev) => ({
+      ...prev,
+      custom_fields: { ...(prev.custom_fields || {}), [key]: value },
+    }));
+  };
 
   useEffect(() => {
     if (open) {
@@ -210,6 +242,61 @@ const AssetDialog = ({ open, onOpenChange, asset, onSave, saving }: Props) => {
             <div>
               <Label>Toegangsinstructies</Label>
               <Textarea value={form.access_instructions || ""} onChange={(e) => set("access_instructions", e.target.value)} rows={2} placeholder="Sleutelnummer, alarm code, etc." />
+            </div>
+          )}
+
+          {/* Custom fields */}
+          {fieldConfig && fieldConfig.length > 0 && (
+            <div className="space-y-3 pt-2 border-t">
+              <Label className="text-sm font-semibold">Extra velden</Label>
+              {fieldConfig.map((fd) => (
+                <div key={fd.key}>
+                  <Label>{fd.label}{fd.required ? " *" : ""}</Label>
+                  {fd.type === "text" && (
+                    <Input
+                      value={(form.custom_fields as any)?.[fd.key] ?? ""}
+                      onChange={(e) => setCustomField(fd.key, e.target.value)}
+                    />
+                  )}
+                  {fd.type === "number" && (
+                    <Input
+                      type="number"
+                      value={(form.custom_fields as any)?.[fd.key] ?? ""}
+                      onChange={(e) => setCustomField(fd.key, e.target.value ? Number(e.target.value) : null)}
+                    />
+                  )}
+                  {fd.type === "date" && (
+                    <Input
+                      type="date"
+                      value={(form.custom_fields as any)?.[fd.key] ?? ""}
+                      onChange={(e) => setCustomField(fd.key, e.target.value || null)}
+                    />
+                  )}
+                  {fd.type === "select" && (
+                    <Select
+                      value={(form.custom_fields as any)?.[fd.key] ?? "__none"}
+                      onValueChange={(v) => setCustomField(fd.key, v === "__none" ? null : v)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Kies..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none">—</SelectItem>
+                        {(fd.options ?? []).map((opt) => (
+                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {fd.type === "boolean" && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Checkbox
+                        checked={!!(form.custom_fields as any)?.[fd.key]}
+                        onCheckedChange={(checked) => setCustomField(fd.key, !!checked)}
+                      />
+                      <span className="text-sm">{fd.label}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
