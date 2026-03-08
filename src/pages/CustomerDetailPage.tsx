@@ -360,7 +360,7 @@ const CustomerDetailPage = () => {
             <p className="text-[12px] md:text-[13px] text-secondary-foreground">
               {typeMap[customer.type] ?? customer.type} · {customer.city || "Onbekend"}
             </p>
-            <div className="mt-3 md:mt-4 flex gap-2 justify-center">
+            <div className="mt-3 md:mt-4 flex gap-2 justify-center flex-wrap">
               <button onClick={() => setEditOpen(true)} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors">
                 Bewerken
               </button>
@@ -368,6 +368,23 @@ const CustomerDetailPage = () => {
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
+            {/* Portal account */}
+            {customer.email && (
+              <div className="mt-3 pt-3 border-t border-border">
+                {portalActive ? (
+                  <div className="flex items-center justify-center gap-1.5 text-[12px] font-bold text-accent">
+                    <Globe className="h-3.5 w-3.5" /> Portaal actief
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setPortalDialogOpen(true)}
+                    className="w-full px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Globe className="h-3.5 w-3.5" /> Portaal account aanmaken
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="bg-card border border-border rounded-lg shadow-card mt-3 md:mt-4 overflow-hidden">
