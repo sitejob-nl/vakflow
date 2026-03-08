@@ -4,6 +4,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +14,7 @@ import type { AiIntakeSuggestion } from "@/hooks/useAiIntake";
 import { useCreateWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
-import { useAssets } from "@/hooks/useAssets";
+import { useAssets, useObjectRooms, useFleetVehicleTypes } from "@/hooks/useAssets";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useCustomerVehicles, useWorkshopBays } from "@/hooks/useVehicles";
 import { useAutoBayAssignment } from "@/hooks/useAutoBayAssignment";
@@ -34,6 +35,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
   const isMobile = useIsMobile();
   const { labels, industry } = useIndustryConfig();
   const isAutomotive = industry === "automotive";
+  const isCleaning = industry === "cleaning";
   const { isAdmin, user, role } = useAuth();
   const { data: customers } = useCustomers();
   const { data: services } = useServices();
@@ -44,6 +46,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
   const isEdit = !!workOrder;
   const isMonteur = role === "monteur";
   const [showAiIntake, setShowAiIntake] = useState(false);
+  const [aiMaterials, setAiMaterials] = useState<any[] | null>(null);
 
   const handleAiApply = (s: AiIntakeSuggestion) => {
     setForm((f) => ({
@@ -53,8 +56,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
       service_id: s.suggested_service_id || f.service_id,
     }));
     setShowAiIntake(false);
-    // Store materials suggestion for later use
-    (window as any).__aiIntakeMaterials = s.suggested_materials;
+    setAiMaterials(s.suggested_materials ?? null);
   };
 
   const [form, setForm] = useState({
@@ -72,8 +74,25 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
     mileage_end: "",
   });
 
+  // Cleaning-specific state
+  const [vehiclesWashed, setVehiclesWashed] = useState<Record<string, number>>({});
+  const [roomChecklist, setRoomChecklist] = useState<Record<string, Record<string, boolean>>>({});
+
   // Vehicles for selected customer (automotive)
   const { data: customerVehicles } = useCustomerVehicles(isAutomotive && form.customer_id ? form.customer_id : undefined);
+
+  // Get selected asset details for cleaning
+  const selectedAsset = useMemo(() => {
+    if (!allAssets || !form.asset_id) return null;
+    return allAssets.find((a) => a.id === form.asset_id) ?? null;
+  }, [allAssets, form.asset_id]);
+
+  const isFleet = isCleaning && selectedAsset?.object_type === "fleet";
+  const isBuilding = isCleaning && selectedAsset?.object_type === "building";
+
+  // Fetch fleet vehicle types or object rooms for cleaning
+  const { data: fleetTypes } = useFleetVehicleTypes(isFleet ? form.asset_id : undefined);
+  const { data: objectRooms } = useObjectRooms(isBuilding ? form.asset_id : undefined);
 
   useEffect(() => {
     if (workOrder) {
@@ -91,6 +110,27 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         mileage_start: (workOrder as any).mileage_start?.toString() || "",
         mileage_end: (workOrder as any).mileage_end?.toString() || "",
       });
+      // Restore cleaning data if editing
+      if ((workOrder as any).vehicles_washed) {
+        try {
+          const vw = typeof (workOrder as any).vehicles_washed === "string"
+            ? JSON.parse((workOrder as any).vehicles_washed)
+            : (workOrder as any).vehicles_washed;
+          if (Array.isArray(vw)) {
+            const map: Record<string, number> = {};
+            vw.forEach((v: any) => { if (v.type && v.count != null) map[v.type] = v.count; });
+            setVehiclesWashed(map);
+          }
+        } catch { /* ignore */ }
+      }
+      if ((workOrder as any).room_checklists) {
+        try {
+          const rc = typeof (workOrder as any).room_checklists === "string"
+            ? JSON.parse((workOrder as any).room_checklists)
+            : (workOrder as any).room_checklists;
+          if (rc && typeof rc === "object") setRoomChecklist(rc);
+        } catch { /* ignore */ }
+      }
     } else {
       setForm({
         customer_id: "",
@@ -106,6 +146,9 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         mileage_start: "",
         mileage_end: "",
       });
+      setVehiclesWashed({});
+      setRoomChecklist({});
+      setAiMaterials(null);
     }
   }, [workOrder, open, isMonteur, user?.id]);
 
@@ -134,6 +177,11 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
     isAutomotive && !isEdit ? new Date() : undefined
   );
 
+  // Calculate vehicles washed total
+  const vehiclesWashedTotal = useMemo(() => {
+    return Object.values(vehiclesWashed).reduce((sum, c) => sum + (c || 0), 0);
+  }, [vehiclesWashed]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload: any = {
@@ -151,8 +199,17 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         work_order_type: form.work_order_type || null,
         mileage_start: form.mileage_start ? parseInt(form.mileage_start) : null,
         mileage_end: form.mileage_end ? parseInt(form.mileage_end) : null,
-        // Auto-assign bay if not editing and a suggestion exists
         ...(!isEdit && suggestedBay ? { bay_id: suggestedBay.id } : {}),
+      } : {}),
+      // Cleaning-specific fields
+      ...(isCleaning && isFleet ? {
+        vehicles_washed: Object.entries(vehiclesWashed)
+          .filter(([, count]) => count > 0)
+          .map(([type, count]) => ({ type, count })),
+        vehicles_washed_total: vehiclesWashedTotal,
+      } : {}),
+      ...(isCleaning && isBuilding && Object.keys(roomChecklist).length > 0 ? {
+        room_checklists: roomChecklist,
       } : {}),
     };
 
@@ -268,6 +325,75 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
           </Select>
         </div>
       )}
+
+      {/* Cleaning: Fleet vehicle wash counts */}
+      {isFleet && fleetTypes && fleetTypes.length > 0 && (
+        <div className="space-y-2 border border-border rounded-lg p-3 bg-muted/30">
+          <Label className="text-[13px] font-bold">Gewassen voertuigen</Label>
+          <div className="space-y-2">
+            {fleetTypes.map((ft) => (
+              <div key={ft.id} className="flex items-center justify-between gap-3">
+                <span className="text-[13px]">{ft.vehicle_type} <span className="text-muted-foreground">({ft.count} in park)</span></span>
+                <Input
+                  type="number"
+                  min={0}
+                  max={ft.count}
+                  className="w-20 h-8 text-center"
+                  value={vehiclesWashed[ft.vehicle_type] ?? ""}
+                  onChange={(e) => setVehiclesWashed((prev) => ({
+                    ...prev,
+                    [ft.vehicle_type]: parseInt(e.target.value) || 0,
+                  }))}
+                  placeholder="0"
+                />
+              </div>
+            ))}
+          </div>
+          {vehiclesWashedTotal > 0 && (
+            <p className="text-[12px] font-semibold text-primary">Totaal: {vehiclesWashedTotal} voertuig(en)</p>
+          )}
+        </div>
+      )}
+
+      {/* Cleaning: Building room checklists */}
+      {isBuilding && objectRooms && objectRooms.length > 0 && (
+        <div className="space-y-3 border border-border rounded-lg p-3 bg-muted/30">
+          <Label className="text-[13px] font-bold">Ruimte-checklist</Label>
+          {objectRooms.map((room) => {
+            const checklist = Array.isArray(room.checklist) ? room.checklist : [];
+            if (checklist.length === 0) return null;
+            return (
+              <div key={room.id} className="space-y-1.5">
+                <p className="text-[12px] font-semibold text-foreground">{room.name}</p>
+                <div className="space-y-1 ml-1">
+                  {checklist.map((item: any, idx: number) => {
+                    const itemLabel = typeof item === "string" ? item : item.label || item.name || `Item ${idx + 1}`;
+                    const checked = roomChecklist[room.id]?.[itemLabel] ?? false;
+                    return (
+                      <label key={idx} className="flex items-center gap-2 text-[12px] cursor-pointer">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(val) => {
+                            setRoomChecklist((prev) => ({
+                              ...prev,
+                              [room.id]: {
+                                ...(prev[room.id] || {}),
+                                [itemLabel]: !!val,
+                              },
+                            }));
+                          }}
+                        />
+                        <span>{itemLabel}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Toegewezen aan - alleen zichtbaar voor admins */}
       {isAdmin && teamMembers && teamMembers.length > 1 && (
         <div className="space-y-1.5">
@@ -307,6 +433,17 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
             <Sparkles className="mr-1.5 h-3.5 w-3.5" /> AI Intake — klacht analyseren
           </Button>
         )
+      )}
+      {/* AI material suggestions */}
+      {aiMaterials && aiMaterials.length > 0 && (
+        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-[12px]">
+          <p className="font-semibold text-primary mb-1">AI-suggestie materialen:</p>
+          <ul className="list-disc list-inside text-muted-foreground">
+            {aiMaterials.map((m: any, i: number) => (
+              <li key={i}>{m.name || m}{m.quantity ? ` (${m.quantity}x)` : ""}</li>
+            ))}
+          </ul>
+        </div>
       )}
       <div className="space-y-1.5">
         <Label>Werkzaamheden</Label>
