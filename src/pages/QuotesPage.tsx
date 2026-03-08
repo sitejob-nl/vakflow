@@ -380,7 +380,8 @@ const QuotesPage = () => {
         <QuotePreview />
       </div>
 
-      <QuoteDialog open={dialogOpen} onOpenChange={setDialogOpen} editQuote={editQuote} />
+      <QuoteDialog open={dialogOpen} onOpenChange={setDialogOpen} editQuote={editQuote} onScheduleAppointment={handleScheduleAppointment} />
+      <AppointmentDialog open={appointmentDialogOpen} onOpenChange={setAppointmentDialogOpen} prefill={appointmentPrefill} />
     </div>
   );
 };
