@@ -131,12 +131,27 @@ const WorkOrderDetailPage = () => {
 
   const handleStatusChange = async (status: string) => {
     try {
+      // Log mileage if provided and vehicle is linked
+      if (status === "afgerond" && vehicleId && mileageValue && mileageValue > 0) {
+        try {
+          await createMileageLog.mutateAsync({
+            vehicle_id: vehicleId,
+            mileage: mileageValue,
+            work_order_id: wo.id,
+            recorded_at: new Date().toISOString(),
+          } as any);
+        } catch (mileageErr: any) {
+          console.error("Mileage log failed:", mileageErr);
+        }
+      }
+
       await updateWO.mutateAsync({
         id: wo.id,
         status,
         completed_at: status === "afgerond" ? new Date().toISOString() : null,
       });
       toast({ title: `Status gewijzigd naar ${statusLabel[status]}` });
+      setMileageInput("");
 
       // Trigger automation on completion
       if (status === "afgerond") {
