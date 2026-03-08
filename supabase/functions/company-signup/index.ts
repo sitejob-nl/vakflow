@@ -92,7 +92,10 @@ Deno.serve(async (req) => {
     const safeIndustry = industry && industryModules[industry] ? industry : "technical";
     const enabledFeatures = industryModules[safeIndustry] ?? allModules;
 
-    // 1. Create the company
+    // 1. Create the company with trial
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 14);
+
     const { data: company, error: companyError } = await adminClient
       .from("companies")
       .insert({
@@ -102,6 +105,9 @@ Deno.serve(async (req) => {
         industry: safeIndustry,
         subcategory: subcategory || "general",
         enabled_features: enabledFeatures,
+        subscription_status: "trial",
+        subscription_plan: "starter",
+        trial_ends_at: trialEnd.toISOString(),
       })
       .select("id")
       .single();

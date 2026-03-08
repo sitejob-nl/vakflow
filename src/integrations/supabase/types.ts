@@ -783,7 +783,9 @@ export type Database = {
         Row: {
           accounting_provider: string | null
           address: string | null
+          admin_notes: string | null
           asset_field_config: Json | null
+          billing_email: string | null
           brand_color: string | null
           btw_number: string | null
           city: string | null
@@ -801,10 +803,12 @@ export type Database = {
           imap_port: number | null
           industry: string
           kvk_number: string | null
+          last_active_at: string | null
           logo_url: string | null
           max_users: number
           moneybird_administration_id: string | null
           moneybird_api_token: string | null
+          monthly_price: number | null
           name: string
           outlook_client_id: string | null
           outlook_email: string | null
@@ -824,13 +828,20 @@ export type Database = {
           smtp_host: string | null
           smtp_password: string | null
           smtp_port: number | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           subcategory: string
+          subscription_plan: string
+          subscription_status: string
+          trial_ends_at: string | null
           wefact_api_key: string | null
         }
         Insert: {
           accounting_provider?: string | null
           address?: string | null
+          admin_notes?: string | null
           asset_field_config?: Json | null
+          billing_email?: string | null
           brand_color?: string | null
           btw_number?: string | null
           city?: string | null
@@ -848,10 +859,12 @@ export type Database = {
           imap_port?: number | null
           industry?: string
           kvk_number?: string | null
+          last_active_at?: string | null
           logo_url?: string | null
           max_users?: number
           moneybird_administration_id?: string | null
           moneybird_api_token?: string | null
+          monthly_price?: number | null
           name: string
           outlook_client_id?: string | null
           outlook_email?: string | null
@@ -871,13 +884,20 @@ export type Database = {
           smtp_host?: string | null
           smtp_password?: string | null
           smtp_port?: number | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           subcategory?: string
+          subscription_plan?: string
+          subscription_status?: string
+          trial_ends_at?: string | null
           wefact_api_key?: string | null
         }
         Update: {
           accounting_provider?: string | null
           address?: string | null
+          admin_notes?: string | null
           asset_field_config?: Json | null
+          billing_email?: string | null
           brand_color?: string | null
           btw_number?: string | null
           city?: string | null
@@ -895,10 +915,12 @@ export type Database = {
           imap_port?: number | null
           industry?: string
           kvk_number?: string | null
+          last_active_at?: string | null
           logo_url?: string | null
           max_users?: number
           moneybird_administration_id?: string | null
           moneybird_api_token?: string | null
+          monthly_price?: number | null
           name?: string
           outlook_client_id?: string | null
           outlook_email?: string | null
@@ -918,7 +940,12 @@ export type Database = {
           smtp_host?: string | null
           smtp_password?: string | null
           smtp_port?: number | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           subcategory?: string
+          subscription_plan?: string
+          subscription_status?: string
+          trial_ends_at?: string | null
           wefact_api_key?: string | null
         }
         Relationships: []
