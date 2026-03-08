@@ -75,6 +75,7 @@ const ReportsPage = () => {
   const filters = { startDate, endDate };
   const { data, isLoading } = useReportData(filters);
   const { data: autoData, isAutomotive } = useAutomotiveReportData(filters);
+  const { data: cleanData, isCleaning } = useCleaningReportData(filters);
   const { labels } = useIndustryConfig();
 
   const handlePreset = (preset: typeof PRESETS[number]) => {
