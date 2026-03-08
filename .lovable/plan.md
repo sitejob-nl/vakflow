@@ -1,51 +1,45 @@
 
 
-## Agenda UI Verbetering — Look & Feel + Leesbaarheid
+## Fix: "Tenant not active" error afvangen in sync-exact
 
-### Problemen
+### Probleem
+De `getExactToken` functie (regel 27) roept het externe SiteJob Connect project aan voor een access token. Die geeft "Tenant not active" terug. De error handler op regel 203-208 vangt alleen `"REAUTH_REQUIRED"` op — "Tenant not active" valt door naar de generieke catch op regel 856 en geeft een kale 500 error.
 
-1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
-2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
+### Oorzaak
+De tenant in het externe project (`xeshjkznwdrxjjhbpisn`) is niet actief. Dit kan betekenen:
+- De Exact Online autorisatie is verlopen
+- De tenant is gedeactiveerd in SiteJob Connect
 
-### Aanpak
+### Wijziging: sync-exact/index.ts — Token error handling uitbreiden
 
-**1. Grotere tijdslots en events**
-- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
-- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
-- Meer ruimte voor service-naam en stad onder de klantnaam
+**Bestand:** `supabase/functions/sync-exact/index.ts`
 
-**2. Event cards verbeteren**
-- Subtielere achtergrondkleur met betere contrast
-- Lichte shadow toevoegen aan events voor diepte
-- Rounded corners vergroten, padding verruimen
-- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
-- Hover-effect verbeteren met schaal + shadow
+Regel 200-209: breid de catch uit om ook "Tenant not active" als reauth-scenario te behandelen:
 
-**3. Toolbar opschonen (desktop)**
-- Knoppen groeperen met visuele scheiders
-- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
-- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
-- Badge voor aantal afspraken subtieler
+```typescript
+try {
+  tokenData = await getExactToken(config.tenant_id, config.webhook_secret);
+} catch (err: any) {
+  if (err.message === "REAUTH_REQUIRED" || err.message === "Tenant not active") {
+    await supabaseAdmin.from("exact_config").update({ status: "error" }).eq("company_id", companyId);
+    return jsonRes({ 
+      error: "Exact Online koppeling niet actief. Koppel opnieuw via instellingen.", 
+      needs_reauth: true 
+    }, 401);
+  }
+  throw err;
+}
+```
 
-**4. Dagkolom headers verbeteren (desktop weekview)**
-- Datum groter en duidelijker, weekdag + dagnummer gescheiden
-- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+Dit zorgt ervoor dat:
+1. De `exact_config` status wordt bijgewerkt naar `"error"` zodat de UI kan tonen dat er een probleem is
+2. De frontend een duidelijke Nederlandse foutmelding toont via de soft-error toast ("Boekhoudkoppeling niet compleet — Offerte is wel opgeslagen")
+3. De offerte gewoon lokaal wordt opgeslagen zonder blokkerende fout
 
-**5. Zijpaneel styling**
-- Subtielere card-styling, betere spacing
-- Status-dots vergroten in de afsprakenlijst
-- Betere typografie-hiërarchie
-
-**6. Mobile day view**
-- Zelfde slot-hoogte verbetering
-- Events met meer padding en grotere tekst
-
-### Bestanden
+### Na de code-fix
+De tenant moet opnieuw gekoppeld worden in het SiteJob Connect project. Dat is een externe actie, geen code-wijziging.
 
 | Bestand | Wijziging |
 |---|---|
-| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
-| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
-
-Geen database-wijzigingen, geen nieuwe dependencies.
+| `supabase/functions/sync-exact/index.ts` | "Tenant not active" toevoegen aan reauth-catch |
 
