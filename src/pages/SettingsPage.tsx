@@ -593,6 +593,9 @@ const SettingsPage = () => {
         setMoneybirdConnected(!!(companyData as any).moneybird_administration_id);
         setMoneybirdApiToken("");
         setMoneybirdAdminId((companyData as any).moneybird_administration_id ?? "");
+        // WeFact
+        setWefactConnected(!!(companyData as any).has_wefact_key);
+        setWefactApiKey("");
         // Exact Online — load from exact_config table
         if (profileData.company_id) {
           const { data: exactData } = await supabase.from("exact_config" as any).select("*").eq("company_id", profileData.company_id).maybeSingle();
