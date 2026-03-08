@@ -152,6 +152,8 @@ async function ensureExactAccount(
     City: customer.city || undefined,
     Postcode: customer.postal_code || undefined,
     AddressLine1: customer.address || undefined,
+    ...(customer.kvk_number ? { ChamberOfCommerce: customer.kvk_number } : {}),
+    ...(customer.btw_number ? { VATNumber: customer.btw_number } : {}),
   };
 
   const result = await exactPost(
