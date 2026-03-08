@@ -109,11 +109,15 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
     customer_id: "",
     service_id: "",
     address_id: "",
+    vehicle_id: "",
     scheduled_at: "",
     duration_minutes: 60,
     status: "gepland",
     notes: "",
   });
+
+  // Fetch vehicles for the selected customer (automotive only)
+  const { data: customerVehicles } = useCustomerVehicles(isAutomotive && form.customer_id ? form.customer_id : undefined);
 
   // Fetch addresses for the selected customer
   const { data: customerAddresses } = useAddresses(form.customer_id || undefined);
