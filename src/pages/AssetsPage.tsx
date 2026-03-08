@@ -100,6 +100,21 @@ const AssetsPage = () => {
     enabled: !!companyId && isCleaning,
   });
 
+  // Google Maps API key for map view
+  const { data: gmapsKey } = useQuery({
+    queryKey: ["google-maps-key"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("google-maps-proxy", {
+        body: { action: "get-key" },
+      });
+      if (error) throw error;
+      return data?.key as string;
+    },
+    staleTime: 60 * 60 * 1000,
+    enabled: isCleaning && viewMode === "map",
+  });
+
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
