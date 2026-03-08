@@ -174,7 +174,7 @@ export const useWorkshopBays = () => {
         .select("*")
         .order("sort_order");
       if (error) throw error;
-      return (data ?? []) as WorkshopBay[];
+      return (data ?? []) as unknown as WorkshopBay[];
     },
   });
 };
