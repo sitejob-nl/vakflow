@@ -654,8 +654,6 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
       </DialogContent>
     </Dialog>
   );
-});
-
-WorkOrderDialog.displayName = "WorkOrderDialog";
+};
 
 export default WorkOrderDialog;
