@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMaterials, useCreateMaterial, useUpdateMaterial, useDeleteMaterial, type Material } from "@/hooks/useMaterials";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, X, Check, Package, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,8 @@ export default function MaterialsSettings() {
   const [markupPercentage, setMarkupPercentage] = useState("");
   const [articleNumber, setArticleNumber] = useState("");
   const [category, setCategory] = useState("");
+  const [stockQuantity, setStockQuantity] = useState("");
+  const [minStockLevel, setMinStockLevel] = useState("");
 
   const resetForm = () => {
     setName("");
@@ -37,6 +40,8 @@ export default function MaterialsSettings() {
     setMarkupPercentage("");
     setArticleNumber("");
     setCategory("");
+    setStockQuantity("");
+    setMinStockLevel("");
     setShowForm(false);
     setEditingId(null);
   };
@@ -50,6 +55,8 @@ export default function MaterialsSettings() {
     setMarkupPercentage(String(m.markup_percentage || ""));
     setArticleNumber(m.article_number ?? "");
     setCategory(m.category ?? "");
+    setStockQuantity(String(m.stock_quantity || ""));
+    setMinStockLevel(String(m.min_stock_level || ""));
     setShowForm(true);
   };
 
@@ -86,6 +93,8 @@ export default function MaterialsSettings() {
       markup_percentage: mp,
       article_number: articleNumber.trim() || null,
       category: category.trim() || null,
+      stock_quantity: parseFloat(stockQuantity) || 0,
+      min_stock_level: parseFloat(minStockLevel) || 0,
     };
 
     try {
@@ -240,6 +249,38 @@ export default function MaterialsSettings() {
             </div>
           </div>
 
+          {/* Stock section */}
+          <div className="border-t border-border pt-3 mt-2">
+            <p className="text-[11px] font-bold text-t3 uppercase tracking-wide mb-2">Voorraad</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] text-t3 font-semibold mb-1 block">Huidige voorraad</label>
+                <Input
+                  placeholder="0"
+                  type="number"
+                  value={stockQuantity}
+                  onChange={(e) => setStockQuantity(e.target.value)}
+                  className="text-[13px]"
+                  min="0"
+                  step="1"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-t3 font-semibold mb-1 block">Minimale voorraad</label>
+                <Input
+                  placeholder="0"
+                  type="number"
+                  value={minStockLevel}
+                  onChange={(e) => setMinStockLevel(e.target.value)}
+                  className="text-[13px]"
+                  min="0"
+                  step="1"
+                />
+                <p className="text-[10px] text-t3 mt-1">Alert als voorraad onder dit niveau zakt</p>
+              </div>
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -278,6 +319,7 @@ export default function MaterialsSettings() {
                 <TableHead className="text-[11px]">Artikelnr.</TableHead>
                 <TableHead className="text-[11px]">Categorie</TableHead>
                 <TableHead className="text-[11px]">Eenheid</TableHead>
+                <TableHead className="text-[11px] text-right">Voorraad</TableHead>
                 <TableHead className="text-[11px] text-right">Inkoop</TableHead>
                 <TableHead className="text-[11px] text-right">Opslag</TableHead>
                 <TableHead className="text-[11px] text-right">Verkoop</TableHead>
@@ -291,6 +333,13 @@ export default function MaterialsSettings() {
                   <TableCell className="text-[13px] text-t3">{m.article_number || "—"}</TableCell>
                   <TableCell className="text-[13px] text-t3">{m.category || "—"}</TableCell>
                   <TableCell className="text-[13px]">{m.unit}</TableCell>
+                  <TableCell className="text-[13px] text-right">
+                    {m.min_stock_level > 0 && m.stock_quantity < m.min_stock_level ? (
+                      <Badge variant="destructive" className="text-[11px]">{m.stock_quantity}</Badge>
+                    ) : (
+                      <span className="text-t3">{m.stock_quantity > 0 ? m.stock_quantity : "—"}</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-[13px] text-right text-t3">
                     {m.cost_price > 0 ? `€${m.cost_price.toFixed(2)}` : "—"}
                   </TableCell>

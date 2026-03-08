@@ -12,6 +12,8 @@ export interface Material {
   markup_percentage: number;
   article_number: string | null;
   category: string | null;
+  stock_quantity: number;
+  min_stock_level: number;
   created_at: string;
 }
 
@@ -48,7 +50,7 @@ export const useCreateMaterial = () => {
   const qc = useQueryClient();
   const { companyId } = useAuth();
   return useMutation({
-    mutationFn: async (mat: Partial<Pick<Material, "cost_price" | "markup_percentage">> & Omit<Material, "id" | "created_at" | "company_id" | "cost_price" | "markup_percentage">) => {
+    mutationFn: async (mat: Partial<Pick<Material, "cost_price" | "markup_percentage" | "stock_quantity" | "min_stock_level">> & Omit<Material, "id" | "created_at" | "company_id" | "cost_price" | "markup_percentage" | "stock_quantity" | "min_stock_level">) => {
       const { data, error } = await supabase
         .from("materials")
         .insert({ ...mat, company_id: companyId } as any)
@@ -144,4 +146,13 @@ export const useDeleteWorkOrderMaterial = () => {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["work_order_materials"] }),
   });
+};
+
+// Low stock count for sidebar badge — derives from useMaterials data
+export const useLowStockCount = () => {
+  const { data: materials } = useMaterials();
+  const count = (materials ?? []).filter(
+    (m) => m.min_stock_level > 0 && m.stock_quantity < m.min_stock_level
+  ).length;
+  return { data: count };
 };

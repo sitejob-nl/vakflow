@@ -4,6 +4,7 @@ import {
   MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car
 } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
+import { useLowStockCount } from "@/hooks/useMaterials";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import {
@@ -65,6 +66,7 @@ const Sidebar = () => {
   const { labels, industry } = useIndustryConfig();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { data: lowStockCount } = useLowStockCount();
 
   const handleNav = (page: Page) => {
     navigate(page);
@@ -150,10 +152,13 @@ const Sidebar = () => {
                 onClick={() => handleNav("settings")}
                 isActive={isActive("settings")}
                 tooltip="Instellingen"
-                className="text-[13.5px] font-semibold"
+                className="text-[13.5px] font-semibold relative"
               >
                 <Settings className="!w-[18px] !h-[18px] flex-shrink-0" strokeWidth={1.8} />
                 <span>Instellingen</span>
+                {(lowStockCount ?? 0) > 0 && (
+                  <span className="absolute top-1 left-5 h-2 w-2 rounded-full bg-destructive" />
+                )}
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
