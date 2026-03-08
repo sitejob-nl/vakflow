@@ -246,8 +246,21 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
 
           {/* Totals */}
           <div className="bg-muted/50 rounded-md p-3 text-sm space-y-1">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span>BTW</span>
+                <Select value={String(vatPercentage)} onValueChange={(v) => setVatPercentage(Number(v))}>
+                  <SelectTrigger className="w-20 h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">0%</SelectItem>
+                    <SelectItem value="9">9%</SelectItem>
+                    <SelectItem value="21">21%</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <span className="font-mono">€ {vatAmount.toFixed(2)}</span>
+            </div>
             <div className="flex justify-between"><span>Subtotaal (excl. BTW)</span><span className="font-mono">€ {subtotal.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span>BTW (21%)</span><span className="font-mono">€ {vatAmount.toFixed(2)}</span></div>
             <div className="flex justify-between font-bold text-base"><span>Totaal incl. BTW</span><span className="font-mono">€ {total.toFixed(2)}</span></div>
           </div>
 
