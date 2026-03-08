@@ -4153,6 +4153,9 @@ const SettingsPage = () => {
                     if (accountingProvider === "moneybird") {
                       setMoneybirdConnected(!!moneybirdApiToken && !!moneybirdAdminId);
                     }
+                    if (accountingProvider === "wefact") {
+                      setWefactConnected(!!wefactApiKey);
+                    }
                     toast({ title: "Koppelingen opgeslagen" });
                   }
                 } catch (err: any) {
