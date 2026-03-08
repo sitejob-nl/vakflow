@@ -144,6 +144,37 @@ const MonteurDashboardPage = () => {
     }
   }, [optimizeResult, todayAppts, updateAppointment, queryClient, toast, resetOptimize]);
 
+  const handleCompleteWO = async () => {
+    if (!completingWO) return;
+    try {
+      const { error } = await supabase.from("work_orders").update({ status: "afgerond", completed_at: new Date().toISOString() }).eq("id", completingWO.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["monteur-dashboard-wos"] });
+      queryClient.invalidateQueries({ queryKey: ["monteur-dashboard-appts"] });
+      setCompletedWO(completingWO);
+      setCompletingWO(null);
+      toast({ title: `${completingWO.work_order_number} afgerond ✓` });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, woId: string) => {
+    const file = e.target.files?.[0];
+    if (!file || !companyId) return;
+    setUploadingPhoto(true);
+    try {
+      const path = `${companyId}/${woId}/${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage.from("work-order-photos").upload(path, file);
+      if (error) throw error;
+      toast({ title: "Foto geüpload ✓" });
+    } catch (err: any) {
+      toast({ title: "Upload mislukt", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   // Stats
   const completedToday = todayAppts?.filter((a: any) => a.status === "afgerond").length ?? 0;
   const totalToday = todayAppts?.length ?? 0;
