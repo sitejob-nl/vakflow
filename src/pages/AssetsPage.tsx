@@ -256,7 +256,7 @@ const AssetsPage = () => {
               <List className="w-4 h-4" />
             </Button>
             <Button variant={viewMode === "map" ? "secondary" : "ghost"} size="icon" className="rounded-none h-9 w-9" onClick={() => setViewMode("map")}>
-              <Map className="w-4 h-4" />
+              <MapIcon className="w-4 h-4" />
             </Button>
           </div>
         )}
