@@ -1,12 +1,13 @@
 import { useParams } from "react-router-dom";
-import { useVehicle, useVehicleMileageLogs } from "@/hooks/useVehicles";
+import { useVehicle, useVehicleMileageLogs, useRdwLookup } from "@/hooks/useVehicles";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Car, Calendar, Gauge, Fuel, Palette, Hash, FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Car, Calendar, Gauge, Fuel, Palette, Hash, FileText, ShieldAlert, ClipboardCheck, AlertTriangle, RefreshCw } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { nl } from "date-fns/locale";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 
 const formatPlate = (plate: string) => {
   const p = plate.replace(/[\s-]/g, "").toUpperCase();
@@ -19,6 +20,14 @@ const VehicleDetailPage = () => {
   const { data: vehicle, isLoading } = useVehicle(id);
   const { data: mileageLogs } = useVehicleMileageLogs(id);
   const { data: allWorkOrders } = useWorkOrders();
+  const rdwLookup = useRdwLookup();
+
+  // Auto-fetch RDW data when vehicle loads
+  useEffect(() => {
+    if (vehicle?.license_plate && !rdwLookup.data && !rdwLookup.isPending) {
+      rdwLookup.mutate(vehicle.license_plate);
+    }
+  }, [vehicle?.license_plate]);
 
   const vehicleWorkOrders = useMemo(() => {
     if (!allWorkOrders || !id) return [];
@@ -34,6 +43,7 @@ const VehicleDetailPage = () => {
   }
 
   const apkDays = vehicle.apk_expiry_date ? differenceInDays(new Date(vehicle.apk_expiry_date), new Date()) : null;
+  const rdw = rdwLookup.data;
 
   return (
     <div className="space-y-5 max-w-4xl">
@@ -52,10 +62,11 @@ const VehicleDetailPage = () => {
             <p className="text-sm text-muted-foreground mt-0.5">Klant: {vehicle.customers.name}</p>
           )}
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-2 flex-wrap justify-end">
           <Badge variant={vehicle.status === "actief" ? "default" : "secondary"}>{vehicle.status}</Badge>
           {apkDays !== null && apkDays < 0 && <Badge variant="destructive">APK verlopen</Badge>}
           {apkDays !== null && apkDays >= 0 && apkDays <= 30 && <Badge variant="outline" className="border-warning text-warning">APK {apkDays}d</Badge>}
+          {rdw?.has_open_recall && <Badge variant="destructive" className="flex items-center gap-1"><ShieldAlert className="h-3 w-3" />Terugroepactie</Badge>}
         </div>
       </div>
 
@@ -99,6 +110,106 @@ const VehicleDetailPage = () => {
           {vehicle.notes && <p className="mt-4 text-sm text-muted-foreground border-t border-border pt-3">{vehicle.notes}</p>}
         </CardContent>
       </Card>
+
+      {/* Recalls (terugroepacties) */}
+      {rdw?.recalls && rdw.recalls.length > 0 && (
+        <Card className={rdw.has_open_recall ? "border-destructive" : ""}>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4" />
+              Terugroepacties ({rdw.recalls.length})
+              {rdw.has_open_recall && <Badge variant="destructive" className="text-[10px]">Openstaand</Badge>}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {rdw.recalls.map((recall, idx) => (
+                <div key={idx} className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
+                  <div className="flex items-center gap-2">
+                    {(recall.status === "O" || recall.status?.toLowerCase().includes("open")) ? (
+                      <AlertTriangle className="h-4 w-4 text-destructive" />
+                    ) : (
+                      <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span className="text-sm font-mono">{recall.ref_code || "—"}</span>
+                  </div>
+                  <Badge variant={recall.status === "O" ? "destructive" : "secondary"} className="text-[10px]">
+                    {recall.status === "O" ? "Open" : recall.status === "H" ? "Hersteld" : recall.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* APK History */}
+      {rdw?.inspections && rdw.inspections.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4" />
+              APK-historie ({rdw.inspections.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {rdw.inspections.map((insp, idx) => (
+                <div key={idx} className="flex items-center justify-between py-1.5 text-sm border-b border-border last:border-b-0">
+                  <span className="text-muted-foreground">Keuring {idx + 1}</span>
+                  <span className="font-mono font-medium">
+                    {insp.expiry_date ? format(new Date(insp.expiry_date), "dd MMM yyyy", { locale: nl }) : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Defects (geconstateerde gebreken) */}
+      {rdw?.defects && rdw.defects.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Geconstateerde gebreken ({rdw.defects.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {rdw.defects.map((defect, idx) => (
+                <div key={idx} className="flex items-center justify-between py-2 border-b border-border last:border-b-0 gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{defect.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {defect.date ? format(new Date(defect.date), "dd MMM yyyy", { locale: nl }) : "—"}
+                      {defect.count > 1 && ` · ${defect.count}×`}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono text-muted-foreground shrink-0">{defect.defect_id}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* RDW loading state */}
+      {rdwLookup.isPending && (
+        <Card>
+          <CardContent className="py-6 flex items-center justify-center gap-2 text-muted-foreground text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" /> RDW keuringsdata ophalen…
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Refresh RDW data button */}
+      {!rdwLookup.isPending && vehicle.license_plate && (
+        <Button variant="outline" size="sm" onClick={() => rdwLookup.mutate(vehicle.license_plate)} className="gap-2">
+          <RefreshCw className="h-3.5 w-3.5" /> RDW data vernieuwen
+        </Button>
+      )}
 
       {/* Work orders */}
       <Card>
