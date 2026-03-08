@@ -170,6 +170,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
         customer_id: appointment.customer_id,
         service_id: appointment.service_id || "",
         address_id: appointment.address_id || "",
+        vehicle_id: (appointment as any).vehicle_id || "",
         scheduled_at: scheduledAt,
         duration_minutes: appointment.duration_minutes ?? 60,
         status: isDuplicate ? "gepland" : appointment.status,
