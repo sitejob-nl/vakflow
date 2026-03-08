@@ -177,7 +177,7 @@ const SettingsAccountingTab = () => {
       {provider === "wefact" && (
         <div className="border-t border-border pt-5 space-y-3">
           <h3 className="text-[14px] font-bold">WeFact instellingen</h3>
-          {tokenField("API Key", "wefact_api_key", hasTokens.wefact)}
+          <TokenField label="API Key" fieldName="wefact_api_key" hasToken={hasTokens.wefact} saving={saving} onSave={handleSaveToken} />
           <p className="text-[11px] text-muted-foreground">Let op: WeFact vereist IP-whitelisting van de Supabase Edge Function omgeving.</p>
         </div>
       )}
