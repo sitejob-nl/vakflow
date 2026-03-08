@@ -54,6 +54,7 @@ const WorkOrderDetailPage = () => {
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [mileageInput, setMileageInput] = useState("");
+  const [sharingLink, setSharingLink] = useState(false);
   
 
   // Determine if this work order has a vehicle
