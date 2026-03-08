@@ -55,8 +55,8 @@ const AssetsPage = () => {
   const { industry } = useIndustryConfig();
   const isCleaning = industry === "cleaning";
 
-  // Load custom field config
-  const { data: fieldConfig } = useQuery({
+  // Load custom field config (object types with fields)
+  const { data: rawFieldConfig } = useQuery({
     queryKey: ["asset_field_config", companyId],
     queryFn: async () => {
       const { data } = await supabase
@@ -64,10 +64,17 @@ const AssetsPage = () => {
         .select("asset_field_config")
         .eq("id", companyId!)
         .single();
-      return ((data?.asset_field_config as any[]) ?? []) as Array<{ key: string; label: string; type: string; options?: string[] }>;
+      return ((data?.asset_field_config ?? []) as unknown as any[]);
     },
     enabled: !!companyId,
   });
+
+  // Normalize config: support both ObjectTypeDef[] and legacy flat FieldDef[]
+  const objectTypes = useMemo(() => {
+    if (!rawFieldConfig || rawFieldConfig.length === 0) return [] as Array<{ key: string; label: string; fields: Array<{ key: string; label: string; type: string; options?: string[] }> }>;
+    if (rawFieldConfig[0]?.fields) return rawFieldConfig as Array<{ key: string; label: string; fields: Array<{ key: string; label: string; type: string; options?: string[] }> }>;
+    return [{ key: "__legacy", label: "Overig", fields: rawFieldConfig as Array<{ key: string; label: string; type: string; options?: string[] }> }];
+  }, [rawFieldConfig]);
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -344,36 +351,54 @@ const AssetsPage = () => {
                   <div className="text-sm"><span className="text-muted-foreground">Notities:</span> {detailAsset.notes}</div>
                 )}
 
-                {/* Custom fields */}
-                {fieldConfig && fieldConfig.length > 0 && detailAsset.custom_fields && (
-                  <div className="pt-2 border-t">
-                    <h3 className="font-semibold mb-2 text-sm">Extra velden</h3>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-                      {fieldConfig.map((fd) => {
-                        const val = (detailAsset.custom_fields as any)?.[fd.key];
-                        if (val === null || val === undefined || val === "") return null;
-                        let display: string;
-                        if (fd.type === "boolean") {
-                          display = val ? "Ja" : "Nee";
-                        } else if (fd.type === "date" && val) {
-                          try {
-                            display = fmtDate(new Date(val), "d MMM yyyy", { locale: nlLocale });
-                          } catch {
-                            display = String(val);
-                          }
-                        } else {
-                          display = String(val);
-                        }
-                        return (
-                          <div key={fd.key} className="contents">
-                            <div className="text-muted-foreground">{fd.label}</div>
-                            <div>{display}</div>
-                          </div>
-                        );
-                      })}
+                {/* Custom fields based on object type */}
+                {(() => {
+                  // Find matching object type fields for this asset
+                  const assetTypeKey = detailAsset.asset_type || "";
+                  let activeFields: Array<{ key: string; label: string; type: string }> = [];
+                  const matchedType = objectTypes.find((ot) => ot.key === assetTypeKey);
+                  if (matchedType) {
+                    activeFields = matchedType.fields;
+                  } else if (objectTypes.length === 1 && objectTypes[0].key === "__legacy") {
+                    activeFields = objectTypes[0].fields;
+                  }
+
+                  if (activeFields.length === 0 || !detailAsset.custom_fields) return null;
+
+                  const items = activeFields.map((fd) => {
+                    const val = (detailAsset.custom_fields as any)?.[fd.key];
+                    if (val === null || val === undefined || val === "") return null;
+                    let display: string;
+                    if (fd.type === "boolean") {
+                      display = val ? "Ja" : "Nee";
+                    } else if (fd.type === "date" && val) {
+                      try {
+                        display = fmtDate(new Date(val), "d MMM yyyy", { locale: nlLocale });
+                      } catch {
+                        display = String(val);
+                      }
+                    } else {
+                      display = String(val);
+                    }
+                    return (
+                      <div key={fd.key} className="contents">
+                        <div className="text-muted-foreground">{fd.label}</div>
+                        <div>{display}</div>
+                      </div>
+                    );
+                  }).filter(Boolean);
+
+                  if (items.length === 0) return null;
+
+                  return (
+                    <div className="pt-2 border-t">
+                      <h3 className="font-semibold mb-2 text-sm">Extra velden</h3>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                        {items}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Maintenance History */}
                 <div className="pt-2 border-t">
