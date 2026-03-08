@@ -9,6 +9,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 import { nl } from "date-fns/locale";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 const Header = () => {
   const { currentPage, navigate } = useNavigation();
