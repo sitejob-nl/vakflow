@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuotes, useUpdateQuote, useDeleteQuote, useConvertQuoteToWorkOrder, useConvertQuoteToInvoice, useConvertQuoteToProject, type Quote } from "@/hooks/useQuotes";
 import { format } from "date-fns";
-import { Loader2, ChevronLeft, FileDown, Plus, RefreshCw, Trash2, FileText, Receipt, CalendarPlus, FolderKanban } from "lucide-react";
+import { Loader2, ChevronLeft, FileDown, Plus, RefreshCw, Trash2, FileText, Receipt, CalendarPlus, FolderKanban, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
