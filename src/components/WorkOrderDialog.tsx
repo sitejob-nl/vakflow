@@ -7,7 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Wrench } from "lucide-react";
+import { Loader2, Wrench, Sparkles } from "lucide-react";
+import AiIntakePanel from "@/components/AiIntakePanel";
+import type { AiIntakeSuggestion } from "@/hooks/useAiIntake";
 import { useCreateWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
@@ -41,6 +43,19 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
   const updateWO = useUpdateWorkOrder();
   const isEdit = !!workOrder;
   const isMonteur = role === "monteur";
+  const [showAiIntake, setShowAiIntake] = useState(false);
+
+  const handleAiApply = (s: AiIntakeSuggestion) => {
+    setForm((f) => ({
+      ...f,
+      description: s.summary + (s.notes ? `\n\n${s.notes}` : ""),
+      work_order_type: s.work_order_type || f.work_order_type,
+      service_id: s.suggested_service_id || f.service_id,
+    }));
+    setShowAiIntake(false);
+    // Store materials suggestion for later use
+    (window as any).__aiIntakeMaterials = s.suggested_materials;
+  };
 
   const [form, setForm] = useState({
     customer_id: "",
@@ -283,6 +298,16 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         <Label>Voorrijkosten (€)</Label>
         <Input type="number" value={form.travel_cost} onChange={(e) => set("travel_cost", parseFloat(e.target.value) || 0)} min={0} step={5} />
       </div>
+      {/* AI Intake */}
+      {!isEdit && (
+        showAiIntake ? (
+          <AiIntakePanel onApply={handleAiApply} onClose={() => setShowAiIntake(false)} />
+        ) : (
+          <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setShowAiIntake(true)}>
+            <Sparkles className="mr-1.5 h-3.5 w-3.5" /> AI Intake — klacht analyseren
+          </Button>
+        )
+      )}
       <div className="space-y-1.5">
         <Label>Werkzaamheden</Label>
         <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="Beschrijf wat er gedaan moet worden..." />
