@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePortalAuth } from "@/contexts/PortalAuthContext";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Wrench, Calendar, User, MapPin, Image } from "lucide-react";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SignedMedia } from "@/components/SignedMedia";
 
@@ -30,6 +30,23 @@ const statusLabels: Record<string, string> = {
 const PortalWorkOrdersPage = () => {
   const { customerId } = usePortalAuth();
   const [selected, setSelected] = useState<any | null>(null);
+  const queryClient = useQueryClient();
+
+  // Realtime subscription for work order status changes
+  useEffect(() => {
+    if (!customerId) return;
+    const channel = supabase
+      .channel("portal-wo-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "work_orders", filter: `customer_id=eq.${customerId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["portal-workorders", customerId] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [customerId, queryClient]);
 
   const { data: workOrders, isLoading } = useQuery({
     queryKey: ["portal-workorders", customerId],
