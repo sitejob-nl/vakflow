@@ -569,10 +569,11 @@ Deno.serve(async (req) => {
       const relationId = await ensureRelation(customer);
 
       const items = Array.isArray(quote.items) ? quote.items : [];
+      const quoteVatCode = eboekhoudenVatCode(Number(quote.vat_percentage || 21));
       const ebItems = items.map((item: any) => ({
         description: item.description || "Offerte item",
         pricePerUnit: Number(item.unit_price || 0),
-        vatCode: "HOOG_VERK_21",
+        vatCode: quoteVatCode,
         ledgerId: profile.eboekhouden_ledger_id,
         quantity: Number(item.qty || 1),
       }));
@@ -581,7 +582,7 @@ Deno.serve(async (req) => {
         ebItems.push({
           description: "Offerte",
           pricePerUnit: Number(quote.total || 0),
-          vatCode: "HOOG_VERK_21",
+          vatCode: quoteVatCode,
           ledgerId: profile.eboekhouden_ledger_id,
           quantity: 1,
         });
