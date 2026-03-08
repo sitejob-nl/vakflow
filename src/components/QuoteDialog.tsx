@@ -26,9 +26,13 @@ const emptyOptional = (): OptionalItem => ({ description: "", price: 0 });
 
 const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
   const { data: customers } = useCustomers();
+  const { data: assets } = useAssets();
   const { data: allTemplates } = useCombinedTemplates();
+  const { industry } = useIndustryConfig();
+  const isCleaning = industry === "cleaning";
   const createQuote = useCreateQuote();
   const updateQuote = useUpdateQuote();
+  const convertToContract = useConvertQuoteToContract();
   const { toast } = useToast();
   const { companyId } = useAuth();
   const queryClient = useQueryClient();
