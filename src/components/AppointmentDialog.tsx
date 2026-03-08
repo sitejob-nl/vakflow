@@ -29,6 +29,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   appointment?: Tables<"appointments"> | null;
   defaultDate?: Date;
+  prefill?: { customer_id?: string; notes?: string };
 }
 
 const statusOptions = [
