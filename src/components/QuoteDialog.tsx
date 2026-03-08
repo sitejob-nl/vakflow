@@ -267,24 +267,76 @@ const QuoteDialog = ({ open, onOpenChange, editQuote, onScheduleAppointment }: P
           <div className="flex justify-between gap-2">
             <div>
               {editQuote && editQuote.status === "geaccepteerd" && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      await convertToContract.mutateAsync(editQuote);
-                      toast({ title: "Contract aangemaakt vanuit offerte" });
-                      onOpenChange(false);
-                    } catch (err: any) {
-                      toast({ title: "Fout", description: err.message, variant: "destructive" });
-                    }
-                  }}
-                  disabled={convertToContract.isPending}
-                >
-                  <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
-                  Omzetten naar contract
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await convertToContract.mutateAsync(editQuote);
+                        toast({ title: "Contract aangemaakt vanuit offerte" });
+                        onOpenChange(false);
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
+                      }
+                    }}
+                    disabled={convertToContract.isPending}
+                  >
+                    <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
+                    Contract
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const wo = await convertToWorkOrder.mutateAsync(editQuote);
+                        toast({ title: `Werkbon ${(wo as any).work_order_number ?? ""} aangemaakt` });
+                        onOpenChange(false);
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
+                      }
+                    }}
+                    disabled={convertToWorkOrder.isPending}
+                  >
+                    <FileText className="h-3.5 w-3.5 mr-1" />
+                    Werkbon
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const inv = await convertToInvoice.mutateAsync(editQuote);
+                        toast({ title: `Factuur ${(inv as any).invoice_number ?? ""} aangemaakt als concept` });
+                        onOpenChange(false);
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
+                      }
+                    }}
+                    disabled={convertToInvoice.isPending}
+                  >
+                    <Receipt className="h-3.5 w-3.5 mr-1" />
+                    Factuur
+                  </Button>
+                  {onScheduleAppointment && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        onScheduleAppointment(editQuote);
+                        onOpenChange(false);
+                      }}
+                    >
+                      <CalendarPlus className="h-3.5 w-3.5 mr-1" />
+                      Afspraak
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
             <div className="flex gap-2">
