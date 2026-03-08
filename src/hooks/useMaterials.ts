@@ -148,21 +148,11 @@ export const useDeleteWorkOrderMaterial = () => {
   });
 };
 
-// Low stock count for sidebar badge
+// Low stock count for sidebar badge — derives from useMaterials data
 export const useLowStockCount = () => {
-  const { companyId } = useAuth();
-  return useQuery({
-    queryKey: ["low_stock_count", companyId],
-    queryFn: async () => {
-      let q = supabase
-        .from("materials")
-        .select("id", { count: "exact", head: true })
-        .gt("min_stock_level", 0)
-        .filter("stock_quantity", "lt", "min_stock_level" as any);
-      if (companyId) q = q.eq("company_id", companyId);
-      const { count, error } = await q;
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
+  const { data: materials } = useMaterials();
+  const count = (materials ?? []).filter(
+    (m) => m.min_stock_level > 0 && m.stock_quantity < m.min_stock_level
+  ).length;
+  return { data: count };
 };
