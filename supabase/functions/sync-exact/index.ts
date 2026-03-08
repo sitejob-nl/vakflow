@@ -605,7 +605,8 @@ Deno.serve(async (req) => {
           .from("quotes")
           .select("*, customers(name, email, exact_account_id)")
           .eq("company_id", companyId)
-          .in("status", ["verzonden", "verstuurd"]);
+          .in("status", ["verzonden", "verstuurd"])
+          .is("exact_id", null);
 
         if (!quotes?.length) return jsonRes({ synced: 0, skipped: 0, errors: [] });
 
