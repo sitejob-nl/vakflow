@@ -708,6 +708,7 @@ export type Database = {
           id: string
           interval_months: number
           last_generated_at: string | null
+          moneybird_subscription_id: string | null
           name: string
           next_due_date: string
           notes: string | null
@@ -729,6 +730,7 @@ export type Database = {
           id?: string
           interval_months?: number
           last_generated_at?: string | null
+          moneybird_subscription_id?: string | null
           name: string
           next_due_date?: string
           notes?: string | null
@@ -750,6 +752,7 @@ export type Database = {
           id?: string
           interval_months?: number
           last_generated_at?: string | null
+          moneybird_subscription_id?: string | null
           name?: string
           next_due_date?: string
           notes?: string | null
@@ -1174,6 +1177,7 @@ export type Database = {
           created_at: string
           id: string
           markup_percentage: number
+          moneybird_product_id: string | null
           name: string
           unit: string
           unit_price: number
@@ -1187,6 +1191,7 @@ export type Database = {
           created_at?: string
           id?: string
           markup_percentage?: number
+          moneybird_product_id?: string | null
           name: string
           unit?: string
           unit_price?: number
@@ -1200,6 +1205,7 @@ export type Database = {
           created_at?: string
           id?: string
           markup_percentage?: number
+          moneybird_product_id?: string | null
           name?: string
           unit?: string
           unit_price?: number

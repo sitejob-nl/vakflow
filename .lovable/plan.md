@@ -1,87 +1,51 @@
 
 
-## Plan: Moneybird Integratie Uitbreiden
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-Vier uitbreidingen op de bestaande `sync-moneybird` edge function: webhook ontvanger, producten sync, contracten/abonnementen koppeling, en verbeteringen.
+### Problemen
 
----
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-### 1. Webhook Ontvanger
+### Aanpak
 
-**Doel:** Realtime updates ontvangen van Moneybird (factuurstatus, betaalstatus) ipv polling.
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-**Database:**
-- Nieuwe tabel `moneybird_webhook_config` met `company_id`, `webhook_id` (Moneybird's webhook ID), `enabled_events`, `created_at`
-- Of simpeler: opslaan als `moneybird_webhook_id` kolom op `companies` tabel
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-**Edge Function:** `moneybird-webhook` (nieuw, `verify_jwt = false`)
-- Ontvangt POST van Moneybird met event payload
-- Valideert dat het event van een bekende administratie komt
-- Verwerkt events:
-  - `sales_invoice_updated` / `sales_invoice_state_changed` → update `invoices.status` en `paid_at`
-  - `contact_changed` → update klantgegevens
-  - `estimate_state_changed` → update `quotes.status`
-- Lookup company via `moneybird_administration_id`
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-**Webhook registratie:** Nieuw action `register-webhook` in `sync-moneybird`:
-- POST naar `/{admin_id}/webhooks.json` met callback URL
-- Slaat Moneybird webhook ID op voor cleanup
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-**Webhook deregistratie:** Action `unregister-webhook` om webhook te verwijderen bij ontkoppelen.
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-**Config:** `supabase/config.toml` entry met `verify_jwt = false`
-
----
-
-### 2. Producten Sync
-
-**Doel:** Materialen-catalogus koppelen aan Moneybird producten, zodat factuurregels de juiste `product_id` en `ledger_account_id` meekrijgen.
-
-**Database:**
-- Kolom `moneybird_product_id` (text) toevoegen aan `materials` tabel
-
-**Edge Function acties** (in bestaande `sync-moneybird`):
-- `sync-products` — push materialen naar Moneybird als producten
-- `pull-products` — importeer Moneybird producten als materialen
-- `create-invoice` en `create-quote` aanpassen: als item gekoppeld is aan materiaal met `moneybird_product_id`, die meesturen in `details_attributes`
-
----
-
-### 3. Contracten → Moneybird Abonnementen
-
-**Doel:** Bij aanmaken van een contract optioneel een Moneybird subscription aanmaken.
-
-**Database:**
-- Kolom `moneybird_subscription_id` (text) toevoegen aan `contracts` tabel
-
-**Edge Function acties** (in bestaande `sync-moneybird`):
-- `create-subscription` — maakt Moneybird subscription aan op basis van contract
-- `sync-subscriptions` — bulk push
-- `pull-subscriptions` — importeer Moneybird abonnementen als contracten
-
-**Frontend:** In `ContractDialog` optie tonen "Sync naar Moneybird" wanneer provider = moneybird.
-
----
-
-### 4. Bug Fixes / Verbeteringen
-
-- **`MB_BASE` constante ontbreekt** — staat niet in de zichtbare code, verifiëren en toevoegen
-- **Tax rate ID:** Bij create-invoice/quote nu geen `tax_rate_id` meegegeven → ophalen van standaard BTW tarief via `tax_rates` endpoint en cachen
-- **Reference veld:** Bij facturen/offertes het `reference` veld vullen met Vakflow factuurnummer als cross-referentie
-- **Bestaand contact updaten:** Bij `sync-customer` als contact al bestaat, PATCH ipv skippen (gegevens kunnen gewijzigd zijn)
-- **Due date meegeven** bij facturen (wordt nu `undefined` als niet gezet)
-
----
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
 ### Bestanden
 
-| Bestand | Actie |
-|---------|-------|
-| Migratie | `moneybird_product_id` op materials, `moneybird_subscription_id` op contracts |
-| `supabase/functions/moneybird-webhook/index.ts` | Nieuw |
-| `supabase/functions/sync-moneybird/index.ts` | Uitbreiden met webhook-registratie, producten, subscriptions, fixes |
-| `supabase/config.toml` | Entry voor `moneybird-webhook` |
-| `src/components/ContractDialog.tsx` | Moneybird sync optie |
-| `src/components/MaterialsSettings.tsx` | Moneybird product ID tonen |
-| `src/pages/SettingsPage.tsx` | Webhook registratie knop bij Moneybird koppeling |
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+
+Geen database-wijzigingen, geen nieuwe dependencies.
 

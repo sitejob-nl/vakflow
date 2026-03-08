@@ -450,7 +450,53 @@ export const usePullQuotesMoneybird = () => {
   });
 };
 
-// ─── Exact Online sync hooks ───
+// Moneybird products sync hooks
+export const useSyncProductsMoneybird = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+        body: { action: "sync-products" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
+  });
+};
+
+export const usePullProductsMoneybird = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+        body: { action: "pull-products" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total: number; created: number; updated: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
+  });
+};
+
+export const usePullSubscriptionsMoneybird = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+        body: { action: "pull-subscriptions" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total: number; created: number; skipped: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contracts"] }),
+  });
+};
+
+
 
 export const useSyncContactsExact = () => {
   const qc = useQueryClient();
