@@ -599,7 +599,7 @@ Deno.serve(async (req) => {
           .from("quotes")
           .select("*, customers(name, email, exact_account_id)")
           .eq("company_id", companyId)
-          .eq("status", "verstuurd");
+          .in("status", ["verzonden", "verstuurd"]);
 
         if (!quotes?.length) return jsonRes({ synced: 0, skipped: 0, errors: [] });
 
