@@ -100,6 +100,12 @@ const AssetsPage = () => {
     enabled: !!companyId && isCleaning,
   });
 
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [dialogOpen, setDialogOpen] = useState(false);
+
   // Google Maps API key for map view
   const { data: gmapsKey } = useQuery({
     queryKey: ["google-maps-key"],
@@ -113,12 +119,6 @@ const AssetsPage = () => {
     staleTime: 60 * 60 * 1000,
     enabled: isCleaning && viewMode === "map",
   });
-
-  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [detailAsset, setDetailAsset] = useState<Asset | null>(null);
