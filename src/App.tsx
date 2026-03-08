@@ -102,7 +102,7 @@ const App = () => (
               <Route path="/meta-callback" element={<ProtectedRoute><MetaCallbackPage /></ProtectedRoute>} />
               {/* Portal routes - separate auth context */}
               <Route path="/portal/login" element={<PortalLoginPage />} />
-              <Route path="/portal" element={<PortalRouteWrapper />}>
+              <Route path="/portal" element={<PortalAuthProvider><PortalRoute><PortalLayout /></PortalRoute></PortalAuthProvider>}>
                 <Route index element={<Navigate to="/portal/quotes" replace />} />
                 <Route path="quotes" element={<PortalQuotesPage />} />
                 <Route path="workorders" element={<PortalWorkOrdersPage />} />
