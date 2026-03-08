@@ -48,6 +48,7 @@ const PortalQuotesPage = lazy(() => import("@/pages/PortalQuotesPage"));
 const PortalWorkOrdersPage = lazy(() => import("@/pages/PortalWorkOrdersPage"));
 const PortalVehiclesPage = lazy(() => import("@/pages/PortalVehiclesPage"));
 const PortalAppointmentsPage = lazy(() => import("@/pages/PortalAppointmentsPage"));
+const PortalTireStoragePage = lazy(() => import("@/pages/PortalTireStoragePage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -116,6 +117,7 @@ const App = () => (
                 <Route path="workorders" element={<PortalWorkOrdersPage />} />
                 <Route path="appointments" element={<PortalAppointmentsPage />} />
                 <Route path="vehicles" element={<PortalVehiclesPage />} />
+                <Route path="tires" element={<PortalTireStoragePage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
