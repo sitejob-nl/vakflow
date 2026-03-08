@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useMaintenanceLogs, useCreateMaintenanceLog, useDeleteMaintenanceLog, type Asset, type MaintenanceLog } from "@/hooks/useAssets";
 import { format as fmtDate } from "date-fns";
@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Pencil, Trash2, History, Box, Loader2, Building2, Truck, Package, Map, List } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, History, Box, Loader2, Building2, Truck, Package, Map as MapIcon, List } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { nl } from "date-fns/locale";
 import AssetDialog from "@/components/AssetDialog";
@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { subMonths } from "date-fns";
+import { APIProvider, Map, AdvancedMarker, InfoWindow } from "@vis.gl/react-google-maps";
 
 const statusColor: Record<string, string> = {
   actief: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -99,10 +100,25 @@ const AssetsPage = () => {
     enabled: !!companyId && isCleaning,
   });
 
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Google Maps API key for map view
+  const { data: gmapsKey } = useQuery({
+    queryKey: ["google-maps-key"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("google-maps-proxy", {
+        body: { action: "get-key" },
+      });
+      if (error) throw error;
+      return data?.key as string;
+    },
+    staleTime: 60 * 60 * 1000,
+    enabled: isCleaning && viewMode === "map",
+  });
   const [editing, setEditing] = useState<Asset | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [detailAsset, setDetailAsset] = useState<Asset | null>(null);
@@ -240,7 +256,7 @@ const AssetsPage = () => {
               <List className="w-4 h-4" />
             </Button>
             <Button variant={viewMode === "map" ? "secondary" : "ghost"} size="icon" className="rounded-none h-9 w-9" onClick={() => setViewMode("map")}>
-              <Map className="w-4 h-4" />
+              <MapIcon className="w-4 h-4" />
             </Button>
           </div>
         )}
@@ -254,39 +270,73 @@ const AssetsPage = () => {
           {search ? "Geen objecten gevonden" : "Nog geen objecten aangemaakt"}
         </CardContent></Card>
       ) : viewMode === "map" && isCleaning ? (
-        /* Map view placeholder - shows objects with addresses */
-        <Card><CardContent className="py-12 text-center text-muted-foreground">
-          <Map className="mx-auto w-10 h-10 mb-2 opacity-40" />
-          <p className="text-sm font-medium mb-1">Kaartweergave</p>
-          <p className="text-xs">Objecten met een adres worden op de kaart getoond.</p>
-          <div className="mt-4 space-y-2 text-left max-w-md mx-auto">
-            {filtered.filter((a) => a.address).map((asset) => (
-              <div
-                key={asset.id}
-                className="flex items-center gap-3 p-2.5 bg-muted/50 rounded-md cursor-pointer hover:bg-muted"
-                onClick={() => setDetailAsset(asset)}
-              >
-                {asset.object_type === "fleet" ? <Truck className="w-4 h-4 text-muted-foreground" /> : <Building2 className="w-4 h-4 text-muted-foreground" />}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{asset.name}</div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {[asset.address?.street, asset.address?.house_number, asset.address?.city].filter(Boolean).join(" ")}
-                  </div>
+        /* Google Maps view */
+        (() => {
+          const mappable = filtered.filter((a) => a.address?.lat && a.address?.lng);
+          const defaultCenter = mappable.length > 0
+            ? { lat: mappable[0].address!.lat!, lng: mappable[0].address!.lng! }
+            : { lat: 52.09, lng: 5.12 };
+
+          if (!gmapsKey) {
+            return (
+              <Card><CardContent className="py-12 text-center text-muted-foreground">
+                <Loader2 className="mx-auto w-6 h-6 animate-spin mb-2" />
+                <p className="text-sm">Kaart laden…</p>
+              </CardContent></Card>
+            );
+          }
+
+          return (
+            <Card className="overflow-hidden">
+              <APIProvider apiKey={gmapsKey}>
+                <div className="h-[500px] w-full relative">
+                  <Map defaultCenter={defaultCenter} defaultZoom={mappable.length === 1 ? 14 : 8} mapId="assets-map" className="w-full h-full">
+                    {mappable.map((asset) => (
+                      <AdvancedMarker
+                        key={asset.id}
+                        position={{ lat: asset.address!.lat!, lng: asset.address!.lng! }}
+                        onClick={() => setSelectedMarkerId(asset.id)}
+                      />
+                    ))}
+                    {selectedMarkerId && (() => {
+                      const asset = mappable.find((a) => a.id === selectedMarkerId);
+                      if (!asset) return null;
+                      return (
+                        <InfoWindow
+                          position={{ lat: asset.address!.lat!, lng: asset.address!.lng! }}
+                          onCloseClick={() => setSelectedMarkerId(null)}
+                        >
+                          <div className="p-1 min-w-[160px]">
+                            <div className="font-semibold text-sm">{asset.name}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {[asset.address?.street, asset.address?.house_number, asset.address?.city].filter(Boolean).join(" ")}
+                            </div>
+                            {(asset as any).avg_quality_score && (
+                              <div className="text-xs mt-1">Score: {(asset as any).avg_quality_score?.toFixed(1)}</div>
+                            )}
+                            <button
+                              className="text-xs text-primary mt-1.5 underline"
+                              onClick={() => { setDetailAsset(asset); setSelectedMarkerId(null); }}
+                            >
+                              Details bekijken
+                            </button>
+                          </div>
+                        </InfoWindow>
+                      );
+                    })()}
+                  </Map>
                 </div>
-                {(asset as any).avg_quality_score && (
-                  <Badge variant="secondary" className={qualityBadgeClass((asset as any).avg_quality_score)}>
-                    {(asset as any).avg_quality_score?.toFixed(1)}
-                  </Badge>
-                )}
-              </div>
-            ))}
-            {filtered.filter((a) => !a.address).length > 0 && (
-              <p className="text-xs text-muted-foreground text-center mt-2">
-                {filtered.filter((a) => !a.address).length} object(en) zonder adres
-              </p>
-            )}
-          </div>
-        </CardContent></Card>
+              </APIProvider>
+              {filtered.filter((a) => !a.address?.lat).length > 0 && (
+                <CardContent className="py-2 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    {filtered.filter((a) => !a.address?.lat).length} object(en) zonder coördinaten — niet op kaart
+                  </p>
+                </CardContent>
+              )}
+            </Card>
+          );
+        })()
       ) : (
         <>
         {/* Desktop table */}

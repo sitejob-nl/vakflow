@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, forwardRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,7 @@ const WO_TYPES = [
   { value: "overig", label: "Overig", icon: MoreHorizontal },
 ];
 
-const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCustomerId }: Props) => {
+const WorkOrderDialog = forwardRef<HTMLDivElement, Props>(({ open, onOpenChange, workOrder, projectId, prefillCustomerId }, _ref) => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { labels, industry } = useIndustryConfig();
@@ -654,6 +654,8 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
       </DialogContent>
     </Dialog>
   );
-};
+});
+
+WorkOrderDialog.displayName = "WorkOrderDialog";
 
 export default WorkOrderDialog;

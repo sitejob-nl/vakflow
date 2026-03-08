@@ -32,7 +32,7 @@ export interface Asset {
   custom_fields: Record<string, any> | null;
   // joined
   customer?: { id: string; name: string } | null;
-  address?: { id: string; street: string | null; house_number: string | null; city: string | null } | null;
+  address?: { id: string; street: string | null; house_number: string | null; city: string | null; lat: number | null; lng: number | null } | null;
 }
 
 export interface MaintenanceLog {
@@ -77,7 +77,7 @@ export const useAssets = () => {
     queryFn: async () => {
       let q = supabase
         .from("assets" as any)
-        .select("*, customer:customers(id, name), address:addresses(id, street, house_number, city)")
+        .select("*, customer:customers(id, name), address:addresses(id, street, house_number, city, lat, lng)")
         .order("name");
       if (companyId) q = q.eq("company_id", companyId);
       const { data, error } = await q;
@@ -95,7 +95,7 @@ export const useAsset = (id: string | undefined) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("assets" as any)
-        .select("*, customer:customers(id, name), address:addresses(id, street, house_number, city)")
+        .select("*, customer:customers(id, name), address:addresses(id, street, house_number, city, lat, lng)")
         .eq("id", id!)
         .single();
       if (error) throw error;
