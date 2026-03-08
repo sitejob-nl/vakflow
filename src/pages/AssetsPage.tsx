@@ -310,6 +310,7 @@ const AssetsPage = () => {
             );
           })}
         </div>
+        </>
       )}
 
       <AssetDialog

@@ -143,6 +143,7 @@ const ProjectsPage = () => {
               );
             })}
           </div>
+          </>
         )}
       </div>
 
