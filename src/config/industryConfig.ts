@@ -82,7 +82,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing",
+      "reminders", "assets", "marketing", "contracts",
     ],
   },
   cleaning: {
@@ -118,7 +118,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing", "schedule", "audits",
+      "reminders", "assets", "marketing", "contracts", "schedule", "audits",
     ],
   },
   automotive: {
@@ -162,7 +162,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "vehicles", "marketing", "trade",
+      "reminders", "vehicles", "marketing", "contracts", "trade",
     ],
   },
   pest: {
@@ -190,7 +190,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing",
+      "reminders", "assets", "marketing", "contracts",
     ],
   },
   landscaping: {
@@ -232,7 +232,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing",
+      "reminders", "assets", "marketing", "contracts",
     ],
   },
 };

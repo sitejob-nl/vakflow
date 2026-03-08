@@ -12,6 +12,7 @@ import { Loader2, Wrench, Sparkles } from "lucide-react";
 import AiIntakePanel from "@/components/AiIntakePanel";
 import type { AiIntakeSuggestion } from "@/hooks/useAiIntake";
 import { useCreateWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
+import { useAddWorkOrderMaterial, useMaterials } from "@/hooks/useMaterials";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
 import { useAssets, useObjectRooms, useFleetVehicleTypes } from "@/hooks/useAssets";
@@ -43,6 +44,8 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
   const { data: teamMembers } = useTeamMembers();
   const createWO = useCreateWorkOrder();
   const updateWO = useUpdateWorkOrder();
+  const addWOMaterial = useAddWorkOrderMaterial();
+  const { data: materialsCatalog } = useMaterials();
   const isEdit = !!workOrder;
   const isMonteur = role === "monteur";
   const [showAiIntake, setShowAiIntake] = useState(false);
@@ -218,7 +221,23 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         await updateWO.mutateAsync({ id: workOrder!.id, ...payload });
         toast({ title: `${labels.workOrder} bijgewerkt` });
       } else {
-        await createWO.mutateAsync(payload as any);
+        const newWO = await createWO.mutateAsync(payload as any);
+        // P1: Persist AI-suggested materials
+        if (aiMaterials?.length && newWO?.id) {
+          for (const m of aiMaterials) {
+            const catalogPrice = m.material_id
+              ? materialsCatalog?.find((mat) => mat.id === m.material_id)?.unit_price ?? 0
+              : 0;
+            await addWOMaterial.mutateAsync({
+              work_order_id: newWO.id,
+              material_id: m.material_id || null,
+              name: m.name,
+              unit: m.unit || "stuk",
+              quantity: m.quantity || 1,
+              unit_price: catalogPrice,
+            });
+          }
+        }
         toast({ title: `${labels.workOrder} aangemaakt` });
       }
       onOpenChange(false);

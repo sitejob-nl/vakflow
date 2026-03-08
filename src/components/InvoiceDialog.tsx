@@ -48,6 +48,7 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
   const [items, setItems] = useState<QuoteItem[]>([emptyItem()]);
   const [optionalItems, setOptionalItems] = useState<OptionalItem[]>([]);
   const [notes, setNotes] = useState("");
+  const [vatPercentage, setVatPercentage] = useState(21);
   const defaultDueDate = () => {
     const d = new Date(); d.setDate(d.getDate() + 30);
     return d.toISOString().split("T")[0];
@@ -66,6 +67,7 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
       );
       setNotes((editInvoice as any).notes ?? "");
       setDueAt(editInvoice.due_at ?? defaultDueDate());
+      setVatPercentage(editInvoice.vat_percentage ?? 21);
     } else {
       setSelectedTemplate("");
       setCustomerId("");
@@ -73,6 +75,7 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
       setOptionalItems([]);
       setNotes("");
       setDueAt(defaultDueDate());
+      setVatPercentage(21);
     }
   }, [editInvoice, open]);
 
@@ -93,10 +96,11 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
 
   const { subtotal, vatAmount, total } = useMemo(() => {
     const totalIncl = items.reduce((s, i) => s + i.qty * i.unit_price, 0);
-    const sub = Number((totalIncl / 1.21).toFixed(2));
+    const divisor = 1 + vatPercentage / 100;
+    const sub = Number((totalIncl / divisor).toFixed(2));
     const vat = Number((totalIncl - sub).toFixed(2));
     return { subtotal: sub, vatAmount: vat, total: Number(totalIncl.toFixed(2)) };
-  }, [items]);
+  }, [items, vatPercentage]);
 
   const handleSave = async () => {
     if (!customerId) { toast({ title: "Selecteer een klant", variant: "destructive" }); return; }
@@ -109,7 +113,7 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
       items: items.filter((i) => i.description).map(recalcItem),
       optional_items: optionalItems.filter((o) => o.description),
       subtotal,
-      vat_percentage: 21,
+      vat_percentage: vatPercentage,
       vat_amount: vatAmount,
       total,
       notes: notes || null,
@@ -244,8 +248,21 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
 
           {/* Totals */}
           <div className="bg-muted/50 rounded-md p-3 text-sm space-y-1">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span>BTW</span>
+                <Select value={String(vatPercentage)} onValueChange={(v) => setVatPercentage(Number(v))}>
+                  <SelectTrigger className="w-20 h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">0%</SelectItem>
+                    <SelectItem value="9">9%</SelectItem>
+                    <SelectItem value="21">21%</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <span className="font-mono">€ {vatAmount.toFixed(2)}</span>
+            </div>
             <div className="flex justify-between"><span>Subtotaal (excl. BTW)</span><span className="font-mono">€ {subtotal.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span>BTW (21%)</span><span className="font-mono">€ {vatAmount.toFixed(2)}</span></div>
             <div className="flex justify-between font-bold text-base"><span>Totaal incl. BTW</span><span className="font-mono">€ {total.toFixed(2)}</span></div>
           </div>
 

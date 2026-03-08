@@ -36,7 +36,7 @@ export const useCreateCommunicationLog = () => {
   const qc = useQueryClient();
   const { companyId } = useAuth();
   return useMutation({
-    mutationFn: async (log: TablesInsert<"communication_logs">) => {
+    mutationFn: async (log: Omit<TablesInsert<"communication_logs">, "company_id">) => {
       const { data, error } = await supabase
         .from("communication_logs")
         .insert({ ...log, company_id: companyId } as any)
