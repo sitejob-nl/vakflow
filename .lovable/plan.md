@@ -1,51 +1,40 @@
 
 
-## Agenda UI Verbetering — Look & Feel + Leesbaarheid
+# API als schakelbare module + beveiligingsbevestiging
 
-### Problemen
+## Beveiliging — Ja, het is veilig
 
-1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
-2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
+De huidige implementatie is correct beveiligd tegen cross-tenant data:
 
-### Aanpak
+- Elke API key is gekoppeld aan een `company_id` via de `api_keys` tabel
+- Alle queries in `leads-api` gebruiken `.eq("company_id", companyId)` — zowel bij GET, POST, PATCH als DELETE
+- De `companyId` komt uit de database-lookup van de gehashte key, niet uit user input
+- Rate limiting is per company_id
+- Er is geen manier om via de API data van een ander bedrijf op te vragen
 
-**1. Grotere tijdslots en events**
-- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
-- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
-- Meer ruimte voor service-naam en stad onder de klantnaam
+## Wijzigingen voor "API" als module
 
-**2. Event cards verbeteren**
-- Subtielere achtergrondkleur met betere contrast
-- Lichte shadow toevoegen aan events voor diepte
-- Rounded corners vergroten, padding verruimen
-- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
-- Hover-effect verbeteren met schaal + shadow
+### 1. `src/pages/SuperAdminPage.tsx`
+- Voeg `{ slug: "api", label: "API" }` toe aan `ALL_FEATURES` array (regel 59)
 
-**3. Toolbar opschonen (desktop)**
-- Knoppen groeperen met visuele scheiders
-- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
-- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
-- Badge voor aantal afspraken subtieler
+### 2. `src/pages/SettingsPage.tsx`
+- Voeg `"API Keys": "api"` toe aan `TAB_FEATURE_MAP` zodat de tab alleen zichtbaar is als de "api" feature is ingeschakeld
 
-**4. Dagkolom headers verbeteren (desktop weekview)**
-- Datum groter en duidelijker, weekdag + dagnummer gescheiden
-- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+### 3. `src/hooks/useNavigation.tsx` (indien van toepassing)
+- Geen navigatie-item nodig — API Keys is alleen een settings-tab, geen aparte pagina
 
-**5. Zijpaneel styling**
-- Subtielere card-styling, betere spacing
-- Status-dots vergroten in de afsprakenlijst
-- Betere typografie-hiërarchie
+### 4. `supabase/functions/leads-api/index.ts`
+- Na authenticatie: check of het bedrijf de "api" feature heeft ingeschakeld
+- Query `companies.enabled_features` en controleer of `"api"` erin zit
+- Retourneer 403 als de feature niet is ingeschakeld
 
-**6. Mobile day view**
-- Zelfde slot-hoogte verbetering
-- Events met meer padding en grotere tekst
+### Samenvatting
 
-### Bestanden
-
-| Bestand | Wijziging |
+| Component | Wijziging |
 |---|---|
-| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
-| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+| `SuperAdminPage.tsx` | `"api"` toevoegen aan ALL_FEATURES |
+| `SettingsPage.tsx` | Feature-gate op API Keys tab |
+| `leads-api/index.ts` | Feature-check na authenticatie |
 
-Geen database-wijzigingen, geen nieuwe dependencies.
+Kleine wijziging, drie bestanden.
 
