@@ -10,7 +10,7 @@ import { useOutlookOverrides } from "@/hooks/useOutlookOverrides";
 import { usePersonalOutlookToken } from "@/hooks/useOutlookOverrides";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildWorkOrderPayload } from "@/utils/createWorkOrderFromAppointment";
-import { Loader2, Plus, Trash2, CheckCircle2, Navigation, ExternalLink, FileText, ChevronLeft, ChevronRight, Users, Calendar as CalendarIcon, Route } from "lucide-react";
+import { Loader2, Plus, Trash2, CheckCircle2, Navigation, ExternalLink, FileText, ChevronLeft, ChevronRight, Users, Calendar as CalendarIcon, Route, Wrench } from "lucide-react";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, isSameDay, subDays, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { nl } from "date-fns/locale";
 import AppointmentDialog from "@/components/AppointmentDialog";
