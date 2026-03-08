@@ -246,6 +246,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
       customer_id: form.customer_id,
       service_id: form.service_id || null,
       address_id: form.address_id || null,
+      vehicle_id: form.vehicle_id || null,
       scheduled_at: new Date(form.scheduled_at).toISOString(),
       duration_minutes: form.duration_minutes,
       status: form.status,
