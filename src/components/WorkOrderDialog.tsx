@@ -13,6 +13,7 @@ import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
 import { useAssets } from "@/hooks/useAssets";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { useCustomerVehicles } from "@/hooks/useVehicles";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
