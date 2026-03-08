@@ -185,6 +185,19 @@ const AssetsPage = () => {
                         ) : "—"}
                       </TableCell>
                     )}
+                    {isCleaning && (
+                      <TableCell className="hidden lg:table-cell">
+                        {(asset as any).avg_quality_score ? (
+                          <Badge variant="secondary" className={
+                            (asset as any).avg_quality_score >= 4 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
+                            (asset as any).avg_quality_score >= 3 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                            "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                          }>
+                            {(asset as any).avg_quality_score?.toFixed(1)}
+                          </Badge>
+                        ) : "—"}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <Badge variant="secondary" className={statusColor[asset.status] || ""}>
                         {asset.status}
