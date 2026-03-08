@@ -23,12 +23,13 @@ import MetaSettingsTab from "@/components/MetaSettingsTab";
 import { SETTINGS_INPUT_CLASS, SETTINGS_LABEL_CLASS } from "@/components/settings/shared";
 
 const SettingsAssetFieldsTab = lazy(() => import("@/components/settings/SettingsAssetFieldsTab"));
+const SettingsLeadsTab = lazy(() => import("@/components/settings/SettingsLeadsTab"));
 
 const BASE_TABS: string[] = [
   "Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen",
   "Objectvelden", "Sjablonen", "Werkplaats", "Boekhouding", "E-mail", "WhatsApp",
   "E-mail Templates", "Automatiseringen", "APK-herinneringen", "Teamleden",
-  "Koppelingen", "Meta",
+  "Koppelingen", "Meta", "Leads",
 ];
 
 const TAB_FEATURE_MAP: Record<string, string> = {
