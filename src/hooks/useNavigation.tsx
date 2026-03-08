@@ -16,6 +16,8 @@ export type Page =
   | "whatsapp"
   | "reminders"
   | "assets"
+  | "vehicles"
+  | "vehDetail"
   | "contracts"
   | "marketing"
   | "settings"
