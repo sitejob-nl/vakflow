@@ -35,6 +35,7 @@ const Header = () => {
     vehDetail: { title: labels.vehicle, sub: `${labels.vehicle}dossier` },
     contracts: { title: "Contracten", sub: "Terugkerende contracten" },
     marketing: { title: "Marketing", sub: "Meta leads & berichten" },
+    trade: { title: "Inruil & Verkoop", sub: "Inruilvoertuigen & marges" },
     settings: { title: "Instellingen", sub: "Profiel & voorkeuren" },
     superadmin: { title: "Super Admin", sub: "Bedrijvenbeheer" },
   };
