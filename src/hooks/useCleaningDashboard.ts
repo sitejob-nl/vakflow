@@ -78,11 +78,25 @@ export const useCleaningDashboardStats = () => {
         .order("next_service_due")
         .limit(5);
 
+      // Average quality score across all active assets
+      const { data: qualityData } = await supabase
+        .from("assets" as any)
+        .select("avg_quality_score")
+        .eq("company_id", companyId!)
+        .eq("status", "actief")
+        .not("avg_quality_score", "is", null);
+
+      const qualityScores = (qualityData || []).map((a: any) => a.avg_quality_score).filter((s: any) => s != null);
+      const avgQualityScore = qualityScores.length > 0
+        ? Math.round((qualityScores.reduce((a: number, b: number) => a + b, 0) / qualityScores.length) * 10) / 10
+        : null;
+
       return {
         activeObjects: activeObjects || 0,
         overdueObjects: (overdueData || []).length,
         todayWorkOrders: todayWorkOrders || 0,
         vehiclesWashedThisMonth,
+        avgQualityScore,
         urgentObjects: (urgentData || []).map((o: any) => ({
           id: o.id,
           name: o.name,
