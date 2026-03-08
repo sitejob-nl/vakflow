@@ -55,8 +55,8 @@ const AssetsPage = () => {
   const { industry } = useIndustryConfig();
   const isCleaning = industry === "cleaning";
 
-  // Load custom field config
-  const { data: fieldConfig } = useQuery({
+  // Load custom field config (object types with fields)
+  const { data: rawFieldConfig } = useQuery({
     queryKey: ["asset_field_config", companyId],
     queryFn: async () => {
       const { data } = await supabase
@@ -64,10 +64,17 @@ const AssetsPage = () => {
         .select("asset_field_config")
         .eq("id", companyId!)
         .single();
-      return ((data?.asset_field_config as any[]) ?? []) as Array<{ key: string; label: string; type: string; options?: string[] }>;
+      return ((data?.asset_field_config ?? []) as unknown as any[]);
     },
     enabled: !!companyId,
   });
+
+  // Normalize config: support both ObjectTypeDef[] and legacy flat FieldDef[]
+  const objectTypes = useMemo(() => {
+    if (!rawFieldConfig || rawFieldConfig.length === 0) return [] as Array<{ key: string; label: string; fields: Array<{ key: string; label: string; type: string; options?: string[] }> }>;
+    if (rawFieldConfig[0]?.fields) return rawFieldConfig as Array<{ key: string; label: string; fields: Array<{ key: string; label: string; type: string; options?: string[] }> }>;
+    return [{ key: "__legacy", label: "Overig", fields: rawFieldConfig as Array<{ key: string; label: string; type: string; options?: string[] }> }];
+  }, [rawFieldConfig]);
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
