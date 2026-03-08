@@ -65,9 +65,9 @@ const MaintenancePlannerWidget = () => {
                   {item.customer?.name ?? "—"} · over {item.days_until}d
                 </div>
               </div>
-              {item.next_maintenance_date && (
+              {item.next_service_due && (
                 <span className="text-[11px] font-mono text-warning flex-shrink-0">
-                  {format(new Date(item.next_maintenance_date), "dd-MM")}
+                  {format(new Date(item.next_service_due), "dd-MM")}
                 </span>
               )}
             </div>

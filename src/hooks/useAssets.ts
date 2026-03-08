@@ -15,7 +15,6 @@ export interface Asset {
   serial_number: string | null;
   install_date: string | null;
   last_maintenance_date: string | null;
-  next_maintenance_date: string | null;
   status: string;
   notes: string | null;
   created_at: string;

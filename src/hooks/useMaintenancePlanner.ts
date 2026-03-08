@@ -37,10 +37,10 @@ export const useMaintenancePlanner = () => {
       upcoming30.setDate(upcoming30.getDate() + 30);
 
       const items: MaintenanceItem[] = ((data as any[]) ?? []).map((a) => {
-        if (!a.next_maintenance_date) {
+        if (!a.next_service_due) {
           return { ...a, status: "no_date" as const };
         }
-        const nextDate = new Date(a.next_maintenance_date);
+        const nextDate = new Date(a.next_service_due);
         if (nextDate <= today) {
           const diffDays = Math.ceil((today.getTime() - nextDate.getTime()) / 86400000);
           return { ...a, status: "overdue" as const, days_overdue: diffDays };
