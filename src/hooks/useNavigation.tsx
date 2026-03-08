@@ -21,6 +21,7 @@ export type Page =
   | "contracts"
   | "marketing"
   | "trade"
+  | "schedule"
   | "settings"
   | "superadmin";
 
