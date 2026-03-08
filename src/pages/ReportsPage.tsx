@@ -436,6 +436,66 @@ function WorkshopTab({ data }: { data: ReturnType<typeof useAutomotiveReportData
   );
 }
 
+/* ─── Cleaning Tab ─── */
+function CleaningTab({ data }: { data: ReturnType<typeof useCleaningReportData>["data"] }) {
+  if (!data) return <p className="text-[13px] text-t3 italic py-8 text-center">Laden...</p>;
+
+  const { activeContracts, totalContractValue, materialByAsset, qualityTrend, avgQualityScore } = data;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard icon={FileText} label="Actieve contracten" value={String(activeContracts)} />
+        <KpiCard icon={Euro} label="Contractwaarde" value={`€${totalContractValue.toFixed(0)}`} accent />
+        <KpiCard icon={Sparkles} label="Gem. kwaliteitsscore" value={avgQualityScore != null ? String(avgQualityScore) : "—"} />
+        <KpiCard icon={Package} label="Objecten met materiaal" value={String(materialByAsset.length)} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-card border border-border rounded-lg p-5">
+          <h3 className="text-[13px] font-bold mb-4">Materiaalkosten per object (top 10)</h3>
+          {materialByAsset.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={materialByAsset} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `€${v}`} />
+                <YAxis type="category" dataKey="asset_name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={120} />
+                <Tooltip
+                  formatter={(value: number) => [`€${value.toFixed(2)}`, "Kosten"]}
+                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 4, fontSize: 12 }}
+                />
+                <Bar dataKey="total_cost" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-[13px] text-t3 text-center py-12 italic">Geen materiaalverbruik in deze periode</p>
+          )}
+        </div>
+
+        <div className="bg-card border border-border rounded-lg p-5">
+          <h3 className="text-[13px] font-bold mb-4">Kwaliteitsscore trend</h3>
+          {qualityTrend.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={qualityTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" domain={[0, 5]} />
+                <Tooltip
+                  formatter={(value: number) => [value.toFixed(2), "Score"]}
+                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 4, fontSize: 12 }}
+                />
+                <Line type="monotone" dataKey="avg_score" stroke="hsl(var(--success))" strokeWidth={2} dot={{ r: 3, fill: "hsl(var(--success))" }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-[13px] text-t3 text-center py-12 italic">Geen kwaliteitsaudits in deze periode</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function KpiCard({ icon: Icon, label, value, accent }: { icon: any; label: string; value: string; accent?: boolean }) {
   return (
     <div className="bg-card border border-border rounded-lg p-4">
