@@ -206,7 +206,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       companyId, realCompanyId, companyLogoUrl: activeLogoUrl, companyBrandColor: activeBrandColor,
       onboardingCompleted, impersonatedCompanyName, isImpersonating,
       maxUsers, enabledFeatures, industry, subcategory,
-      impersonate, stopImpersonating,
+      impersonate, stopImpersonating, refreshCompanyData,
       signIn, signUp, signOut,
     }}>
       {children}
