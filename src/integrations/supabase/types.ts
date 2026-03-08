@@ -1283,8 +1283,10 @@ export type Database = {
           created_at: string
           id: string
           markup_percentage: number
+          min_stock_level: number
           moneybird_product_id: string | null
           name: string
+          stock_quantity: number
           unit: string
           unit_price: number
           wefact_product_id: string | null
@@ -1297,8 +1299,10 @@ export type Database = {
           created_at?: string
           id?: string
           markup_percentage?: number
+          min_stock_level?: number
           moneybird_product_id?: string | null
           name: string
+          stock_quantity?: number
           unit?: string
           unit_price?: number
           wefact_product_id?: string | null
@@ -1311,8 +1315,10 @@ export type Database = {
           created_at?: string
           id?: string
           markup_percentage?: number
+          min_stock_level?: number
           moneybird_product_id?: string | null
           name?: string
+          stock_quantity?: number
           unit?: string
           unit_price?: number
           wefact_product_id?: string | null
