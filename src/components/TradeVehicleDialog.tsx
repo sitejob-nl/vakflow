@@ -195,7 +195,7 @@ export const TradeVehicleDialog = ({ open, onOpenChange, vehicle, onSave }: Prop
             {form.status === "verkocht" && (
               <div>
                 <Label>Verkocht aan (klant)</Label>
-                <CustomerCombobox value={form.sold_to_customer_id} onChange={v => setForm(f => ({ ...f, sold_to_customer_id: v }))} />
+                <CustomerCombobox customers={customers?.map(c => ({ id: c.id, name: c.name, city: c.city }))} value={form.sold_to_customer_id || ""} onValueChange={v => setForm(f => ({ ...f, sold_to_customer_id: v }))} />
               </div>
             )}
           </TabsContent>
