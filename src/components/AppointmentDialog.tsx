@@ -255,6 +255,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
       notes: form.notes || null,
       travel_time_minutes: travelInfo?.duration_minutes ?? null,
       start_location_label: startLocationLabel || null,
+      ...(projectId ? { project_id: projectId } : {}),
     };
 
     try {
