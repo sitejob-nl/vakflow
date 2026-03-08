@@ -1,80 +1,51 @@
 
 
-# Launch Readiness — Kritische Beoordeling
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-Het platform heeft een solide architectuur maar er zijn **3 kritieke beveiligingsproblemen** die vóór launch opgelost moeten worden, plus enkele verbeterpunten.
+### Problemen
 
----
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-## Kritiek — Moet gefixt worden vóór launch
+### Aanpak
 
-### 1. Cross-company privilege escalation via `has_role()` (HOOG RISICO)
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-De `has_role()` functie controleert of een gebruiker een rol heeft in **ANY** company, niet in de huidige company. Een gebruiker die admin is in bedrijf A maar monteur in bedrijf B, kan admin-operaties uitvoeren in bedrijf B.
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-**Impact:** Facturen verwijderen, services beheren, contracten wijzigen, user roles aanpassen — allemaal in een bedrijf waar je geen admin bent.
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-**Fix:** Voeg `_company_id uuid` parameter toe aan `has_role()` en update alle RLS policies.
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-```sql
--- Van:
-has_role(auth.uid(), 'admin')
--- Naar:
-has_role(auth.uid(), 'admin', get_my_company_id())
-```
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-### 2. Gevoelige credentials leesbaar voor alle medewerkers (HOOG RISICO)
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-De `companies` tabel SELECT policy geeft **elke medewerker** toegang tot plaintext SMTP-wachtwoorden, API tokens (Rompslomp, Moneybird, WeFact, e-Boekhouden), OAuth tokens en Stripe IDs.
+### Bestanden
 
-**Fix:** Beperk de base `companies` SELECT policy tot admins en verwijs niet-admins naar `companies_safe` view.
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
 
-### 3. SMTP/accounting credentials in profiles tabel leesbaar (MEDIUM RISICO)
-
-Elke collega kan SMTP-wachtwoorden en IBAN-nummers van andere teamleden uitlezen via de `profiles` tabel.
-
-**Fix:** Credential-kolommen verplaatsen naar admin-only tabel, of SELECT policy beperken zodat gevoelige velden alleen zichtbaar zijn voor de eigenaar.
-
----
-
-## Belangrijk — Sterk aanbevolen vóór launch
-
-### 4. RLS ontbreekt op sommige tabellen
-De security scan detecteerde tabellen zonder RLS. Elke publieke tabel zonder RLS is open voor iedereen met de anon key.
-
-### 5. Security Definer Views
-Er zijn views met `SECURITY DEFINER` die de permissies van de view-creator gebruiken i.p.v. de querying user. Dit moet gecontroleerd worden.
-
-### 6. Functions zonder `search_path`
-Database functions zonder vaste `search_path` zijn kwetsbaar voor search-path injection attacks.
-
----
-
-## Goed geregeld (positief)
-
-- Multi-tenancy via `company_id` scoping in alle hooks en edge functions
-- Tenant mismatch detection bij subdomein-login
-- Rate limiting op API endpoints
-- API keys gehashed met SHA-256
-- Error boundary voor crash recovery
-- PWA met offline pagina
-- Code splitting en manual chunks
-- CORS beperkt tot bekende domeinen
-- Edge function error logging
-- Cron endpoints beveiligd met `X-Cron-Secret`
-
----
-
-## Aanbevolen plan van aanpak
-
-| Prioriteit | Taak | Geschatte omvang |
-|---|---|---|
-| **P0** | Fix `has_role()` + alle RLS policies | Migration + ~30 policies |
-| **P0** | Lock `companies` SELECT tot admins | 1 policy wijziging |
-| **P0** | Credentials uit `profiles` afschermen | 1 policy of tabel split |
-| **P1** | Enable RLS op ontbrekende tabellen | Migration |
-| **P1** | Fix `search_path` op functions | Migration |
-| **P2** | Security definer views reviewen | Analyse + migration |
-
-Wil je dat ik begin met de P0 fixes? Die zijn essentieel vóór een publieke launch.
+Geen database-wijzigingen, geen nieuwe dependencies.
 
