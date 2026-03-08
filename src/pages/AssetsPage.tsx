@@ -362,6 +362,25 @@ const AssetsPage = () => {
                     <p className="text-sm text-muted-foreground">{isCleaning ? "Nog geen beurthistorie" : "Nog geen onderhoudshistorie"}</p>
                   )}
                 </div>
+
+                {/* Material consumption (cleaning) */}
+                {isCleaning && assetMaterialCost && (assetMaterialCost.total > 0 || assetMaterialCost.count > 0) && (
+                  <div className="pt-2 border-t">
+                    <h3 className="font-semibold flex items-center gap-1.5 mb-3">
+                      <Package className="w-4 h-4" /> Materiaalverbruik (3 mnd)
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-muted/50 rounded-md p-3 text-center">
+                        <div className="text-lg font-bold text-primary">€{assetMaterialCost.total.toFixed(2)}</div>
+                        <div className="text-xs text-muted-foreground">Totale kosten</div>
+                      </div>
+                      <div className="bg-muted/50 rounded-md p-3 text-center">
+                        <div className="text-lg font-bold">{assetMaterialCost.count}</div>
+                        <div className="text-xs text-muted-foreground">Artikelen</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
