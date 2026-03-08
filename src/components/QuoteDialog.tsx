@@ -36,6 +36,7 @@ const QuoteDialog = ({ open, onOpenChange, editQuote, onScheduleAppointment }: P
   const convertToContract = useConvertQuoteToContract();
   const convertToWorkOrder = useConvertQuoteToWorkOrder();
   const convertToInvoice = useConvertQuoteToInvoice();
+  const convertToProject = useConvertQuoteToProject();
   const { toast } = useToast();
   const { companyId } = useAuth();
   const queryClient = useQueryClient();
