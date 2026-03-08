@@ -191,10 +191,7 @@ const SettingsAccountingTab = () => {
       )}
 
       {provider === "exact" && (
-        <div className="border-t border-border pt-5 space-y-3">
-          <h3 className="text-[14px] font-bold">Exact Online</h3>
-          <p className="text-[13px] text-muted-foreground">Exact Online wordt gekoppeld via SiteJob Connect. Ga naar Koppelingen voor de status.</p>
-        </div>
+        <ExactOnlineSection companyId={companyId} saving={saving} />
       )}
 
       {provider === "snelstart" && (
