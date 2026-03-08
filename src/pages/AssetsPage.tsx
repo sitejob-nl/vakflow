@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Pencil, Trash2, History, Box, Loader2, Building2, Truck } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, History, Box, Loader2, Building2, Truck, Package } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { nl } from "date-fns/locale";
 import AssetDialog from "@/components/AssetDialog";
