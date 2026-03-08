@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useVehicles, useDeleteVehicle, type Vehicle } from "@/hooks/useVehicles";
+import { useVehicles, useDeleteVehicle, useRdwLookup, useUpdateVehicle, type Vehicle } from "@/hooks/useVehicles";
 import VehicleDialog from "@/components/VehicleDialog";
 import { useNavigation } from "@/hooks/useNavigation";
 import { Button } from "@/components/ui/button";
@@ -7,27 +7,40 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Trash2, Pencil, Car, AlertTriangle } from "lucide-react";
+import { Plus, Search, Trash2, Pencil, Car, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, differenceInDays } from "date-fns";
 
+type ApkFilter = "all" | "expired" | "soon" | "none";
+
 const formatPlate = (plate: string) => {
-  // Format as XX-XXX-XX style if 6+ chars
   const p = plate.replace(/[\s-]/g, "").toUpperCase();
   if (p.length === 6) return `${p.slice(0, 2)}-${p.slice(2, 5)}-${p.slice(5)}`;
   return p;
 };
 
+const apkBadge = (date: string | null) => {
+  if (!date) return <span className="text-muted-foreground text-xs">—</span>;
+  const days = differenceInDays(new Date(date), new Date());
+  if (days < 0) return <Badge variant="destructive" className="text-[10px]">Verlopen</Badge>;
+  if (days <= 30) return <Badge variant="destructive" className="text-[10px]">{days}d</Badge>;
+  if (days <= 90) return <Badge className="text-[10px] bg-orange-500/15 text-orange-600 border-orange-500/30 hover:bg-orange-500/20">{days}d</Badge>;
+  return <Badge variant="outline" className="text-[10px] text-accent">{format(new Date(date), "dd-MM-yyyy")}</Badge>;
+};
+
 const VehiclesPage = () => {
   const { data: vehicles, isLoading } = useVehicles();
   const deleteVehicle = useDeleteVehicle();
+  const rdwLookup = useRdwLookup();
+  const updateVehicle = useUpdateVehicle();
   const { navigate } = useNavigation();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<"name" | "apk">("name");
+  const [apkFilter, setApkFilter] = useState<ApkFilter>("all");
+  const [rdwLoadingId, setRdwLoadingId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     if (!vehicles) return [];
@@ -39,17 +52,27 @@ const VehiclesPage = () => {
         (v.model ?? "").toLowerCase().includes(q) ||
         (v.customers?.name ?? "").toLowerCase().includes(q)
     );
-    if (sortBy === "apk") {
-      list = [...list].sort((a, b) => {
-        // Vehicles without APK date go to the end
-        if (!a.apk_expiry_date && !b.apk_expiry_date) return 0;
-        if (!a.apk_expiry_date) return 1;
-        if (!b.apk_expiry_date) return -1;
-        return new Date(a.apk_expiry_date).getTime() - new Date(b.apk_expiry_date).getTime();
+
+    if (apkFilter === "expired") {
+      list = list.filter((v) => v.apk_expiry_date && differenceInDays(new Date(v.apk_expiry_date), new Date()) < 0);
+    } else if (apkFilter === "soon") {
+      list = list.filter((v) => {
+        if (!v.apk_expiry_date) return false;
+        const days = differenceInDays(new Date(v.apk_expiry_date), new Date());
+        return days >= 0 && days <= 90;
       });
+    } else if (apkFilter === "none") {
+      list = list.filter((v) => !v.apk_expiry_date);
     }
-    return list;
-  }, [vehicles, search, sortBy]);
+
+    // Sort: expired first, then by APK date ascending
+    return [...list].sort((a, b) => {
+      if (!a.apk_expiry_date && !b.apk_expiry_date) return 0;
+      if (!a.apk_expiry_date) return 1;
+      if (!b.apk_expiry_date) return -1;
+      return new Date(a.apk_expiry_date).getTime() - new Date(b.apk_expiry_date).getTime();
+    });
+  }, [vehicles, search, apkFilter]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -62,23 +85,43 @@ const VehiclesPage = () => {
     setDeleteId(null);
   };
 
-  const apkStatus = (date: string | null) => {
-    if (!date) return null;
-    const days = differenceInDays(new Date(date), new Date());
-    if (days < 0) return <Badge variant="destructive" className="text-[10px]">Verlopen ({Math.abs(days)}d)</Badge>;
-    if (days <= 30) return <Badge variant="outline" className="text-[10px] border-destructive text-destructive bg-destructive/10"><AlertTriangle className="h-3 w-3 mr-1" />{days}d</Badge>;
-    if (days <= 60) return <Badge variant="outline" className="text-[10px] border-warning text-warning">{days}d</Badge>;
-    return null;
+  const handleRdwLookup = async (v: Vehicle) => {
+    setRdwLoadingId(v.id);
+    try {
+      const result = await rdwLookup.mutateAsync(v.license_plate);
+      if (result.found) {
+        await updateVehicle.mutateAsync({
+          id: v.id,
+          ...(result.brand ? { brand: result.brand } : {}),
+          ...(result.model ? { model: result.model } : {}),
+          ...(result.build_year ? { build_year: result.build_year } : {}),
+          ...(result.fuel_type ? { fuel_type: result.fuel_type } : {}),
+          ...(result.color ? { color: result.color } : {}),
+          ...(result.apk_expiry_date ? { apk_expiry_date: result.apk_expiry_date } : {}),
+          ...(result.registration_date ? { registration_date: result.registration_date } : {}),
+          ...(result.vehicle_mass ? { vehicle_mass: result.vehicle_mass } : {}),
+        });
+        toast({ title: "RDW data bijgewerkt" });
+      } else {
+        toast({ title: "Kenteken niet gevonden bij RDW", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "RDW opzoeken mislukt", description: err.message, variant: "destructive" });
+    }
+    setRdwLoadingId(null);
   };
 
-  // Count vehicles with APK expiring within 30 days
-  const apkWarningCount = useMemo(() => {
-    if (!vehicles) return 0;
-    return vehicles.filter((v) => {
-      if (!v.apk_expiry_date) return false;
-      const days = differenceInDays(new Date(v.apk_expiry_date), new Date());
-      return days <= 30;
-    }).length;
+  const counts = useMemo(() => {
+    if (!vehicles) return { expired: 0, soon: 0, none: 0 };
+    return {
+      expired: vehicles.filter((v) => v.apk_expiry_date && differenceInDays(new Date(v.apk_expiry_date), new Date()) < 0).length,
+      soon: vehicles.filter((v) => {
+        if (!v.apk_expiry_date) return false;
+        const d = differenceInDays(new Date(v.apk_expiry_date), new Date());
+        return d >= 0 && d <= 90;
+      }).length,
+      none: vehicles.filter((v) => !v.apk_expiry_date).length,
+    };
   }, [vehicles]);
 
   return (
@@ -93,31 +136,27 @@ const VehiclesPage = () => {
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Zoek op kenteken, merk, klant..."
-            className="pl-9"
-          />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Zoek op kenteken, merk, klant..." className="pl-9" />
         </div>
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant={sortBy === "name" ? "default" : "outline"}
-            onClick={() => setSortBy("name")}
-            className="text-xs"
-          >
-            Standaard
-          </Button>
-          <Button
-            size="sm"
-            variant={sortBy === "apk" ? "default" : "outline"}
-            onClick={() => setSortBy("apk")}
-            className="text-xs"
-          >
-            <AlertTriangle className="h-3 w-3 mr-1" />
-            APK {apkWarningCount > 0 && <Badge variant="destructive" className="ml-1 text-[9px] px-1.5 py-0">{apkWarningCount}</Badge>}
-          </Button>
+        <div className="flex gap-1 flex-wrap">
+          {([
+            { key: "all" as ApkFilter, label: "Alle", count: vehicles?.length ?? 0 },
+            { key: "expired" as ApkFilter, label: "Verlopen", count: counts.expired },
+            { key: "soon" as ApkFilter, label: "Binnenkort", count: counts.soon },
+            { key: "none" as ApkFilter, label: "Geen APK", count: counts.none },
+          ]).map((f) => (
+            <Button
+              key={f.key}
+              size="sm"
+              variant={apkFilter === f.key ? "default" : "outline"}
+              onClick={() => setApkFilter(f.key)}
+              className="text-xs"
+            >
+              {f.key === "expired" && <AlertTriangle className="h-3 w-3 mr-1" />}
+              {f.label}
+              {f.count > 0 && <span className="ml-1 text-[10px] opacity-70">({f.count})</span>}
+            </Button>
+          ))}
         </div>
       </div>
 
@@ -131,7 +170,7 @@ const VehiclesPage = () => {
               <TableHead>Klant</TableHead>
               <TableHead>KM-stand</TableHead>
               <TableHead>APK</TableHead>
-              <TableHead className="w-[80px]"></TableHead>
+              <TableHead className="w-[110px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -158,17 +197,27 @@ const VehiclesPage = () => {
                     {v.build_year && <span className="text-muted-foreground text-xs ml-1">({v.build_year})</span>}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{v.customers?.name ?? "—"}</TableCell>
-                  <TableCell>{v.mileage_current ? `${v.mileage_current.toLocaleString()} km` : "—"}</TableCell>
                   <TableCell>
-                    {v.apk_expiry_date ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs">{format(new Date(v.apk_expiry_date), "dd-MM-yyyy")}</span>
-                        {apkStatus(v.apk_expiry_date)}
-                      </div>
-                    ) : "—"}
+                    <div>
+                      <span>{v.mileage_current ? `${v.mileage_current.toLocaleString()} km` : "—"}</span>
+                      {v.mileage_updated_at && (
+                        <span className="block text-[10px] text-muted-foreground">{format(new Date(v.mileage_updated_at), "dd-MM-yy")}</span>
+                      )}
+                    </div>
                   </TableCell>
+                  <TableCell>{apkBadge(v.apk_expiry_date)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        title="RDW opzoeken"
+                        disabled={rdwLoadingId === v.id}
+                        onClick={() => handleRdwLookup(v)}
+                      >
+                        {rdwLoadingId === v.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                      </Button>
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditVehicle(v); setDialogOpen(true); }}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -209,7 +258,7 @@ const VehiclesPage = () => {
               </div>
               <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                 {v.mileage_current && <span className="text-[10px] text-muted-foreground">{v.mileage_current.toLocaleString()} km</span>}
-                {apkStatus(v.apk_expiry_date)}
+                {apkBadge(v.apk_expiry_date)}
               </div>
             </div>
           ))

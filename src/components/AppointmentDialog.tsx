@@ -9,6 +9,7 @@ import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Loader2, Navigation, MapPin, ExternalLink, Plus, AlertTriangle, Car, ChevronDown, Truck } from "lucide-react";
+import BayTimeline from "@/components/BayTimeline";
 import { useCreateAppointment, useUpdateAppointment, useAppointmentsForDay } from "@/hooks/useAppointments";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
@@ -480,6 +481,18 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
             </div>
           )}
         </div>
+      )}
+
+      {/* Bay timeline for automotive */}
+      {isAutomotive && formDate && (
+        <BayTimeline
+          date={formDate}
+          onSelectSlot={(bayId, hour) => {
+            const d = new Date(formDate);
+            d.setHours(hour, 0, 0, 0);
+            set("scheduled_at", formatDateTimeLocal(d));
+          }}
+        />
       )}
 
       {/* === Route info (collapsible, hidden for automotive "gebracht") === */}

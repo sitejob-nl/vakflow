@@ -8,7 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Wrench, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Wrench, Sparkles, ClipboardCheck, Car, Fuel, Shield, Circle as TireIcon, AlertTriangle, MoreHorizontal } from "lucide-react";
 import AiIntakePanel from "@/components/AiIntakePanel";
 import type { AiIntakeSuggestion } from "@/hooks/useAiIntake";
 import { useCreateWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
@@ -19,10 +20,12 @@ import { useAssets, useObjectRooms, useFleetVehicleTypes } from "@/hooks/useAsse
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useCustomerVehicles, useWorkshopBays } from "@/hooks/useVehicles";
 import { useAutoBayAssignment } from "@/hooks/useAutoBayAssignment";
+import { useAppointmentsForDay } from "@/hooks/useAppointments";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { isSameDay } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 
 interface Props {
@@ -32,6 +35,18 @@ interface Props {
   projectId?: string;
   prefillCustomerId?: string;
 }
+
+const WO_TYPES = [
+  { value: "onderhoud", label: "Onderhoud", icon: Wrench },
+  { value: "reparatie", label: "Reparatie", icon: AlertTriangle },
+  { value: "apk", label: "APK", icon: ClipboardCheck },
+  { value: "bandenwissel", label: "Bandenwissel", icon: TireIcon },
+  { value: "schadeherstel", label: "Schadeherstel", icon: AlertTriangle },
+  { value: "kleine_beurt", label: "Kleine beurt", icon: Wrench },
+  { value: "grote_beurt", label: "Grote beurt", icon: Wrench },
+  { value: "aflevering", label: "Aflevering", icon: Car },
+  { value: "overig", label: "Overig", icon: MoreHorizontal },
+];
 
 const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCustomerId }: Props) => {
   const { toast } = useToast();
@@ -44,6 +59,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
   const { data: services } = useServices();
   const { data: allAssets } = useAssets();
   const { data: teamMembers } = useTeamMembers();
+  const { data: workshopBays } = useWorkshopBays();
   const createWO = useCreateWorkOrder();
   const updateWO = useUpdateWorkOrder();
   const addWOMaterial = useAddWorkOrderMaterial();
@@ -52,6 +68,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
   const isMonteur = role === "monteur";
   const [showAiIntake, setShowAiIntake] = useState(false);
   const [aiMaterials, setAiMaterials] = useState<any[] | null>(null);
+  const [selectedBayId, setSelectedBayId] = useState("");
 
   const handleAiApply = (s: AiIntakeSuggestion) => {
     setForm((f) => ({
@@ -86,6 +103,22 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
   // Vehicles for selected customer (automotive)
   const { data: customerVehicles } = useCustomerVehicles(isAutomotive && form.customer_id ? form.customer_id : undefined);
 
+  // Bay occupancy for today
+  const { data: todayAppointments } = useAppointmentsForDay(new Date(), null);
+
+  const bayOccupancy = useMemo(() => {
+    if (!workshopBays || !todayAppointments) return new Map<string, number>();
+    const occ = new Map<string, number>();
+    workshopBays.forEach((b) => occ.set(b.id, 0));
+    todayAppointments.forEach((a: any) => {
+      const bayId = a.bay_id;
+      if (bayId && occ.has(bayId)) {
+        occ.set(bayId, (occ.get(bayId) ?? 0) + (a.duration_minutes ?? 60));
+      }
+    });
+    return occ;
+  }, [workshopBays, todayAppointments]);
+
   // Get selected asset details for cleaning
   const selectedAsset = useMemo(() => {
     if (!allAssets || !form.asset_id) return null;
@@ -115,6 +148,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
         mileage_start: (workOrder as any).mileage_start?.toString() || "",
         mileage_end: (workOrder as any).mileage_end?.toString() || "",
       });
+      setSelectedBayId((workOrder as any).bay_id || "");
       // Restore cleaning data if editing
       if ((workOrder as any).vehicles_washed) {
         try {
@@ -151,6 +185,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
         mileage_start: "",
         mileage_end: "",
       });
+      setSelectedBayId("");
       setVehiclesWashed({});
       setRoomChecklist({});
       setAiMaterials(null);
@@ -187,8 +222,24 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
     return Object.values(vehiclesWashed).reduce((sum, c) => sum + (c || 0), 0);
   }, [vehiclesWashed]);
 
+  // Mileage validation
+  const mileageWarning = useMemo(() => {
+    if (!isAutomotive) return null;
+    const start = parseInt(form.mileage_start);
+    const end = parseInt(form.mileage_end);
+    if (start && end && end < start) return "KM-stand eind is lager dan begin";
+    return null;
+  }, [form.mileage_start, form.mileage_end, isAutomotive]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate mileage for automotive
+    if (isAutomotive && !form.mileage_start) {
+      toast({ title: "KM-stand begin is verplicht", variant: "destructive" });
+      return;
+    }
+
     const payload: any = {
       customer_id: form.customer_id,
       service_id: form.service_id || null,
@@ -205,7 +256,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
         work_order_type: form.work_order_type || null,
         mileage_start: form.mileage_start ? parseInt(form.mileage_start) : null,
         mileage_end: form.mileage_end ? parseInt(form.mileage_end) : null,
-        ...(!isEdit && suggestedBay ? { bay_id: suggestedBay.id } : {}),
+        bay_id: selectedBayId || (!isEdit && suggestedBay ? suggestedBay.id : null),
       } : {}),
       // Cleaning-specific fields
       ...(isCleaning && isFleet ? {
@@ -225,7 +276,6 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
         toast({ title: `${labels.workOrder} bijgewerkt` });
       } else {
         const newWO = await createWO.mutateAsync(payload as any);
-        // P1: Persist AI-suggested materials
         if (aiMaterials?.length && newWO?.id) {
           for (const m of aiMaterials) {
             const catalogPrice = m.material_id
@@ -284,30 +334,69 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
               <SelectTrigger><SelectValue placeholder="Kies type" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Niet gespecificeerd</SelectItem>
-                <SelectItem value="apk">APK</SelectItem>
-                <SelectItem value="kleine_beurt">Kleine beurt</SelectItem>
-                <SelectItem value="grote_beurt">Grote beurt</SelectItem>
-                <SelectItem value="storing">Storing / reparatie</SelectItem>
-                <SelectItem value="bandenwissel">Bandenwissel</SelectItem>
-                <SelectItem value="aflevering">Aflevering</SelectItem>
-                <SelectItem value="overig">Overig</SelectItem>
+                {WO_TYPES.map((t) => {
+                  const Icon = t.icon;
+                  return (
+                    <SelectItem key={t.value} value={t.value}>
+                      <span className="flex items-center gap-2">
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                        {t.label}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>KM-stand begin</Label>
-              <Input type="number" value={form.mileage_start} onChange={(e) => set("mileage_start", e.target.value)} placeholder="0" />
+              <Label>KM-stand begin *</Label>
+              <Input type="number" value={form.mileage_start} onChange={(e) => set("mileage_start", e.target.value)} placeholder="Verplicht" required />
             </div>
             <div className="space-y-1.5">
               <Label>KM-stand eind</Label>
               <Input type="number" value={form.mileage_end} onChange={(e) => set("mileage_end", e.target.value)} placeholder="0" />
             </div>
           </div>
+          {mileageWarning && (
+            <p className="text-[12px] text-destructive flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" /> {mileageWarning}
+            </p>
+          )}
+
+          {/* Bay selector with occupancy */}
+          {workshopBays && workshopBays.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Werkplaatsbrug</Label>
+              <Select value={selectedBayId} onValueChange={setSelectedBayId}>
+                <SelectTrigger><SelectValue placeholder={suggestedBay ? `Auto: ${suggestedBay.name}` : "Kies brug"} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">
+                    {suggestedBay ? `Auto-toewijzing (${suggestedBay.name})` : "Niet toegewezen"}
+                  </SelectItem>
+                  {workshopBays.filter((b) => b.is_active).map((bay) => {
+                    const loadMinutes = bayOccupancy.get(bay.id) ?? 0;
+                    const isBusy = loadMinutes >= 480; // 8 hours = full day
+                    return (
+                      <SelectItem key={bay.id} value={bay.id}>
+                        <span className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${isBusy ? "bg-destructive" : loadMinutes > 240 ? "bg-orange-500" : "bg-emerald-500"}`} />
+                          {bay.name}
+                          <span className="text-muted-foreground text-[11px]">
+                            ({Math.round(loadMinutes / 60)}u bezet)
+                          </span>
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </>
       )}
-      {/* Auto bay assignment info for automotive */}
-      {isAutomotive && !isEdit && suggestedBay && (
+      {/* Auto bay assignment info for automotive (when no manual selection) */}
+      {isAutomotive && !isEdit && suggestedBay && !selectedBayId && (
         <div className="flex items-center gap-2 text-[12px] bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
           <Wrench className="h-3.5 w-3.5 text-primary flex-shrink-0" />
           <span>
