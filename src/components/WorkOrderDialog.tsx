@@ -114,6 +114,11 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
     return groups;
   }, [services]);
 
+  // Auto bay assignment for automotive
+  const { suggestion: suggestedBay, activeBays: availableBays } = useAutoBayAssignment(
+    isAutomotive && !isEdit ? new Date() : undefined
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload: any = {
@@ -131,6 +136,8 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         work_order_type: form.work_order_type || null,
         mileage_start: form.mileage_start ? parseInt(form.mileage_start) : null,
         mileage_end: form.mileage_end ? parseInt(form.mileage_end) : null,
+        // Auto-assign bay if not editing and a suggestion exists
+        ...(!isEdit && suggestedBay ? { bay_id: suggestedBay.id } : {}),
       } : {}),
     };
 
