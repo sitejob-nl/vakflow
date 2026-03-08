@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.apk-reminder-scan]
 verify_jwt = false
+
+[functions.ai-intake]
+verify_jwt = false
