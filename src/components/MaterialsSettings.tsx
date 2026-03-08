@@ -39,6 +39,8 @@ export default function MaterialsSettings() {
     setMarkupPercentage("");
     setArticleNumber("");
     setCategory("");
+    setStockQuantity("");
+    setMinStockLevel("");
     setShowForm(false);
     setEditingId(null);
   };
