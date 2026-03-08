@@ -23,12 +23,13 @@ import MetaSettingsTab from "@/components/MetaSettingsTab";
 import { SETTINGS_INPUT_CLASS, SETTINGS_LABEL_CLASS } from "@/components/settings/shared";
 
 const SettingsAssetFieldsTab = lazy(() => import("@/components/settings/SettingsAssetFieldsTab"));
+const SettingsLeadsTab = lazy(() => import("@/components/settings/SettingsLeadsTab"));
 
 const BASE_TABS: string[] = [
   "Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen",
   "Objectvelden", "Sjablonen", "Werkplaats", "Boekhouding", "E-mail", "WhatsApp",
   "E-mail Templates", "Automatiseringen", "APK-herinneringen", "Teamleden",
-  "Koppelingen", "Meta",
+  "Koppelingen", "Meta", "Leads",
 ];
 
 const TAB_FEATURE_MAP: Record<string, string> = {
@@ -39,13 +40,14 @@ const TAB_FEATURE_MAP: Record<string, string> = {
   "Werkplaats": "vehicles",
   "APK-herinneringen": "vehicles",
   "Objectvelden": "assets",
+  "Leads": "leads",
 };
 
 // Tabs that require admin role — monteurs only see what's NOT in this list
 const ADMIN_ONLY_TABS = new Set([
   "Bedrijfsgegevens", "Diensten", "Materialen", "Objectvelden", "Sjablonen",
   "Werkplaats", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates",
-  "Automatiseringen", "APK-herinneringen", "Teamleden", "Koppelingen", "Meta",
+  "Automatiseringen", "APK-herinneringen", "Teamleden", "Koppelingen", "Meta", "Leads",
 ]);
 
 const TabFallback = () => (
@@ -112,6 +114,8 @@ const SettingsPage = () => {
         return <SettingsIntegrationsTab />;
       case "Meta":
         return <MetaSettingsTab inputClass={SETTINGS_INPUT_CLASS} labelClass={SETTINGS_LABEL_CLASS} />;
+      case "Leads":
+        return <SettingsLeadsTab />;
       default:
         return null;
     }
