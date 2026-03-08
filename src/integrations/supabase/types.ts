@@ -1356,6 +1356,7 @@ export type Database = {
           notes: string | null
           optional_items: Json
           paid_at: string | null
+          quote_id: string | null
           rompslomp_id: string | null
           status: string
           subtotal: number
@@ -1380,6 +1381,7 @@ export type Database = {
           notes?: string | null
           optional_items?: Json
           paid_at?: string | null
+          quote_id?: string | null
           rompslomp_id?: string | null
           status?: string
           subtotal?: number
@@ -1404,6 +1406,7 @@ export type Database = {
           notes?: string | null
           optional_items?: Json
           paid_at?: string | null
+          quote_id?: string | null
           rompslomp_id?: string | null
           status?: string
           subtotal?: number
@@ -1433,6 +1436,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
             referencedColumns: ["id"]
           },
           {
@@ -3686,6 +3696,7 @@ export type Database = {
           notes: Json | null
           photos_after: string[] | null
           photos_before: string[] | null
+          quote_id: string | null
           remarks: string | null
           room_checklists: Json | null
           service_id: string | null
@@ -3719,6 +3730,7 @@ export type Database = {
           notes?: Json | null
           photos_after?: string[] | null
           photos_before?: string[] | null
+          quote_id?: string | null
           remarks?: string | null
           room_checklists?: Json | null
           service_id?: string | null
@@ -3752,6 +3764,7 @@ export type Database = {
           notes?: Json | null
           photos_after?: string[] | null
           photos_before?: string[] | null
+          quote_id?: string | null
           remarks?: string | null
           room_checklists?: Json | null
           service_id?: string | null
@@ -3822,6 +3835,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
             referencedColumns: ["id"]
           },
           {
