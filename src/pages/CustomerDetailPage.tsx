@@ -9,12 +9,19 @@ import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import AddressDialog from "@/components/AddressDialog";
 import WhatsAppChat from "@/components/WhatsAppChat";
 import CustomerEmailTab from "@/components/CustomerEmailTab";
-import { Loader2, Trash2, MapPin, Plus, MessageSquare } from "lucide-react";
-import { useState, useMemo } from "react";
+import { Loader2, Trash2, MapPin, Plus, MessageSquare, Globe, Eye, EyeOff } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
 import CustomerDialog from "@/components/CustomerDialog";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -56,6 +63,41 @@ const CustomerDetailPage = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
+  const [portalDialogOpen, setPortalDialogOpen] = useState(false);
+  const [portalPassword, setPortalPassword] = useState("");
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalActive, setPortalActive] = useState<boolean | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Check if portal account exists for this customer
+  useEffect(() => {
+    if (!params.customerId) return;
+    supabase
+      .from("portal_users")
+      .select("id")
+      .eq("customer_id", params.customerId)
+      .maybeSingle()
+      .then(({ data }) => setPortalActive(!!data));
+  }, [params.customerId]);
+
+  const handleCreatePortalAccount = async () => {
+    if (!customer?.email || !portalPassword || !companyId) return;
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("portal-invite", {
+        body: { customer_id: customer.id, company_id: companyId, email: customer.email, password: portalPassword },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setPortalActive(true);
+      setPortalDialogOpen(false);
+      setPortalPassword("");
+      toast({ title: "Portaal account aangemaakt", description: `Login: ${customer.email}` });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+    setPortalLoading(false);
+  };
 
   const isBusinessCustomer = customer?.type === "zakelijk" || customer?.type === "vve";
 
@@ -318,7 +360,7 @@ const CustomerDetailPage = () => {
             <p className="text-[12px] md:text-[13px] text-secondary-foreground">
               {typeMap[customer.type] ?? customer.type} · {customer.city || "Onbekend"}
             </p>
-            <div className="mt-3 md:mt-4 flex gap-2 justify-center">
+            <div className="mt-3 md:mt-4 flex gap-2 justify-center flex-wrap">
               <button onClick={() => setEditOpen(true)} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors">
                 Bewerken
               </button>
@@ -326,6 +368,23 @@ const CustomerDetailPage = () => {
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
+            {/* Portal account */}
+            {customer.email && (
+              <div className="mt-3 pt-3 border-t border-border">
+                {portalActive ? (
+                  <div className="flex items-center justify-center gap-1.5 text-[12px] font-bold text-accent">
+                    <Globe className="h-3.5 w-3.5" /> Portaal actief
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setPortalDialogOpen(true)}
+                    className="w-full px-3 py-1.5 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Globe className="h-3.5 w-3.5" /> Portaal account aanmaken
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="bg-card border border-border rounded-lg shadow-card mt-3 md:mt-4 overflow-hidden">
@@ -396,6 +455,50 @@ const CustomerDetailPage = () => {
           address={editingAddress}
         />
       )}
+
+      {/* Portal invite dialog */}
+      <Dialog open={portalDialogOpen} onOpenChange={setPortalDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Portaal account aanmaken</DialogTitle>
+            <DialogDescription>
+              De klant kan hiermee inloggen op het klantportaal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-sm font-medium">E-mailadres</Label>
+              <Input value={customer?.email || ""} disabled className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Wachtwoord</Label>
+              <div className="relative mt-1">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={portalPassword}
+                  onChange={(e) => setPortalPassword(e.target.value)}
+                  placeholder="Kies een wachtwoord"
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPortalDialogOpen(false)}>Annuleren</Button>
+            <Button onClick={handleCreatePortalAccount} disabled={portalLoading || portalPassword.length < 6}>
+              {portalLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Aanmaken
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

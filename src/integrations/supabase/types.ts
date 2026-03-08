@@ -3975,6 +3975,7 @@ export type Database = {
           remarks: string | null
           room_checklists: Json | null
           service_id: string | null
+          share_token: string | null
           signature_url: string | null
           signed_at: string | null
           signed_by: string | null
@@ -4011,6 +4012,7 @@ export type Database = {
           remarks?: string | null
           room_checklists?: Json | null
           service_id?: string | null
+          share_token?: string | null
           signature_url?: string | null
           signed_at?: string | null
           signed_by?: string | null
@@ -4047,6 +4049,7 @@ export type Database = {
           remarks?: string | null
           room_checklists?: Json | null
           service_id?: string | null
+          share_token?: string | null
           signature_url?: string | null
           signed_at?: string | null
           signed_by?: string | null

@@ -1,74 +1,51 @@
 
 
-# Klantportaal account aanmaken + Unieke werkbon-link
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Twee features
+### Problemen
 
-1. **Portaal account aanmaken vanuit klantdetail** -- Admin kan direct vanuit de klantpagina een portaalaccount aanmaken (via bestaande `portal-invite` edge function)
-2. **Unieke deelbare werkbon-link** -- Bij een werkbon een publieke status-link genereren die zonder login werkt
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-## Technisch plan
+### Aanpak
 
-### Feature 1: Portaal account aanmaken
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-**Geen database-wijzigingen nodig** -- `portal_users` tabel en `portal-invite` edge function bestaan al.
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-**UI in `CustomerDetailPage.tsx`:**
-- Knop "Portaal account aanmaken" toevoegen in de klantgegevens-kaart (linker kolom)
-- Alleen tonen als klant een e-mailadres heeft en nog geen portal_users record
-- Bij klik: dialog met e-mail (pre-filled) en wachtwoord-veld
-- Submit roept `supabase.functions.invoke("portal-invite", { body: { customer_id, company_id, email, password } })` aan
-- Na succes: knop verandert in "Portaal actief ✓" met optie om te deactiveren
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-**Check of portaal actief is:**
-- Query `portal_users` met `customer_id` filter bij laden van klantdetail
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-### Feature 2: Unieke werkbon status-link
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-**Database: migratie op `work_orders`:**
-```sql
-ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS share_token text UNIQUE;
-CREATE INDEX IF NOT EXISTS idx_work_orders_share_token ON work_orders(share_token);
-```
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-**RLS policy voor publieke toegang via token:**
-```sql
-CREATE POLICY "Public access via share_token"
-ON work_orders FOR SELECT TO anon
-USING (share_token IS NOT NULL AND share_token = current_setting('request.headers')::json->>'x-share-token');
-```
-Alternatief (eenvoudiger): een aparte publieke view of edge function die de token valideert.
+### Bestanden
 
-**Betere aanpak -- Edge Function `work-order-public`:**
-- Ontvangt `token` als query parameter
-- Zoekt werkbon op via `share_token` met service role (geen RLS nodig)
-- Retourneert beperkte data: status, werkbon-nummer, dienst, aangemaakt, klant-naam (voornaam)
-- Geen gevoelige data (bedragen, foto's, notities) tonen
-
-**Token generatie in `WorkOrderDetailPage.tsx`:**
-- "Deel link" knop die een random token genereert (`crypto.randomUUID()`)
-- Slaat token op in `work_orders.share_token`
-- Toont kopieerbare URL: `{origin}/status/{token}`
-- Mogelijkheid om link in te trekken (token op null zetten)
-
-**Publieke pagina `WorkOrderStatusPage.tsx`:**
-- Route: `/status/:token` (buiten ProtectedRoute)
-- Haalt data op via edge function `work-order-public`
-- Toont: bedrijfslogo, werkbon-nummer, huidige status (met kleur-badge), datum
-- Minimalistisch design, mobile-first
-- Geen navigatie, geen login vereist
-- Realtime subscription op status-wijzigingen (via channel met token filter)
-
-### Samenvatting wijzigingen
-
-| Component | Wijziging |
+| Bestand | Wijziging |
 |---|---|
-| Migration SQL | `share_token` kolom + index op `work_orders` |
-| `supabase/functions/work-order-public/index.ts` | Nieuwe edge function voor publieke werkbon-lookup |
-| `supabase/config.toml` | `verify_jwt = false` voor `work-order-public` |
-| `src/pages/CustomerDetailPage.tsx` | "Portaal account" knop + dialog |
-| `src/pages/WorkOrderDetailPage.tsx` | "Deel link" knop met token-generatie |
-| `src/pages/WorkOrderStatusPage.tsx` | Nieuwe publieke statuspagina |
-| `src/App.tsx` | Route `/status/:token` toevoegen |
-| `src/integrations/supabase/types.ts` | Types bijwerken (automatisch) |
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+
+Geen database-wijzigingen, geen nieuwe dependencies.
 

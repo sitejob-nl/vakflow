@@ -53,6 +53,7 @@ const PortalWorkOrdersPage = lazy(() => import("@/pages/PortalWorkOrdersPage"));
 const PortalVehiclesPage = lazy(() => import("@/pages/PortalVehiclesPage"));
 const PortalAppointmentsPage = lazy(() => import("@/pages/PortalAppointmentsPage"));
 const PortalTireStoragePage = lazy(() => import("@/pages/PortalTireStoragePage"));
+const WorkOrderStatusPage = lazy(() => import("@/pages/WorkOrderStatusPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -117,6 +118,8 @@ const App = () => (
                 <Route path="superadmin" element={<SuperAdminRoute><SuperAdminPage /></SuperAdminRoute>} />
               </Route>
               <Route path="/meta-callback" element={<ProtectedRoute><MetaCallbackPage /></ProtectedRoute>} />
+              {/* Public work order status page */}
+              <Route path="/status/:token" element={<WorkOrderStatusPage />} />
               {/* Portal routes - separate auth context */}
               <Route path="/portal/login" element={<PortalAuthProvider><PortalLoginPage /></PortalAuthProvider>} />
               <Route path="/portal" element={<PortalAuthProvider><PortalRoute><PortalLayout /></PortalRoute></PortalAuthProvider>}>
