@@ -19,6 +19,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editQuote?: Quote | null;
+  onScheduleAppointment?: (quote: Quote) => void;
 }
 
 const emptyItem = (): QuoteItem => ({ description: "", qty: 1, unit_price: 0, total: 0 });
