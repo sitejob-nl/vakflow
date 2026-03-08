@@ -101,6 +101,10 @@ export const useNavigation = () => {
       path = `/workorders/${navParams.workOrderId}`;
     } else if (page === "woDetail" && navParams?.id) {
       path = `/workorders/${navParams.id}`;
+    } else if (page === "vehDetail" && navParams?.vehicleId) {
+      path = `/vehicles/${navParams.vehicleId}`;
+    } else if (page === "vehDetail" && navParams?.id) {
+      path = `/vehicles/${navParams.id}`;
     }
     routerNavigate(path);
   };
