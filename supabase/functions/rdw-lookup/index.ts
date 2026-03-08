@@ -1,33 +1,51 @@
 import { corsFor, jsonRes, optionsResponse } from "../_shared/cors.ts";
+import { createAdminClient, createUserClient } from "../_shared/supabase.ts";
+import { logEdgeFunctionError } from "../_shared/error-logger.ts";
+
+const CACHE_MAX_AGE_DAYS = 7;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return optionsResponse(req);
 
+  const admin = createAdminClient();
+
   try {
+    // Auth check: require valid JWT (anon or authenticated)
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return jsonRes({ error: "Authorization required" }, 401, req);
+    }
+    const userClient = createUserClient(authHeader);
+    const { data: { user }, error: authErr } = await userClient.auth.getUser();
+    if (authErr || !user) {
+      return jsonRes({ error: "Invalid token" }, 401, req);
+    }
+
     const { plate } = await req.json();
     if (!plate) return jsonRes({ error: "plate is required" }, 400, req);
 
     const normalized = plate.replace(/[\s-]/g, "").toUpperCase();
 
-    // --- Main vehicle data (v3 API) ---
-    const mainUrl = `https://opendata.rdw.nl/api/v3/views/m9d7-ebf2/query.json?$$query=${encodeURIComponent(`SELECT * WHERE kenteken='${normalized}'`)}`;
+    // --- Main vehicle data (resource API with parameter syntax) ---
+    const mainUrl = `https://opendata.rdw.nl/resource/m9d7-ebf2.json?kenteken=${normalized}`;
     const mainResp = await fetch(mainUrl);
     if (!mainResp.ok) return jsonRes({ error: "RDW API error" }, 502, req);
 
-    const mainJson = await mainResp.json();
-    const rows = mainJson?.rows ?? mainJson ?? [];
+    const rows = await mainResp.json();
     if (!rows || rows.length === 0) {
       return jsonRes({ found: false, plate: normalized }, 200, req);
     }
 
     const v = rows[0];
 
-    // --- Parallel fetches: fuel, inspections, defects, defect descriptions, recalls ---
-    const [fuelRes, inspRes, defectsRes, defectRefsRes, recallsRes] = await Promise.allSettled([
+    // --- Load defect descriptions from cache ---
+    const defectDescMap = await getDefectDescriptions(admin);
+
+    // --- Parallel fetches: fuel, inspections, defects, recalls ---
+    const [fuelRes, inspRes, defectsRes, recallsRes] = await Promise.allSettled([
       fetch(`https://opendata.rdw.nl/resource/8ys7-d773.json?kenteken=${normalized}`).then(r => r.ok ? r.json() : []),
       fetch(`https://opendata.rdw.nl/resource/vkij-7mwc.json?kenteken=${normalized}&$order=vervaldatum_keuring_dt DESC&$limit=20`).then(r => r.ok ? r.json() : []),
       fetch(`https://opendata.rdw.nl/resource/a34c-vvps.json?kenteken=${normalized}&$order=meld_datum_door_keuringsinstantie_dt DESC&$limit=50`).then(r => r.ok ? r.json() : []),
-      fetch(`https://opendata.rdw.nl/resource/hx2c-gt7k.json?$limit=2000`).then(r => r.ok ? r.json() : []),
       fetch(`https://opendata.rdw.nl/resource/t49b-isb7.json?kenteken=${normalized}`).then(r => r.ok ? r.json() : []),
     ]);
 
@@ -50,16 +68,6 @@ Deno.serve(async (req) => {
         }
         return { expiry_date: expiryDate || "" };
       }).filter((i: any) => i.expiry_date);
-    }
-
-    // Defect reference lookup map
-    const defectDescMap = new Map<string, string>();
-    if (defectRefsRes.status === "fulfilled" && Array.isArray(defectRefsRes.value)) {
-      for (const ref of defectRefsRes.value) {
-        if (ref.gebrek_identificatie && ref.gebrek_omschrijving) {
-          defectDescMap.set(ref.gebrek_identificatie, ref.gebrek_omschrijving);
-        }
-      }
     }
 
     // Defects (geconstateerde gebreken)
@@ -130,7 +138,6 @@ Deno.serve(async (req) => {
       eu_vehicle_category: v.europese_voertuigcategorie || null,
       type: v.type || null,
       odometer_judgement: v.tellerstandoordeel || null,
-      // New: inspection history, defects, recalls
       inspections,
       defects,
       recalls,
@@ -140,6 +147,81 @@ Deno.serve(async (req) => {
 
     return jsonRes(result, 200, req);
   } catch (err) {
+    await logEdgeFunctionError(admin, "rdw-lookup", (err as Error).message, {
+      stack: (err as Error).stack,
+    });
     return jsonRes({ error: (err as Error).message }, 500, req);
   }
 });
+
+/**
+ * Get defect descriptions from cache table. If cache is empty or stale (>7 days),
+ * refresh from RDW API and upsert into the table.
+ */
+async function getDefectDescriptions(admin: any): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+
+  // Check cache freshness
+  const { data: cached, error: cacheErr } = await admin
+    .from("rdw_defect_descriptions")
+    .select("id, description, updated_at")
+    .limit(1);
+
+  const isFresh = !cacheErr && cached && cached.length > 0 &&
+    (Date.now() - new Date(cached[0].updated_at).getTime()) < CACHE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+
+  if (isFresh) {
+    // Load all from cache
+    const { data: allCached } = await admin
+      .from("rdw_defect_descriptions")
+      .select("id, description")
+      .limit(5000);
+
+    if (allCached) {
+      for (const row of allCached) {
+        map.set(row.id, row.description);
+      }
+    }
+    return map;
+  }
+
+  // Cache is stale or empty — fetch from RDW API
+  try {
+    const resp = await fetch("https://opendata.rdw.nl/resource/hx2c-gt7k.json?$limit=5000");
+    if (!resp.ok) {
+      console.error("Failed to fetch defect descriptions from RDW:", resp.status);
+      return map;
+    }
+
+    const data = await resp.json();
+    if (!Array.isArray(data)) return map;
+
+    const now = new Date().toISOString();
+    const rows: { id: string; description: string; updated_at: string }[] = [];
+
+    for (const ref of data) {
+      if (ref.gebrek_identificatie && ref.gebrek_omschrijving) {
+        map.set(ref.gebrek_identificatie, ref.gebrek_omschrijving);
+        rows.push({
+          id: ref.gebrek_identificatie,
+          description: ref.gebrek_omschrijving,
+          updated_at: now,
+        });
+      }
+    }
+
+    // Upsert in batches of 500
+    for (let i = 0; i < rows.length; i += 500) {
+      const batch = rows.slice(i, i + 500);
+      await admin
+        .from("rdw_defect_descriptions")
+        .upsert(batch, { onConflict: "id" });
+    }
+
+    console.log(`Cached ${rows.length} defect descriptions from RDW`);
+  } catch (e) {
+    console.error("Defect description cache refresh failed:", e);
+  }
+
+  return map;
+}

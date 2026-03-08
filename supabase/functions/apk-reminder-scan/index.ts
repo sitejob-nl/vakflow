@@ -97,11 +97,13 @@ async function processCompany(supabase: any, config: any): Promise<number> {
     const expiryDate = new Date(vehicle.apk_expiry_date);
     const daysUntilExpiry = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    // Check each reminder threshold
-    for (const threshold of (days_before || [30, 14, 7])) {
-      if (daysUntilExpiry > threshold || daysUntilExpiry < 0) continue;
-
-      // Only send if within the threshold window (e.g., 30d means days 30..15, 14d means 14..8, 7d means 7..0)
+    // Check each reminder threshold (sorted descending)
+    const sortedThresholds = [...(days_before || [30, 14, 7])].sort((a: number, b: number) => b - a);
+    for (let idx = 0; idx < sortedThresholds.length; idx++) {
+      const threshold = sortedThresholds[idx];
+      const nextThreshold = sortedThresholds[idx + 1] || 0;
+      // Only send if within the correct window: nextThreshold < daysUntilExpiry <= threshold
+      if (daysUntilExpiry > threshold || daysUntilExpiry <= nextThreshold || daysUntilExpiry < 0) continue;
       const reminderType = `${threshold}d`;
       const dedup = `${vehicle.id}_${reminderType}_${vehicle.apk_expiry_date}`;
       if (sentSet.has(dedup)) continue;

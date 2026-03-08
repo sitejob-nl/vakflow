@@ -1,58 +1,51 @@
 
 
-# Edge Function Hardening Plan
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-Based on Claude's analysis, here are the concrete fixes across 4 edge functions.
+### Problemen
 
----
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-## 1. ai-intake: Add rate limiting, usage logging, error logging, conditional work_order_type
+### Aanpak
 
-**File:** `supabase/functions/ai-intake/index.ts`
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-- Import `logUsage`, `logEdgeFunctionError`, `checkRateLimit` from shared helpers
-- Import `createAdminClient` (already present)
-- After `authenticateRequest`, call `checkRateLimit(admin, companyId, "ai_intake", 10, 60)` — max 10 per minute
-- After successful AI response, call `logUsage(admin, companyId, "ai_intake", { complaint_length: complaint.length })`
-- In catch block, call `logEdgeFunctionError(admin, "ai-intake", err.message, ...)`
-- Make `work_order_type` property conditional: only include it in the function schema when `isAutomotive === true`
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-## 2. rdw-lookup: Cache defect descriptions, use parameter syntax, add auth check
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-**File:** `supabase/functions/rdw-lookup/index.ts`
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-**Database migration:** Create `rdw_defect_descriptions` table (id text PK, description text, updated_at timestamptz). No RLS needed (internal use only via service role).
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-**Function changes:**
-- Add JWT/anon-key validation at the top (import `createUserClient` from shared, verify bearer token)
-- Replace the `hx2c-gt7k` fetch with a Supabase lookup on `rdw_defect_descriptions` table; if empty or stale (>7 days), fetch from RDW API and upsert into the table
-- Replace the `$$query=SELECT * WHERE kenteken='${normalized}'` with the resource API parameter syntax: `?kenteken=${normalized}` (same as the other parallel fetches)
-- Add `logEdgeFunctionError` in catch block
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-## 3. apk-reminder-scan: Fix reminder window logic
+### Bestanden
 
-**File:** `supabase/functions/apk-reminder-scan/index.ts`
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
 
-- Current bug: thresholds `[30, 14, 7]` — if `daysUntilExpiry = 20`, it passes the `30` threshold check (`20 <= 30 && 20 >= 0`) and sends the 30d reminder even though 20 is past the 30-day window
-- Fix: add upper-bound check. For threshold at index `i`, only send if `daysUntilExpiry <= threshold && daysUntilExpiry > (nextThreshold || 0)` where `nextThreshold` is `days_before[i+1]` or `0` for the last one
-- Specifically, sort thresholds descending, then for each threshold check: `daysUntilExpiry <= threshold && daysUntilExpiry > (days_before[idx + 1] || 0)`
-
-## 4. whatsapp-automation-trigger: Add vehicle context for automotive templates
-
-**File:** `supabase/functions/whatsapp-automation-trigger/index.ts`
-
-- After fetching the customer, check if `customer.company_id` belongs to an automotive company
-- If so, fetch the customer's vehicles: `SELECT license_plate, brand, model, apk_expiry_date FROM vehicles WHERE customer_id = ? AND status = 'actief' LIMIT 1`
-- Merge vehicle fields into `fullContext` so templates can use `{{kenteken}}`, `{{merk}}`, `{{model}}`, `{{apk_datum}}`, `{{dagen}}`
-
----
-
-## Summary of changes
-
-| Function | Files | What |
-|---|---|---|
-| ai-intake | 1 edge function | Rate limit, usage/error logging, conditional schema |
-| rdw-lookup | 1 migration + 1 edge function | Defect cache table, auth check, parameterized query |
-| apk-reminder-scan | 1 edge function | Fix window bounds logic |
-| whatsapp-automation-trigger | 1 edge function | Vehicle context enrichment |
+Geen database-wijzigingen, geen nieuwe dependencies.
 

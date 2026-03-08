@@ -2034,6 +2034,24 @@ export type Database = {
           },
         ]
       }
+      rdw_defect_descriptions: {
+        Row: {
+          description: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          description: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          description?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           category: string | null
