@@ -606,6 +606,7 @@ const InvoicesPage = () => {
               <tbody>
                 {filtered.map((inv) => {
                   const cfg = statusConfig[inv.status] ?? statusConfig.concept;
+                  const isOverdue = inv.status === "verzonden" && inv.due_at && new Date(inv.due_at) < new Date();
                   return (
                     <tr
                       key={inv.id}
@@ -617,9 +618,12 @@ const InvoicesPage = () => {
                       <td className="px-5 py-3 text-[13.5px]">{serviceName(inv)}</td>
                       <td className="px-5 py-3 font-mono">€ {Number(inv.total).toFixed(2)}</td>
                       <td className="px-5 py-3">
-                        <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${badgeStyles[cfg.variant]}`}>
-                          {cfg.label}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {isOverdue && <span className="inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold bg-destructive/10 text-destructive">Verlopen</span>}
+                          <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${badgeStyles[cfg.variant]}`}>
+                            {cfg.label}
+                          </span>
+                        </div>
                       </td>
                     </tr>
                   );
