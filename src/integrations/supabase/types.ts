@@ -368,6 +368,7 @@ export type Database = {
           access_instructions: string | null
           address_id: string | null
           asset_type: string | null
+          avg_quality_score: number | null
           brand: string | null
           company_id: string | null
           created_at: string
@@ -394,6 +395,7 @@ export type Database = {
           access_instructions?: string | null
           address_id?: string | null
           asset_type?: string | null
+          avg_quality_score?: number | null
           brand?: string | null
           company_id?: string | null
           created_at?: string
@@ -420,6 +422,7 @@ export type Database = {
           access_instructions?: string | null
           address_id?: string | null
           asset_type?: string | null
+          avg_quality_score?: number | null
           brand?: string | null
           company_id?: string | null
           created_at?: string
@@ -469,6 +472,71 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_room_scores: {
+        Row: {
+          audit_id: string
+          company_id: string
+          created_at: string
+          criteria: Json
+          id: string
+          notes: string | null
+          room_id: string | null
+          room_name: string
+          score: number | null
+        }
+        Insert: {
+          audit_id: string
+          company_id: string
+          created_at?: string
+          criteria?: Json
+          id?: string
+          notes?: string | null
+          room_id?: string | null
+          room_name: string
+          score?: number | null
+        }
+        Update: {
+          audit_id?: string
+          company_id?: string
+          created_at?: string
+          criteria?: Json
+          id?: string
+          notes?: string | null
+          room_id?: string | null
+          room_name?: string
+          score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_room_scores_audit_id_fkey"
+            columns: ["audit_id"]
+            isOneToOne: false
+            referencedRelation: "quality_audits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_room_scores_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_room_scores_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_room_scores_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "object_rooms"
             referencedColumns: ["id"]
           },
         ]
@@ -1954,6 +2022,77 @@ export type Database = {
           },
           {
             foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quality_audits: {
+        Row: {
+          asset_id: string
+          audit_date: string
+          audit_type: string
+          auditor_id: string | null
+          company_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          overall_score: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          audit_date?: string
+          audit_type?: string
+          auditor_id?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          overall_score?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          audit_date?: string
+          audit_type?: string
+          auditor_id?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          overall_score?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quality_audits_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_audits_auditor_id_fkey"
+            columns: ["auditor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_audits_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_audits_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_safe"

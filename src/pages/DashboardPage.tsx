@@ -5,7 +5,7 @@ import MaintenancePlannerWidget from "@/components/MaintenancePlannerWidget";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { format, differenceInDays } from "date-fns";
 import { nl } from "date-fns/locale";
-import { Loader2, CalendarPlus, FileText, Receipt, Car, AlertTriangle, Wrench, Building2, Truck, Sparkles } from "lucide-react";
+import { Loader2, CalendarPlus, FileText, Receipt, Car, AlertTriangle, Wrench, Building2, Truck, Sparkles, ClipboardCheck } from "lucide-react";
 import { useState } from "react";
 import AppointmentDialog from "@/components/AppointmentDialog";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
@@ -173,6 +173,17 @@ const DashboardPage = () => {
               </div>
               <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{cleaningStats.vehiclesWashedThisMonth}</div>
               <div className="text-[10px] md:text-[11.5px] mt-1 font-semibold text-t3">deze maand</div>
+            </div>
+          )}
+          {cleaningStats.avgQualityScore !== null && (
+            <div onClick={() => navigate("audits")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+              <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                <ClipboardCheck className="h-3 w-3" /> Gem. kwaliteit
+              </div>
+              <div className={`text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter ${cleaningStats.avgQualityScore >= 4 ? "text-green-600 dark:text-green-400" : cleaningStats.avgQualityScore >= 3 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"}`}>
+                {cleaningStats.avgQualityScore.toFixed(1)}
+              </div>
+              <div className="text-[10px] md:text-[11.5px] mt-1 font-semibold text-t3">/ 5.0</div>
             </div>
           )}
         </div>

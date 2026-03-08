@@ -1,7 +1,7 @@
 import { useNavigation, type Page } from "@/hooks/useNavigation";
 import {
   LayoutGrid, Calendar, Users, FileText, DollarSign,
-  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car, Repeat, CalendarCheck
+  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car, Repeat, CalendarCheck, ClipboardCheck
 } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { useLowStockCount } from "@/hooks/useMaterials";
@@ -55,6 +55,7 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
     label: "Beheer",
     items: [
       { id: "assets" as Page, icon: Box, label: labels.assets, adminOnly: true },
+      ...(industry === "cleaning" ? [{ id: "audits" as Page, icon: ClipboardCheck, label: "Kwaliteit", adminOnly: true }] : []),
       { id: "vehicles" as Page, icon: Car, label: labels.vehicles, adminOnly: true },
       ...(industry === "automotive" ? [{ id: "trade" as Page, icon: Repeat, label: "Inruil & Verkoop", adminOnly: true }] : []),
       { id: "marketing" as Page, icon: Megaphone, label: "Marketing", adminOnly: true },

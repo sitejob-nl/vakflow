@@ -38,6 +38,7 @@ const Header = () => {
     trade: { title: "Inruil & Verkoop", sub: "Inruilvoertuigen & marges" },
     schedule: { title: "Te plannen", sub: "Objecten inplannen" },
     settings: { title: "Instellingen", sub: "Profiel & voorkeuren" },
+    audits: { title: "Kwaliteit", sub: "Audits & naleving" },
     superadmin: { title: "Super Admin", sub: "Bedrijvenbeheer" },
   };
 

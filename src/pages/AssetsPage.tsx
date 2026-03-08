@@ -146,6 +146,7 @@ const AssetsPage = () => {
                 <TableHead className="hidden sm:table-cell">Klant</TableHead>
                 {isCleaning && <TableHead className="hidden md:table-cell">Frequentie</TableHead>}
                 {isCleaning && <TableHead className="hidden md:table-cell">Volgende beurt</TableHead>}
+                {isCleaning && <TableHead className="hidden lg:table-cell">Score</TableHead>}
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[100px]" />
               </TableRow>
@@ -181,6 +182,19 @@ const AssetsPage = () => {
                       <TableCell className="hidden md:table-cell">
                         {dueBadge ? (
                           <Badge variant="secondary" className={dueBadge.class}>{dueBadge.label}</Badge>
+                        ) : "—"}
+                      </TableCell>
+                    )}
+                    {isCleaning && (
+                      <TableCell className="hidden lg:table-cell">
+                        {(asset as any).avg_quality_score ? (
+                          <Badge variant="secondary" className={
+                            (asset as any).avg_quality_score >= 4 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
+                            (asset as any).avg_quality_score >= 3 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                            "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                          }>
+                            {(asset as any).avg_quality_score?.toFixed(1)}
+                          </Badge>
                         ) : "—"}
                       </TableCell>
                     )}
