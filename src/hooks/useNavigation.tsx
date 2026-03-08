@@ -43,6 +43,7 @@ const routeMap: Record<Page, string> = {
   vehicles: "/vehicles",
   vehDetail: "/vehicles/:id",
   marketing: "/marketing",
+  trade: "/trade",
   settings: "/settings",
   superadmin: "/superadmin",
 };
