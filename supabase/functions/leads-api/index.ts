@@ -58,6 +58,18 @@ Deno.serve(async (req) => {
     if (authResult instanceof Response) return authResult;
     const { companyId } = authResult;
 
+    // Check if company has the "api" feature enabled
+    const { data: company } = await supabaseAdmin
+      .from("companies")
+      .select("enabled_features")
+      .eq("id", companyId)
+      .single();
+
+    const features: string[] = company?.enabled_features ?? [];
+    if (!features.includes("api")) {
+      return jsonRes({ error: "API feature is not enabled for this company" }, 403, req);
+    }
+
     // Rate limit: 60 req/min
     await checkRateLimit(supabaseAdmin, companyId, "leads_api", 60, 60);
     logUsage(supabaseAdmin, companyId, "leads_api");

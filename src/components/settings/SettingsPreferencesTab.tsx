@@ -21,6 +21,8 @@ const ALL_FEATURES = [
   { key: "marketing", label: "Marketing (Meta)" },
   { key: "contracts", label: "Contracten" },
   { key: "vehicles", label: "Voertuigen" },
+  { key: "leads", label: "Leads" },
+  { key: "api", label: "API" },
 ];
 
 const SettingsPreferencesTab = () => {

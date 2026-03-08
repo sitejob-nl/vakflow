@@ -56,6 +56,8 @@ const ALL_FEATURES = [
   { slug: "projects", label: "Projecten" },
   { slug: "marketing", label: "Marketing" },
   { slug: "custom_domain", label: "Custom Domein" },
+  { slug: "api", label: "API" },
+  { slug: "leads", label: "Leads" },
 ];
 
 const INDUSTRIES: { value: string; label: string }[] = [
