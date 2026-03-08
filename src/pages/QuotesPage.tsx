@@ -344,19 +344,20 @@ const QuotesPage = () => {
       </div>
 
       {/* Header with new button */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-0 border-b-2 border-border overflow-x-auto scrollbar-hide">
-          {tabs.map((t, i) => (
-            <button key={t} onClick={() => setActiveTab(i)} className={`px-4 md:px-5 py-2.5 text-[12px] md:text-[13px] font-bold border-b-2 -mb-[2px] transition-colors whitespace-nowrap ${i === activeTab ? "text-primary border-primary" : "text-t3 border-transparent hover:text-secondary-foreground"}`}>
-              {t}
-            </button>
-          ))}
+      <div className="flex flex-col gap-3 mb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex gap-0 border-b-2 border-border overflow-x-auto scrollbar-hide">
+            {tabs.map((t, i) => (
+              <button key={t} onClick={() => setActiveTab(i)} className={`px-4 md:px-5 py-2.5 text-[12px] md:text-[13px] font-bold border-b-2 -mb-[2px] transition-colors whitespace-nowrap ${i === activeTab ? "text-primary border-primary" : "text-t3 border-transparent hover:text-secondary-foreground"}`}>
+                {t}
+              </button>
+            ))}
+          </div>
+          <Button size="sm" className="shrink-0" onClick={() => { setEditQuote(null); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Nieuwe offerte</span><span className="sm:hidden">Nieuw</span>
+          </Button>
         </div>
-        <Button size="sm" onClick={() => { setEditQuote(null); setDialogOpen(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Nieuwe offerte
-        </Button>
       </div>
-
       {/* Mobile */}
       <div className="md:hidden">
         {mobilePreview ? (
