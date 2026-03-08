@@ -104,6 +104,32 @@ const QuotesPage = () => {
     setDialogOpen(true);
   };
 
+  const handleScheduleAppointment = (quote: Quote) => {
+    setAppointmentPrefill({
+      customer_id: quote.customer_id,
+      notes: quote.items.map((i) => `${i.description} (${i.qty}x — €${Number(i.unit_price).toFixed(2)})`).join("\n"),
+    });
+    setAppointmentDialogOpen(true);
+  };
+
+  const handleConvertToWorkOrder = async (quote: Quote) => {
+    try {
+      const wo = await convertToWorkOrder.mutateAsync(quote);
+      toast({ title: `Werkbon ${(wo as any).work_order_number ?? ""} aangemaakt vanuit offerte` });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleConvertToInvoice = async (quote: Quote) => {
+    try {
+      const inv = await convertToInvoice.mutateAsync(quote);
+      toast({ title: `Factuur ${(inv as any).invoice_number ?? ""} aangemaakt als concept` });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+  };
+
   const eur = (n: number) => `€ ${Number(n).toFixed(2)}`;
 
   const QuotePreview = () => {
