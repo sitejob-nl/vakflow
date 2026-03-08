@@ -39,6 +39,8 @@ const routeMap: Record<Page, string> = {
   reminders: "/reminders",
   contracts: "/contracts",
   assets: "/assets",
+  vehicles: "/vehicles",
+  vehDetail: "/vehicles/:id",
   marketing: "/marketing",
   settings: "/settings",
   superadmin: "/superadmin",
