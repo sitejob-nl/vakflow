@@ -38,10 +38,10 @@ interface Props {
 
 const WO_TYPES = [
   { value: "onderhoud", label: "Onderhoud", icon: Wrench },
-  { value: "reparatie", label: "Reparatie", icon: DamageIcon },
+  { value: "reparatie", label: "Reparatie", icon: AlertTriangle },
   { value: "apk", label: "APK", icon: ClipboardCheck },
   { value: "bandenwissel", label: "Bandenwissel", icon: TireIcon },
-  { value: "schadeherstel", label: "Schadeherstel", icon: DamageIcon },
+  { value: "schadeherstel", label: "Schadeherstel", icon: AlertTriangle },
   { value: "kleine_beurt", label: "Kleine beurt", icon: Wrench },
   { value: "grote_beurt", label: "Grote beurt", icon: Wrench },
   { value: "aflevering", label: "Aflevering", icon: Car },
