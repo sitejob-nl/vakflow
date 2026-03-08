@@ -95,7 +95,7 @@ export const useAsset = (id: string | undefined) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("assets" as any)
-        .select("*, customer:customers(id, name), address:addresses(id, street, house_number, city)")
+        .select("*, customer:customers(id, name), address:addresses(id, street, house_number, city, lat, lng)")
         .eq("id", id!)
         .single();
       if (error) throw error;
