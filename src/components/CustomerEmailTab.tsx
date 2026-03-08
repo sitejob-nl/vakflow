@@ -201,7 +201,11 @@ const CustomerEmailTab = ({ customerId, customerEmail, customerName }: Props) =>
                       <span className="text-[10px] text-t3 font-mono ml-auto">{format(new Date(dt), "dd-MM-yyyy HH:mm", { locale: nl })}</span>
                     </div>
                     {m.subject && <p className="text-[12px] font-bold mt-1">{m.subject}</p>}
-                    {m.body && <p className="text-[11.5px] text-secondary-foreground mt-0.5 line-clamp-2">{m.body}</p>}
+                    {(() => {
+                      const text = m.body || m.html_body || "";
+                      const stripped = text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+                      return stripped ? <p className="text-[11.5px] text-secondary-foreground mt-0.5 line-clamp-2">{stripped}</p> : null;
+                    })()}
                   </div>
                 </div>
               </div>

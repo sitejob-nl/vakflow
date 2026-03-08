@@ -1045,8 +1045,10 @@ export type Database = {
           article_number: string | null
           category: string | null
           company_id: string | null
+          cost_price: number
           created_at: string
           id: string
+          markup_percentage: number
           name: string
           unit: string
           unit_price: number
@@ -1055,8 +1057,10 @@ export type Database = {
           article_number?: string | null
           category?: string | null
           company_id?: string | null
+          cost_price?: number
           created_at?: string
           id?: string
+          markup_percentage?: number
           name: string
           unit?: string
           unit_price?: number
@@ -1065,8 +1069,10 @@ export type Database = {
           article_number?: string | null
           category?: string | null
           company_id?: string | null
+          cost_price?: number
           created_at?: string
           id?: string
+          markup_percentage?: number
           name?: string
           unit?: string
           unit_price?: number
