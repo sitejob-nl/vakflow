@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { useMemo } from "react";
 
 export interface Vehicle {
@@ -38,19 +37,31 @@ export interface VehicleMileageLog {
   recorded_by: string | null;
 }
 
+export interface WorkshopBay {
+  id: string;
+  company_id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+// Use .from() with type assertion since these tables are new and not yet in generated types
+const vehiclesTable = () => supabase.from("vehicles" as any);
+const mileageTable = () => supabase.from("vehicle_mileage_logs" as any);
+const baysTable = () => supabase.from("workshop_bays" as any);
+
 export const useVehicles = () => {
   const { companyId } = useAuth();
-  const keys = useMemo(() => ["vehicles"], []);
-  useRealtimeSubscription("vehicles", keys, companyId);
   return useQuery({
     queryKey: ["vehicles", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vehicles")
+      const { data, error } = await vehiclesTable()
         .select("*, customers(name)")
         .order("license_plate");
       if (error) throw error;
-      return data as Vehicle[];
+      return (data ?? []) as Vehicle[];
     },
   });
 };
@@ -60,8 +71,7 @@ export const useVehicle = (id: string | undefined) => {
     queryKey: ["vehicles", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vehicles")
+      const { data, error } = await vehiclesTable()
         .select("*, customers(name)")
         .eq("id", id!)
         .maybeSingle();
@@ -76,14 +86,13 @@ export const useCustomerVehicles = (customerId: string | undefined) => {
     queryKey: ["vehicles", "customer", customerId],
     enabled: !!customerId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vehicles")
+      const { data, error } = await vehiclesTable()
         .select("*")
         .eq("customer_id", customerId!)
         .eq("status", "actief")
         .order("license_plate");
       if (error) throw error;
-      return data as Vehicle[];
+      return (data ?? []) as Vehicle[];
     },
   });
 };
@@ -93,9 +102,8 @@ export const useCreateVehicle = () => {
   const { companyId } = useAuth();
   return useMutation({
     mutationFn: async (vehicle: Partial<Vehicle>) => {
-      const { data, error } = await supabase
-        .from("vehicles")
-        .insert({ ...vehicle, company_id: companyId } as any)
+      const { data, error } = await vehiclesTable()
+        .insert({ ...vehicle, company_id: companyId })
         .select()
         .single();
       if (error) throw error;
@@ -109,9 +117,8 @@ export const useUpdateVehicle = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Vehicle> & { id: string }) => {
-      const { data, error } = await supabase
-        .from("vehicles")
-        .update(updates as any)
+      const { data, error } = await vehiclesTable()
+        .update(updates)
         .eq("id", id)
         .select()
         .single();
@@ -126,7 +133,7 @@ export const useDeleteVehicle = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("vehicles").delete().eq("id", id);
+      const { error } = await vehiclesTable().delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["vehicles"] }),
@@ -158,27 +165,16 @@ export const useRdwLookup = () => {
 };
 
 // Workshop bays
-export interface WorkshopBay {
-  id: string;
-  company_id: string;
-  name: string;
-  description: string | null;
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
-}
-
 export const useWorkshopBays = () => {
   const { companyId } = useAuth();
   return useQuery({
     queryKey: ["workshop_bays", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("workshop_bays")
+      const { data, error } = await baysTable()
         .select("*")
         .order("sort_order");
       if (error) throw error;
-      return data as WorkshopBay[];
+      return (data ?? []) as WorkshopBay[];
     },
   });
 };
@@ -188,9 +184,8 @@ export const useCreateWorkshopBay = () => {
   const { companyId } = useAuth();
   return useMutation({
     mutationFn: async (bay: Partial<WorkshopBay>) => {
-      const { data, error } = await supabase
-        .from("workshop_bays")
-        .insert({ ...bay, company_id: companyId } as any)
+      const { data, error } = await baysTable()
+        .insert({ ...bay, company_id: companyId })
         .select()
         .single();
       if (error) throw error;
@@ -204,9 +199,8 @@ export const useUpdateWorkshopBay = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<WorkshopBay> & { id: string }) => {
-      const { data, error } = await supabase
-        .from("workshop_bays")
-        .update(updates as any)
+      const { data, error } = await baysTable()
+        .update(updates)
         .eq("id", id)
         .select()
         .single();
@@ -221,7 +215,7 @@ export const useDeleteWorkshopBay = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("workshop_bays").delete().eq("id", id);
+      const { error } = await baysTable().delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["workshop_bays"] }),
@@ -234,13 +228,12 @@ export const useVehicleMileageLogs = (vehicleId: string | undefined) => {
     queryKey: ["vehicle_mileage_logs", vehicleId],
     enabled: !!vehicleId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vehicle_mileage_logs")
+      const { data, error } = await mileageTable()
         .select("*")
         .eq("vehicle_id", vehicleId!)
         .order("recorded_at", { ascending: false });
       if (error) throw error;
-      return data as VehicleMileageLog[];
+      return (data ?? []) as VehicleMileageLog[];
     },
   });
 };
@@ -250,24 +243,22 @@ export const useCreateMileageLog = () => {
   const { companyId } = useAuth();
   return useMutation({
     mutationFn: async (log: Partial<VehicleMileageLog>) => {
-      const { data, error } = await supabase
-        .from("vehicle_mileage_logs")
-        .insert({ ...log, company_id: companyId } as any)
+      const { data, error } = await mileageTable()
+        .insert({ ...log, company_id: companyId })
         .select()
         .single();
       if (error) throw error;
 
       // Also update current mileage on vehicle
       if (log.vehicle_id && log.mileage) {
-        await supabase
-          .from("vehicles")
-          .update({ mileage_current: log.mileage, mileage_updated_at: new Date().toISOString() } as any)
+        await vehiclesTable()
+          .update({ mileage_current: log.mileage, mileage_updated_at: new Date().toISOString() })
           .eq("id", log.vehicle_id);
       }
 
       return data;
     },
-    onSuccess: (_, vars) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["vehicle_mileage_logs"] });
       qc.invalidateQueries({ queryKey: ["vehicles"] });
     },
