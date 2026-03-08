@@ -24,9 +24,9 @@ export const useMaintenancePlanner = () => {
     queryFn: async () => {
       let q = supabase
         .from("assets" as any)
-        .select("id, name, asset_type, brand, next_maintenance_date, last_maintenance_date, customer_id, customer:customers(id, name, city)")
+        .select("id, name, asset_type, brand, next_service_due, last_maintenance_date, customer_id, customer:customers(id, name, city)")
         .eq("status", "actief")
-        .order("next_maintenance_date", { ascending: true, nullsFirst: false });
+        .order("next_service_due", { ascending: true, nullsFirst: false });
       if (companyId) q = q.eq("company_id", companyId);
       const { data, error } = await q;
       if (error) throw error;
