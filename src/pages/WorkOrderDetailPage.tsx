@@ -171,12 +171,34 @@ const WorkOrderDetailPage = () => {
     }
   };
 
+  const { data: woMaterials } = useWorkOrderMaterials(wo.id);
+
   const handleCreateInvoice = async () => {
     try {
       const servicePrice = (wo as any).services?.price ?? 0;
       const serviceName = (wo as any).services?.name ?? "Dienst";
       const travelCost = wo.travel_cost ?? 0;
-      const totalInclBtw = servicePrice + travelCost;
+
+      const items: { description: string; qty: number; unit_price: number; total: number }[] = [
+        { description: serviceName, qty: 1, unit_price: servicePrice, total: servicePrice },
+      ];
+      if (travelCost > 0) {
+        items.push({ description: "Voorrijkosten", qty: 1, unit_price: travelCost, total: travelCost });
+      }
+
+      // Add work order materials to invoice items
+      if (woMaterials && woMaterials.length > 0) {
+        for (const mat of woMaterials) {
+          items.push({
+            description: mat.name,
+            qty: mat.quantity,
+            unit_price: mat.unit_price,
+            total: mat.total,
+          });
+        }
+      }
+
+      const totalInclBtw = items.reduce((sum, item) => sum + item.total, 0);
       const vatPercentage = 21;
       const subtotal = totalInclBtw / (1 + vatPercentage / 100);
       const vatAmount = totalInclBtw - subtotal;
@@ -186,13 +208,6 @@ const WorkOrderDetailPage = () => {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 30);
       const dueAt = dueDate.toISOString().split("T")[0];
-
-      const items = [
-        { description: serviceName, qty: 1, unit_price: servicePrice, total: servicePrice },
-      ];
-      if (travelCost > 0) {
-        items.push({ description: "Voorrijkosten", qty: 1, unit_price: travelCost, total: travelCost });
-      }
 
       await createInvoice.mutateAsync({
         customer_id: wo.customer_id,
