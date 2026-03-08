@@ -87,6 +87,10 @@ const PlanningPage = () => {
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
 
+  // Drag & drop state
+  const [dragAppointmentId, setDragAppointmentId] = useState<string | null>(null);
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+
   // Selected day for desktop (route optimization target)
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
