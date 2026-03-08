@@ -205,7 +205,22 @@ const InvoicesPage = () => {
     setSyncingId(null);
   };
 
-  const serviceName = (inv: Invoice) => (inv.work_orders as any)?.services?.name ?? "Dienst";
+  const handleSyncExact = async (id: string) => {
+    setSyncingId(id);
+    try {
+      const res = await supabase.functions.invoke("sync-exact", {
+        body: { action: "create-invoice", invoice_id: id },
+      });
+      if (res.error) throw res.error;
+      if (res.data?.error) throw new Error(res.data.error);
+      toast({ title: "Gesynchroniseerd met Exact Online", description: res.data?.invoice_number ? `Factuurnummer: ${res.data.invoice_number}` : undefined });
+      queryClient.invalidateQueries({ queryKey: ["invoices-paginated"] });
+    } catch (err: any) {
+      toast({ title: "Boekhoudkoppeling niet compleet", description: `Factuur is wel opgeslagen. ${err.message}` });
+    }
+    setSyncingId(null);
+  };
+
   const woNumber = (inv: Invoice) => (inv.work_orders as any)?.work_order_number ?? "—";
 
   const handleSelect = (id: string) => {
