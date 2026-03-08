@@ -57,7 +57,7 @@ const AuditDialog = ({ open, onOpenChange }: Props) => {
         .select("id, name, sort_order")
         .eq("asset_id", assetId)
         .order("sort_order");
-      return (data || []) as Array<{ id: string; name: string; sort_order: number }>;
+      return (data || []) as unknown as Array<{ id: string; name: string; sort_order: number }>;
     },
     enabled: !!assetId,
   });
