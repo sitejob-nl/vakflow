@@ -4,6 +4,7 @@ import {
   MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car
 } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
+import { useLowStockCount } from "@/hooks/useMaterials";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import {
