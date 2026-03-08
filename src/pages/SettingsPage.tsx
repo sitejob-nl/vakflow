@@ -2400,6 +2400,9 @@ const SettingsPage = () => {
                       <button onClick={async () => { setWefactPullingQuotes(true); try { const r = await pullQuotesWefact.mutateAsync(); toast({ title: "Offertes opgehaald", description: `${r.total_in_wefact} in WeFact, ${r.imported} geïmporteerd` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactPullingQuotes(false); }} disabled={wefactPullingQuotes} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
                         {wefactPullingQuotes ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Offertes ophalen
                       </button>
+                      <button onClick={async () => { setWefactPullingProducts(true); try { const r = await pullProductsWefact.mutateAsync(); toast({ title: "Producten opgehaald", description: `${r.total} in WeFact, ${r.created} nieuw, ${r.updated} bijgewerkt` }); } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); } setWefactPullingProducts(false); }} disabled={wefactPullingProducts} className="px-4 py-2 bg-card border border-border rounded-sm text-[12px] font-bold text-secondary-foreground hover:bg-bg-hover transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                        {wefactPullingProducts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>📥</>} Producten ophalen
+                      </button>
                     </div>
                   </div>
 

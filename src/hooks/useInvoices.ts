@@ -639,3 +639,29 @@ export const usePullQuotesWefact = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["quotes"] }),
   });
 };
+
+export const useSyncProductsWefact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action: "sync-products" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { synced: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
+  });
+};
+
+export const usePullProductsWefact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action: "pull-products" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { total: number; created: number; updated: number; errors: string[] };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
+  });
+};
