@@ -7,6 +7,7 @@ export interface CleaningDashboardStats {
   overdueObjects: number;
   todayWorkOrders: number;
   vehiclesWashedThisMonth: number;
+  avgQualityScore: number | null;
   urgentObjects: Array<{
     id: string;
     name: string;
