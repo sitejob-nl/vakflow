@@ -24,6 +24,8 @@ export type Page =
   | "schedule"
   | "settings"
   | "audits"
+  | "projects"
+  | "projDetail"
   | "superadmin";
 
 const routeMap: Record<Page, string> = {
@@ -49,6 +51,8 @@ const routeMap: Record<Page, string> = {
   schedule: "/schedule",
   settings: "/settings",
   audits: "/audits",
+  projects: "/projects",
+  projDetail: "/projects/:id",
   superadmin: "/superadmin",
 };
 
@@ -56,6 +60,7 @@ const pathToPage: [RegExp, Page][] = [
   [/^\/customers\/(.+)$/, "custDetail"],
   [/^\/workorders\/(.+)$/, "woDetail"],
   [/^\/vehicles\/(.+)$/, "vehDetail"],
+  [/^\/projects\/(.+)$/, "projDetail"],
   [/^\/dashboard\/?$/, "dashboard"],
   [/^\/planning\/?$/, "planning"],
   [/^\/customers\/?$/, "customers"],
@@ -75,6 +80,7 @@ const pathToPage: [RegExp, Page][] = [
   [/^\/schedule\/?$/, "schedule"],
   [/^\/settings\/?$/, "settings"],
   [/^\/audits\/?$/, "audits"],
+  [/^\/projects\/?$/, "projects"],
   [/^\/superadmin\/?$/, "superadmin"],
   [/^\/$/, "dashboard"],
 ];
@@ -97,6 +103,7 @@ export const useNavigation = () => {
     if (currentPage === "custDetail") return { customerId: id };
     if (currentPage === "woDetail") return { workOrderId: id };
     if (currentPage === "vehDetail") return { vehicleId: id };
+    if (currentPage === "projDetail") return { projectId: id };
     return {};
   }, [currentPage, urlParams.id]);
 
@@ -114,6 +121,10 @@ export const useNavigation = () => {
       path = `/vehicles/${navParams.vehicleId}`;
     } else if (page === "vehDetail" && navParams?.id) {
       path = `/vehicles/${navParams.id}`;
+    } else if (page === "projDetail" && navParams?.projectId) {
+      path = `/projects/${navParams.projectId}`;
+    } else if (page === "projDetail" && navParams?.id) {
+      path = `/projects/${navParams.id}`;
     }
     routerNavigate(path);
   };

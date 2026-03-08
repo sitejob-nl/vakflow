@@ -5,14 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCustomers } from "@/hooks/useCustomers";
-import { useCreateQuote, useUpdateQuote, useConvertQuoteToContract, useConvertQuoteToWorkOrder, useConvertQuoteToInvoice, type Quote, type QuoteItem, type OptionalItem } from "@/hooks/useQuotes";
+import { useCreateQuote, useUpdateQuote, useConvertQuoteToContract, useConvertQuoteToWorkOrder, useConvertQuoteToInvoice, useConvertQuoteToProject, type Quote, type QuoteItem, type OptionalItem } from "@/hooks/useQuotes";
 import { useAssets } from "@/hooks/useAssets";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Loader2, ArrowRightLeft, FileText, Receipt, CalendarPlus } from "lucide-react";
+import { Plus, Trash2, Loader2, ArrowRightLeft, FileText, Receipt, CalendarPlus, FolderKanban } from "lucide-react";
 import { useCombinedTemplates } from "@/hooks/useQuoteTemplates";
 
 interface Props {
@@ -36,6 +36,7 @@ const QuoteDialog = ({ open, onOpenChange, editQuote, onScheduleAppointment }: P
   const convertToContract = useConvertQuoteToContract();
   const convertToWorkOrder = useConvertQuoteToWorkOrder();
   const convertToInvoice = useConvertQuoteToInvoice();
+  const convertToProject = useConvertQuoteToProject();
   const { toast } = useToast();
   const { companyId } = useAuth();
   const queryClient = useQueryClient();
@@ -336,6 +337,24 @@ const QuoteDialog = ({ open, onOpenChange, editQuote, onScheduleAppointment }: P
                       Afspraak
                     </Button>
                   )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const p = await convertToProject.mutateAsync(editQuote);
+                        toast({ title: `Project ${(p as any).project_number ?? ""} aangemaakt` });
+                        onOpenChange(false);
+                      } catch (err: any) {
+                        toast({ title: "Fout", description: err.message, variant: "destructive" });
+                      }
+                    }}
+                    disabled={convertToProject.isPending}
+                  >
+                    <FolderKanban className="h-3.5 w-3.5 mr-1" />
+                    Project
+                  </Button>
                 </div>
               )}
             </div>

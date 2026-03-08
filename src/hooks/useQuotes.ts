@@ -217,6 +217,7 @@ export const useConvertQuoteToInvoice = () => {
 };
 
 export const useConvertQuoteToContract = () => {
+  // ... keep existing code
   const qc = useQueryClient();
   const { companyId } = useAuth();
   return useMutation({
@@ -240,15 +241,43 @@ export const useConvertQuoteToContract = () => {
         .select("id")
         .single();
       if (error) throw error;
-
-      // Link quote to contract
       await supabase.from("quotes").update({ contract_id: data.id, status: "geaccepteerd" } as any).eq("id", quote.id);
-
       return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["quotes"] });
       qc.invalidateQueries({ queryKey: ["contracts"] });
+    },
+  });
+};
+
+export const useConvertQuoteToProject = () => {
+  const qc = useQueryClient();
+  const { companyId } = useAuth();
+  return useMutation({
+    mutationFn: async (quote: Quote) => {
+      const payload = {
+        company_id: companyId!,
+        customer_id: quote.customer_id,
+        quote_id: quote.id,
+        name: `Project o.b.v. offerte ${quote.quote_number || quote.id.slice(0, 8)}`,
+        description: quote.items.map((i) => i.description).filter(Boolean).join(", "),
+        budget_amount: quote.total,
+        asset_id: (quote as any).asset_id || null,
+        status: "gepland",
+      };
+      const { data, error } = await supabase
+        .from("projects" as any)
+        .insert(payload)
+        .select("id, project_number")
+        .single();
+      if (error) throw error;
+      await supabase.from("quotes").update({ status: "geaccepteerd" } as any).eq("id", quote.id);
+      return data as unknown as { id: string; project_number: string };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quotes"] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 };

@@ -208,6 +208,7 @@ export type Database = {
           id: string
           notes: string | null
           outlook_event_id: string | null
+          project_id: string | null
           scheduled_at: string
           service_id: string | null
           start_location_label: string | null
@@ -226,6 +227,7 @@ export type Database = {
           id?: string
           notes?: string | null
           outlook_event_id?: string | null
+          project_id?: string | null
           scheduled_at: string
           service_id?: string | null
           start_location_label?: string | null
@@ -244,6 +246,7 @@ export type Database = {
           id?: string
           notes?: string | null
           outlook_event_id?: string | null
+          project_id?: string | null
           scheduled_at?: string
           service_id?: string | null
           start_location_label?: string | null
@@ -286,6 +289,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -382,6 +392,7 @@ export type Database = {
           brand: string | null
           company_id: string
           created_at: string
+          custom_fields: Json | null
           customer_id: string | null
           facilities: string[] | null
           frequency: string | null
@@ -408,6 +419,7 @@ export type Database = {
           brand?: string | null
           company_id: string
           created_at?: string
+          custom_fields?: Json | null
           customer_id?: string | null
           facilities?: string[] | null
           frequency?: string | null
@@ -434,6 +446,7 @@ export type Database = {
           brand?: string | null
           company_id?: string
           created_at?: string
+          custom_fields?: Json | null
           customer_id?: string | null
           facilities?: string[] | null
           frequency?: string | null
@@ -770,6 +783,7 @@ export type Database = {
         Row: {
           accounting_provider: string | null
           address: string | null
+          asset_field_config: Json | null
           brand_color: string | null
           btw_number: string | null
           city: string | null
@@ -816,6 +830,7 @@ export type Database = {
         Insert: {
           accounting_provider?: string | null
           address?: string | null
+          asset_field_config?: Json | null
           brand_color?: string | null
           btw_number?: string | null
           city?: string | null
@@ -862,6 +877,7 @@ export type Database = {
         Update: {
           accounting_provider?: string | null
           address?: string | null
+          asset_field_config?: Json | null
           brand_color?: string | null
           btw_number?: string | null
           city?: string | null
@@ -1356,6 +1372,7 @@ export type Database = {
           notes: string | null
           optional_items: Json
           paid_at: string | null
+          project_id: string | null
           quote_id: string | null
           rompslomp_id: string | null
           status: string
@@ -1381,6 +1398,7 @@ export type Database = {
           notes?: string | null
           optional_items?: Json
           paid_at?: string | null
+          project_id?: string | null
           quote_id?: string | null
           rompslomp_id?: string | null
           status?: string
@@ -1406,6 +1424,7 @@ export type Database = {
           notes?: string | null
           optional_items?: Json
           paid_at?: string | null
+          project_id?: string | null
           quote_id?: string | null
           rompslomp_id?: string | null
           status?: string
@@ -1436,6 +1455,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -2051,6 +2077,186 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_phases: {
+        Row: {
+          budget_amount: number | null
+          company_id: string
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          name: string
+          project_id: string
+          sort_order: number
+          start_date: string | null
+          status: string
+        }
+        Insert: {
+          budget_amount?: number | null
+          company_id: string
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          project_id: string
+          sort_order?: number
+          start_date?: string | null
+          status?: string
+        }
+        Update: {
+          budget_amount?: number | null
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+          sort_order?: number
+          start_date?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_phases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_phases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_phases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          address_id: string | null
+          asset_id: string | null
+          assigned_to: string | null
+          budget_amount: number
+          company_id: string
+          created_at: string
+          customer_id: string
+          deadline: string | null
+          description: string | null
+          end_date: string | null
+          id: string
+          name: string
+          notes: string | null
+          project_number: string | null
+          quote_id: string | null
+          start_date: string | null
+          status: string
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          address_id?: string | null
+          asset_id?: string | null
+          assigned_to?: string | null
+          budget_amount?: number
+          company_id: string
+          created_at?: string
+          customer_id: string
+          deadline?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          project_number?: string | null
+          quote_id?: string | null
+          start_date?: string | null
+          status?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          address_id?: string | null
+          asset_id?: string | null
+          assigned_to?: string | null
+          budget_amount?: number
+          company_id?: string
+          created_at?: string
+          customer_id?: string
+          deadline?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          project_number?: string | null
+          quote_id?: string | null
+          start_date?: string | null
+          status?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
             referencedColumns: ["id"]
           },
         ]
@@ -2829,6 +3035,7 @@ export type Database = {
           duration_minutes: number | null
           id: string
           is_travel: boolean
+          project_id: string | null
           started_at: string
           stopped_at: string | null
           user_id: string
@@ -2841,6 +3048,7 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           is_travel?: boolean
+          project_id?: string | null
           started_at?: string
           stopped_at?: string | null
           user_id: string
@@ -2853,6 +3061,7 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           is_travel?: boolean
+          project_id?: string | null
           started_at?: string
           stopped_at?: string | null
           user_id?: string
@@ -2871,6 +3080,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -3696,6 +3912,8 @@ export type Database = {
           notes: Json | null
           photos_after: string[] | null
           photos_before: string[] | null
+          project_id: string | null
+          project_phase_id: string | null
           quote_id: string | null
           remarks: string | null
           room_checklists: Json | null
@@ -3730,6 +3948,8 @@ export type Database = {
           notes?: Json | null
           photos_after?: string[] | null
           photos_before?: string[] | null
+          project_id?: string | null
+          project_phase_id?: string | null
           quote_id?: string | null
           remarks?: string | null
           room_checklists?: Json | null
@@ -3764,6 +3984,8 @@ export type Database = {
           notes?: Json | null
           photos_after?: string[] | null
           photos_before?: string[] | null
+          project_id?: string | null
+          project_phase_id?: string | null
           quote_id?: string | null
           remarks?: string | null
           room_checklists?: Json | null
@@ -3835,6 +4057,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_project_phase_id_fkey"
+            columns: ["project_phase_id"]
+            isOneToOne: false
+            referencedRelation: "project_phases"
             referencedColumns: ["id"]
           },
           {

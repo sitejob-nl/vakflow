@@ -1,7 +1,7 @@
 import { useNavigation, type Page } from "@/hooks/useNavigation";
 import {
   LayoutGrid, Calendar, Users, FileText, DollarSign,
-  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car, Repeat, CalendarCheck, ClipboardCheck
+  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car, Repeat, CalendarCheck, ClipboardCheck, FolderKanban
 } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { useLowStockCount } from "@/hooks/useMaterials";
@@ -34,6 +34,7 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
     items: [
       { id: "planning" as Page, icon: Calendar, label: industry === "automotive" ? "Werkplaatsplanning" : "Planning", adminOnly: false },
       { id: "customers" as Page, icon: Users, label: "Klanten", adminOnly: true },
+      { id: "projects" as Page, icon: FolderKanban, label: "Projecten", adminOnly: true },
       { id: "workorders" as Page, icon: FileText, label: labels.workOrders, adminOnly: false },
       { id: "schedule" as Page, icon: CalendarCheck, label: "Te plannen", adminOnly: false },
       { id: "contracts" as Page, icon: RefreshCw, label: "Contracten", adminOnly: true },
@@ -79,7 +80,8 @@ const Sidebar = () => {
     currentPage === id ||
     (id === "customers" && currentPage === "custDetail") ||
     (id === "workorders" && currentPage === "woDetail") ||
-    (id === "vehicles" && currentPage === "vehDetail");
+    (id === "vehicles" && currentPage === "vehDetail") ||
+    (id === "projects" && currentPage === "projDetail");
 
   const industryModules = config.modules;
 
