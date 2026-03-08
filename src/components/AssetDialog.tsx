@@ -49,10 +49,31 @@ const FACILITY_OPTIONS = ["water", "stroom", "overdekt", "perslucht"];
 const AssetDialog = ({ open, onOpenChange, asset, onSave, saving }: Props) => {
   const { data: customers } = useCustomers();
   const { industry } = useIndustryConfig();
+  const { companyId } = useAuth();
   const isCleaning = industry === "cleaning";
   const [form, setForm] = useState<Partial<Asset>>({});
   const customerId = form.customer_id || "";
   const { data: addresses } = useAddresses(customerId || undefined);
+
+  const { data: fieldConfig } = useQuery({
+    queryKey: ["asset_field_config", companyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("companies")
+        .select("asset_field_config")
+        .eq("id", companyId!)
+        .single();
+      return (data?.asset_field_config as FieldDef[] | null) ?? [];
+    },
+    enabled: !!companyId,
+  });
+
+  const setCustomField = (key: string, value: any) => {
+    setForm((prev) => ({
+      ...prev,
+      custom_fields: { ...(prev.custom_fields || {}), [key]: value },
+    }));
+  };
 
   useEffect(() => {
     if (open) {
