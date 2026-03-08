@@ -298,6 +298,16 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         <Label>Voorrijkosten (€)</Label>
         <Input type="number" value={form.travel_cost} onChange={(e) => set("travel_cost", parseFloat(e.target.value) || 0)} min={0} step={5} />
       </div>
+      {/* AI Intake */}
+      {!isEdit && (
+        showAiIntake ? (
+          <AiIntakePanel onApply={handleAiApply} onClose={() => setShowAiIntake(false)} />
+        ) : (
+          <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setShowAiIntake(true)}>
+            <Sparkles className="mr-1.5 h-3.5 w-3.5" /> AI Intake — klacht analyseren
+          </Button>
+        )
+      )}
       <div className="space-y-1.5">
         <Label>Werkzaamheden</Label>
         <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="Beschrijf wat er gedaan moet worden..." />
