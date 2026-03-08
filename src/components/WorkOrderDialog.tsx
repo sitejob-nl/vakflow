@@ -7,13 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2 } from "lucide-react";
+import { Loader2, Wrench } from "lucide-react";
 import { useCreateWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
 import { useAssets } from "@/hooks/useAssets";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
-import { useCustomerVehicles } from "@/hooks/useVehicles";
+import { useCustomerVehicles, useWorkshopBays } from "@/hooks/useVehicles";
+import { useAutoBayAssignment } from "@/hooks/useAutoBayAssignment";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -113,6 +114,11 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
     return groups;
   }, [services]);
 
+  // Auto bay assignment for automotive
+  const { suggestion: suggestedBay, activeBays: availableBays } = useAutoBayAssignment(
+    isAutomotive && !isEdit ? new Date() : undefined
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload: any = {
@@ -130,6 +136,8 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
         work_order_type: form.work_order_type || null,
         mileage_start: form.mileage_start ? parseInt(form.mileage_start) : null,
         mileage_end: form.mileage_end ? parseInt(form.mileage_end) : null,
+        // Auto-assign bay if not editing and a suggestion exists
+        ...(!isEdit && suggestedBay ? { bay_id: suggestedBay.id } : {}),
       } : {}),
     };
 
@@ -203,6 +211,16 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
             </div>
           </div>
         </>
+      )}
+      {/* Auto bay assignment info for automotive */}
+      {isAutomotive && !isEdit && suggestedBay && (
+        <div className="flex items-center gap-2 text-[12px] bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
+          <Wrench className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+          <span>
+            Auto-brug: <strong>{suggestedBay.name}</strong>
+            <span className="text-muted-foreground ml-1">(minste belasting)</span>
+          </span>
+        </div>
       )}
       <div className="space-y-1.5">
         <Label>Dienst</Label>

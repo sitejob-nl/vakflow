@@ -4,7 +4,9 @@ import { nl } from "date-fns/locale";
 import { useWorkshopBays } from "@/hooks/useVehicles";
 import { useWorkOrders, useUpdateWorkOrder, type WorkOrder } from "@/hooks/useWorkOrders";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Wrench, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Wrench, AlertTriangle, ChevronLeft, ChevronRight, Clock, Filter, Inbox } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const START_HOUR = 7;
 const END_HOUR = 18;
@@ -77,7 +79,35 @@ const WorkshopBayView = ({ currentDate }: Props) => {
     return map;
   }, [dayWorkOrders]);
 
+  // Backlog: all WOs without bay_id (not just for selected day)
   const unassignedWOs = useMemo(() => dayWorkOrders.filter((wo) => !(wo as any).bay_id), [dayWorkOrders]);
+  const [backlogFilter, setBacklogFilter] = useState<string>("all");
+  const [backlogExpanded, setBacklogExpanded] = useState(true);
+
+  // Full backlog: all open WOs without bay across all days
+  const globalBacklog = useMemo(() => {
+    if (!allWorkOrders) return [];
+    return allWorkOrders.filter(
+      (wo) => !(wo as any).bay_id && wo.status !== "afgerond" && wo.status !== "geannuleerd"
+    );
+  }, [allWorkOrders]);
+
+  const filteredBacklog = useMemo(() => {
+    const source = globalBacklog;
+    if (backlogFilter === "all") return source;
+    return source.filter((wo) => ((wo as any).work_order_type ?? "").toLowerCase() === backlogFilter);
+  }, [globalBacklog, backlogFilter]);
+
+  // Sort backlog: prioritize by status (storing first), then by age
+  const sortedBacklog = useMemo(() => {
+    return [...filteredBacklog].sort((a, b) => {
+      const priorityOrder: Record<string, number> = { storing: 0, reparatie: 1, apk: 2, onderhoud: 3, banden: 4 };
+      const pA = priorityOrder[((a as any).work_order_type ?? "").toLowerCase()] ?? 5;
+      const pB = priorityOrder[((b as any).work_order_type ?? "").toLowerCase()] ?? 5;
+      if (pA !== pB) return pA - pB;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+  }, [filteredBacklog]);
 
   // Get horizontal position and width for a WO block
   const getWoLayout = (wo: WorkOrder) => {
@@ -199,32 +229,78 @@ const WorkshopBayView = ({ currentDate }: Props) => {
         )}
       </div>
 
-      {/* Unassigned WOs */}
-      {unassignedWOs.length > 0 && (
-        <div className="px-4 py-2 border-b border-border bg-muted/30">
-          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
-            Niet ingepland ({unassignedWOs.length})
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {unassignedWOs.map((wo) => {
+      {/* Backlog / Queue */}
+      <div className={`border-b border-border bg-muted/20 ${backlogExpanded ? "" : "cursor-pointer"}`}>
+        <div
+          className="px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-muted/40 transition-colors"
+          onClick={() => setBacklogExpanded((v) => !v)}
+        >
+          <Inbox className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">
+            Wachtrij
+          </span>
+          <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+            {globalBacklog.length}
+          </Badge>
+          {unassignedWOs.length > 0 && unassignedWOs.length !== globalBacklog.length && (
+            <span className="text-[10px] text-muted-foreground">
+              ({unassignedWOs.length} vandaag)
+            </span>
+          )}
+          <div className="flex-1" />
+          {backlogExpanded && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <Select value={backlogFilter} onValueChange={setBacklogFilter}>
+                <SelectTrigger className="h-6 text-[10px] w-[100px] border-0 bg-transparent">
+                  <Filter className="h-3 w-3 mr-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alles</SelectItem>
+                  <SelectItem value="storing">Storing</SelectItem>
+                  <SelectItem value="apk">APK</SelectItem>
+                  <SelectItem value="onderhoud">Beurt</SelectItem>
+                  <SelectItem value="reparatie">Reparatie</SelectItem>
+                  <SelectItem value="banden">Banden</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+        {backlogExpanded && sortedBacklog.length > 0 && (
+          <div className="px-4 pb-2 flex gap-2 flex-wrap max-h-[120px] overflow-y-auto">
+            {sortedBacklog.map((wo) => {
               const colors = getColors(wo);
+              const woType = ((wo as any).work_order_type ?? "").toLowerCase();
+              const daysSinceCreated = Math.floor((Date.now() - new Date(wo.created_at).getTime()) / 86400000);
               return (
                 <div
                   key={wo.id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, wo.id)}
-                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-grab active:cursor-grabbing border-l-[3px] shadow-sm"
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-grab active:cursor-grabbing border-l-[3px] shadow-sm flex items-center gap-1.5"
                   style={{ backgroundColor: colors.bg, borderLeftColor: colors.border, color: colors.text }}
                 >
-                  <span className="font-mono opacity-70 mr-1">{wo.work_order_number}</span>
-                  {wo.customers?.name ?? "—"}
-                  {getTypeLabel(wo) && <span className="ml-1.5 opacity-60">· {getTypeLabel(wo)}</span>}
+                  <span className="font-mono opacity-70">{wo.work_order_number}</span>
+                  <span className="truncate max-w-[100px]">{wo.customers?.name ?? "—"}</span>
+                  {getTypeLabel(wo) && <span className="opacity-60">· {getTypeLabel(wo)}</span>}
+                  {daysSinceCreated > 2 && (
+                    <span className="flex items-center gap-0.5 text-destructive/80">
+                      <Clock className="h-2.5 w-2.5" />
+                      {daysSinceCreated}d
+                    </span>
+                  )}
                 </div>
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+        {backlogExpanded && sortedBacklog.length === 0 && (
+          <div className="px-4 pb-3 text-[11px] text-muted-foreground">
+            Geen werkbonnen in de wachtrij
+          </div>
+        )}
+      </div>
 
       {/* Legend */}
       <div className="px-4 py-1.5 border-b border-border flex items-center gap-3 text-[10px] font-bold">
