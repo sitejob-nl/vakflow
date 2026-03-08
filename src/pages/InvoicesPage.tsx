@@ -18,6 +18,7 @@ const tabs = ["Alle", "Openstaand", "Betaald"];
 const statusConfig: Record<string, { label: string; variant: string }> = {
   concept: { label: "Concept", variant: "cyan" },
   verzonden: { label: "Verzonden", variant: "warning" },
+  verstuurd: { label: "Verzonden", variant: "warning" },
   betaald: { label: "Betaald", variant: "success" },
   verlopen: { label: "Verlopen", variant: "destructive" },
 };
