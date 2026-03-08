@@ -1563,6 +1563,49 @@ export type Database = {
           },
         ]
       }
+      portal_users: {
+        Row: {
+          company_id: string
+          created_at: string
+          customer_id: string
+          id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          customer_id: string
+          id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_users_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_users_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_users_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           btw_number: string | null
@@ -1655,6 +1698,74 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_responses: {
+        Row: {
+          company_id: string
+          created_at: string
+          customer_id: string
+          id: string
+          notes: string | null
+          quote_id: string
+          responded_at: string
+          responded_by: string | null
+          signature_data: string | null
+          status: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          customer_id: string
+          id?: string
+          notes?: string | null
+          quote_id: string
+          responded_at?: string
+          responded_by?: string | null
+          signature_data?: string | null
+          status?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+          notes?: string | null
+          quote_id?: string
+          responded_at?: string
+          responded_by?: string | null
+          signature_data?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_responses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_responses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_responses_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_responses_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
             referencedColumns: ["id"]
           },
         ]
@@ -3001,6 +3112,7 @@ export type Database = {
         }[]
       }
       get_my_company_id: { Args: never; Returns: string }
+      get_portal_customer_id: { Args: never; Returns: string }
       get_usage_summary: {
         Args: { p_company_id?: string; p_end?: string; p_start?: string }
         Returns: {
@@ -3016,6 +3128,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_portal_user: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
     }
     Enums: {

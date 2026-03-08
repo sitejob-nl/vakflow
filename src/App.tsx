@@ -11,6 +11,9 @@ import AdminRoute from "@/components/AdminRoute";
 import SuperAdminRoute from "@/components/SuperAdminRoute";
 import AppLayout from "@/components/AppLayout";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { PortalAuthProvider } from "@/contexts/PortalAuthContext";
+import PortalRoute from "@/components/PortalRoute";
+import PortalLayout from "@/components/PortalLayout";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
@@ -37,6 +40,9 @@ const AssetsPage = lazy(() => import("@/pages/AssetsPage"));
 const MarketingPage = lazy(() => import("@/pages/MarketingPage"));
 const ContractsPage = lazy(() => import("@/pages/ContractsPage"));
 const MetaCallbackPage = lazy(() => import("@/pages/MetaCallbackPage"));
+const PortalLoginPage = lazy(() => import("@/pages/PortalLoginPage"));
+const PortalQuotesPage = lazy(() => import("@/pages/PortalQuotesPage"));
+const PortalWorkOrdersPage = lazy(() => import("@/pages/PortalWorkOrdersPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -94,6 +100,13 @@ const App = () => (
                 <Route path="superadmin" element={<SuperAdminRoute><SuperAdminPage /></SuperAdminRoute>} />
               </Route>
               <Route path="/meta-callback" element={<ProtectedRoute><MetaCallbackPage /></ProtectedRoute>} />
+              {/* Portal routes - separate auth context */}
+              <Route path="/portal/login" element={<PortalAuthProvider><PortalLoginPage /></PortalAuthProvider>} />
+              <Route path="/portal" element={<PortalAuthProvider><PortalRoute><PortalLayout /></PortalRoute></PortalAuthProvider>}>
+                <Route index element={<Navigate to="/portal/quotes" replace />} />
+                <Route path="quotes" element={<PortalQuotesPage />} />
+                <Route path="workorders" element={<PortalWorkOrdersPage />} />
+              </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
