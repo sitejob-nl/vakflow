@@ -58,12 +58,14 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
       setItems(editQuote.items.length ? editQuote.items : [emptyItem()]);
       setOptionalItems(editQuote.optional_items);
       setNotes(editQuote.notes ?? "");
+      setAssetId((editQuote as any).asset_id ?? "");
     } else {
       setSelectedTemplate("");
       setCustomerId("");
       setItems([emptyItem()]);
       setOptionalItems([]);
       setNotes("");
+      setAssetId("");
     }
   }, [editQuote, open]);
 
