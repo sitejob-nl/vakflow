@@ -68,6 +68,29 @@ const AssetsPage = () => {
   const [logDate, setLogDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [deleteLogId, setDeleteLogId] = useState<string | null>(null);
 
+  // Material consumption for detail asset (last 3 months)
+  const { data: assetMaterialCost } = useQuery({
+    queryKey: ["asset-material-cost", detailAsset?.id],
+    enabled: !!detailAsset?.id && isCleaning,
+    queryFn: async () => {
+      const threeMonthsAgo = subMonths(new Date(), 3).toISOString();
+      const { data: wos } = await supabase
+        .from("work_orders")
+        .select("id")
+        .eq("asset_id", detailAsset!.id)
+        .gte("created_at", threeMonthsAgo);
+      if (!wos?.length) return { total: 0, count: 0 };
+      const woIds = wos.map((w) => w.id);
+      const { data: mats } = await supabase
+        .from("work_order_materials")
+        .select("total, quantity")
+        .in("work_order_id", woIds);
+      const total = (mats ?? []).reduce((s, m) => s + (m.total || 0), 0);
+      const count = (mats ?? []).reduce((s, m) => s + (m.quantity || 0), 0);
+      return { total, count };
+    },
+  });
+
   const filtered = useMemo(() => {
     if (!assets) return [];
     let list = assets;
