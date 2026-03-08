@@ -66,6 +66,7 @@ const ContractsPage = () => {
           <p className="text-sm">Maak een nieuw contract aan om te beginnen.</p>
         </div>
       ) : (
+        <>
         {/* Desktop table */}
         <div className="rounded-md border hidden md:block">
           <Table>
