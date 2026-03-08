@@ -67,6 +67,7 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
       );
       setNotes((editInvoice as any).notes ?? "");
       setDueAt(editInvoice.due_at ?? defaultDueDate());
+      setVatPercentage(editInvoice.vat_percentage ?? 21);
     } else {
       setSelectedTemplate("");
       setCustomerId("");
@@ -74,6 +75,7 @@ const InvoiceDialog = ({ open, onOpenChange, editInvoice }: Props) => {
       setOptionalItems([]);
       setNotes("");
       setDueAt(defaultDueDate());
+      setVatPercentage(21);
     }
   }, [editInvoice, open]);
 
