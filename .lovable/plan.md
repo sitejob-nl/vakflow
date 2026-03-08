@@ -1,75 +1,51 @@
 
 
-# AutoFlow Status Overzicht
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Wat is gebouwd (Fase 1)
+### Problemen
 
-### 1. Voertuigbeheer + RDW-koppeling
-- **Database**: `vehicles`, `vehicle_mileage_logs`, `workshop_bays` tabellen met RLS
-- **Edge Function `rdw-lookup`**: Volledige v3 API integratie met parallel fetchen van:
-  - Hoofddata (merk, model, bouwjaar, kleur, massa, etc.)
-  - Brandstof (via `8ys7-d773`)
-  - APK-keuringshistorie (via `vkij-7mwc`)
-  - Geconstateerde gebreken + omschrijvingen (via `a34c-vvps` + `hx2c-gt7k`)
-  - Terugroepacties (via `t49b-isb7`)
-- **VehiclesPage**: Voertuiglijst met zoeken, APK-badges, CRUD
-- **VehicleDialog**: Kentekeninvoer met RDW autofill
-- **VehicleDetailPage**: Voertuigdossier met KPI's, werkbon-timeline, km-standen, APK-historie, gebreken, terugroepacties
-- **useVehicles hook**: Volledige CRUD + RDW lookup + workshop bays
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-### 2. Werkbonnen voor Automotive
-- **Database**: `vehicle_id`, `work_order_type`, `mileage_start`, `mileage_end`, `bay_id` kolommen op `work_orders`
-- **WorkOrderDialog**: Bij automotive: voertuigselector (kenteken combobox), werkbontype dropdown, km-stand velden
+### Aanpak
 
-### 3. Werkplaats-instellingen
-- **WorkshopBaySettings**: Bruggen beheren (CRUD) in SettingsPage
-- **ApkReminderSettings**: APK-herinneringen configureren (dagen, kanaal, template)
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-### 4. APK-herinneringen
-- **Database**: `apk_reminder_settings`, `apk_reminder_logs` tabellen
-- **Edge Function `apk-reminder-scan`**: Dagelijkse cron (08:00) die klanten automatisch waarschuwt
-- **Settings UI**: Kanaal, intervallen, templates configureerbaar
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-### 5. Config & Navigatie
-- **industryConfig.ts**: Automotive config met subcategorieën (garage, bandencentrale, schadeherstel)
-- **Navigatie**: "Voertuigen" menu-item zichtbaar bij automotive
-- **Routes**: `/vehicles`, `/vehicles/:id` actief
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
----
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-## Wat ontbreekt nog
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-### Fase 1 — Nog niet gebouwd
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-| Item | Status |
-|------|--------|
-| **Brugplanning (werkplaatsplanning)** | Niet gebouwd. PlanningPage heeft geen automotive-weergave met bruggen (Y-as) x tijdsloten (X-as). Geen drag & drop naar brug + tijdslot. |
-| **Automotive Dashboard KPI's** | Niet gebouwd. Dashboard toont geen automotive-specifieke KPI's (voertuigen in werkplaats, brugbezetting, APK's deze maand). |
-| **Navigatie-labels automotive** | Deels. "Voertuigen" is er, maar "Brugplanning" ipv "Route-planning" ontbreekt. Sidebar toont geen automotive-specifieke labels. |
+### Bestanden
 
-### Fase 2 — Gepland maar niet gebouwd
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
 
-| Item | Beschrijving |
-|------|-------------|
-| AI-intake | Slimme werkbon-aanmaak op basis van klantgesprek |
-| Bandenopslag | Registratie, locatie, seizoenswissels |
-| Onderdelen/voorraad | Artikelbeheer, voorraadbeheer, koppeling aan werkbonnen |
-
-### Fase 3 — Gepland maar niet gebouwd
-
-| Item | Beschrijving |
-|------|-------------|
-| Inruil & verkoop | Voertuigverkoop module |
-| Uitgebreide rapportages | Automotive-specifieke rapporten (omzet per werkbontype, brugbezetting, etc.) |
-
----
-
-## Aanbevolen volgende stap
-
-De **brugplanning** in PlanningPage is het grootste ontbrekende stuk van Fase 1. Dit vereist:
-- Een alternatieve weergave in PlanningPage wanneer `industry === "automotive"`: grid met bruggen (Y-as) x tijdsloten (X-as)
-- Werkbonnen toewijzen aan brug + tijdslot
-- Visuele overboeking-waarschuwing
-
-Daarna de **automotive dashboard KPI's** toevoegen.
+Geen database-wijzigingen, geen nieuwe dependencies.
 

@@ -10,7 +10,7 @@ import { useOutlookOverrides } from "@/hooks/useOutlookOverrides";
 import { usePersonalOutlookToken } from "@/hooks/useOutlookOverrides";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildWorkOrderPayload } from "@/utils/createWorkOrderFromAppointment";
-import { Loader2, Plus, Trash2, CheckCircle2, Navigation, ExternalLink, FileText, ChevronLeft, ChevronRight, Users, Calendar as CalendarIcon, Route } from "lucide-react";
+import { Loader2, Plus, Trash2, CheckCircle2, Navigation, ExternalLink, FileText, ChevronLeft, ChevronRight, Users, Calendar as CalendarIcon, Route, Wrench } from "lucide-react";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, isSameDay, subDays, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { nl } from "date-fns/locale";
 import AppointmentDialog from "@/components/AppointmentDialog";
@@ -18,6 +18,8 @@ import AppointmentDetailSheet from "@/components/AppointmentDetailSheet";
 import CurrentTimeIndicator from "@/components/planning/CurrentTimeIndicator";
 import MonthView from "@/components/planning/MonthView";
 import RouteMap from "@/components/planning/RouteMap";
+import WorkshopBayView from "@/components/planning/WorkshopBayView";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useToast } from "@/hooks/use-toast";
 import { useDirections, useOptimizeRoute, type OptimizedStop } from "@/hooks/useMapbox";
@@ -83,8 +85,10 @@ const PlanningPage = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [outlookDetailEvent, setOutlookDetailEvent] = useState<OutlookEvent | null>(null);
   const [outlookDetailOpen, setOutlookDetailOpen] = useState(false);
-  // View mode: week or month
-  const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  // View mode: week, month, or bays (automotive)
+  const { industry } = useIndustryConfig();
+  const isAutomotive = industry === "automotive";
+  const [viewMode, setViewMode] = useState<"week" | "month" | "bays">("week");
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
 
   // Drag & drop state
@@ -472,6 +476,19 @@ const PlanningPage = () => {
               <CalendarIcon className="h-3.5 w-3.5" />
               {viewMode === "week" ? "Maand" : "Week"}
             </button>
+            {isAutomotive && (
+              <button
+                onClick={() => setViewMode(viewMode === "bays" ? "week" : "bays")}
+                className={`px-3 py-1.5 border rounded-lg text-[12px] font-bold transition-colors flex items-center gap-1.5 ${
+                  viewMode === "bays"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card border-border text-secondary-foreground hover:bg-muted"
+                }`}
+              >
+                <Wrench className="h-3.5 w-3.5" />
+                Bruggen
+              </button>
+            )}
             {!isMonteur && teamMembers && teamMembers.length > 1 && (
               <Select value={filterEmployee} onValueChange={setFilterEmployee}>
                 <SelectTrigger className="w-[160px] h-9 text-[12px] rounded-lg">
@@ -624,6 +641,9 @@ const PlanningPage = () => {
                 );
               })}
             </div>
+          ) : viewMode === "bays" ? (
+            /* ===== AUTOMOTIVE BAY VIEW ===== */
+            <WorkshopBayView currentDate={isMobile ? mobileDay : (selectedDay ?? new Date())} />
           ) : viewMode === "month" ? (
             /* ===== DESKTOP MONTH VIEW ===== */
             <MonthView

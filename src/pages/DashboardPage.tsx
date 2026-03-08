@@ -5,7 +5,7 @@ import MaintenancePlannerWidget from "@/components/MaintenancePlannerWidget";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { Loader2, CalendarPlus, FileText, Receipt } from "lucide-react";
+import { Loader2, CalendarPlus, FileText, Receipt, Car, AlertTriangle, Wrench } from "lucide-react";
 import { useState } from "react";
 import AppointmentDialog from "@/components/AppointmentDialog";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
@@ -13,6 +13,7 @@ import InvoiceDialog from "@/components/InvoiceDialog";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { useAutomotiveDashboardStats } from "@/hooks/useAutomotiveDashboard";
 
 const Badge = ({ children, variant = "primary" }: { children: React.ReactNode; variant?: string }) => {
   const styles: Record<string, string> = {
@@ -61,11 +62,13 @@ const formatCurrency = (amount: number) => {
 const DashboardPage = () => {
   const { navigate } = useNavigation();
   const queryClient = useQueryClient();
-  const { labels } = useIndustryConfig();
+  const { labels, industry } = useIndustryConfig();
+  const isAutomotive = industry === "automotive";
   const { data: todayAppts, isLoading: loadingAppts } = useTodayAppointments();
   const { data: stats, isLoading: loadingStats } = useDashboardStats();
   const { data: reminders, isLoading: loadingReminders } = useReminders();
   const { data: recentWOs } = useRecentWorkOrders();
+  const { data: autoStats } = useAutomotiveDashboardStats();
 
   const [apptDialogOpen, setApptDialogOpen] = useState(false);
   const [woDialogOpen, setWoDialogOpen] = useState(false);
@@ -109,6 +112,37 @@ const DashboardPage = () => {
           </div>
         ))}
       </div>
+
+      {/* Automotive KPIs */}
+      {isAutomotive && autoStats && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 mb-5 md:mb-6">
+          <div onClick={() => navigate("vehicles")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+            <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+              <Car className="h-3 w-3" /> Voertuigen
+            </div>
+            <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{autoStats.totalVehicles}</div>
+            <div className="text-[10px] md:text-[11.5px] mt-1 font-semibold text-t3">actief</div>
+          </div>
+          <div onClick={() => navigate("planning")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+            <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+              <Wrench className="h-3 w-3" /> Brugbezetting
+            </div>
+            <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{autoStats.occupancyPercent}%</div>
+            <div className="text-[10px] md:text-[11.5px] mt-1 font-semibold text-t3">{autoStats.occupiedBays}/{autoStats.totalBays} bruggen</div>
+          </div>
+          <div onClick={() => navigate("vehicles")} className={`bg-card border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:shadow-card-hover transition-all ${autoStats.apkExpiringThisMonth.length > 0 ? "border-warning hover:border-warning" : "border-border hover:border-primary"}`}>
+            <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" /> APK verloopt
+            </div>
+            <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{autoStats.apkExpiringThisMonth.length}</div>
+            <div className="text-[10px] md:text-[11.5px] mt-1 font-semibold text-t3">deze maand</div>
+          </div>
+          <div onClick={() => navigate("workorders")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+            <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1">Open werkorders</div>
+            <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{stats?.openWorkOrders ?? "—"}</div>
+          </div>
+        </div>
+      )}
 
       {/* Quick actions */}
       <div className="flex gap-2 mb-5 flex-wrap">

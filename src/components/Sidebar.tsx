@@ -21,7 +21,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const buildSections = (labels: { workOrders: string; assets: string; vehicles: string }) => [
+const buildSections = (labels: { workOrders: string; assets: string; vehicles: string }, industry: string) => [
   {
     label: "Overzicht",
     items: [
@@ -31,7 +31,7 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
   {
     label: "Operatie",
     items: [
-      { id: "planning" as Page, icon: Calendar, label: "Planning", adminOnly: false },
+      { id: "planning" as Page, icon: Calendar, label: industry === "automotive" ? "Werkplaatsplanning" : "Planning", adminOnly: false },
       { id: "customers" as Page, icon: Users, label: "Klanten", adminOnly: true },
       { id: "workorders" as Page, icon: FileText, label: labels.workOrders, adminOnly: false },
       { id: "contracts" as Page, icon: RefreshCw, label: "Contracten", adminOnly: true },
@@ -62,7 +62,7 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
 const Sidebar = () => {
   const { currentPage, navigate } = useNavigation();
   const { signOut, isAdmin, isSuperAdmin, companyLogoUrl, enabledFeatures } = useAuth();
-  const { labels } = useIndustryConfig();
+  const { labels, industry } = useIndustryConfig();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
@@ -76,7 +76,7 @@ const Sidebar = () => {
     (id === "workorders" && currentPage === "woDetail") ||
     (id === "vehicles" && currentPage === "vehDetail");
 
-  const sections = buildSections(labels)
+  const sections = buildSections(labels, industry)
     .map((section) => ({
       ...section,
       items: section.items.filter((item) =>
