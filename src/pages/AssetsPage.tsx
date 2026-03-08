@@ -15,6 +15,8 @@ import { nl } from "date-fns/locale";
 import AssetDialog from "@/components/AssetDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { supabase } from "@/integrations/supabase/client";
+import { subMonths } from "date-fns";
 
 const statusColor: Record<string, string> = {
   actief: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
