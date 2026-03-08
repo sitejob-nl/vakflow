@@ -1,51 +1,21 @@
 
 
-## Agenda UI Verbetering — Look & Feel + Leesbaarheid
+## Plan: RDW Lookup upgraden naar v3 API + correcte velden
 
-### Problemen
+### Problemen met huidige implementatie
 
-1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
-2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
+1. **Verouderde API URL** — gebruikt `/resource/m9d7-ebf2.json` (SODA v2), moet naar v3: `https://opendata.rdw.nl/api/v3/views/m9d7-ebf2/query.json`
+2. **`brandstof_omschrijving` bestaat niet** in de hoofdtabel — brandstofgegevens zitten in een apart linked dataset. We moeten de brandstof-API apart aanroepen via `api_gekentekende_voertuigen_brandstof` link.
+3. **APK vervaldatum** zit wél direct in de hoofdtabel als `vervaldatum_apk` (number YYYYMMDD) en `vervaldatum_apk_dt` (timestamp) — de aparte call naar `3huj-srit` is overbodig.
+4. **Extra bruikbare velden** beschikbaar: `voertuigsoort`, `inrichting`, `aantal_deuren`, `catalogusprijs`, `type`, `europese_voertuigcategorie`, `tellerstandoordeel`
 
-### Aanpak
+### Wijzigingen
 
-**1. Grotere tijdslots en events**
-- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
-- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
-- Meer ruimte voor service-naam en stad onder de klantnaam
+**Bestand: `supabase/functions/rdw-lookup/index.ts`**
 
-**2. Event cards verbeteren**
-- Subtielere achtergrondkleur met betere contrast
-- Lichte shadow toevoegen aan events voor diepte
-- Rounded corners vergroten, padding verruimen
-- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
-- Hover-effect verbeteren met schaal + shadow
-
-**3. Toolbar opschonen (desktop)**
-- Knoppen groeperen met visuele scheiders
-- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
-- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
-- Badge voor aantal afspraken subtieler
-
-**4. Dagkolom headers verbeteren (desktop weekview)**
-- Datum groter en duidelijker, weekdag + dagnummer gescheiden
-- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
-
-**5. Zijpaneel styling**
-- Subtielere card-styling, betere spacing
-- Status-dots vergroten in de afsprakenlijst
-- Betere typografie-hiërarchie
-
-**6. Mobile day view**
-- Zelfde slot-hoogte verbetering
-- Events met meer padding en grotere tekst
-
-### Bestanden
-
-| Bestand | Wijziging |
-|---|---|
-| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
-| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
-
-Geen database-wijzigingen, geen nieuwe dependencies.
+- Update hoofdendpoint naar v3 API met SoQL filter: `https://opendata.rdw.nl/api/v3/views/m9d7-ebf2/query.json?$$query=SELECT * WHERE kenteken='${normalized}'`
+- Haal `vervaldatum_apk` direct uit de hoofdresponse (verwijder aparte APK call)
+- Voeg brandstof-lookup toe via het linked brandstof-endpoint: `https://opendata.rdw.nl/resource/8ys7-d773.json?kenteken=${normalized}` (Gekentekende_voertuigen_brandstof)
+- Voeg extra velden toe aan response: `vehicle_type`, `body_type`, `num_doors`, `catalog_price`, `europese_voertuigcategorie`
+- Parse `vervaldatum_apk_dt` als ISO date als beschikbaar, fallback naar number-veld
 
