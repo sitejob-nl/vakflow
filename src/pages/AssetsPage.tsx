@@ -184,17 +184,18 @@ const AssetsPage = () => {
           {search ? "Geen objecten gevonden" : "Nog geen objecten aangemaakt"}
         </CardContent></Card>
       ) : (
-        <Card>
+        {/* Desktop table */}
+        <Card className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
                 {isCleaning && <TableHead className="w-10" />}
                 <TableHead>Naam</TableHead>
-                <TableHead className="hidden md:table-cell">{isCleaning ? "Type" : "Type"}</TableHead>
-                {!isCleaning && <TableHead className="hidden md:table-cell">Merk / Model</TableHead>}
-                <TableHead className="hidden sm:table-cell">Klant</TableHead>
-                {isCleaning && <TableHead className="hidden md:table-cell">Frequentie</TableHead>}
-                {isCleaning && <TableHead className="hidden md:table-cell">Volgende beurt</TableHead>}
+                <TableHead>{isCleaning ? "Type" : "Type"}</TableHead>
+                {!isCleaning && <TableHead>Merk / Model</TableHead>}
+                <TableHead>Klant</TableHead>
+                {isCleaning && <TableHead>Frequentie</TableHead>}
+                {isCleaning && <TableHead>Volgende beurt</TableHead>}
                 {isCleaning && <TableHead className="hidden lg:table-cell">Score</TableHead>}
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[100px]" />
@@ -215,20 +216,20 @@ const AssetsPage = () => {
                       </TableCell>
                     )}
                     <TableCell className="font-medium">{asset.name}</TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">{asset.asset_type || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{asset.asset_type || "—"}</TableCell>
                     {!isCleaning && (
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                      <TableCell className="text-muted-foreground">
                         {[asset.brand, asset.model].filter(Boolean).join(" ") || "—"}
                       </TableCell>
                     )}
-                    <TableCell className="hidden sm:table-cell text-muted-foreground">{asset.customer?.name || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{asset.customer?.name || "—"}</TableCell>
                     {isCleaning && (
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                      <TableCell className="text-muted-foreground">
                         {FREQUENCY_LABELS[asset.frequency || ""] || "—"}
                       </TableCell>
                     )}
                     {isCleaning && (
-                      <TableCell className="hidden md:table-cell">
+                      <TableCell>
                         {dueBadge ? (
                           <Badge variant="secondary" className={dueBadge.class}>{dueBadge.label}</Badge>
                         ) : "—"}
@@ -268,6 +269,46 @@ const AssetsPage = () => {
             </TableBody>
           </Table>
         </Card>
+
+        {/* Mobile card list */}
+        <div className="md:hidden space-y-2">
+          {filtered.map((asset) => {
+            const dueBadge = isCleaning ? getDueBadge(asset.next_service_due) : null;
+            return (
+              <div
+                key={asset.id}
+                onClick={() => setDetailAsset(asset)}
+                className="bg-card border border-border rounded-lg p-3.5 flex items-center gap-3 active:bg-muted/50 transition-colors cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                  {isCleaning && asset.object_type === "fleet" ? (
+                    <Truck className="w-4 h-4 text-muted-foreground" />
+                  ) : isCleaning ? (
+                    <Building2 className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <Box className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-bold truncate">{asset.name}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {asset.customer?.name || "—"}
+                    {asset.asset_type ? ` · ${asset.asset_type}` : ""}
+                    {isCleaning && asset.frequency ? ` · ${FREQUENCY_LABELS[asset.frequency] || ""}` : ""}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  <Badge variant="secondary" className={`text-[10px] ${statusColor[asset.status] || ""}`}>
+                    {asset.status}
+                  </Badge>
+                  {dueBadge && (
+                    <Badge variant="secondary" className={`text-[10px] ${dueBadge.class}`}>{dueBadge.label}</Badge>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       <AssetDialog

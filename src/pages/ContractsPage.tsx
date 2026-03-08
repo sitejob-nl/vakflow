@@ -66,14 +66,15 @@ const ContractsPage = () => {
           <p className="text-sm">Maak een nieuw contract aan om te beginnen.</p>
         </div>
       ) : (
-        <div className="rounded-md border">
+        {/* Desktop table */}
+        <div className="rounded-md border hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Klant</TableHead>
                 <TableHead>Contract</TableHead>
-                <TableHead className="hidden md:table-cell">Interval</TableHead>
-                <TableHead className="hidden md:table-cell">Prijs</TableHead>
+                <TableHead>Interval</TableHead>
+                <TableHead>Prijs</TableHead>
                 <TableHead>Volgende</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-10" />
@@ -84,8 +85,8 @@ const ContractsPage = () => {
                 <TableRow key={c.id} className="cursor-pointer" onClick={() => handleEdit(c)}>
                   <TableCell className="font-medium">{c.customers?.name ?? "—"}</TableCell>
                   <TableCell>{c.name}</TableCell>
-                  <TableCell className="hidden md:table-cell">{c.interval_months} mnd</TableCell>
-                  <TableCell className="hidden md:table-cell">€{c.price.toFixed(2)}</TableCell>
+                  <TableCell>{c.interval_months} mnd</TableCell>
+                  <TableCell>€{c.price.toFixed(2)}</TableCell>
                   <TableCell>{format(new Date(c.next_due_date), "d MMM yyyy", { locale: nl })}</TableCell>
                   <TableCell>
                     <Badge variant="secondary" className={statusColors[c.status] ?? ""}>{c.status}</Badge>
@@ -126,6 +127,58 @@ const ContractsPage = () => {
               ))}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Mobile card list */}
+        <div className="md:hidden space-y-2">
+          {filtered.map((c) => (
+            <div
+              key={c.id}
+              onClick={() => handleEdit(c)}
+              className="bg-card border border-border rounded-lg p-3.5 flex items-center gap-3 active:bg-muted/50 transition-colors cursor-pointer"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-bold truncate">{c.customers?.name ?? "—"}</div>
+                <div className="text-[11px] text-muted-foreground truncate">{c.name} · {c.interval_months} mnd · €{c.price.toFixed(2)}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">Volgende: {format(new Date(c.next_due_date), "d MMM yyyy", { locale: nl })}</div>
+              </div>
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                <Badge variant="secondary" className={`text-[10px] ${statusColors[c.status] ?? ""}`}>{c.status}</Badge>
+                <div onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                        <MoreHorizontal className="w-3.5 h-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEdit(c)}>
+                        <Pencil className="w-4 h-4 mr-2" />Bewerken
+                      </DropdownMenuItem>
+                      {c.status === "actief" && (
+                        <DropdownMenuItem onClick={() => handleStatusChange(c, "gepauzeerd")}>
+                          <Pause className="w-4 h-4 mr-2" />Pauzeren
+                        </DropdownMenuItem>
+                      )}
+                      {c.status === "gepauzeerd" && (
+                        <DropdownMenuItem onClick={() => handleStatusChange(c, "actief")}>
+                          <Play className="w-4 h-4 mr-2" />Hervatten
+                        </DropdownMenuItem>
+                      )}
+                      {c.status !== "beeindigd" && (
+                        <DropdownMenuItem onClick={() => handleStatusChange(c, "beeindigd")}>
+                          <XCircle className="w-4 h-4 mr-2" />Beëindigen
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem className="text-destructive" onClick={() => remove.mutate(c.id)}>
+                        <Trash2 className="w-4 h-4 mr-2" />Verwijderen
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
