@@ -138,7 +138,10 @@ export default function WorkOrderMaterials({ workOrderId }: { workOrderId: strin
                     className="w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover transition-colors flex justify-between"
                   >
                     <span>{m.name}</span>
-                    <span className="text-t3">€{m.unit_price.toFixed(2)} / {m.unit}</span>
+                    <span className="text-t3">
+                      €{m.unit_price.toFixed(2)} / {m.unit}
+                      {m.stock_quantity > 0 && <span className="ml-1.5 text-primary">({m.stock_quantity} op voorraad)</span>}
+                    </span>
                   </button>
                 ))}
               </div>

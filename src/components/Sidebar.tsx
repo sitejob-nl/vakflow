@@ -152,10 +152,13 @@ const Sidebar = () => {
                 onClick={() => handleNav("settings")}
                 isActive={isActive("settings")}
                 tooltip="Instellingen"
-                className="text-[13.5px] font-semibold"
+                className="text-[13.5px] font-semibold relative"
               >
                 <Settings className="!w-[18px] !h-[18px] flex-shrink-0" strokeWidth={1.8} />
                 <span>Instellingen</span>
+                {(lowStockCount ?? 0) > 0 && (
+                  <span className="absolute top-1 left-5 h-2 w-2 rounded-full bg-destructive" />
+                )}
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
