@@ -182,6 +182,26 @@ const ReportsPage = () => {
             <WorkshopTab data={autoData} />
           </TabsContent>
         </Tabs>
+      ) : isCleaning ? (
+        <Tabs defaultValue="algemeen" className="space-y-5">
+          <TabsList>
+            <TabsTrigger value="algemeen">Algemeen</TabsTrigger>
+            <TabsTrigger value="schoonmaak">Schoonmaak</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="algemeen">
+            <GeneralCharts
+              revenueChartData={revenueChartData}
+              pieData={pieData}
+              productivity={data.productivity}
+              labels={labels}
+            />
+          </TabsContent>
+
+          <TabsContent value="schoonmaak">
+            <CleaningTab data={cleanData} />
+          </TabsContent>
+        </Tabs>
       ) : (
         <GeneralCharts
           revenueChartData={revenueChartData}
