@@ -12,6 +12,8 @@ export interface Material {
   markup_percentage: number;
   article_number: string | null;
   category: string | null;
+  stock_quantity: number;
+  min_stock_level: number;
   created_at: string;
 }
 
