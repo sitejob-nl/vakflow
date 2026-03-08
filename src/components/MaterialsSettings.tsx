@@ -24,6 +24,8 @@ export default function MaterialsSettings() {
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("stuk");
   const [unitPrice, setUnitPrice] = useState("");
+  const [costPrice, setCostPrice] = useState("");
+  const [markupPercentage, setMarkupPercentage] = useState("");
   const [articleNumber, setArticleNumber] = useState("");
   const [category, setCategory] = useState("");
 
@@ -31,6 +33,8 @@ export default function MaterialsSettings() {
     setName("");
     setUnit("stuk");
     setUnitPrice("");
+    setCostPrice("");
+    setMarkupPercentage("");
     setArticleNumber("");
     setCategory("");
     setShowForm(false);
@@ -42,17 +46,44 @@ export default function MaterialsSettings() {
     setName(m.name);
     setUnit(m.unit);
     setUnitPrice(String(m.unit_price));
+    setCostPrice(String(m.cost_price || ""));
+    setMarkupPercentage(String(m.markup_percentage || ""));
     setArticleNumber(m.article_number ?? "");
     setCategory(m.category ?? "");
     setShowForm(true);
   };
 
+  // Auto-calculate unit_price when cost_price or markup changes
+  const handleCostPriceChange = (val: string) => {
+    setCostPrice(val);
+    const cp = parseFloat(val) || 0;
+    const mp = parseFloat(markupPercentage) || 0;
+    if (cp > 0) {
+      setUnitPrice((cp * (1 + mp / 100)).toFixed(2));
+    }
+  };
+
+  const handleMarkupChange = (val: string) => {
+    setMarkupPercentage(val);
+    const cp = parseFloat(costPrice) || 0;
+    const mp = parseFloat(val) || 0;
+    if (cp > 0) {
+      setUnitPrice((cp * (1 + mp / 100)).toFixed(2));
+    }
+  };
+
   const handleSave = async () => {
     if (!name.trim()) return;
+    const cp = parseFloat(costPrice) || 0;
+    const mp = parseFloat(markupPercentage) || 0;
+    const calculatedPrice = cp > 0 ? cp * (1 + mp / 100) : parseFloat(unitPrice) || 0;
+
     const payload = {
       name: name.trim(),
       unit,
-      unit_price: parseFloat(unitPrice) || 0,
+      unit_price: calculatedPrice,
+      cost_price: cp,
+      markup_percentage: mp,
       article_number: articleNumber.trim() || null,
       category: category.trim() || null,
     };
@@ -92,7 +123,6 @@ export default function MaterialsSettings() {
     );
   });
 
-  // Get unique categories for grouping info
   const categories = [...new Set((materials ?? []).map((m) => m.category).filter(Boolean))] as string[];
 
   return (
@@ -150,15 +180,6 @@ export default function MaterialsSettings() {
               className="text-[13px]"
             />
             <Input
-              placeholder="Prijs per eenheid"
-              type="number"
-              value={unitPrice}
-              onChange={(e) => setUnitPrice(e.target.value)}
-              className="text-[13px]"
-              min="0"
-              step="0.01"
-            />
-            <Input
               placeholder="Categorie"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -171,6 +192,54 @@ export default function MaterialsSettings() {
               ))}
             </datalist>
           </div>
+
+          {/* Markup calculation section */}
+          <div className="border-t border-border pt-3 mt-2">
+            <p className="text-[11px] font-bold text-t3 uppercase tracking-wide mb-2">Prijsberekening</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[11px] text-t3 font-semibold mb-1 block">Inkoopprijs (€)</label>
+                <Input
+                  placeholder="0.00"
+                  type="number"
+                  value={costPrice}
+                  onChange={(e) => handleCostPriceChange(e.target.value)}
+                  className="text-[13px]"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-t3 font-semibold mb-1 block">Opslag (%)</label>
+                <Input
+                  placeholder="0"
+                  type="number"
+                  value={markupPercentage}
+                  onChange={(e) => handleMarkupChange(e.target.value)}
+                  className="text-[13px]"
+                  min="0"
+                  step="1"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-t3 font-semibold mb-1 block">Verkoopprijs (€)</label>
+                <Input
+                  placeholder="0.00"
+                  type="number"
+                  value={unitPrice}
+                  onChange={(e) => setUnitPrice(e.target.value)}
+                  className="text-[13px]"
+                  min="0"
+                  step="0.01"
+                  readOnly={parseFloat(costPrice) > 0}
+                />
+                {parseFloat(costPrice) > 0 && (
+                  <p className="text-[10px] text-t3 mt-1">Automatisch berekend op basis van inkoopprijs + opslag%</p>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -209,7 +278,9 @@ export default function MaterialsSettings() {
                 <TableHead className="text-[11px]">Artikelnr.</TableHead>
                 <TableHead className="text-[11px]">Categorie</TableHead>
                 <TableHead className="text-[11px]">Eenheid</TableHead>
-                <TableHead className="text-[11px] text-right">Prijs</TableHead>
+                <TableHead className="text-[11px] text-right">Inkoop</TableHead>
+                <TableHead className="text-[11px] text-right">Opslag</TableHead>
+                <TableHead className="text-[11px] text-right">Verkoop</TableHead>
                 <TableHead className="text-[11px] w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -220,6 +291,12 @@ export default function MaterialsSettings() {
                   <TableCell className="text-[13px] text-t3">{m.article_number || "—"}</TableCell>
                   <TableCell className="text-[13px] text-t3">{m.category || "—"}</TableCell>
                   <TableCell className="text-[13px]">{m.unit}</TableCell>
+                  <TableCell className="text-[13px] text-right text-t3">
+                    {m.cost_price > 0 ? `€${m.cost_price.toFixed(2)}` : "—"}
+                  </TableCell>
+                  <TableCell className="text-[13px] text-right text-t3">
+                    {m.markup_percentage > 0 ? `${m.markup_percentage}%` : "—"}
+                  </TableCell>
                   <TableCell className="text-[13px] text-right font-semibold">€{m.unit_price.toFixed(2)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1 justify-end">

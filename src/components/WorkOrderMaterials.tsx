@@ -59,6 +59,8 @@ export default function WorkOrderMaterials({ workOrderId }: { workOrderId: strin
             unit_price: price,
             article_number: null,
             category: null,
+            cost_price: 0,
+            markup_percentage: 0,
           });
           materialId = (newMat as any).id;
         }
