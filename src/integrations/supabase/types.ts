@@ -84,6 +84,112 @@ export type Database = {
           },
         ]
       }
+      apk_reminder_logs: {
+        Row: {
+          apk_expiry_date: string
+          channel: string
+          company_id: string
+          customer_id: string
+          id: string
+          reminder_type: string
+          sent_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          apk_expiry_date: string
+          channel?: string
+          company_id: string
+          customer_id: string
+          id?: string
+          reminder_type: string
+          sent_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          apk_expiry_date?: string
+          channel?: string
+          company_id?: string
+          customer_id?: string
+          id?: string
+          reminder_type?: string
+          sent_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apk_reminder_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "apk_reminder_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "apk_reminder_logs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      apk_reminder_settings: {
+        Row: {
+          channel: string
+          company_id: string
+          created_at: string
+          days_before: number[]
+          email_body: string | null
+          email_subject: string | null
+          enabled: boolean
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          channel?: string
+          company_id: string
+          created_at?: string
+          days_before?: number[]
+          email_body?: string | null
+          email_subject?: string | null
+          enabled?: boolean
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          company_id?: string
+          created_at?: string
+          days_before?: number[]
+          email_body?: string | null
+          email_subject?: string | null
+          enabled?: boolean
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apk_reminder_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "apk_reminder_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointments: {
         Row: {
           address_id: string | null
