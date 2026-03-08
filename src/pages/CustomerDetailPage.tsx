@@ -9,11 +9,23 @@ import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import AddressDialog from "@/components/AddressDialog";
 import WhatsAppChat from "@/components/WhatsAppChat";
 import CustomerEmailTab from "@/components/CustomerEmailTab";
-import { Loader2, Trash2, MapPin, Plus, MessageSquare } from "lucide-react";
-import { useState, useMemo } from "react";
+import { Loader2, Trash2, MapPin, Plus, MessageSquare, Globe, Eye, EyeOff } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
 import CustomerDialog from "@/components/CustomerDialog";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { nl } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { nl } from "date-fns/locale";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
