@@ -44,6 +44,8 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
   const { data: teamMembers } = useTeamMembers();
   const createWO = useCreateWorkOrder();
   const updateWO = useUpdateWorkOrder();
+  const addWOMaterial = useAddWorkOrderMaterial();
+  const { data: materialsCatalog } = useMaterials();
   const isEdit = !!workOrder;
   const isMonteur = role === "monteur";
   const [showAiIntake, setShowAiIntake] = useState(false);
