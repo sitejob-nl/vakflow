@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { usePwaManifest } from "@/hooks/usePwaManifest";
 import { useEffect } from "react";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
 /** Convert hex color (#4F46E5) to HSL string like "237 84% 58%" */
 function hexToHsl(hex: string): string {
@@ -61,12 +62,10 @@ const AppLayout = () => {
       root.style.setProperty("--ring", hsl);
       root.style.setProperty("--sidebar-primary", hsl);
       root.style.setProperty("--sidebar-ring", hsl);
-      // Extract hue for bg-hover
       const hue = hsl.split(" ")[0];
       root.style.setProperty("--bg-hover", `${hue} 50% 97%`);
       root.style.setProperty("--bg-active", `${hue} 50% 94%`);
     } else {
-      // Reset to defaults
       root.style.removeProperty("--primary");
       root.style.removeProperty("--primary-hover");
       root.style.removeProperty("--primary-muted");
@@ -89,19 +88,21 @@ const AppLayout = () => {
   }, [activeBrandColor]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden bg-background min-w-0">
-        <OfflineBanner />
-        <ImpersonationBanner />
-        <Header />
-        <main className="flex-1 overflow-y-auto p-4 md:p-5 lg:p-6 pb-[calc(80px+env(safe-area-inset-bottom,0px))] lg:pb-6 animate-page-in" key={currentPage}>
-          <Outlet />
-        </main>
+    <SidebarProvider>
+      <div className="flex h-screen overflow-hidden w-full">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden bg-background min-w-0">
+          <OfflineBanner />
+          <ImpersonationBanner />
+          <Header />
+          <main className="flex-1 overflow-y-auto p-4 md:p-5 lg:p-6 pb-[calc(80px+env(safe-area-inset-bottom,0px))] lg:pb-6 animate-page-in" key={currentPage}>
+            <Outlet />
+          </main>
+        </div>
+        <MobileNav />
+        <OnboardingDialog />
       </div>
-      <MobileNav />
-      <OnboardingDialog />
-    </div>
+    </SidebarProvider>
   );
 };
 

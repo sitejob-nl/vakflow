@@ -9,6 +9,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 import { nl } from "date-fns/locale";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 const Header = () => {
   const { currentPage, navigate } = useNavigation();
@@ -113,10 +114,11 @@ const Header = () => {
 
   return (
     <header className="min-h-[58px] bg-card border-b border-border flex items-center px-4 md:px-5 lg:px-6 gap-3.5 flex-shrink-0 safe-top">
+      <SidebarTrigger className="hidden lg:flex" />
       {companyLogoUrl ? (
-        <img src={companyLogoUrl} alt="Logo" className="h-7 max-w-[120px] object-contain flex-shrink-0" />
+        <img src={companyLogoUrl} alt="Logo" className="h-7 max-w-[120px] object-contain flex-shrink-0 lg:hidden" />
       ) : (
-        <div className="bg-foreground rounded px-2 py-1 flex-shrink-0">
+        <div className="bg-foreground rounded px-2 py-1 flex-shrink-0 lg:hidden">
           <img src={vakflowLogo} alt="Vakflow" className="h-5 object-contain" />
         </div>
       )}

@@ -6,6 +6,20 @@ import {
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import {
+  Sidebar as ShadcnSidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
+  useSidebar,
+} from "@/components/ui/sidebar";
 
 const buildSections = (labels: { workOrders: string; assets: string }) => [
   {
@@ -47,10 +61,17 @@ const Sidebar = () => {
   const { currentPage, navigate } = useNavigation();
   const { signOut, isAdmin, isSuperAdmin, companyLogoUrl, enabledFeatures } = useAuth();
   const { labels } = useIndustryConfig();
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
 
   const handleNav = (page: Page) => {
     navigate(page);
   };
+
+  const isActive = (id: Page) =>
+    currentPage === id ||
+    (id === "customers" && currentPage === "custDetail") ||
+    (id === "workorders" && currentPage === "woDetail");
 
   const sections = buildSections(labels)
     .map((section) => ({
@@ -62,86 +83,90 @@ const Sidebar = () => {
     }))
     .filter((section) => section.items.length > 0);
 
-  const sidebarContent = (
-    <>
+  return (
+    <ShadcnSidebar collapsible="icon">
       {/* Logo */}
-      <div className={`px-5 py-[18px] flex items-center justify-center border-b border-border ${!companyLogoUrl ? 'bg-foreground rounded-t-lg' : ''}`}>
-        <img src={companyLogoUrl || vakflowLogo} alt="Logo" className="h-10 object-contain max-w-[180px]" />
-      </div>
+      <SidebarHeader className="p-0">
+        <div className={`px-5 py-[18px] flex items-center ${collapsed ? 'justify-center px-2' : 'justify-center'} border-b border-sidebar-border ${!companyLogoUrl ? 'bg-sidebar-foreground rounded-t-lg' : ''}`}>
+          {collapsed ? (
+            <img src={companyLogoUrl || vakflowLogo} alt="Logo" className="h-7 w-7 object-contain" />
+          ) : (
+            <img src={companyLogoUrl || vakflowLogo} alt="Logo" className="h-10 object-contain max-w-[180px]" />
+          )}
+        </div>
+      </SidebarHeader>
 
       {/* Navigation */}
-      <nav className="p-2 flex-1 overflow-y-auto">
+      <SidebarContent>
         {sections.map((section) => (
-          <div key={section.label} className="mb-1">
-            <div className="text-[10px] font-bold uppercase tracking-[1.2px] text-t3 px-3.5 pt-2 pb-1">
+          <SidebarGroup key={section.label} className="py-1">
+            <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[1.2px] text-sidebar-foreground/50 px-3.5">
               {section.label}
-            </div>
-            {section.items.map((item) => {
-              const active = currentPage === item.id ||
-                (item.id === "customers" && currentPage === "custDetail") ||
-                (item.id === "workorders" && currentPage === "woDetail");
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNav(item.id)}
-                  className={`w-full flex items-center gap-2.5 px-3.5 py-2 rounded-sm text-[13.5px] font-semibold transition-all mb-px ${
-                    active
-                      ? "bg-primary-muted text-primary"
-                      : "text-secondary-foreground hover:bg-bg-hover hover:text-foreground"
-                  }`}
-                >
-                  <item.icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.8} />
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {section.items.map((item) => (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton
+                      onClick={() => handleNav(item.id)}
+                      isActive={isActive(item.id)}
+                      tooltip={item.label}
+                      className="text-[13.5px] font-semibold"
+                    >
+                      <item.icon className="!w-[18px] !h-[18px] flex-shrink-0" strokeWidth={1.8} />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         ))}
-      </nav>
+      </SidebarContent>
 
       {/* Footer */}
-      <div className="p-3.5 border-t border-border space-y-px">
-        {isSuperAdmin && (
-          <button
-            onClick={() => handleNav("superadmin")}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-2 rounded-sm text-[13.5px] font-semibold transition-all ${
-              currentPage === "superadmin"
-                ? "bg-primary-muted text-primary"
-                : "text-secondary-foreground hover:bg-bg-hover hover:text-foreground"
-            }`}
-          >
-            <Building2 className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.8} />
-            Super Admin
-          </button>
-        )}
-        {isAdmin && (
-          <button
-            onClick={() => handleNav("settings")}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-2 rounded-sm text-[13.5px] font-semibold transition-all ${
-              currentPage === "settings"
-                ? "bg-primary-muted text-primary"
-                : "text-secondary-foreground hover:bg-bg-hover hover:text-foreground"
-            }`}
-          >
-            <Settings className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.8} />
-            Instellingen
-          </button>
-        )}
-        <button
-          onClick={() => signOut()}
-          className="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-sm text-[13.5px] font-semibold text-secondary-foreground hover:bg-bg-hover hover:text-foreground transition-all"
-        >
-          <LogOut className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.8} />
-          Uitloggen
-        </button>
-      </div>
-    </>
-  );
-
-  return (
-    <aside className="hidden lg:flex w-60 bg-card border-r border-border flex-col flex-shrink-0">
-      {sidebarContent}
-    </aside>
+      <SidebarFooter>
+        <SidebarSeparator />
+        <SidebarMenu>
+          {isSuperAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => handleNav("superadmin")}
+                isActive={isActive("superadmin")}
+                tooltip="Super Admin"
+                className="text-[13.5px] font-semibold"
+              >
+                <Building2 className="!w-[18px] !h-[18px] flex-shrink-0" strokeWidth={1.8} />
+                <span>Super Admin</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+          {isAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => handleNav("settings")}
+                isActive={isActive("settings")}
+                tooltip="Instellingen"
+                className="text-[13.5px] font-semibold"
+              >
+                <Settings className="!w-[18px] !h-[18px] flex-shrink-0" strokeWidth={1.8} />
+                <span>Instellingen</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => signOut()}
+              tooltip="Uitloggen"
+              className="text-[13.5px] font-semibold"
+            >
+              <LogOut className="!w-[18px] !h-[18px] flex-shrink-0" strokeWidth={1.8} />
+              <span>Uitloggen</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </ShadcnSidebar>
   );
 };
 

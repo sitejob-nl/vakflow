@@ -1,94 +1,51 @@
 
 
-## Roadmap: Concurrentie-gap dichten
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-Op basis van je selectie zijn dit 6 grote features. Hier is de prioriteitsvolgorde op basis van impact vs complexiteit:
+### Problemen
 
-### Fase 1 — Quick wins (per stuk ~1 sessie)
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-| # | Feature | Complexiteit | Impact |
-|---|---------|-------------|--------|
-| 1 | **Inklapbare sidebar** | Laag | Hoog — modernere UX, meer ruimte |
-| 2 | **Rijker dashboard met grafieken** | Medium | Hoog — eerste indruk, KPI-overzicht |
-| 3 | **Onboarding checklist** | Medium | Hoog — activatie nieuwe gebruikers |
+### Aanpak
 
-### Fase 2 — Kernmodules (per stuk ~2-3 sessies)
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-| # | Feature | Complexiteit | Impact |
-|---|---------|-------------|--------|
-| 4 | **Drag & drop planbord** | Hoog | Hoog — daily driver feature |
-| 5 | **Contracten module** | Hoog | Hoog — recurring revenue tracking |
-| 6 | **Projecten module** | Hoog | Medium — grotere bedrijven |
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
----
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-### 1. Inklapbare sidebar
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-Huidige `Sidebar.tsx` is een vaste 240px brede aside. Omzetten naar Shadcn `Sidebar` met `collapsible="icon"` modus.
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-- Sidebar klapt in tot ~56px breed met alleen iconen
-- `SidebarTrigger` in de Header zodat toggle altijd zichtbaar is
-- Collapsed state opslaan in `localStorage`
-- `AppLayout.tsx` wrappen met `SidebarProvider`
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-**Bestanden:** `Sidebar.tsx`, `AppLayout.tsx`, `Header.tsx`
+### Bestanden
 
-### 2. Rijker dashboard met grafieken
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
 
-Het huidige dashboard heeft 4 KPI-kaarten en lijsten. Toevoegen:
-
-- **Omzet-lijn/barchart** (maandelijks, via `recharts` — al geïnstalleerd)
-- **Werkbon-status donut chart** (open/bezig/afgerond verdeling)
-- **Pipeline-kaart** (openstaande offertes totaalwaarde)
-- Layout herschikken naar 2-kolom grid met grafieken bovenaan
-
-**Database:** Nieuwe Supabase query/hook voor maandelijkse omzetdata en werkbon-status aggregatie.
-**Bestanden:** `DashboardPage.tsx`, nieuw `useDashboardCharts.ts` hook
-
-### 3. Onboarding checklist
-
-Dashboard-widget voor nieuwe accounts (tonen zolang niet alle stappen voltooid):
-
-- Stappen: Bedrijfsgegevens invullen, Eerste dienst aanmaken, Eerste klant toevoegen, Eerste afspraak plannen, E-mail/WhatsApp instellen
-- Progressiebalk bovenaan
-- Elke stap linkt naar de juiste pagina
-- Voortgang opslaan in `profiles.onboarding_completed` (al aanwezig) + nieuw JSONB veld `onboarding_progress`
-
-**Bestanden:** Nieuw `OnboardingChecklist.tsx`, `DashboardPage.tsx`, migratie voor `onboarding_progress`
-
-### 4. Drag & drop planbord
-
-De planning (`PlanningPage.tsx`, ~1600 regels) uitbreiden met:
-
-- HTML5 drag & drop op event cards in weekview
-- Drop-zones per dag/tijdslot en per medewerker-kolom
-- Bij drop: `scheduled_at` en optioneel `assigned_to` updaten
-- Visuele feedback tijdens drag (ghost card, highlight drop-zone)
-
-**Bestanden:** `PlanningPage.tsx`, mogelijk extractie naar subcomponenten
-
-### 5. Contracten module
-
-Nieuwe module voor terugkerende servicecontracten:
-
-- **Database:** `contracts` tabel (klant, type werk, interval, start/einddatum, actief-status, bedrag)
-- **UI:** Contractenlijst met filters, contract-aanmaak dialog
-- **Automatisering:** Cron/trigger die werkbonnen genereert op basis van contractinterval
-- **Sidebar/routing:** Nieuwe pagina + navigatie-item
-
-### 6. Projecten module
-
-Projecten als container voor meerdere werkbonnen/offertes/facturen:
-
-- **Database:** `projects` tabel + `project_id` FK op werkbonnen, offertes, facturen
-- **UI:** Projectoverzicht met voortgang, nacalculatie (budget vs werkelijk)
-- **Sidebar/routing:** Nieuwe pagina
-
----
-
-### Aanbevolen startvolgorde
-
-Begin met **Inklapbare sidebar** — het is de snelste win, verbetert direct de look & feel, en raakt minimaal andere code. Daarna **Dashboard grafieken** en **Onboarding checklist**.
-
-Welke feature wil je als eerste implementeren?
+Geen database-wijzigingen, geen nieuwe dependencies.
 
