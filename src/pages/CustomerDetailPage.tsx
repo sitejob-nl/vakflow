@@ -63,6 +63,41 @@ const CustomerDetailPage = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
+  const [portalDialogOpen, setPortalDialogOpen] = useState(false);
+  const [portalPassword, setPortalPassword] = useState("");
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalActive, setPortalActive] = useState<boolean | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Check if portal account exists for this customer
+  useEffect(() => {
+    if (!params.customerId) return;
+    supabase
+      .from("portal_users")
+      .select("id")
+      .eq("customer_id", params.customerId)
+      .maybeSingle()
+      .then(({ data }) => setPortalActive(!!data));
+  }, [params.customerId]);
+
+  const handleCreatePortalAccount = async () => {
+    if (!customer?.email || !portalPassword || !companyId) return;
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("portal-invite", {
+        body: { customer_id: customer.id, company_id: companyId, email: customer.email, password: portalPassword },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setPortalActive(true);
+      setPortalDialogOpen(false);
+      setPortalPassword("");
+      toast({ title: "Portaal account aangemaakt", description: `Login: ${customer.email}` });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+    setPortalLoading(false);
+  };
 
   const isBusinessCustomer = customer?.type === "zakelijk" || customer?.type === "vve";
 
