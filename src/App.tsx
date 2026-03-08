@@ -35,6 +35,7 @@ const SuperAdminPage = lazy(() => import("@/pages/SuperAdminPage"));
 const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
 const AssetsPage = lazy(() => import("@/pages/AssetsPage"));
 const MarketingPage = lazy(() => import("@/pages/MarketingPage"));
+const ContractsPage = lazy(() => import("@/pages/ContractsPage"));
 const MetaCallbackPage = lazy(() => import("@/pages/MetaCallbackPage"));
 
 const queryClient = new QueryClient({
