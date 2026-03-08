@@ -57,6 +57,7 @@ const InvoicesPage = () => {
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const createLog = useCreateCommunicationLog();
+  const [sendingReminder, setSendingReminder] = useState(false);
   const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
   const [syncInvoices, setSyncInvoices] = useState(true);
 
