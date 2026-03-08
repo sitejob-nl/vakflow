@@ -31,6 +31,7 @@ const Header = () => {
     whatsapp: { title: "WhatsApp", sub: "Gesprekken" },
     reminders: { title: "Reminders", sub: "Herinneringen" },
     assets: { title: labels.assets, sub: `${labels.asset}beheer` },
+    contracts: { title: "Contracten", sub: "Terugkerende contracten" },
     marketing: { title: "Marketing", sub: "Meta leads & berichten" },
     settings: { title: "Instellingen", sub: "Profiel & voorkeuren" },
     superadmin: { title: "Super Admin", sub: "Bedrijvenbeheer" },

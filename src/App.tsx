@@ -35,6 +35,7 @@ const SuperAdminPage = lazy(() => import("@/pages/SuperAdminPage"));
 const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
 const AssetsPage = lazy(() => import("@/pages/AssetsPage"));
 const MarketingPage = lazy(() => import("@/pages/MarketingPage"));
+const ContractsPage = lazy(() => import("@/pages/ContractsPage"));
 const MetaCallbackPage = lazy(() => import("@/pages/MetaCallbackPage"));
 
 const queryClient = new QueryClient({
@@ -86,6 +87,7 @@ const App = () => (
                 <Route path="email" element={<AdminRoute><EmailPage /></AdminRoute>} />
                 <Route path="whatsapp" element={<AdminRoute><WhatsAppPage /></AdminRoute>} />
                 <Route path="reminders" element={<AdminRoute><RemindersPage /></AdminRoute>} />
+                <Route path="contracts" element={<AdminRoute><ContractsPage /></AdminRoute>} />
                 <Route path="assets" element={<AdminRoute><AssetsPage /></AdminRoute>} />
                 <Route path="marketing" element={<AdminRoute><MarketingPage /></AdminRoute>} />
                 <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />

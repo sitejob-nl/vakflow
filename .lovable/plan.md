@@ -1,91 +1,51 @@
 
 
-## Plan: Contracten module
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-Een nieuwe module voor terugkerende servicecontracten met automatische werkbon-generatie. Klanten krijgen contracten toegewezen die periodiek werkbonnen aanmaken.
+### Problemen
 
----
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-### 1. Database
+### Aanpak
 
-**Nieuwe tabel: `contracts`**
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-| Kolom | Type | Beschrijving |
-|-------|------|-------------|
-| id | uuid PK | |
-| company_id | uuid | Multi-tenant isolatie |
-| customer_id | uuid | Gekoppelde klant |
-| service_id | uuid | Dienst die uitgevoerd wordt |
-| address_id | uuid | Werkadres (optioneel) |
-| asset_id | uuid | Gekoppeld object (optioneel) |
-| name | text | Contractnaam |
-| description | text | Omschrijving werkzaamheden |
-| status | text | `actief`, `gepauzeerd`, `beeindigd` |
-| interval_months | integer | Frequentie (bijv. 3, 6, 12) |
-| start_date | date | Startdatum |
-| end_date | date | Einddatum (null = onbepaald) |
-| last_generated_at | date | Laatste werkbon-generatie |
-| next_due_date | date | Volgende gepland |
-| assigned_to | uuid | Standaard monteur |
-| price | numeric | Contractprijs per beurt |
-| notes | text | |
-| created_at | timestamptz | |
-| updated_at | timestamptz | |
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-RLS: company_id-based, zelfde patroon als andere tabellen.
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
----
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-### 2. Edge Function: `contract-generate`
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-Cron-achtige functie (handmatig of via scheduled trigger) die:
-1. Alle actieve contracten ophaalt waar `next_due_date <= today`
-2. Per contract een werkbon aanmaakt (via insert in `work_orders`)
-3. Een afspraak aanmaakt (via insert in `appointments`) indien gewenst
-4. `last_generated_at` en `next_due_date` bijwerkt
-
----
-
-### 3. Frontend
-
-**Nieuwe bestanden:**
-- `src/pages/ContractsPage.tsx` — Overzicht met filters (actief/gepauzeerd/beeindigd), contractenlijst
-- `src/components/ContractDialog.tsx` — Aanmaken/bewerken formulier
-- `src/hooks/useContracts.ts` — CRUD hooks
-
-**Bestaande aanpassingen:**
-- `src/App.tsx` — Route `/contracts` toevoegen
-- `src/hooks/useNavigation.tsx` — Page type `contracts` toevoegen
-- `src/components/Sidebar.tsx` — Menu-item "Contracten" in sectie "Operatie"
-- `src/components/MobileNav.tsx` — Menu-item toevoegen
-- `supabase/config.toml` — Edge function entry
-
-**Sidebar plaatsing:** Onder "Werkbonnen" in de "Operatie" sectie, met `FileText` of `RefreshCw` icon.
-
----
-
-### 4. ContractsPage features
-
-- Tabel met: klantnaam, contractnaam, dienst, interval, volgende datum, status
-- Statusfilter tabs (Alle / Actief / Gepauzeerd / Beeindigd)
-- "Nieuw contract" knop → ContractDialog
-- Per contract: bewerken, pauzeren/hervatten, beeindigen
-- Knop "Werkbonnen genereren" — roept edge function aan voor alle verlopen contracten
-
----
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
 ### Bestanden
 
-| Bestand | Actie |
-|---------|-------|
-| Supabase migratie | `contracts` tabel + RLS |
-| `supabase/functions/contract-generate/index.ts` | Nieuw |
-| `supabase/config.toml` | Entry toevoegen |
-| `src/pages/ContractsPage.tsx` | Nieuw |
-| `src/components/ContractDialog.tsx` | Nieuw |
-| `src/hooks/useContracts.ts` | Nieuw |
-| `src/App.tsx` | Route toevoegen |
-| `src/hooks/useNavigation.tsx` | Page type toevoegen |
-| `src/components/Sidebar.tsx` | Menu-item toevoegen |
-| `src/components/MobileNav.tsx` | Menu-item toevoegen |
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+
+Geen database-wijzigingen, geen nieuwe dependencies.
 
