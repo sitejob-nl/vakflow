@@ -32,7 +32,7 @@ export interface Asset {
   custom_fields: Record<string, any> | null;
   // joined
   customer?: { id: string; name: string } | null;
-  address?: { id: string; street: string | null; house_number: string | null; city: string | null } | null;
+  address?: { id: string; street: string | null; house_number: string | null; city: string | null; lat: number | null; lng: number | null } | null;
 }
 
 export interface MaintenanceLog {
