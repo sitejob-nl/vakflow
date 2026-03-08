@@ -268,6 +268,16 @@ const QuotesPage = () => {
               <button onClick={() => handleScheduleAppointment(selected)} className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1">
                 <CalendarPlus className="h-3.5 w-3.5" /> Afspraak
               </button>
+              <button onClick={async () => {
+                try {
+                  const p = await convertToProject.mutateAsync(selected);
+                  toast({ title: `Project ${(p as any).project_number ?? ""} aangemaakt` });
+                } catch (err: any) {
+                  toast({ title: "Fout", description: err.message, variant: "destructive" });
+                }
+              }} className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1">
+                <FolderKanban className="h-3.5 w-3.5" /> Project
+              </button>
             </>
           )}
           <button
