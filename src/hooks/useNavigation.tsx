@@ -48,6 +48,7 @@ const routeMap: Record<Page, string> = {
   trade: "/trade",
   schedule: "/schedule",
   settings: "/settings",
+  audits: "/audits",
   superadmin: "/superadmin",
 };
 
