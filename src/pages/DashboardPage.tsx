@@ -62,11 +62,13 @@ const formatCurrency = (amount: number) => {
 const DashboardPage = () => {
   const { navigate } = useNavigation();
   const queryClient = useQueryClient();
-  const { labels } = useIndustryConfig();
+  const { labels, industry } = useIndustryConfig();
+  const isAutomotive = industry === "automotive";
   const { data: todayAppts, isLoading: loadingAppts } = useTodayAppointments();
   const { data: stats, isLoading: loadingStats } = useDashboardStats();
   const { data: reminders, isLoading: loadingReminders } = useReminders();
   const { data: recentWOs } = useRecentWorkOrders();
+  const { data: autoStats } = useAutomotiveDashboardStats();
 
   const [apptDialogOpen, setApptDialogOpen] = useState(false);
   const [woDialogOpen, setWoDialogOpen] = useState(false);
