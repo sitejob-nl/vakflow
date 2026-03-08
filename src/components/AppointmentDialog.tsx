@@ -7,11 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Navigation, MapPin, ExternalLink, Plus, AlertTriangle } from "lucide-react";
+import { Loader2, Navigation, MapPin, ExternalLink, Plus, AlertTriangle, Car } from "lucide-react";
 import { useCreateAppointment, useUpdateAppointment, useAppointmentsForDay } from "@/hooks/useAppointments";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useServices } from "@/hooks/useCustomers";
 import { useAddresses } from "@/hooks/useAddresses";
+import { useCustomerVehicles } from "@/hooks/useVehicles";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -43,6 +45,8 @@ const FALLBACK_START_LABEL = "Heemskerk (standaard)";
 const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Props) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { industry } = useIndustryConfig();
+  const isAutomotive = industry === "automotive";
   const { data: customers } = useCustomers();
   const { data: services } = useServices();
   const createAppointment = useCreateAppointment();
@@ -105,11 +109,15 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
     customer_id: "",
     service_id: "",
     address_id: "",
+    vehicle_id: "",
     scheduled_at: "",
     duration_minutes: 60,
     status: "gepland",
     notes: "",
   });
+
+  // Fetch vehicles for the selected customer (automotive only)
+  const { data: customerVehicles } = useCustomerVehicles(isAutomotive && form.customer_id ? form.customer_id : undefined);
 
   // Fetch addresses for the selected customer
   const { data: customerAddresses } = useAddresses(form.customer_id || undefined);
@@ -162,6 +170,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
         customer_id: appointment.customer_id,
         service_id: appointment.service_id || "",
         address_id: appointment.address_id || "",
+        vehicle_id: (appointment as any).vehicle_id || "",
         scheduled_at: scheduledAt,
         duration_minutes: appointment.duration_minutes ?? 60,
         status: isDuplicate ? "gepland" : appointment.status,
@@ -174,6 +183,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
         customer_id: "",
         service_id: "",
         address_id: "",
+        vehicle_id: "",
         scheduled_at: formatDateTimeLocal(dt),
         duration_minutes: 60,
         status: "gepland",
@@ -236,6 +246,7 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
       customer_id: form.customer_id,
       service_id: form.service_id || null,
       address_id: form.address_id || null,
+      vehicle_id: form.vehicle_id || null,
       scheduled_at: new Date(form.scheduled_at).toISOString(),
       duration_minutes: form.duration_minutes,
       status: form.status,
@@ -348,6 +359,28 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate }: Pro
           </Select>
         </div>
       )}
+
+      {/* Vehicle selector (automotive only) */}
+      {isAutomotive && form.customer_id && customerVehicles && customerVehicles.length > 0 && (
+        <div className="space-y-1.5">
+          <Label>Voertuig</Label>
+          <Select value={form.vehicle_id} onValueChange={(v) => set("vehicle_id", v === "none" ? "" : v)}>
+            <SelectTrigger>
+              <Car className="h-3.5 w-3.5 mr-1 flex-shrink-0 text-muted-foreground" />
+              <SelectValue placeholder="Kies voertuig" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Geen voertuig</SelectItem>
+              {customerVehicles.map((v) => (
+                <SelectItem key={v.id} value={v.id}>
+                  {v.license_plate}{v.brand ? ` — ${v.brand}` : ""}{v.model ? ` ${v.model}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label>Datum & tijd *</Label>

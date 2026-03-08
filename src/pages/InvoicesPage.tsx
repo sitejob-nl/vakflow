@@ -18,6 +18,7 @@ const tabs = ["Alle", "Openstaand", "Betaald"];
 const statusConfig: Record<string, { label: string; variant: string }> = {
   concept: { label: "Concept", variant: "cyan" },
   verzonden: { label: "Verzonden", variant: "warning" },
+  verstuurd: { label: "Verzonden", variant: "warning" },
   betaald: { label: "Betaald", variant: "success" },
   verlopen: { label: "Verlopen", variant: "destructive" },
 };
@@ -103,6 +104,27 @@ const InvoicesPage = () => {
 
       // Pull invoice status when marked as paid
       if (status === "betaald") {
+        // Trigger WhatsApp automation for payment confirmation
+        try {
+          const invoice = invoices?.find((i) => i.id === id);
+          if (invoice?.customer_id) {
+            await supabase.functions.invoke("whatsapp-automation-trigger", {
+              body: {
+                trigger_type: "invoice_paid",
+                customer_id: invoice.customer_id,
+                context: {
+                  invoice: {
+                    number: invoice.invoice_number || "",
+                    amount: invoice.total ? `€${Number(invoice.total).toFixed(2)}` : "",
+                  },
+                },
+              },
+            });
+          }
+        } catch {
+          // Automation failure shouldn't block status change
+        }
+
         if (accountingProvider === "rompslomp") {
           pullStatusRompslomp.mutateAsync().then(() => {
             toast({ title: "✓ Betaalstatus gesynchroniseerd met Rompslomp" });

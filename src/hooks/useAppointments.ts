@@ -142,9 +142,9 @@ export const useCreateAppointment = () => {
   const qc = useQueryClient();
   const { companyId } = useAuth();
   return useMutation({
-    mutationFn: async (appointment: TablesInsert<"appointments"> & { _syncOutlook?: boolean; _customers?: any[]; _services?: any[] }) => {
+    mutationFn: async (appointment: Omit<TablesInsert<"appointments">, "company_id"> & { _syncOutlook?: boolean; _customers?: any[]; _services?: any[] }) => {
       const { _syncOutlook, _customers, _services, ...apptData } = appointment;
-      const { data, error } = await supabase.from("appointments").insert({ ...apptData, company_id: companyId } as any).select().single();
+      const { data, error } = await supabase.from("appointments").insert({ ...apptData, company_id: companyId! } as any).select().single();
       if (error) throw error;
 
       // Sync to Outlook if requested

@@ -201,7 +201,7 @@ export type Database = {
         Row: {
           address_id: string | null
           assigned_to: string | null
-          company_id: string | null
+          company_id: string
           created_at: string
           customer_id: string
           duration_minutes: number
@@ -214,11 +214,12 @@ export type Database = {
           status: string
           todos: Json | null
           travel_time_minutes: number | null
+          vehicle_id: string | null
         }
         Insert: {
           address_id?: string | null
           assigned_to?: string | null
-          company_id?: string | null
+          company_id: string
           created_at?: string
           customer_id: string
           duration_minutes?: number
@@ -231,11 +232,12 @@ export type Database = {
           status?: string
           todos?: Json | null
           travel_time_minutes?: number | null
+          vehicle_id?: string | null
         }
         Update: {
           address_id?: string | null
           assigned_to?: string | null
-          company_id?: string | null
+          company_id?: string
           created_at?: string
           customer_id?: string
           duration_minutes?: number
@@ -248,6 +250,7 @@ export type Database = {
           status?: string
           todos?: Json | null
           travel_time_minutes?: number | null
+          vehicle_id?: string | null
         }
         Relationships: [
           {
@@ -290,6 +293,13 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
         ]
@@ -370,7 +380,7 @@ export type Database = {
           asset_type: string | null
           avg_quality_score: number | null
           brand: string | null
-          company_id: string | null
+          company_id: string
           created_at: string
           customer_id: string | null
           facilities: string[] | null
@@ -396,7 +406,7 @@ export type Database = {
           asset_type?: string | null
           avg_quality_score?: number | null
           brand?: string | null
-          company_id?: string | null
+          company_id: string
           created_at?: string
           customer_id?: string | null
           facilities?: string[] | null
@@ -422,7 +432,7 @@ export type Database = {
           asset_type?: string | null
           avg_quality_score?: number | null
           brand?: string | null
-          company_id?: string | null
+          company_id?: string
           created_at?: string
           customer_id?: string | null
           facilities?: string[] | null
@@ -1029,7 +1039,7 @@ export type Database = {
         Row: {
           address: string | null
           city: string | null
-          company_id: string | null
+          company_id: string
           contact_person: string | null
           created_at: string
           default_service_id: string | null
@@ -1054,7 +1064,7 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
-          company_id?: string | null
+          company_id: string
           contact_person?: string | null
           created_at?: string
           default_service_id?: string | null
@@ -1079,7 +1089,7 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
-          company_id?: string | null
+          company_id?: string
           contact_person?: string | null
           created_at?: string
           default_service_id?: string | null
@@ -1332,7 +1342,7 @@ export type Database = {
       }
       invoices: {
         Row: {
-          company_id: string | null
+          company_id: string
           created_at: string
           customer_id: string
           due_at: string | null
@@ -1356,7 +1366,7 @@ export type Database = {
           work_order_id: string | null
         }
         Insert: {
-          company_id?: string | null
+          company_id: string
           created_at?: string
           customer_id: string
           due_at?: string | null
@@ -1380,7 +1390,7 @@ export type Database = {
           work_order_id?: string | null
         }
         Update: {
-          company_id?: string | null
+          company_id?: string
           created_at?: string
           customer_id?: string
           due_at?: string | null
@@ -1438,7 +1448,7 @@ export type Database = {
         Row: {
           article_number: string | null
           category: string | null
-          company_id: string | null
+          company_id: string
           cost_price: number
           created_at: string
           id: string
@@ -1454,7 +1464,7 @@ export type Database = {
         Insert: {
           article_number?: string | null
           category?: string | null
-          company_id?: string | null
+          company_id: string
           cost_price?: number
           created_at?: string
           id?: string
@@ -1470,7 +1480,7 @@ export type Database = {
         Update: {
           article_number?: string | null
           category?: string | null
-          company_id?: string | null
+          company_id?: string
           cost_price?: number
           created_at?: string
           id?: string
@@ -2228,7 +2238,7 @@ export type Database = {
       quotes: {
         Row: {
           asset_id: string | null
-          company_id: string | null
+          company_id: string
           contract_id: string | null
           created_at: string
           customer_id: string
@@ -2251,7 +2261,7 @@ export type Database = {
         }
         Insert: {
           asset_id?: string | null
-          company_id?: string | null
+          company_id: string
           contract_id?: string | null
           created_at?: string
           customer_id: string
@@ -2274,7 +2284,7 @@ export type Database = {
         }
         Update: {
           asset_id?: string | null
-          company_id?: string | null
+          company_id?: string
           contract_id?: string | null
           created_at?: string
           customer_id?: string
@@ -2356,7 +2366,7 @@ export type Database = {
           category: string | null
           checklist_template: Json | null
           color: string | null
-          company_id: string | null
+          company_id: string
           created_at: string
           duration_minutes: number
           id: string
@@ -2367,7 +2377,7 @@ export type Database = {
           category?: string | null
           checklist_template?: Json | null
           color?: string | null
-          company_id?: string | null
+          company_id: string
           created_at?: string
           duration_minutes?: number
           id?: string
@@ -2378,7 +2388,7 @@ export type Database = {
           category?: string | null
           checklist_template?: Json | null
           color?: string | null
-          company_id?: string | null
+          company_id?: string
           created_at?: string
           duration_minutes?: number
           id?: string
@@ -3588,7 +3598,7 @@ export type Database = {
       }
       work_order_materials: {
         Row: {
-          company_id: string | null
+          company_id: string
           created_at: string
           id: string
           material_id: string | null
@@ -3601,7 +3611,7 @@ export type Database = {
           work_order_id: string
         }
         Insert: {
-          company_id?: string | null
+          company_id: string
           created_at?: string
           id?: string
           material_id?: string | null
@@ -3614,7 +3624,7 @@ export type Database = {
           work_order_id: string
         }
         Update: {
-          company_id?: string | null
+          company_id?: string
           created_at?: string
           id?: string
           material_id?: string | null

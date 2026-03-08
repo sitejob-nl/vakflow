@@ -20,7 +20,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
-import { useCreateMileageLog } from "@/hooks/useVehicles";
+import { useWorkOrderMaterials } from "@/hooks/useMaterials";
 
 interface NoteItem {
   text: string;
@@ -54,7 +54,7 @@ const WorkOrderDetailPage = () => {
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [mileageInput, setMileageInput] = useState("");
-  const createMileageLog = useCreateMileageLog();
+  
 
   // Determine if this work order has a vehicle
   const vehicleId = (wo as any)?.vehicle_id as string | null;
@@ -131,24 +131,17 @@ const WorkOrderDetailPage = () => {
 
   const handleStatusChange = async (status: string) => {
     try {
-      // Log mileage if provided and vehicle is linked
+      // Mileage end is saved on the work order; the DB trigger handles mileage_current + mileage_logs
+      const mileageUpdates: any = {};
       if (status === "afgerond" && vehicleId && mileageValue && mileageValue > 0) {
-        try {
-          await createMileageLog.mutateAsync({
-            vehicle_id: vehicleId,
-            mileage: mileageValue,
-            work_order_id: wo.id,
-            recorded_at: new Date().toISOString(),
-          } as any);
-        } catch (mileageErr: any) {
-          console.error("Mileage log failed:", mileageErr);
-        }
+        mileageUpdates.mileage_end = mileageValue;
       }
 
       await updateWO.mutateAsync({
         id: wo.id,
         status,
         completed_at: status === "afgerond" ? new Date().toISOString() : null,
+        ...mileageUpdates,
       });
       toast({ title: `Status gewijzigd naar ${statusLabel[status]}` });
       setMileageInput("");
@@ -177,12 +170,34 @@ const WorkOrderDetailPage = () => {
     }
   };
 
+  const { data: woMaterials } = useWorkOrderMaterials(wo.id);
+
   const handleCreateInvoice = async () => {
     try {
       const servicePrice = (wo as any).services?.price ?? 0;
       const serviceName = (wo as any).services?.name ?? "Dienst";
       const travelCost = wo.travel_cost ?? 0;
-      const totalInclBtw = servicePrice + travelCost;
+
+      const items: { description: string; qty: number; unit_price: number; total: number }[] = [
+        { description: serviceName, qty: 1, unit_price: servicePrice, total: servicePrice },
+      ];
+      if (travelCost > 0) {
+        items.push({ description: "Voorrijkosten", qty: 1, unit_price: travelCost, total: travelCost });
+      }
+
+      // Add work order materials to invoice items
+      if (woMaterials && woMaterials.length > 0) {
+        for (const mat of woMaterials) {
+          items.push({
+            description: mat.name,
+            qty: mat.quantity,
+            unit_price: mat.unit_price,
+            total: mat.total,
+          });
+        }
+      }
+
+      const totalInclBtw = items.reduce((sum, item) => sum + item.total, 0);
       const vatPercentage = 21;
       const subtotal = totalInclBtw / (1 + vatPercentage / 100);
       const vatAmount = totalInclBtw - subtotal;
@@ -192,13 +207,6 @@ const WorkOrderDetailPage = () => {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 30);
       const dueAt = dueDate.toISOString().split("T")[0];
-
-      const items = [
-        { description: serviceName, qty: 1, unit_price: servicePrice, total: servicePrice },
-      ];
-      if (travelCost > 0) {
-        items.push({ description: "Voorrijkosten", qty: 1, unit_price: travelCost, total: travelCost });
-      }
 
       await createInvoice.mutateAsync({
         customer_id: wo.customer_id,
