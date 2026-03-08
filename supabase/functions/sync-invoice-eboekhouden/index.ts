@@ -111,6 +111,8 @@ async function ebPatch(session: string, path: string, body: unknown) {
 // Helper: map invoice items JSONB to e-Boekhouden items array
 // Prices in DB are stored INCLUSIVE of VAT, so we use inExVat: "IN"
 function mapInvoiceItems(invoice: any, ledgerId: number): any[] {
+  const vatPct = Number(invoice.vat_percentage || 21);
+  const vatCode = eboekhoudenVatCode(vatPct);
   const items = Array.isArray(invoice.items) ? invoice.items : [];
   
   if (items.length > 0) {
@@ -118,7 +120,7 @@ function mapInvoiceItems(invoice: any, ledgerId: number): any[] {
       description: item.description || "Item",
       quantity: Number(item.qty || 1),
       pricePerUnit: Number(item.unit_price || 0),
-      vatCode: "HOOG_VERK_21",
+      vatCode,
       ledgerId,
     }));
   }
@@ -130,7 +132,7 @@ function mapInvoiceItems(invoice: any, ledgerId: number): any[] {
     description: serviceName,
     quantity: 1,
     pricePerUnit: Number(invoice.total || 0),
-    vatCode: "HOOG_VERK_21",
+    vatCode,
     ledgerId,
   }];
 }
