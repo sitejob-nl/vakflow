@@ -212,6 +212,9 @@ const VehicleDetailPage = () => {
         </Button>
       )}
 
+      {/* Tire storage */}
+      <TireStorageCard vehicleId={id!} />
+
       {/* Work orders */}
       <Card>
         <CardHeader><CardTitle className="text-sm flex items-center gap-2"><FileText className="h-4 w-4" /> Werkorders ({vehicleWorkOrders.length})</CardTitle></CardHeader>
