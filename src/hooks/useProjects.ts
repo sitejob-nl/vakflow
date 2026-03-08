@@ -98,23 +98,23 @@ export const useProjectStats = (projectId: string | undefined) => {
     queryKey: ["project_stats", projectId],
     enabled: !!projectId && !!companyId,
     queryFn: async () => {
-      const invoicesRes: any = await supabase
+      const invoicesRes: any = await (supabase
         .from("invoices")
-        .select("total, status")
-        .eq("project_id" as any, projectId!)
+        .select("total, status") as any)
+        .eq("project_id", projectId!)
         .eq("company_id", companyId!);
 
-      const workOrdersRes: any = await supabase
+      const workOrdersRes: any = await (supabase
         .from("work_orders")
-        .select("id, status")
-        .eq("project_id" as any, projectId!)
+        .select("id, status") as any)
+        .eq("project_id", projectId!)
         .eq("company_id", companyId!);
 
-      const timeRes: any = await supabase
+      const timeRes: any = await (supabase
         .from("time_entries")
-        .select("duration_minutes")
-        .eq("project_id" as any, projectId!)
-        .eq("company_id" as any, companyId!);
+        .select("duration_minutes") as any)
+        .eq("project_id", projectId!)
+        .eq("company_id", companyId!);
 
       const invoices = invoicesRes.data ?? [];
       const workOrders = workOrdersRes.data ?? [];
