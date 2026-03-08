@@ -4,6 +4,8 @@ import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 import { decrypt } from "../_shared/crypto.ts";
 import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
+const ROMPSLOMP_BASE = "https://app.rompslomp.nl/api/v2";
+
 async function rompslompGet(companyId: string, path: string, token: string) {
   const url = `${ROMPSLOMP_BASE}/companies/${companyId}${path}`;
   const res = await fetch(url, {
@@ -553,10 +555,11 @@ Deno.serve(async (req) => {
           const vatAmount = total - subtotal;
 
           const rLines = rQ.lines || [];
+          const pullVatPct = total > 0 && subtotal > 0 ? Math.round(((total / subtotal) - 1) * 100) : 21;
           const items = Array.isArray(rLines) ? rLines.map((line: any) => ({
             description: line.description || "Item",
             qty: Number(line.amount || 1),
-            unit_price: Number(line.price_per_unit || 0) * (1 + 0.21),
+            unit_price: Number(line.price_per_unit || 0) * (1 + (Number(line.vat_percentage || pullVatPct) / 100)),
             total: Number(line.price_with_vat || 0),
           })) : [];
 

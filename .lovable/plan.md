@@ -1,75 +1,51 @@
 
 
-# BTW-code fixes in boekhoudkoppelingen (P1-P2) + Rompslomp pull fix
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Overzicht
+### Problemen
 
-3 concrete fixes. P3 (SnelStart mapping), P4 (ROMPSLOMP_BASE) en P5 (auto-sync cron) zijn grotere features/onderzoek — niet in deze batch.
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
----
+### Aanpak
 
-## P1: e-Boekhouden vatCode dynamisch
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-**Bestand:** `supabase/functions/sync-invoice-eboekhouden/index.ts`
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-`mapInvoiceItems()` krijgt `invoice` al mee. Lees `invoice.vat_percentage` en map:
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-```
-const vatPct = Number(invoice.vat_percentage || 21);
-const vatCode = vatPct === 9 ? "LAAG_VERK_9" : vatPct === 0 ? "VRIJ_VERK" : "HOOG_VERK_21";
-```
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-Vervang alle 6 hardcoded `"HOOG_VERK_21"` referenties (regels 115, 127, 567, 576, 1021, 1030) door deze dynamische mapping. De offerte-varianten moeten `quote.vat_percentage` gebruiken i.p.v. `invoice.vat_percentage`.
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-Helper functie bovenaan:
-```typescript
-function eboekhoudenVatCode(vatPct: number): string {
-  if (vatPct === 0) return "VRIJ_VERK";
-  if (vatPct === 9) return "LAAG_VERK_9";
-  return "HOOG_VERK_21";
-}
-```
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
----
-
-## P2: Rompslomp quote-pull hardcoded 0.21 fixen
-
-**Bestand:** `supabase/functions/sync-rompslomp/index.ts` regel 559
-
-Huidige code:
-```typescript
-unit_price: Number(line.price_per_unit || 0) * (1 + 0.21),
-```
-
-Fix: Rompslomp geeft `vat_percentage` per quote mee, of gebruik de totalen. Pragmatische fix — gebruik `price_with_vat` als die beschikbaar is, anders bereken met de BTW die Rompslomp teruggeeft:
-
-```typescript
-unit_price: Number(line.price_with_vat || Number(line.price_per_unit || 0) * 1.21),
-```
-
-Of beter: lees het BTW-percentage van de Rompslomp-quote (`rQ.vat_percentage` of bereken uit `total_price_with_vat / total_price_without_vat`).
-
----
-
-## P4: ROMPSLOMP_BASE constante
-
-**Bestand:** `supabase/functions/sync-rompslomp/index.ts`
-
-Voeg bovenaan toe (na imports, vóór de functie-definities):
-```typescript
-const ROMPSLOMP_BASE = "https://app.rompslomp.nl/api/v2";
-```
-
-Rompslomp API v2 base URL. Zonder deze constante crasht elke Rompslomp API call met een ReferenceError.
-
----
-
-## Bestandsoverzicht
+### Bestanden
 
 | Bestand | Wijziging |
 |---|---|
-| `supabase/functions/sync-invoice-eboekhouden/index.ts` | Helper `eboekhoudenVatCode()`, vervang 6× hardcoded vatCode |
-| `supabase/functions/sync-rompslomp/index.ts` | ROMPSLOMP_BASE constante + fix hardcoded 0.21 op regel 559 |
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
 
-Geen database-wijzigingen nodig. Beide edge functions worden automatisch gedeployed.
+Geen database-wijzigingen, geen nieuwe dependencies.
 

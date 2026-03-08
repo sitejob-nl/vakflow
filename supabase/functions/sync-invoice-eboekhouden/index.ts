@@ -9,6 +9,12 @@ const corsHeaders = {
 
 const EB_BASE = "https://api.e-boekhouden.nl/v1";
 
+function eboekhoudenVatCode(vatPct: number): string {
+  if (vatPct === 0) return "VRIJ_VERK";
+  if (vatPct === 9) return "LAAG_VERK_9";
+  return "HOOG_VERK_21";
+}
+
 function sanitizeEmail(email: string | null): string {
   if (!email) return "";
   const trimmed = email.trim();
@@ -105,6 +111,8 @@ async function ebPatch(session: string, path: string, body: unknown) {
 // Helper: map invoice items JSONB to e-Boekhouden items array
 // Prices in DB are stored INCLUSIVE of VAT, so we use inExVat: "IN"
 function mapInvoiceItems(invoice: any, ledgerId: number): any[] {
+  const vatPct = Number(invoice.vat_percentage || 21);
+  const vatCode = eboekhoudenVatCode(vatPct);
   const items = Array.isArray(invoice.items) ? invoice.items : [];
   
   if (items.length > 0) {
@@ -112,7 +120,7 @@ function mapInvoiceItems(invoice: any, ledgerId: number): any[] {
       description: item.description || "Item",
       quantity: Number(item.qty || 1),
       pricePerUnit: Number(item.unit_price || 0),
-      vatCode: "HOOG_VERK_21",
+      vatCode,
       ledgerId,
     }));
   }
@@ -124,7 +132,7 @@ function mapInvoiceItems(invoice: any, ledgerId: number): any[] {
     description: serviceName,
     quantity: 1,
     pricePerUnit: Number(invoice.total || 0),
-    vatCode: "HOOG_VERK_21",
+    vatCode,
     ledgerId,
   }];
 }
@@ -561,10 +569,11 @@ Deno.serve(async (req) => {
       const relationId = await ensureRelation(customer);
 
       const items = Array.isArray(quote.items) ? quote.items : [];
+      const quoteVatCode = eboekhoudenVatCode(Number(quote.vat_percentage || 21));
       const ebItems = items.map((item: any) => ({
         description: item.description || "Offerte item",
         pricePerUnit: Number(item.unit_price || 0),
-        vatCode: "HOOG_VERK_21",
+        vatCode: quoteVatCode,
         ledgerId: profile.eboekhouden_ledger_id,
         quantity: Number(item.qty || 1),
       }));
@@ -573,7 +582,7 @@ Deno.serve(async (req) => {
         ebItems.push({
           description: "Offerte",
           pricePerUnit: Number(quote.total || 0),
-          vatCode: "HOOG_VERK_21",
+          vatCode: quoteVatCode,
           ledgerId: profile.eboekhouden_ledger_id,
           quantity: 1,
         });
@@ -1015,10 +1024,11 @@ Deno.serve(async (req) => {
       const relationId = await ensureRelation(customer);
 
       const items = Array.isArray(quote.items) ? quote.items : [];
+      const quoteVatCode = eboekhoudenVatCode(Number(quote.vat_percentage || 21));
       const ebItems = items.map((item: any) => ({
         description: item.description || "Offerte item",
         pricePerUnit: Number(item.unit_price || 0),
-        vatCode: "HOOG_VERK_21",
+        vatCode: quoteVatCode,
         ledgerId: profile.eboekhouden_ledger_id,
         quantity: Number(item.qty || 1),
       }));
@@ -1027,7 +1037,7 @@ Deno.serve(async (req) => {
         ebItems.push({
           description: "Offerte",
           pricePerUnit: Number(quote.total || 0),
-          vatCode: "HOOG_VERK_21",
+          vatCode: quoteVatCode,
           ledgerId: profile.eboekhouden_ledger_id,
           quantity: 1,
         });
