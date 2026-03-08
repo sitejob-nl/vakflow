@@ -1,13 +1,14 @@
 import { useState, useMemo } from "react";
-import { useQuotes, useUpdateQuote, useDeleteQuote, useSyncQuoteEboekhouden, type Quote } from "@/hooks/useQuotes";
+import { useQuotes, useUpdateQuote, useDeleteQuote, useSyncQuoteEboekhouden, useConvertQuoteToWorkOrder, useConvertQuoteToInvoice, type Quote } from "@/hooks/useQuotes";
 import { format } from "date-fns";
-import { Loader2, ChevronLeft, FileDown, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Loader2, ChevronLeft, FileDown, Plus, RefreshCw, Trash2, FileText, Receipt, CalendarPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import QuoteDialog from "@/components/QuoteDialog";
+import AppointmentDialog from "@/components/AppointmentDialog";
 
 const tabs = ["Alle", "Openstaand", "Geaccepteerd"];
 
