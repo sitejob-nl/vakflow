@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { usePortalAuth } from "@/contexts/PortalAuthContext";
-import { FileText, Wrench, LogOut, User, Car, CalendarPlus } from "lucide-react";
+import { FileText, Wrench, LogOut, User, Car, CalendarPlus, CircleDot } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 
 const PortalLayout = () => {
