@@ -181,19 +181,19 @@ const AppointmentDialog = ({ open, onOpenChange, appointment, defaultDate, prefi
     } else {
       const dt = defaultDate ?? new Date();
       setForm({
-        customer_id: "",
+        customer_id: prefill?.customer_id || "",
         service_id: "",
         address_id: "",
         vehicle_id: "",
         scheduled_at: formatDateTimeLocal(dt),
         duration_minutes: 60,
         status: "gepland",
-        notes: "",
+        notes: prefill?.notes || "",
       });
       setStartLocationLabel(DEFAULT_START_LABEL);
       setStartCoords(DEFAULT_START);
     }
-  }, [appointment, open, defaultDate]);
+  }, [appointment, open, defaultDate, prefill]);
 
   // Auto-fill previous appointment location as start point
   useEffect(() => {
