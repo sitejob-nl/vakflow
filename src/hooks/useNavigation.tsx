@@ -103,6 +103,7 @@ export const useNavigation = () => {
     if (currentPage === "custDetail") return { customerId: id };
     if (currentPage === "woDetail") return { workOrderId: id };
     if (currentPage === "vehDetail") return { vehicleId: id };
+    if (currentPage === "projDetail") return { projectId: id };
     return {};
   }, [currentPage, urlParams.id]);
 
