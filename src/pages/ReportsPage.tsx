@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useReportData } from "@/hooks/useReports";
 import { useAutomotiveReportData } from "@/hooks/useAutomotiveReports";
+import { useCleaningReportData } from "@/hooks/useCleaningReports";
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line,
 } from "recharts";
-import { Loader2, TrendingUp, FileText, Clock, Users, Package, CalendarIcon, Euro, Car, Warehouse } from "lucide-react";
+import { Loader2, TrendingUp, FileText, Clock, Users, Package, CalendarIcon, Euro, Car, Warehouse, ClipboardCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -74,6 +75,7 @@ const ReportsPage = () => {
   const filters = { startDate, endDate };
   const { data, isLoading } = useReportData(filters);
   const { data: autoData, isAutomotive } = useAutomotiveReportData(filters);
+  const { data: cleanData, isCleaning } = useCleaningReportData(filters);
   const { labels } = useIndustryConfig();
 
   const handlePreset = (preset: typeof PRESETS[number]) => {
@@ -178,6 +180,26 @@ const ReportsPage = () => {
 
           <TabsContent value="werkplaats">
             <WorkshopTab data={autoData} />
+          </TabsContent>
+        </Tabs>
+      ) : isCleaning ? (
+        <Tabs defaultValue="algemeen" className="space-y-5">
+          <TabsList>
+            <TabsTrigger value="algemeen">Algemeen</TabsTrigger>
+            <TabsTrigger value="schoonmaak">Schoonmaak</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="algemeen">
+            <GeneralCharts
+              revenueChartData={revenueChartData}
+              pieData={pieData}
+              productivity={data.productivity}
+              labels={labels}
+            />
+          </TabsContent>
+
+          <TabsContent value="schoonmaak">
+            <CleaningTab data={cleanData} />
           </TabsContent>
         </Tabs>
       ) : (
@@ -408,6 +430,66 @@ function WorkshopTab({ data }: { data: ReturnType<typeof useAutomotiveReportData
           <p className="text-2xl font-extrabold">
             {tireStorageStats.totalStored + tireStorageStats.totalMounted + tireStorageStats.totalDisposed}
           </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Cleaning Tab ─── */
+function CleaningTab({ data }: { data: ReturnType<typeof useCleaningReportData>["data"] }) {
+  if (!data) return <p className="text-[13px] text-t3 italic py-8 text-center">Laden...</p>;
+
+  const { activeContracts, totalContractValue, materialByAsset, qualityTrend, avgQualityScore } = data;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard icon={FileText} label="Actieve contracten" value={String(activeContracts)} />
+        <KpiCard icon={Euro} label="Contractwaarde" value={`€${totalContractValue.toFixed(0)}`} accent />
+        <KpiCard icon={Sparkles} label="Gem. kwaliteitsscore" value={avgQualityScore != null ? String(avgQualityScore) : "—"} />
+        <KpiCard icon={Package} label="Objecten met materiaal" value={String(materialByAsset.length)} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-card border border-border rounded-lg p-5">
+          <h3 className="text-[13px] font-bold mb-4">Materiaalkosten per object (top 10)</h3>
+          {materialByAsset.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={materialByAsset} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `€${v}`} />
+                <YAxis type="category" dataKey="asset_name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={120} />
+                <Tooltip
+                  formatter={(value: number) => [`€${value.toFixed(2)}`, "Kosten"]}
+                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 4, fontSize: 12 }}
+                />
+                <Bar dataKey="total_cost" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-[13px] text-t3 text-center py-12 italic">Geen materiaalverbruik in deze periode</p>
+          )}
+        </div>
+
+        <div className="bg-card border border-border rounded-lg p-5">
+          <h3 className="text-[13px] font-bold mb-4">Kwaliteitsscore trend</h3>
+          {qualityTrend.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={qualityTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" domain={[0, 5]} />
+                <Tooltip
+                  formatter={(value: number) => [value.toFixed(2), "Score"]}
+                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 4, fontSize: 12 }}
+                />
+                <Line type="monotone" dataKey="avg_score" stroke="hsl(var(--success))" strokeWidth={2} dot={{ r: 3, fill: "hsl(var(--success))" }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-[13px] text-t3 text-center py-12 italic">Geen kwaliteitsaudits in deze periode</p>
+          )}
         </div>
       </div>
     </div>

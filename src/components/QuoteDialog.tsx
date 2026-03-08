@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCustomers } from "@/hooks/useCustomers";
-import { useCreateQuote, useUpdateQuote, type Quote, type QuoteItem, type OptionalItem } from "@/hooks/useQuotes";
+import { useCreateQuote, useUpdateQuote, useConvertQuoteToContract, type Quote, type QuoteItem, type OptionalItem } from "@/hooks/useQuotes";
+import { useAssets } from "@/hooks/useAssets";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, ArrowRightLeft } from "lucide-react";
 import { useCombinedTemplates } from "@/hooks/useQuoteTemplates";
 
 interface Props {
@@ -24,9 +26,13 @@ const emptyOptional = (): OptionalItem => ({ description: "", price: 0 });
 
 const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
   const { data: customers } = useCustomers();
+  const { data: assets } = useAssets();
   const { data: allTemplates } = useCombinedTemplates();
+  const { industry } = useIndustryConfig();
+  const isCleaning = industry === "cleaning";
   const createQuote = useCreateQuote();
   const updateQuote = useUpdateQuote();
+  const convertToContract = useConvertQuoteToContract();
   const { toast } = useToast();
   const { companyId } = useAuth();
   const queryClient = useQueryClient();
@@ -45,19 +51,21 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
   const [items, setItems] = useState<QuoteItem[]>([emptyItem()]);
   const [optionalItems, setOptionalItems] = useState<OptionalItem[]>([]);
   const [notes, setNotes] = useState("");
-
+  const [assetId, setAssetId] = useState("");
   useEffect(() => {
     if (editQuote) {
       setCustomerId(editQuote.customer_id);
       setItems(editQuote.items.length ? editQuote.items : [emptyItem()]);
       setOptionalItems(editQuote.optional_items);
       setNotes(editQuote.notes ?? "");
+      setAssetId((editQuote as any).asset_id ?? "");
     } else {
       setSelectedTemplate("");
       setCustomerId("");
       setItems([emptyItem()]);
       setOptionalItems([]);
       setNotes("");
+      setAssetId("");
     }
   }, [editQuote, open]);
 
@@ -87,7 +95,7 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
     if (!customerId) { toast({ title: "Selecteer een klant", variant: "destructive" }); return; }
     if (!items.some((i) => i.description)) { toast({ title: "Voeg minimaal één artikel toe", variant: "destructive" }); return; }
 
-    const payload = {
+    const payload: any = {
       customer_id: customerId,
       items: items.filter((i) => i.description).map(recalcItem),
       optional_items: optionalItems.filter((o) => o.description),
@@ -96,6 +104,7 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
       vat_amount: vatAmount,
       total,
       notes: notes || null,
+      asset_id: assetId || null,
       status: editQuote?.status ?? "concept",
       issued_at: editQuote?.issued_at ?? null,
       valid_until: editQuote?.valid_until ?? null,
@@ -181,6 +190,22 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
             </Select>
           </div>
 
+          {/* Asset link (cleaning) */}
+          {isCleaning && (
+            <div>
+              <Label>Object (optioneel)</Label>
+              <Select value={assetId} onValueChange={(v) => setAssetId(v === "_none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Geen object" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Geen object</SelectItem>
+                  {(assets ?? []).filter((a) => !customerId || a.customer_id === customerId).map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Line items */}
           <div>
             <Label className="mb-2 block">Artikelen</Label>
@@ -236,11 +261,35 @@ const QuoteDialog = ({ open, onOpenChange, editQuote }: Props) => {
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optionele notities" />
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
-            <Button onClick={handleSave} disabled={createQuote.isPending || updateQuote.isPending || syncing}>
-              {syncing ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Synchroniseren...</> : editQuote ? "Opslaan" : "Aanmaken"}
-            </Button>
+          <div className="flex justify-between gap-2">
+            <div>
+              {editQuote && editQuote.status === "geaccepteerd" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await convertToContract.mutateAsync(editQuote);
+                      toast({ title: "Contract aangemaakt vanuit offerte" });
+                      onOpenChange(false);
+                    } catch (err: any) {
+                      toast({ title: "Fout", description: err.message, variant: "destructive" });
+                    }
+                  }}
+                  disabled={convertToContract.isPending}
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
+                  Omzetten naar contract
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Annuleren</Button>
+              <Button onClick={handleSave} disabled={createQuote.isPending || updateQuote.isPending || syncing}>
+                {syncing ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Synchroniseren...</> : editQuote ? "Opslaan" : "Aanmaken"}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

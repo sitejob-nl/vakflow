@@ -1,120 +1,51 @@
 
 
-# CleanFlow Fase 3 & 4 — Contractfacturatie, Seizoensdiensten, Materiaalverbruik & Rapportages
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Samenvatting
+### Problemen
 
-Fase 3 breidt de bestaande contracten-module uit met cleaning-specifieke features: koppeling aan objecten met seizoensdiensten, automatische periodefacturatie vanuit contracten, en cleaning-specifieke offertes. Fase 4 voegt materiaalverbruik per werkbon/object toe aan rapportages en bouwt een CleanFlow-rapportagetab.
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
----
+### Aanpak
 
-## Fase 3 — Contractfacturatie & Seizoensdiensten
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-### 3A. Contracten uitbreiden voor cleaning
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-De `contracts` tabel heeft al `asset_id`, `service_id`, `interval_months`, `price`, en `next_due_date`. Wat ontbreekt:
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-**Database migratie:**
-```sql
-ALTER TABLE contracts ADD COLUMN seasonal_months integer[] DEFAULT NULL;
--- Bijv. {4,5,6,7,8,9} = april t/m september
--- NULL = jaarrond
-ALTER TABLE contracts ADD COLUMN frequency text DEFAULT NULL;
--- Bijv. 'weekly', '2x_week' — schoonmaakfrequentie binnen het contract
-ALTER TABLE contracts ADD COLUMN auto_invoice boolean DEFAULT false;
--- Automatisch factureren bij werkbon-generatie
-```
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-**ContractDialog.tsx uitbreiden:**
-- Nieuw veld: "Seizoensdienst" toggle + maanden-selector (multi-select checkboxes jan-dec)
-- Nieuw veld: "Schoonmaakfrequentie" dropdown (alleen voor cleaning industry)
-- Nieuw veld: "Automatisch factureren" switch
-- Object-koppeling combobox (al beschikbaar via `asset_id` op contracts tabel)
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-**contract-generate edge function aanpassen:**
-- Check `seasonal_months`: skip werkbon-generatie als huidige maand niet in array zit
-- Bij `auto_invoice = true`: maak naast werkbon ook een concept-factuur aan
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-### 3B. Cleaning-specifieke offertes
+### Bestanden
 
-De offertes-module (QuotesPage, QuoteDialog) is al generiek gebouwd. Uitbreiding:
-
-**Database migratie:**
-```sql
-ALTER TABLE quotes ADD COLUMN asset_id uuid REFERENCES assets(id) ON DELETE SET NULL;
-ALTER TABLE quotes ADD COLUMN contract_id uuid REFERENCES contracts(id) ON DELETE SET NULL;
-```
-
-**QuoteDialog.tsx uitbreiden:**
-- Object-koppeling (asset_id) — alleen zichtbaar voor cleaning
-- Mogelijkheid om offerte om te zetten naar contract (knop "Omzetten naar contract" op geaccepteerde offertes)
-
-**Nieuwe functie in useQuotes.ts:**
-- `useConvertQuoteToContract()` — maakt een contract aan op basis van offerte-gegevens (klant, object, prijs, items)
-
----
-
-## Fase 4 — Materiaalverbruik & CleanFlow Rapportages
-
-### 4A. Materiaalverbruik per object
-
-Materiaalverbruik zit al op werkbonnen (`work_order_materials`). Wat ontbreekt is aggregatie per object.
-
-**useCleaningReports.ts (nieuw):**
-- Query: `work_order_materials` JOIN `work_orders` WHERE `work_orders.asset_id` is not null, gegroepeerd per asset
-- Resultaat: materiaalverbruik per object per maand (naam, totaalkosten, hoeveelheden)
-- Vergelijking met contractbudget indien contract gekoppeld
-
-### 4B. CleanFlow Rapportagetab
-
-**ReportsPage.tsx uitbreiden:**
-- Nieuwe tab "Schoonmaak" (naast "Algemeen"), alleen voor cleaning industry
-- Inhoud van de tab:
-
-| KPI | Bron |
+| Bestand | Wijziging |
 |---|---|
-| Actieve contracten & totale contractwaarde | contracts tabel |
-| Frequentie-naleving gem. % | Hergebruik FrequencyComplianceReport logica |
-| Gem. kwaliteitsscore (trend) | assets.avg_quality_score |
-| Materiaalverbruik per object (top 10) | work_order_materials via work_orders.asset_id |
-| Omzet per object | invoices via work_orders.asset_id |
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
 
-**Charts:**
-- Barchart: materiaalkosten per object (top 10)
-- Lijndiagram: kwaliteitsscore-trend per maand (uit quality_audits)
-- Tabel: contracten met nalevings% en kwaliteitsscore per object
-
-### 4C. Materiaalverbruik op AssetsPage detail
-
-**AssetsPage.tsx detail sheet uitbreiden:**
-- Sectie "Materiaalverbruik": totaal materiaalkosten afgelopen 3 maanden
-- Link naar volledige rapportage
-
----
-
-## Bestandsoverzicht
-
-| Bestand | Actie |
-|---|---|
-| Migratie SQL | `seasonal_months`, `frequency`, `auto_invoice` op contracts; `asset_id`, `contract_id` op quotes |
-| `src/components/ContractDialog.tsx` | Seizoens-selector, frequentie, auto-invoice toggle, object-koppeling |
-| `supabase/functions/contract-generate/index.ts` | Seizoensfilter, auto-facturatie |
-| `src/components/QuoteDialog.tsx` | Object-koppeling, "Omzetten naar contract" knop |
-| `src/hooks/useQuotes.ts` | `useConvertQuoteToContract()` mutation |
-| `src/hooks/useCleaningReports.ts` | Nieuw: materiaalverbruik per object, kwaliteitstrend |
-| `src/pages/ReportsPage.tsx` | CleanFlow rapportagetab |
-| `src/pages/AssetsPage.tsx` | Materiaalverbruik sectie in detail |
-| `src/config/industryConfig.ts` | Geen wijziging nodig (contracts al in modules) |
-
----
-
-## Volgorde van implementatie
-
-1. Database migratie (contracts + quotes kolommen)
-2. ContractDialog uitbreiden (seizoensdiensten, frequentie, auto-invoice)
-3. contract-generate edge function aanpassen
-4. QuoteDialog object-koppeling + offerte-naar-contract conversie
-5. useCleaningReports hook bouwen
-6. ReportsPage CleanFlow tab
-7. AssetsPage materiaalverbruik sectie
+Geen database-wijzigingen, geen nieuwe dependencies.
 

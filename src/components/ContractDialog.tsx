@@ -5,9 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useContracts, type Contract } from "@/hooks/useContracts";
+import { useAssets } from "@/hooks/useAssets";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -18,15 +22,30 @@ interface Props {
   contract?: Contract | null;
 }
 
+const MONTH_LABELS = ["Jan", "Feb", "Mrt", "Apr", "Mei", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dec"];
+
+const FREQUENCY_OPTIONS = [
+  { value: "daily", label: "Dagelijks" },
+  { value: "2x_week", label: "2x per week" },
+  { value: "3x_week", label: "3x per week" },
+  { value: "weekly", label: "Wekelijks" },
+  { value: "biweekly", label: "2-wekelijks" },
+  { value: "monthly", label: "Maandelijks" },
+];
+
 const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
   const { upsert } = useContracts();
   const { data: customers } = useCustomers();
+  const { data: assets } = useAssets();
+  const { industry } = useIndustryConfig();
+  const isCleaning = industry === "cleaning";
   const { toast } = useToast();
   const [syncingMb, setSyncingMb] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
     customer_id: "",
+    asset_id: "" as string,
     description: "",
     interval_months: 12,
     start_date: new Date().toISOString().split("T")[0],
@@ -35,13 +54,20 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
     price: 0,
     status: "actief",
     notes: "",
+    frequency: "" as string,
+    seasonal_months: null as number[] | null,
+    auto_invoice: false,
   });
+
+  const [isSeasonal, setIsSeasonal] = useState(false);
 
   useEffect(() => {
     if (contract) {
+      const c = contract as any;
       setForm({
         name: contract.name,
         customer_id: contract.customer_id,
+        asset_id: contract.asset_id || "",
         description: contract.description || "",
         interval_months: contract.interval_months,
         start_date: contract.start_date,
@@ -50,11 +76,16 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
         price: contract.price,
         status: contract.status,
         notes: contract.notes || "",
+        frequency: c.frequency || "",
+        seasonal_months: c.seasonal_months || null,
+        auto_invoice: c.auto_invoice || false,
       });
+      setIsSeasonal(!!c.seasonal_months && c.seasonal_months.length > 0);
     } else {
       setForm({
         name: "",
         customer_id: "",
+        asset_id: "",
         description: "",
         interval_months: 12,
         start_date: new Date().toISOString().split("T")[0],
@@ -63,9 +94,15 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
         price: 0,
         status: "actief",
         notes: "",
+        frequency: "",
+        seasonal_months: null,
+        auto_invoice: false,
       });
+      setIsSeasonal(false);
     }
   }, [contract, open]);
+
+  const customerAssets = assets?.filter((a) => !form.customer_id || a.customer_id === form.customer_id) ?? [];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +112,7 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
         ...(contract?.id ? { id: contract.id } : {}),
         name: form.name,
         customer_id: form.customer_id,
+        asset_id: form.asset_id || null,
         description: form.description || null,
         interval_months: form.interval_months,
         start_date: form.start_date,
@@ -83,7 +121,10 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
         price: form.price,
         status: form.status,
         notes: form.notes || null,
-      },
+        frequency: form.frequency || null,
+        seasonal_months: isSeasonal ? (form.seasonal_months?.length ? form.seasonal_months : null) : null,
+        auto_invoice: form.auto_invoice,
+      } as any,
       { onSuccess: () => onOpenChange(false) }
     );
   };
@@ -104,11 +145,17 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
     setSyncingMb(false);
   };
 
+  const toggleMonth = (month: number) => {
+    const current = form.seasonal_months || [];
+    const next = current.includes(month) ? current.filter((m) => m !== month) : [...current, month].sort((a, b) => a - b);
+    set("seasonal_months", next);
+  };
+
   const set = (key: string, val: any) => setForm((p) => ({ ...p, [key]: val }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{contract ? "Contract bewerken" : "Nieuw contract"}</DialogTitle>
         </DialogHeader>
@@ -121,6 +168,20 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
           <div className="space-y-2">
             <Label>Klant *</Label>
             <CustomerCombobox customers={customers} value={form.customer_id} onValueChange={(v) => set("customer_id", v)} />
+          </div>
+
+          {/* Asset / Object link */}
+          <div className="space-y-2">
+            <Label>Object (optioneel)</Label>
+            <Select value={form.asset_id} onValueChange={(v) => set("asset_id", v === "_none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="Geen object" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">Geen object</SelectItem>
+                {customerAssets.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -139,6 +200,52 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
               <Label>Prijs per beurt (€)</Label>
               <Input type="number" step="0.01" min="0" value={form.price} onChange={(e) => set("price", parseFloat(e.target.value) || 0)} />
             </div>
+          </div>
+
+          {/* Cleaning-specific: frequency */}
+          {isCleaning && (
+            <div className="space-y-2">
+              <Label>Schoonmaakfrequentie</Label>
+              <Select value={form.frequency} onValueChange={(v) => set("frequency", v === "_none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Niet ingesteld" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Niet ingesteld</SelectItem>
+                  {FREQUENCY_OPTIONS.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Seasonal months */}
+          {isCleaning && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Switch checked={isSeasonal} onCheckedChange={setIsSeasonal} id="seasonal" />
+                <Label htmlFor="seasonal">Seizoensdienst</Label>
+              </div>
+              {isSeasonal && (
+                <div className="grid grid-cols-6 gap-1.5 mt-2">
+                  {MONTH_LABELS.map((label, idx) => {
+                    const month = idx + 1;
+                    const checked = form.seasonal_months?.includes(month) ?? false;
+                    return (
+                      <label key={month} className="flex items-center gap-1 text-sm cursor-pointer">
+                        <Checkbox checked={checked} onCheckedChange={() => toggleMonth(month)} />
+                        {label}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Auto invoice */}
+          <div className="flex items-center gap-2">
+            <Switch checked={form.auto_invoice} onCheckedChange={(v) => set("auto_invoice", v)} id="auto_invoice" />
+            <Label htmlFor="auto_invoice">Automatisch factureren</Label>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

@@ -21,6 +21,9 @@ export interface Contract {
   next_due_date: string;
   price: number;
   notes: string | null;
+  frequency: string | null;
+  seasonal_months: number[] | null;
+  auto_invoice: boolean;
   created_at: string;
   updated_at: string;
   customers?: { name: string } | null;

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useMaintenanceLogs, useCreateMaintenanceLog, useDeleteMaintenanceLog, type Asset, type MaintenanceLog } from "@/hooks/useAssets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,12 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Pencil, Trash2, History, Box, Loader2, Building2, Truck } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, History, Box, Loader2, Building2, Truck, Package } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { nl } from "date-fns/locale";
 import AssetDialog from "@/components/AssetDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { supabase } from "@/integrations/supabase/client";
+import { subMonths } from "date-fns";
 
 const statusColor: Record<string, string> = {
   actief: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -64,6 +67,29 @@ const AssetsPage = () => {
   const [logDesc, setLogDesc] = useState("");
   const [logDate, setLogDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [deleteLogId, setDeleteLogId] = useState<string | null>(null);
+
+  // Material consumption for detail asset (last 3 months)
+  const { data: assetMaterialCost } = useQuery({
+    queryKey: ["asset-material-cost", detailAsset?.id],
+    enabled: !!detailAsset?.id && isCleaning,
+    queryFn: async () => {
+      const threeMonthsAgo = subMonths(new Date(), 3).toISOString();
+      const { data: wos } = await supabase
+        .from("work_orders")
+        .select("id")
+        .eq("asset_id", detailAsset!.id)
+        .gte("created_at", threeMonthsAgo);
+      if (!wos?.length) return { total: 0, count: 0 };
+      const woIds = wos.map((w) => w.id);
+      const { data: mats } = await supabase
+        .from("work_order_materials")
+        .select("total, quantity")
+        .in("work_order_id", woIds);
+      const total = (mats ?? []).reduce((s, m) => s + (m.total || 0), 0);
+      const count = (mats ?? []).reduce((s, m) => s + (m.quantity || 0), 0);
+      return { total, count };
+    },
+  });
 
   const filtered = useMemo(() => {
     if (!assets) return [];
@@ -336,6 +362,25 @@ const AssetsPage = () => {
                     <p className="text-sm text-muted-foreground">{isCleaning ? "Nog geen beurthistorie" : "Nog geen onderhoudshistorie"}</p>
                   )}
                 </div>
+
+                {/* Material consumption (cleaning) */}
+                {isCleaning && assetMaterialCost && (assetMaterialCost.total > 0 || assetMaterialCost.count > 0) && (
+                  <div className="pt-2 border-t">
+                    <h3 className="font-semibold flex items-center gap-1.5 mb-3">
+                      <Package className="w-4 h-4" /> Materiaalverbruik (3 mnd)
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-muted/50 rounded-md p-3 text-center">
+                        <div className="text-lg font-bold text-primary">€{assetMaterialCost.total.toFixed(2)}</div>
+                        <div className="text-xs text-muted-foreground">Totale kosten</div>
+                      </div>
+                      <div className="bg-muted/50 rounded-md p-3 text-center">
+                        <div className="text-lg font-bold">{assetMaterialCost.count}</div>
+                        <div className="text-xs text-muted-foreground">Artikelen</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}

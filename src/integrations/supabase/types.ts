@@ -905,11 +905,13 @@ export type Database = {
           address_id: string | null
           asset_id: string | null
           assigned_to: string | null
+          auto_invoice: boolean | null
           company_id: string
           created_at: string
           customer_id: string
           description: string | null
           end_date: string | null
+          frequency: string | null
           id: string
           interval_months: number
           last_generated_at: string | null
@@ -918,6 +920,7 @@ export type Database = {
           next_due_date: string
           notes: string | null
           price: number
+          seasonal_months: number[] | null
           service_id: string | null
           start_date: string
           status: string
@@ -927,11 +930,13 @@ export type Database = {
           address_id?: string | null
           asset_id?: string | null
           assigned_to?: string | null
+          auto_invoice?: boolean | null
           company_id: string
           created_at?: string
           customer_id: string
           description?: string | null
           end_date?: string | null
+          frequency?: string | null
           id?: string
           interval_months?: number
           last_generated_at?: string | null
@@ -940,6 +945,7 @@ export type Database = {
           next_due_date?: string
           notes?: string | null
           price?: number
+          seasonal_months?: number[] | null
           service_id?: string | null
           start_date?: string
           status?: string
@@ -949,11 +955,13 @@ export type Database = {
           address_id?: string | null
           asset_id?: string | null
           assigned_to?: string | null
+          auto_invoice?: boolean | null
           company_id?: string
           created_at?: string
           customer_id?: string
           description?: string | null
           end_date?: string | null
+          frequency?: string | null
           id?: string
           interval_months?: number
           last_generated_at?: string | null
@@ -962,6 +970,7 @@ export type Database = {
           next_due_date?: string
           notes?: string | null
           price?: number
+          seasonal_months?: number[] | null
           service_id?: string | null
           start_date?: string
           status?: string
@@ -2221,7 +2230,9 @@ export type Database = {
       }
       quotes: {
         Row: {
+          asset_id: string | null
           company_id: string | null
+          contract_id: string | null
           created_at: string
           customer_id: string
           id: string
@@ -2242,7 +2253,9 @@ export type Database = {
           wefact_id: string | null
         }
         Insert: {
+          asset_id?: string | null
           company_id?: string | null
+          contract_id?: string | null
           created_at?: string
           customer_id: string
           id?: string
@@ -2263,7 +2276,9 @@ export type Database = {
           wefact_id?: string | null
         }
         Update: {
+          asset_id?: string | null
           company_id?: string | null
+          contract_id?: string | null
           created_at?: string
           customer_id?: string
           id?: string
@@ -2285,6 +2300,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "quotes_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "quotes_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -2296,6 +2318,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
             referencedColumns: ["id"]
           },
           {

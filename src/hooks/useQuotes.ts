@@ -111,3 +111,40 @@ export const useSyncQuoteEboekhouden = () => {
     },
   });
 };
+
+export const useConvertQuoteToContract = () => {
+  const qc = useQueryClient();
+  const { companyId } = useAuth();
+  return useMutation({
+    mutationFn: async (quote: Quote) => {
+      const totalPrice = quote.total;
+      const payload = {
+        company_id: companyId!,
+        customer_id: quote.customer_id,
+        name: `Contract o.b.v. offerte ${quote.quote_number || quote.id.slice(0, 8)}`,
+        description: quote.items.map((i) => i.description).filter(Boolean).join(", "),
+        price: totalPrice,
+        interval_months: 12,
+        start_date: new Date().toISOString().split("T")[0],
+        next_due_date: new Date().toISOString().split("T")[0],
+        status: "actief",
+        asset_id: (quote as any).asset_id || null,
+      };
+      const { data, error } = await supabase
+        .from("contracts")
+        .insert(payload as any)
+        .select("id")
+        .single();
+      if (error) throw error;
+
+      // Link quote to contract
+      await supabase.from("quotes").update({ contract_id: data.id, status: "geaccepteerd" } as any).eq("id", quote.id);
+
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quotes"] });
+      qc.invalidateQueries({ queryKey: ["contracts"] });
+    },
+  });
+};
