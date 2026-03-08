@@ -681,9 +681,12 @@ const PlanningPage = () => {
                     return (
                       <div
                         key={day.toISOString() + slot.label}
-                        className={`border-r border-r-border/40 relative hover:bg-bg-hover transition-colors cursor-pointer ${slot.minute === 0 ? "border-b border-b-border/60" : "border-b border-b-border/20"}`}
+                        className={`border-r border-r-border/40 relative hover:bg-bg-hover transition-colors cursor-pointer ${slot.minute === 0 ? "border-b border-b-border/60" : "border-b border-b-border/20"} ${dragOverCell === day.toISOString() + slot.label ? "bg-primary/10 ring-1 ring-inset ring-primary/30" : ""}`}
                         style={{ height: `${SLOT_HEIGHT}px` }}
                         onClick={() => handleCellClick(day, slot.hour, slot.minute)}
+                        onDragOver={(e) => handleDragOver(e, day.toISOString() + slot.label)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, day, slot.hour, slot.minute)}
                       >
                         {/* Current time indicator for today column */}
                         {slot.hour === 6 && slot.minute === 0 && isToday(day) && (
@@ -700,7 +703,15 @@ const PlanningPage = () => {
                           const travelBlockPx = travelMin ? Math.max(Math.round((travelMin / 15) * SLOT_HEIGHT), 14) : 0;
                           const hasWorkOrder = appointmentWoMap.has(ev.id);
                           return (
-                            <div key={ev.id} className="absolute left-[2px] right-[2px] z-[2]" style={{ top: `${topOffset}px` }} onClick={(e) => handleEventClick(e, ev)}>
+                            <div
+                              key={ev.id}
+                              className="absolute left-[2px] right-[2px] z-[2]"
+                              style={{ top: `${topOffset}px` }}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, ev.id)}
+                              onDragEnd={handleDragEnd}
+                              onClick={(e) => handleEventClick(e, ev)}
+                            >
                               {travelMin > 0 && (
                                 <div
                                   className="flex items-center gap-1 text-[8px] text-muted-foreground bg-muted/60 rounded-t-md px-1 border border-border/40 border-b-0"
