@@ -81,7 +81,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     setTenantMismatch(false);
 
-    // Fetch company logo
+    // Fetch company data + update last_active_at
     if (cid) {
       const { data: companyData } = await supabase.from("companies_safe" as any).select("logo_url, brand_color, max_users, enabled_features, industry, subcategory").eq("id", cid).single() as { data: any };
       setCompanyLogoUrl(companyData?.logo_url ?? null);
@@ -90,6 +90,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setEnabledFeaturesState(companyData?.enabled_features ?? []);
       setIndustryState(companyData?.industry ?? "technical");
       setSubcategoryState(companyData?.subcategory ?? "installation");
+
+      // Fire-and-forget: update last_active_at
+      supabase.from("companies").update({ last_active_at: new Date().toISOString() }).eq("id", cid).then(() => {});
     }
   };
 
