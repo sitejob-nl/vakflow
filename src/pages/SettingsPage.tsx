@@ -40,6 +40,7 @@ const TAB_FEATURE_MAP: Record<string, string> = {
   "Werkplaats": "vehicles",
   "APK-herinneringen": "vehicles",
   "Objectvelden": "assets",
+  "Leads": "leads",
 };
 
 // Tabs that require admin role — monteurs only see what's NOT in this list
