@@ -138,7 +138,7 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
       }
     } else {
       setForm({
-        customer_id: "",
+        customer_id: prefillCustomerId || "",
         service_id: "",
         asset_id: "",
         assigned_to: isMonteur ? (user?.id ?? "") : "",

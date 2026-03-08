@@ -271,7 +271,7 @@ const ProjectDetailPage = () => {
       {/* Dialogs */}
       <ProjectDialog open={editDialogOpen} onOpenChange={setEditDialogOpen} editProject={project} />
       <ProjectPhaseDialog open={phaseDialogOpen} onOpenChange={setPhaseDialogOpen} projectId={project.id} editPhase={editPhase} nextSortOrder={(phases?.length ?? 0)} />
-      <WorkOrderDialog open={woDialogOpen} onOpenChange={setWoDialogOpen} projectId={project.id} />
+      <WorkOrderDialog open={woDialogOpen} onOpenChange={setWoDialogOpen} projectId={project.id} prefillCustomerId={project.customer_id} />
       <InvoiceDialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen} projectId={project.id} />
       <AppointmentDialog open={appointmentDialogOpen} onOpenChange={setAppointmentDialogOpen} prefill={{ customer_id: project.customer_id }} projectId={project.id} />
     </div>
