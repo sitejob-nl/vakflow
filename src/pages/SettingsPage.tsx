@@ -352,6 +352,25 @@ const SettingsPage = () => {
   const [snelstartTesting, setSnelstartTesting] = useState(false);
   const [snelstartSyncing, setSnelstartSyncing] = useState(false);
 
+  // WeFact state
+  const [wefactConnected, setWefactConnected] = useState(false);
+  const [wefactApiKey, setWefactApiKey] = useState("");
+  const [wefactTesting, setWefactTesting] = useState(false);
+  const [wefactSyncingContacts, setWefactSyncingContacts] = useState(false);
+  const [wefactSyncingInvoices, setWefactSyncingInvoices] = useState(false);
+  const [wefactPullingContacts, setWefactPullingContacts] = useState(false);
+  const [wefactPullingInvoices, setWefactPullingInvoices] = useState(false);
+  const [wefactPullingStatus, setWefactPullingStatus] = useState(false);
+  const [wefactSyncingQuotes, setWefactSyncingQuotes] = useState(false);
+  const [wefactPullingQuotes, setWefactPullingQuotes] = useState(false);
+  const syncContactsWefact = useSyncContactsWefact();
+  const syncInvoicesWefact = useSyncInvoicesWefact();
+  const pullContactsWefact = usePullContactsWefact();
+  const pullInvoicesWefact = usePullInvoicesWefact();
+  const pullInvoiceStatusWefact = usePullInvoiceStatusWefact();
+  const syncQuotesWefact = useSyncQuotesWefact();
+  const pullQuotesWefact = usePullQuotesWefact();
+
   // Team members state
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [teamRoles, setTeamRoles] = useState<Record<string, string>>({});
