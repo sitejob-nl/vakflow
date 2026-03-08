@@ -39,7 +39,7 @@ export const useAutomotiveDashboardStats = () => {
           .eq("status", "actief"),
       ]);
 
-      const apkExpiring = apkRes.data ?? [];
+      const apkExpiring = (apkRes.data ?? []) as unknown as { id: string; license_plate: string; apk_expiry_date: string; customers: { name: string } | null }[];
       const totalBays = baysRes.data?.length ?? 0;
       const occupiedBayIds = new Set((activeWoRes.data ?? []).map((wo: any) => wo.bay_id).filter(Boolean));
       const occupiedBays = occupiedBayIds.size;
