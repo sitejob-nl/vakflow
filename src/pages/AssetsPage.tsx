@@ -51,9 +51,23 @@ const AssetsPage = () => {
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
   const deleteAsset = useDeleteAsset();
-  const { user } = useAuth();
+  const { user, companyId } = useAuth();
   const { industry } = useIndustryConfig();
   const isCleaning = industry === "cleaning";
+
+  // Load custom field config
+  const { data: fieldConfig } = useQuery({
+    queryKey: ["asset_field_config", companyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("companies")
+        .select("asset_field_config")
+        .eq("id", companyId!)
+        .single();
+      return ((data?.asset_field_config as any[]) ?? []) as Array<{ key: string; label: string; type: string; options?: string[] }>;
+    },
+    enabled: !!companyId,
+  });
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
