@@ -122,22 +122,6 @@ const SettingsAccountingTab = () => {
     </div>
   );
 
-  const tokenField = (label: string, fieldName: string, hasToken: boolean) => {
-    const [val, setVal] = useState("");
-    return (
-      <div>
-        <label className={labelClass}>{label}</label>
-        <div className="flex gap-2">
-          <input value={val} onChange={(e) => setVal(e.target.value)} className={inputClass} placeholder={hasToken ? "••••••••" : "Plak hier je token"} />
-          <button onClick={() => handleSaveToken(fieldName, val)} disabled={saving || !val} className="px-3 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 whitespace-nowrap">
-            Opslaan
-          </button>
-        </div>
-        {hasToken && <p className="text-[11px] text-success mt-1 flex items-center gap-1"><Check className="h-3 w-3" /> Token ingesteld</p>}
-      </div>
-    );
-  };
-
   return (
     <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
       {/* Provider selector */}
