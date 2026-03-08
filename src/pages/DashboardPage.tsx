@@ -147,7 +147,66 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* Quick actions */}
+      {/* Cleaning KPIs */}
+      {isCleaning && cleaningStats && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 mb-5 md:mb-6">
+          <div onClick={() => navigate("assets")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+            <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+              <Building2 className="h-3 w-3" /> Actieve objecten
+            </div>
+            <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{cleaningStats.activeObjects}</div>
+          </div>
+          <div onClick={() => navigate("schedule")} className={`bg-card border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:shadow-card-hover transition-all ${cleaningStats.overdueObjects > 0 ? "border-destructive hover:border-destructive" : "border-border hover:border-primary"}`}>
+            <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" /> Achterstallig
+            </div>
+            <div className={`text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter ${cleaningStats.overdueObjects > 0 ? "text-destructive" : ""}`}>{cleaningStats.overdueObjects}</div>
+          </div>
+          <div onClick={() => navigate("workorders")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+            <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1">{labels.workOrders} vandaag</div>
+            <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{cleaningStats.todayWorkOrders}</div>
+          </div>
+          {cleaningStats.vehiclesWashedThisMonth > 0 && (
+            <div className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card">
+              <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                <Sparkles className="h-3 w-3" /> Voertuigen gewassen
+              </div>
+              <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{cleaningStats.vehiclesWashedThisMonth}</div>
+              <div className="text-[10px] md:text-[11.5px] mt-1 font-semibold text-t3">deze maand</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Cleaning: urgent objects widget */}
+      {isCleaning && cleaningStats && cleaningStats.urgentObjects.length > 0 && (
+        <div className="bg-card border border-border rounded-lg shadow-card mb-5 overflow-hidden">
+          <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between border-b border-border">
+            <h3 className="text-[14px] md:text-[15px] font-bold">Te plannen objecten</h3>
+            <button onClick={() => navigate("schedule")} className="text-[11px] text-primary font-bold hover:underline">Alle →</button>
+          </div>
+          <div className="divide-y divide-border">
+            {cleaningStats.urgentObjects.map((obj) => {
+              const days = differenceInDays(new Date(obj.next_service_due), new Date());
+              const isOverdue = days < 0;
+              return (
+                <div key={obj.id} className="px-4 md:px-5 py-2.5 flex items-center gap-3">
+                  {obj.object_type === "fleet" ? <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" /> : <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-bold truncate">{obj.name}</div>
+                    <div className="text-[11px] text-t3">{obj.customer_name || "—"}</div>
+                  </div>
+                  <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${isOverdue ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"}`}>
+                    {isOverdue ? `${Math.abs(days)}d te laat` : days === 0 ? "Vandaag" : `Over ${days}d`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+
       <div className="flex gap-2 mb-5 flex-wrap">
         <button onClick={() => setApptDialogOpen(true)} className="flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-lg text-[12px] font-bold text-secondary-foreground hover:border-primary hover:text-primary transition-all shadow-card">
           <CalendarPlus className="h-3.5 w-3.5" /> Nieuwe afspraak
