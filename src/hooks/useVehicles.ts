@@ -76,7 +76,7 @@ export const useVehicle = (id: string | undefined) => {
         .eq("id", id!)
         .maybeSingle();
       if (error) throw error;
-      return data as Vehicle | null;
+      return data as unknown as Vehicle | null;
     },
   });
 };
