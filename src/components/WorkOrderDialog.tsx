@@ -29,9 +29,10 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workOrder?: Tables<"work_orders"> | null;
+  projectId?: string;
 }
 
-const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
+const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId }: Props) => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { labels, industry } = useIndustryConfig();
