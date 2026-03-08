@@ -319,6 +319,7 @@ export default function MaterialsSettings() {
                 <TableHead className="text-[11px]">Artikelnr.</TableHead>
                 <TableHead className="text-[11px]">Categorie</TableHead>
                 <TableHead className="text-[11px]">Eenheid</TableHead>
+                <TableHead className="text-[11px] text-right">Voorraad</TableHead>
                 <TableHead className="text-[11px] text-right">Inkoop</TableHead>
                 <TableHead className="text-[11px] text-right">Opslag</TableHead>
                 <TableHead className="text-[11px] text-right">Verkoop</TableHead>
