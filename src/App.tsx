@@ -45,6 +45,8 @@ const MetaCallbackPage = lazy(() => import("@/pages/MetaCallbackPage"));
 const PortalLoginPage = lazy(() => import("@/pages/PortalLoginPage"));
 const PortalQuotesPage = lazy(() => import("@/pages/PortalQuotesPage"));
 const PortalWorkOrdersPage = lazy(() => import("@/pages/PortalWorkOrdersPage"));
+const PortalVehiclesPage = lazy(() => import("@/pages/PortalVehiclesPage"));
+const PortalAppointmentsPage = lazy(() => import("@/pages/PortalAppointmentsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
