@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMaterials, useCreateMaterial, useUpdateMaterial, useDeleteMaterial, type Material } from "@/hooks/useMaterials";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, X, Check, Package, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
