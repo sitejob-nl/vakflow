@@ -414,13 +414,17 @@ const QuotesPage = () => {
               <tbody>
                 {filtered.map((q) => {
                   const cfg = statusConfig[q.status] ?? statusConfig.concept;
+                  const isExpired = q.status === "verzonden" && (q as any).valid_until && new Date((q as any).valid_until) < new Date();
                   return (
                     <tr key={q.id} onClick={() => setSelectedId(q.id)} className={`hover:bg-bg-hover transition-colors cursor-pointer ${selected?.id === q.id ? "bg-bg-active" : ""}`}>
                       <td className="px-5 py-3 text-[12px] font-mono">{q.quote_number ?? "—"}</td>
                       <td className="px-5 py-3 text-[13.5px]">{q.customers?.name ?? "—"}</td>
                       <td className="px-5 py-3 font-mono">{eur(q.total)}</td>
                       <td className="px-5 py-3">
-                        <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${badgeStyles[cfg.variant]}`}>{cfg.label}</span>
+                        <div className="flex items-center gap-1.5">
+                          {isExpired && <span className="inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold bg-warning/10 text-warning">Verlopen</span>}
+                          <span className={`inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold ${badgeStyles[cfg.variant]}`}>{cfg.label}</span>
+                        </div>
                       </td>
                     </tr>
                   );
