@@ -39,6 +39,8 @@ const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
 const AssetsPage = lazy(() => import("@/pages/AssetsPage"));
 const MarketingPage = lazy(() => import("@/pages/MarketingPage"));
 const ContractsPage = lazy(() => import("@/pages/ContractsPage"));
+const VehiclesPage = lazy(() => import("@/pages/VehiclesPage"));
+const VehicleDetailPage = lazy(() => import("@/pages/VehicleDetailPage"));
 const MetaCallbackPage = lazy(() => import("@/pages/MetaCallbackPage"));
 const PortalLoginPage = lazy(() => import("@/pages/PortalLoginPage"));
 const PortalQuotesPage = lazy(() => import("@/pages/PortalQuotesPage"));
