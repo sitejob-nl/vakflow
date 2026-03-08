@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Wrench, Sparkles, ClipboardCheck, Car, Fuel, Shield, Circle as TireIcon, AlertTriangle, MoreHorizontal } from "lucide-react";
+import { Loader2, Wrench, Sparkles, ClipboardCheck, Car, Fuel, Shield, Circle as TireIcon, AlertTriangle, MoreHorizontal, Star } from "lucide-react";
+import PhotoUpload from "@/components/PhotoUpload";
 import AiIntakePanel from "@/components/AiIntakePanel";
 import type { AiIntakeSuggestion } from "@/hooks/useAiIntake";
 import { useCreateWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
@@ -69,6 +70,9 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
   const [showAiIntake, setShowAiIntake] = useState(false);
   const [aiMaterials, setAiMaterials] = useState<any[] | null>(null);
   const [selectedBayId, setSelectedBayId] = useState("");
+  const [beforePhotos, setBeforePhotos] = useState<string[]>([]);
+  const [afterPhotos, setAfterPhotos] = useState<string[]>([]);
+  const [quickScore, setQuickScore] = useState(0);
 
   const handleAiApply = (s: AiIntakeSuggestion) => {
     setForm((f) => ({
@@ -502,6 +506,48 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder, projectId, prefillCust
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Cleaning: Before/After photo upload */}
+      {isCleaning && isEdit && workOrder?.id && (
+        <div className="space-y-3 border border-border rounded-lg p-3 bg-muted/30">
+          <Label className="text-[13px] font-bold">Foto's</Label>
+          <PhotoUpload
+            workOrderId={workOrder.id}
+            type="before"
+            photos={beforePhotos}
+            onPhotosChange={setBeforePhotos}
+          />
+          <PhotoUpload
+            workOrderId={workOrder.id}
+            type="after"
+            photos={afterPhotos}
+            onPhotosChange={setAfterPhotos}
+          />
+        </div>
+      )}
+
+      {/* Cleaning: Quick quality score */}
+      {isCleaning && form.status === "afgerond" && (
+        <div className="space-y-2 border border-border rounded-lg p-3 bg-muted/30">
+          <Label className="text-[13px] font-bold">Snelle kwaliteitsscore (optioneel)</Label>
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 4, 5].map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setQuickScore(quickScore === s ? 0 : s)}
+                className="p-0.5"
+              >
+                <Star className={`w-6 h-6 transition-colors ${s <= quickScore ? "fill-primary text-primary" : "text-muted-foreground/30"}`} />
+              </button>
+            ))}
+            {quickScore > 0 && (
+              <span className="text-sm font-bold ml-2">{quickScore}/5</span>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground">Score wordt opgeslagen als mini-audit bij het object</p>
         </div>
       )}
 

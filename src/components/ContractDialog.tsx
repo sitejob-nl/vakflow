@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,14 +7,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useContracts, type Contract } from "@/hooks/useContracts";
-import { useAssets } from "@/hooks/useAssets";
+import { useAssets, useObjectRooms } from "@/hooks/useAssets";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Users } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -33,10 +35,20 @@ const FREQUENCY_OPTIONS = [
   { value: "monthly", label: "Maandelijks" },
 ];
 
+const FREQ_MULTIPLIER: Record<string, number> = {
+  daily: 20,
+  "2x_week": 8,
+  "3x_week": 12,
+  weekly: 4,
+  biweekly: 2,
+  monthly: 1,
+};
+
 const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
   const { upsert } = useContracts();
   const { data: customers } = useCustomers();
   const { data: assets } = useAssets();
+  const { data: teamMembers } = useTeamMembers();
   const { industry } = useIndustryConfig();
   const isCleaning = industry === "cleaning";
   const { toast } = useToast();
@@ -46,6 +58,7 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
     name: "",
     customer_id: "",
     asset_id: "" as string,
+    assigned_to: "" as string,
     description: "",
     interval_months: 12,
     start_date: new Date().toISOString().split("T")[0],
@@ -68,6 +81,7 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
         name: contract.name,
         customer_id: contract.customer_id,
         asset_id: contract.asset_id || "",
+        assigned_to: c.assigned_to || "",
         description: contract.description || "",
         interval_months: contract.interval_months,
         start_date: contract.start_date,
@@ -86,6 +100,7 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
         name: "",
         customer_id: "",
         asset_id: "",
+        assigned_to: "",
         description: "",
         interval_months: 12,
         start_date: new Date().toISOString().split("T")[0],
@@ -104,6 +119,30 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
 
   const customerAssets = assets?.filter((a) => !form.customer_id || a.customer_id === form.customer_id) ?? [];
 
+  // Get selected asset for auto-fill frequency
+  const selectedAsset = useMemo(() => {
+    if (!assets || !form.asset_id) return null;
+    return assets.find((a) => a.id === form.asset_id) ?? null;
+  }, [assets, form.asset_id]);
+
+  // Auto-fill frequency from asset when asset changes
+  useEffect(() => {
+    if (selectedAsset?.frequency && !contract) {
+      set("frequency", selectedAsset.frequency);
+    }
+  }, [selectedAsset?.id]);
+
+  // Fetch rooms for selected asset (cleaning)
+  const { data: objectRooms } = useObjectRooms(isCleaning && selectedAsset?.object_type === "building" ? form.asset_id : undefined);
+
+  // Price per cleaning calculation
+  const pricePerCleaning = useMemo(() => {
+    if (!form.price || !form.frequency) return null;
+    const mult = FREQ_MULTIPLIER[form.frequency];
+    if (!mult) return null;
+    return form.price / mult;
+  }, [form.price, form.frequency]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.customer_id) return;
@@ -113,6 +152,7 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
         name: form.name,
         customer_id: form.customer_id,
         asset_id: form.asset_id || null,
+        assigned_to: form.assigned_to || null,
         description: form.description || null,
         interval_months: form.interval_months,
         start_date: form.start_date,
@@ -172,7 +212,7 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
 
           {/* Asset / Object link */}
           <div className="space-y-2">
-            <Label>Object (optioneel)</Label>
+            <Label>{isCleaning ? "Object *" : "Object (optioneel)"}</Label>
             <Select value={form.asset_id} onValueChange={(v) => set("asset_id", v === "_none" ? "" : v)}>
               <SelectTrigger><SelectValue placeholder="Geen object" /></SelectTrigger>
               <SelectContent>
@@ -183,6 +223,22 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Team member assignment */}
+          {isCleaning && teamMembers && teamMembers.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Medewerker toewijzen</Label>
+              <Select value={form.assigned_to} onValueChange={(v) => set("assigned_to", v === "_none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Niet toegewezen" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Niet toegewezen</SelectItem>
+                  {teamMembers.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.full_name ?? "Onbekend"}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -197,10 +253,17 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Prijs per beurt (€)</Label>
+              <Label>Maandprijs (€)</Label>
               <Input type="number" step="0.01" min="0" value={form.price} onChange={(e) => set("price", parseFloat(e.target.value) || 0)} />
             </div>
           </div>
+
+          {/* Price per cleaning */}
+          {isCleaning && pricePerCleaning !== null && (
+            <div className="text-[12px] text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+              Prijs per schoonmaakbeurt: <span className="font-bold text-foreground">€{pricePerCleaning.toFixed(2)}</span>
+            </div>
+          )}
 
           {/* Cleaning-specific: frequency */}
           {isCleaning && (
@@ -215,6 +278,24 @@ const ContractDialog = ({ open, onOpenChange, contract }: Props) => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* Room specifications for building objects */}
+          {isCleaning && objectRooms && objectRooms.length > 0 && (
+            <div className="space-y-2 border border-border rounded-lg p-3 bg-muted/30">
+              <Label className="text-[13px] font-bold">Kamers in dit object</Label>
+              <div className="space-y-1">
+                {objectRooms.map((room) => (
+                  <div key={room.id} className="flex items-center gap-2 text-sm">
+                    <Badge variant="secondary" className="text-[10px]">{room.room_type || "Ruimte"}</Badge>
+                    <span>{room.name}</span>
+                    {Array.isArray(room.checklist) && room.checklist.length > 0 && (
+                      <span className="text-xs text-muted-foreground">({room.checklist.length} items)</span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
