@@ -43,6 +43,19 @@ const WorkOrderDialog = ({ open, onOpenChange, workOrder }: Props) => {
   const updateWO = useUpdateWorkOrder();
   const isEdit = !!workOrder;
   const isMonteur = role === "monteur";
+  const [showAiIntake, setShowAiIntake] = useState(false);
+
+  const handleAiApply = (s: AiIntakeSuggestion) => {
+    setForm((f) => ({
+      ...f,
+      description: s.summary + (s.notes ? `\n\n${s.notes}` : ""),
+      work_order_type: s.work_order_type || f.work_order_type,
+      service_id: s.suggested_service_id || f.service_id,
+    }));
+    setShowAiIntake(false);
+    // Store materials suggestion for later use
+    (window as any).__aiIntakeMaterials = s.suggested_materials;
+  };
 
   const [form, setForm] = useState({
     customer_id: "",
