@@ -1,7 +1,7 @@
 import { useNavigation } from "@/hooks/useNavigation";
 import { useWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrders";
 import { useCreateInvoice } from "@/hooks/useInvoices";
-import { Loader2, Plus, Download, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, Download, AlertTriangle, Share2, Link2, LinkOff } from "lucide-react";
 import PhotoUpload from "@/components/PhotoUpload";
 import WorkOrderTimer from "@/components/WorkOrderTimer";
 import WorkOrderMaterials from "@/components/WorkOrderMaterials";
