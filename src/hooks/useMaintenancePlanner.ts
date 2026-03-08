@@ -7,7 +7,7 @@ export interface MaintenanceItem {
   name: string;
   asset_type: string | null;
   brand: string | null;
-  next_maintenance_date: string | null;
+  next_service_due: string | null;
   last_maintenance_date: string | null;
   customer_id: string | null;
   customer?: { id: string; name: string; city: string | null } | null;
@@ -24,9 +24,9 @@ export const useMaintenancePlanner = () => {
     queryFn: async () => {
       let q = supabase
         .from("assets" as any)
-        .select("id, name, asset_type, brand, next_maintenance_date, last_maintenance_date, customer_id, customer:customers(id, name, city)")
+        .select("id, name, asset_type, brand, next_service_due, last_maintenance_date, customer_id, customer:customers(id, name, city)")
         .eq("status", "actief")
-        .order("next_maintenance_date", { ascending: true, nullsFirst: false });
+        .order("next_service_due", { ascending: true, nullsFirst: false });
       if (companyId) q = q.eq("company_id", companyId);
       const { data, error } = await q;
       if (error) throw error;
@@ -37,10 +37,10 @@ export const useMaintenancePlanner = () => {
       upcoming30.setDate(upcoming30.getDate() + 30);
 
       const items: MaintenanceItem[] = ((data as any[]) ?? []).map((a) => {
-        if (!a.next_maintenance_date) {
+        if (!a.next_service_due) {
           return { ...a, status: "no_date" as const };
         }
-        const nextDate = new Date(a.next_maintenance_date);
+        const nextDate = new Date(a.next_service_due);
         if (nextDate <= today) {
           const diffDays = Math.ceil((today.getTime() - nextDate.getTime()) / 86400000);
           return { ...a, status: "overdue" as const, days_overdue: diffDays };

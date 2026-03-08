@@ -319,7 +319,7 @@ const AssetsPage = () => {
                   <div className="text-muted-foreground">{isCleaning ? "Startdatum" : "Installatiedatum"}</div>
                   <div>{detailAsset.install_date ? format(new Date(detailAsset.install_date), "d MMM yyyy", { locale: nl }) : "—"}</div>
                   <div className="text-muted-foreground">Volgende beurt</div>
-                  <div>{(detailAsset.next_service_due || detailAsset.next_maintenance_date) ? format(new Date(detailAsset.next_service_due || detailAsset.next_maintenance_date!), "d MMM yyyy", { locale: nl }) : "—"}</div>
+                  <div>{detailAsset.next_service_due ? format(new Date(detailAsset.next_service_due), "d MMM yyyy", { locale: nl }) : "—"}</div>
                 </div>
                 {detailAsset.access_instructions && (
                   <div className="text-sm"><span className="text-muted-foreground">Toegang:</span> {detailAsset.access_instructions}</div>

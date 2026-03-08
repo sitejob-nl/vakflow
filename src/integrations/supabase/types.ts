@@ -381,7 +381,6 @@ export type Database = {
           last_maintenance_date: string | null
           model: string | null
           name: string
-          next_maintenance_date: string | null
           next_service_due: string | null
           notes: string | null
           object_type: string
@@ -408,7 +407,6 @@ export type Database = {
           last_maintenance_date?: string | null
           model?: string | null
           name: string
-          next_maintenance_date?: string | null
           next_service_due?: string | null
           notes?: string | null
           object_type?: string
@@ -435,7 +433,6 @@ export type Database = {
           last_maintenance_date?: string | null
           model?: string | null
           name?: string
-          next_maintenance_date?: string | null
           next_service_due?: string | null
           notes?: string | null
           object_type?: string
@@ -3668,7 +3665,7 @@ export type Database = {
           assigned_to: string | null
           bay_id: string | null
           checklist: Json | null
-          company_id: string | null
+          company_id: string
           completed_at: string | null
           created_at: string
           customer_id: string
@@ -3701,7 +3698,7 @@ export type Database = {
           assigned_to?: string | null
           bay_id?: string | null
           checklist?: Json | null
-          company_id?: string | null
+          company_id: string
           completed_at?: string | null
           created_at?: string
           customer_id: string
@@ -3734,7 +3731,7 @@ export type Database = {
           assigned_to?: string | null
           bay_id?: string | null
           checklist?: Json | null
-          company_id?: string | null
+          company_id?: string
           completed_at?: string | null
           created_at?: string
           customer_id?: string

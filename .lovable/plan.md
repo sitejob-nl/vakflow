@@ -1,54 +1,51 @@
 
 
-# Bugfix migratie — 7 database bugs + frontend cleanup
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Migratie (één SQL-bestand)
+### Problemen
 
-### Bug 1: Dubbele trigger
-```sql
-DROP TRIGGER IF EXISTS trg_update_asset_on_wo_complete ON public.work_orders;
-```
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-### Bug 2: work_orders.company_id NOT NULL
-```sql
-ALTER TABLE public.work_orders ALTER COLUMN company_id SET NOT NULL;
-```
+### Aanpak
 
-### Bug 3: Company-scoped unique constraints
-```sql
-ALTER TABLE public.work_orders DROP CONSTRAINT IF EXISTS work_orders_work_order_number_key;
-ALTER TABLE public.work_orders ADD CONSTRAINT uq_wo_company_number UNIQUE (company_id, work_order_number);
-ALTER TABLE public.invoices DROP CONSTRAINT IF EXISTS invoices_invoice_number_key;
-ALTER TABLE public.invoices ADD CONSTRAINT uq_inv_company_number UNIQUE (company_id, invoice_number);
-```
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-### Bug 4: Quote number unique
-```sql
-ALTER TABLE public.quotes ADD CONSTRAINT uq_quotes_company_number UNIQUE (company_id, quote_number);
-```
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-### Bug 5: RLS op reference data
-```sql
-ALTER TABLE public.rdw_defect_descriptions DISABLE ROW LEVEL SECURITY;
-```
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-### Bug 6: Mileage update trigger
-Nieuwe functie `update_vehicle_mileage_on_wo_complete()` + trigger: bij status → 'afgerond' met `vehicle_id` en `mileage_end`, update `vehicles.mileage_current`.
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-### Bug 7: Drop next_maintenance_date + herschrijf trigger
-```sql
-ALTER TABLE public.assets DROP COLUMN IF EXISTS next_maintenance_date;
-```
-Herschrijf `update_asset_maintenance_on_wo_complete()` zodat alleen `next_service_due` wordt gezet (geen referentie naar gedropte kolom).
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-## Frontend cleanup (next_maintenance_date → next_service_due)
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-Na het droppen van de kolom moeten 4 bestanden worden bijgewerkt:
+### Bestanden
 
 | Bestand | Wijziging |
 |---|---|
-| `src/hooks/useAssets.ts` | Verwijder `next_maintenance_date` uit Asset interface |
-| `src/hooks/useMaintenancePlanner.ts` | Vervang `next_maintenance_date` door `next_service_due` in select, order, interface en logica |
-| `src/components/MaintenancePlannerWidget.tsx` | Vervang `next_maintenance_date` door `next_service_due` |
-| `src/pages/AssetsPage.tsx` | Verwijder fallback `|| detailAsset.next_maintenance_date` |
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+
+Geen database-wijzigingen, geen nieuwe dependencies.
 
