@@ -3937,6 +3937,43 @@ const SettingsPage = () => {
                 )}
               </div>
             )}
+            {accountingProvider === "wefact" && (
+              <div className="border-t border-border pt-4 space-y-3">
+                <h4 className="text-[13px] font-bold">WeFact API-koppeling</h4>
+                <p className="text-[11px] text-secondary-foreground">Ga naar <a href="https://www.wefact.nl" target="_blank" rel="noopener noreferrer" className="text-primary underline">WeFact</a> → Instellingen → API om een API key aan te maken. Vergeet niet je server IP te whitelisten.</p>
+                <div>
+                  <label className={labelClass}>API Key</label>
+                  <input value={wefactApiKey} onChange={(e) => setWefactApiKey(e.target.value)} className={inputClass} placeholder="Jouw WeFact API key" type="password" />
+                </div>
+                {wefactApiKey && wefactApiKey !== "••••••••" && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setWefactTesting(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action: "test", token: wefactApiKey } });
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        toast({ title: "Verbinding geslaagd!", description: "WeFact API is bereikbaar." });
+                      } catch (err: any) {
+                        toast({ title: "Verbinding mislukt", description: err.message, variant: "destructive" });
+                      }
+                      setWefactTesting(false);
+                    }}
+                    disabled={wefactTesting}
+                    className="px-4 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                  >
+                    {wefactTesting ? <><Loader2 className="inline w-3 h-3 mr-1 animate-spin" /> Testen...</> : "Test verbinding"}
+                  </button>
+                )}
+                {wefactConnected && !wefactApiKey && (
+                  <div className="flex items-center gap-2 text-[12px] text-muted-foreground bg-muted/50 p-2 rounded">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span><strong>WeFact gekoppeld</strong></span>
+                  </div>
+                )}
+              </div>
+            )}
             {accountingProvider === "snelstart" && (
               <div className="border-t border-border pt-4 space-y-3">
                 <h4 className="text-[13px] font-bold">SnelStart B2B-koppeling</h4>
