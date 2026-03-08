@@ -1,15 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { authenticateRequest } from "../_shared/supabase.ts";
-import { createAdminClient } from "../_shared/supabase.ts";
+import { authenticateRequest, createAdminClient } from "../_shared/supabase.ts";
+import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
+import { logUsage } from "../_shared/usage.ts";
+import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const admin = createAdminClient();
+  let companyId: string | undefined;
+
   try {
-    const { userId, companyId } = await authenticateRequest(req);
+    const authCtx = await authenticateRequest(req);
+    companyId = authCtx.companyId;
+
+    // Rate limit: max 10 calls per minute per company
+    await checkRateLimit(admin, companyId, "ai_intake", 10, 60);
+
     const { complaint } = await req.json();
 
     if (!complaint || typeof complaint !== "string" || complaint.trim().length < 5) {
@@ -28,7 +38,6 @@ serve(async (req) => {
     }
 
     // Fetch company materials catalog for context
-    const admin = createAdminClient();
     const { data: materials } = await admin
       .from("materials")
       .select("id, name, unit, unit_price, category")
@@ -78,6 +87,57 @@ Regels:
 - Geef een korte samenvatting van de werkzaamheden
 - Antwoord altijd in het Nederlands`;
 
+    // Build function parameters — work_order_type only for automotive
+    const properties: Record<string, any> = {
+      summary: {
+        type: "string",
+        description: "Korte samenvatting van wat er gedaan moet worden",
+      },
+      estimated_duration_minutes: {
+        type: "number",
+        description: "Geschatte duur in minuten (afgerond op 15)",
+      },
+      suggested_service_id: {
+        type: "string",
+        description: "ID van de meest passende dienst uit de catalogus, of null",
+      },
+      suggested_materials: {
+        type: "array",
+        description: "Lijst van benodigde materialen uit de catalogus",
+        items: {
+          type: "object",
+          properties: {
+            material_id: { type: "string", description: "ID van het materiaal" },
+            name: { type: "string", description: "Naam van het materiaal" },
+            quantity: { type: "number", description: "Benodigd aantal" },
+            unit: { type: "string", description: "Eenheid" },
+          },
+          required: ["material_id", "name", "quantity", "unit"],
+          additionalProperties: false,
+        },
+      },
+      urgency: {
+        type: "string",
+        description: "Urgentie-niveau",
+        enum: ["laag", "normaal", "hoog", "spoed"],
+      },
+      notes: {
+        type: "string",
+        description: "Extra opmerkingen of aanbevelingen voor de monteur",
+      },
+    };
+
+    const required = ["summary", "estimated_duration_minutes", "suggested_materials", "urgency"];
+
+    // Only include work_order_type for automotive companies
+    if (isAutomotive) {
+      properties.work_order_type = {
+        type: "string",
+        description: "Type werkorder",
+        enum: ["apk", "kleine_beurt", "grote_beurt", "storing", "bandenwissel", "aflevering", "overig"],
+      };
+    }
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -98,50 +158,8 @@ Regels:
               description: "Genereer een werkbon-voorstel op basis van de klachtomschrijving",
               parameters: {
                 type: "object",
-                properties: {
-                  summary: {
-                    type: "string",
-                    description: "Korte samenvatting van wat er gedaan moet worden",
-                  },
-                  work_order_type: {
-                    type: "string",
-                    description: "Type werkorder (alleen voor automotive)",
-                    enum: ["apk", "kleine_beurt", "grote_beurt", "storing", "bandenwissel", "aflevering", "overig"],
-                  },
-                  estimated_duration_minutes: {
-                    type: "number",
-                    description: "Geschatte duur in minuten (afgerond op 15)",
-                  },
-                  suggested_service_id: {
-                    type: "string",
-                    description: "ID van de meest passende dienst uit de catalogus, of null",
-                  },
-                  suggested_materials: {
-                    type: "array",
-                    description: "Lijst van benodigde materialen uit de catalogus",
-                    items: {
-                      type: "object",
-                      properties: {
-                        material_id: { type: "string", description: "ID van het materiaal" },
-                        name: { type: "string", description: "Naam van het materiaal" },
-                        quantity: { type: "number", description: "Benodigd aantal" },
-                        unit: { type: "string", description: "Eenheid" },
-                      },
-                      required: ["material_id", "name", "quantity", "unit"],
-                      additionalProperties: false,
-                    },
-                  },
-                  urgency: {
-                    type: "string",
-                    description: "Urgentie-niveau",
-                    enum: ["laag", "normaal", "hoog", "spoed"],
-                  },
-                  notes: {
-                    type: "string",
-                    description: "Extra opmerkingen of aanbevelingen voor de monteur",
-                  },
-                },
-                required: ["summary", "estimated_duration_minutes", "suggested_materials", "urgency"],
+                properties,
+                required,
                 additionalProperties: false,
               },
             },
@@ -184,12 +202,28 @@ Regels:
 
     const suggestion = JSON.parse(toolCall.function.arguments);
 
+    // Log successful usage
+    await logUsage(admin, companyId, "ai_intake", { complaint_length: complaint.length });
+
     return new Response(JSON.stringify({ suggestion }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("ai-intake error:", err);
+
+    if (err instanceof RateLimitError) {
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Log error to edge_function_errors
+    await logEdgeFunctionError(admin, "ai-intake", (err as Error).message, {
+      stack: (err as Error).stack,
+    }, companyId);
+
     const status = (err as any).status || 500;
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Onbekende fout" }), {
       status,

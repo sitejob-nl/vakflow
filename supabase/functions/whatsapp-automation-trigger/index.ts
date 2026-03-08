@@ -62,25 +62,68 @@ Deno.serve(async (req) => {
       return jsonRes({ skipped: true, reason: "No WhatsApp opt-in" });
     }
 
-    // Fetch active automations for this trigger type
-    const automationQuery = supabase
-      .from("whatsapp_automations")
-      .select("*")
-      .eq("trigger_type", trigger_type)
-      .eq("is_active", true);
     if (!customer.company_id) {
       console.error("Customer has no company_id, cannot determine automations");
       return jsonRes({ error: "Customer has no company_id" }, 400);
     }
-    automationQuery.eq("company_id", customer.company_id);
-    const { data: automations } = await automationQuery;
+
+    // Fetch active automations for this trigger type
+    const { data: automations } = await supabase
+      .from("whatsapp_automations")
+      .select("*")
+      .eq("trigger_type", trigger_type)
+      .eq("is_active", true)
+      .eq("company_id", customer.company_id);
 
     if (!automations || automations.length === 0) {
       console.log("No active automations for trigger:", trigger_type);
       return jsonRes({ skipped: true, reason: "No matching automations" });
     }
 
+    // Build full context — start with customer + extra ctx
     const fullContext: Record<string, any> = { customer, ...(ctx || {}) };
+
+    // Enrich with vehicle data for automotive companies
+    try {
+      const { data: company } = await supabase
+        .from("companies")
+        .select("industry")
+        .eq("id", customer.company_id)
+        .single();
+
+      if (company?.industry === "automotive") {
+        const { data: vehicles } = await supabase
+          .from("vehicles")
+          .select("license_plate, brand, model, apk_expiry_date")
+          .eq("customer_id", customer_id)
+          .eq("status", "actief")
+          .limit(1);
+
+        if (vehicles && vehicles.length > 0) {
+          const veh = vehicles[0];
+          const daysUntilApk = veh.apk_expiry_date
+            ? Math.floor((new Date(veh.apk_expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            : null;
+
+          fullContext.vehicle = {
+            kenteken: veh.license_plate || "",
+            merk: veh.brand || "",
+            model: veh.model || "",
+            apk_datum: veh.apk_expiry_date || "",
+            dagen: daysUntilApk != null ? String(daysUntilApk) : "",
+          };
+          // Also expose at top level for simple {{kenteken}} usage
+          fullContext.kenteken = veh.license_plate || "";
+          fullContext.merk = veh.brand || "";
+          fullContext.model = veh.model || "";
+          fullContext.apk_datum = veh.apk_expiry_date || "";
+          fullContext.dagen = daysUntilApk != null ? String(daysUntilApk) : "";
+        }
+      }
+    } catch (vehErr) {
+      console.error("Vehicle context enrichment failed (non-fatal):", vehErr);
+    }
+
     const results: any[] = [];
 
     // Fetch whatsapp_config for this company to resolve template previews
