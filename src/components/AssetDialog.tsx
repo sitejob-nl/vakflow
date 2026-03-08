@@ -63,7 +63,7 @@ const AssetDialog = ({ open, onOpenChange, asset, onSave, saving }: Props) => {
         .select("asset_field_config")
         .eq("id", companyId!)
         .single();
-      return (data?.asset_field_config as FieldDef[] | null) ?? [];
+      return ((data?.asset_field_config ?? []) as unknown as FieldDef[]);
     },
     enabled: !!companyId,
   });

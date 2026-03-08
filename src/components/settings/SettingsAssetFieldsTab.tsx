@@ -42,7 +42,7 @@ const SettingsAssetFieldsTab = () => {
       .eq("id", companyId)
       .single()
       .then(({ data }) => {
-        setFields((data?.asset_field_config as FieldDef[] | null) ?? []);
+        setFields(((data?.asset_field_config ?? []) as unknown as FieldDef[]));
         setLoading(false);
       });
   }, [companyId]);
