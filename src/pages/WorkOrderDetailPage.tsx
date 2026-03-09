@@ -421,6 +421,14 @@ const WorkOrderDetailPage = () => {
             )}
           </div>
 
+          {/* Interne notities */}
+          <div className="mb-3">
+            <WorkOrderInternalNotes
+              workOrderId={wo.id}
+              internalNotes={(wo as any).internal_notes ?? null}
+            />
+          </div>
+
           <div className="bg-background border border-border rounded-sm p-4">
             <h4 className="text-[11px] uppercase tracking-widest text-t3 mb-3 font-bold">Dienst & tarieven</h4>
             <div className="text-[13px]">
