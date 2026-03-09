@@ -379,7 +379,27 @@ Deno.serve(async (req) => {
       }
 
       // ── Fix 1: status filter + Fix 5: qty mapping ──
+      // ── fetch-gl-accounts: retrieve revenue GL accounts from Exact ──
+      case "fetch-gl-accounts": {
+        const accounts = await exactGetAll(
+          base_url, division, "financial/GLAccounts", access_token,
+          "$select=ID,Code,Description&$filter=Type eq 20&$orderby=Code"
+        );
+        return jsonRes({
+          accounts: accounts.map((a: any) => ({
+            id: a.ID,
+            code: a.Code,
+            description: a.Description,
+          })),
+        });
+      }
+
+      // ── Fix 1: status filter + Fix 5: qty mapping ──
       case "sync-invoices": {
+        if (!config.gl_revenue_id) {
+          return jsonRes({ error: "Stel eerst een omzet-grootboekrekening in via Instellingen > Boekhouding" }, 400);
+        }
+
         const { data: invoices } = await supabaseAdmin
           .from("invoices")
           .select("*, customers(name, email, exact_account_id)")
@@ -406,6 +426,7 @@ Deno.serve(async (req) => {
               Description: item.description || item.name || "Regel",
               Quantity: item.qty || item.quantity || 1,
               NetPrice: item.unit_price || item.price || 0,
+              GLAccount: config.gl_revenue_id,
             }));
 
             if (!invoiceLines.length) {
