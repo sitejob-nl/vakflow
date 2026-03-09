@@ -5,13 +5,15 @@ import { useCreateCommunicationLog } from "@/hooks/useCommunicationLogs";
 import type { Invoice } from "@/hooks/useInvoices";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { Loader2, ChevronLeft, ChevronRight, FileDown, RefreshCw, BookOpen, Plus, Mail } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, FileDown, RefreshCw, BookOpen, Plus, Mail, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import InvoiceDialog from "@/components/InvoiceDialog";
+import InvoiceDetailSheet from "@/components/InvoiceDetailSheet";
+import ProviderSyncPanel from "@/components/ProviderSyncPanel";
 
 const tabs = ["Alle", "Openstaand", "Betaald"];
 
