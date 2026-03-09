@@ -508,8 +508,8 @@ Deno.serve(async (req) => {
           }
         }
 
-        await logUsage(supabaseAdmin, companyId, "exact_sync_invoices", { synced, skipped, errors: errors.length });
-        return jsonRes({ synced, skipped, errors });
+        await logUsage(supabaseAdmin, companyId, "exact_sync_invoices", { synced, skipped, errors: errors.length, auto_synced_customers: autoSyncedCustomers });
+        return jsonRes({ synced, skipped, errors, auto_synced_customers: autoSyncedCustomers });
       }
 
       // ── Fix 6: dynamic VAT in pull-invoices ──

@@ -103,6 +103,46 @@ Deno.serve(async (req) => {
       return jsonRes({ success: true });
     }
 
+    // === SYNC SINGLE CUSTOMER (push one to WeFact) ===
+    if (action === "sync-customer") {
+      const { customer_id } = reqBody;
+      if (!customer_id) return jsonRes({ error: "customer_id is verplicht" }, 400);
+
+      const { data: cust } = await supabaseAdmin
+        .from("customers")
+        .select("*")
+        .eq("id", customer_id)
+        .eq("company_id", companyId)
+        .single();
+
+      if (!cust) return jsonRes({ error: "Klant niet gevonden" }, 404);
+      if (cust.wefact_debtor_code) return jsonRes({ success: true, wefact_debtor_code: cust.wefact_debtor_code });
+
+      const isCompany = cust.type === "zakelijk";
+      const params: any = {};
+      if (isCompany) {
+        params.CompanyName = cust.name;
+        if (cust.contact_person) params.SurName = cust.contact_person;
+      } else {
+        params.SurName = cust.name;
+      }
+      if (cust.email) params.EmailAddress = cust.email;
+      if (cust.phone) params.PhoneNumber = cust.phone;
+      if (cust.address) params.Address = cust.address;
+      if (cust.postal_code) params.ZipCode = cust.postal_code;
+      if (cust.city) params.City = cust.city;
+      params.Country = "NL";
+
+      const result = await wefactRequest(apiKey, "debtor", "add", params);
+      const debtorCode = result?.debtor?.DebtorCode || result?.DebtorCode;
+      if (debtorCode) {
+        await supabaseAdmin.from("customers").update({ wefact_debtor_code: debtorCode }).eq("id", cust.id);
+        return jsonRes({ success: true, wefact_debtor_code: debtorCode });
+      }
+
+      return jsonRes({ error: "Kon debiteur niet aanmaken in WeFact" }, 500);
+    }
+
     // === SYNC CONTACTS (push to WeFact) ===
     if (action === "sync-contacts") {
       const { data: customers } = await supabaseAdmin

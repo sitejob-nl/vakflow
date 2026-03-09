@@ -31,15 +31,25 @@ const syncCustomerToProvider = async (customerId: string, companyId: string | nu
     if (!provider) return;
 
     let functionName: string | null = null;
+    let body: Record<string, any> = { action: "sync-customer", customer_id: customerId };
+
     if (provider === "eboekhouden") functionName = "sync-invoice-eboekhouden";
     else if (provider === "rompslomp") functionName = "sync-rompslomp";
     else if (provider === "moneybird") functionName = "sync-moneybird";
+    else if (provider === "exact") {
+      functionName = "sync-exact";
+      body = { action: "sync-single-contact", customer_id: customerId };
+    } else if (provider === "wefact") {
+      functionName = "sync-wefact";
+      body = { action: "sync-customer", customer_id: customerId };
+    } else if (provider === "snelstart") {
+      functionName = "snelstart-sync";
+      body = { action: "sync-customer", customer_id: customerId };
+    }
 
     if (!functionName) return;
 
-    const { error } = await supabase.functions.invoke(functionName, {
-      body: { action: "sync-customer", customer_id: customerId },
-    });
+    const { error } = await supabase.functions.invoke(functionName, { body });
     if (error) console.warn(`${provider} klant sync mislukt:`, error.message);
   } catch (err: any) {
     console.warn("Klant sync mislukt:", err.message);
