@@ -655,6 +655,7 @@ const InvoicesPage = () => {
                     <tr
                       key={inv.id}
                       onClick={() => setSelectedId(inv.id)}
+                      onDoubleClick={() => handleOpenDetail(inv)}
                       className={`hover:bg-bg-hover transition-colors cursor-pointer ${selected?.id === inv.id ? "bg-bg-active" : ""}`}
                     >
                       <td className="px-5 py-3 text-[12px] font-mono">{inv.invoice_number || <span className="text-muted-foreground italic">Concept</span>}</td>
