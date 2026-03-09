@@ -248,7 +248,7 @@ const ProviderSyncPanel = ({ provider }: Props) => {
                           {isLoading ? (
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           ) : result?.success ? (
-                            <CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />
+                            <CheckCircle2 className="w-4 h-4 mr-2 text-success" />
                           ) : (
                             <span className="mr-2">{action.icon}</span>
                           )}
