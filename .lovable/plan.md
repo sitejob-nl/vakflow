@@ -1,29 +1,51 @@
 
 
-# Plan: Auto-sync klanten naar boekhoudprovider
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Twee wijzigingen
+### Problemen
 
-### 1. `sync-exact` invoice pre-check: auto-push klanten zonder exact_account_id
-In de `sync-invoices` case (regel 398-478): voor de invoice loop, haal alle klanten op die in de facturen voorkomen maar geen `exact_account_id` hebben. Push deze automatisch naar Exact via dezelfde POST `/crm/Accounts` logica die al in `sync-contacts` staat. Sla het resultaat op in `customers.exact_account_id`. Ga daarna door met de factuur-sync.
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-### 2. `syncCustomerToProvider` uitbreiden met Exact, WeFact en SnelStart
-In `src/hooks/useCustomers.ts` (regel 20-47): de huidige `syncCustomerToProvider` functie ondersteunt alleen eboekhouden, rompslomp en moneybird. Toevoegen:
-- `exact` → `sync-exact` met `{ action: "sync-single-contact", customer_id }`
-- `wefact` → `sync-wefact` met `{ action: "sync-contacts" }` (WeFact heeft geen single-customer action, maar we kunnen die toevoegen)
-- `snelstart` → `snelstart-relaties` met `{ action: "sync-customer", customer_id }`
+### Aanpak
 
-### 3. Nieuwe action `sync-single-contact` in sync-exact
-De bestaande `sync-contacts` pusht alle klanten in bulk. We voegen een lichtgewicht `sync-single-contact` action toe die 1 klant pusht naar Exact (zelfde logica als de loop in sync-contacts, maar voor 1 record).
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-### 4. Nieuwe action `sync-customer` in sync-wefact
-Vergelijkbaar: accepteert `customer_id`, haalt 1 klant op, pusht naar WeFact als debiteur.
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-## Bestanden
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
+
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
+
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
+
+### Bestanden
 
 | Bestand | Wijziging |
-|---------|-----------|
-| `supabase/functions/sync-exact/index.ts` | Nieuwe action `sync-single-contact` + pre-check in `sync-invoices` |
-| `supabase/functions/sync-wefact/index.ts` | Nieuwe action `sync-customer` voor 1 klant |
-| `src/hooks/useCustomers.ts` | `syncCustomerToProvider` uitbreiden met exact, wefact, snelstart |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+
+Geen database-wijzigingen, geen nieuwe dependencies.
 
