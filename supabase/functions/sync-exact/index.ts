@@ -394,6 +394,26 @@ Deno.serve(async (req) => {
         });
       }
 
+      // ── sync-single-contact: push one customer to Exact ──
+      case "sync-single-contact": {
+        const { customer_id } = body;
+        if (!customer_id) return jsonRes({ error: "customer_id is verplicht" }, 400);
+
+        const { data: cust } = await supabaseAdmin
+          .from("customers")
+          .select("*")
+          .eq("id", customer_id)
+          .eq("company_id", companyId)
+          .single();
+
+        if (!cust) return jsonRes({ error: "Klant niet gevonden" }, 404);
+
+        const exactId = await ensureExactAccount(supabaseAdmin, base_url, division, access_token, cust);
+        if (!exactId) return jsonRes({ error: "Kon klant niet aanmaken in Exact" }, 500);
+
+        return jsonRes({ success: true, exact_account_id: exactId });
+      }
+
       // ── Fix 1: status filter + Fix 5: qty mapping ──
       case "sync-invoices": {
         if (!config.gl_revenue_id) {
@@ -402,12 +422,27 @@ Deno.serve(async (req) => {
 
         const { data: invoices } = await supabaseAdmin
           .from("invoices")
-          .select("*, customers(name, email, exact_account_id)")
+          .select("*, customers(id, name, email, exact_account_id, phone, city, postal_code, address, kvk_number, btw_number)")
           .eq("company_id", companyId)
           .in("status", ["verzonden", "verstuurd"])
           .is("exact_id", null);
 
-        if (!invoices?.length) return jsonRes({ synced: 0, skipped: 0, errors: [] });
+        if (!invoices?.length) return jsonRes({ synced: 0, skipped: 0, errors: [], auto_synced_customers: 0 });
+
+        // Pre-check: auto-push customers without exact_account_id
+        let autoSyncedCustomers = 0;
+        const seenCustomerIds = new Set<string>();
+        for (const inv of invoices) {
+          const customer = inv.customers as any;
+          if (!customer?.exact_account_id && customer?.id && !seenCustomerIds.has(customer.id)) {
+            seenCustomerIds.add(customer.id);
+            const newId = await ensureExactAccount(supabaseAdmin, base_url, division, access_token, customer);
+            if (newId) {
+              customer.exact_account_id = newId;
+              autoSyncedCustomers++;
+            }
+          }
+        }
 
         let synced = 0, skipped = 0;
         const errors: string[] = [];
@@ -417,7 +452,7 @@ Deno.serve(async (req) => {
             const customer = inv.customers as any;
             if (!customer?.exact_account_id) {
               skipped++;
-              errors.push(`${inv.invoice_number}: Klant heeft geen Exact Account ID — sync klanten eerst`);
+              errors.push(`${inv.invoice_number}: Klant kon niet naar Exact gepusht worden`);
               continue;
             }
 
