@@ -5,6 +5,8 @@ import { Loader2, Plus, Download, AlertTriangle, Share2, Link2, Link2Off } from 
 import PhotoUpload from "@/components/PhotoUpload";
 import WorkOrderTimer from "@/components/WorkOrderTimer";
 import WorkOrderMaterials from "@/components/WorkOrderMaterials";
+import WorkOrderInternalNotes from "@/components/WorkOrderInternalNotes";
+import WorkOrderAttachments from "@/components/WorkOrderAttachments";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
