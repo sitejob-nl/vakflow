@@ -5,13 +5,15 @@ import { useCreateCommunicationLog } from "@/hooks/useCommunicationLogs";
 import type { Invoice } from "@/hooks/useInvoices";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { Loader2, ChevronLeft, ChevronRight, FileDown, RefreshCw, BookOpen, Plus, Mail } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, FileDown, RefreshCw, BookOpen, Plus, Mail, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import InvoiceDialog from "@/components/InvoiceDialog";
+import InvoiceDetailSheet from "@/components/InvoiceDetailSheet";
+import ProviderSyncPanel from "@/components/ProviderSyncPanel";
 
 const tabs = ["Alle", "Openstaand", "Betaald"];
 
@@ -37,6 +39,8 @@ const InvoicesPage = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobilePreview, setMobilePreview] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
   const [page, setPage] = useState(0);
 
   const statusFilter = activeTab === 0 ? null : activeTab === 1 ? "openstaand" : "betaald";
@@ -228,6 +232,11 @@ const InvoicesPage = () => {
   const handleSelect = (id: string) => {
     setSelectedId(id);
     setMobilePreview(true);
+  };
+
+  const handleOpenDetail = (inv: Invoice) => {
+    setEditInvoice(inv);
+    setDetailSheetOpen(true);
   };
 
   // Invoice preview component
@@ -558,6 +567,10 @@ const InvoicesPage = () => {
           {refreshing && <span className="text-[11px]">Verversen...</span>}
         </div>
       </div>
+
+      {/* Provider Sync Panel */}
+      {accountingProvider && <ProviderSyncPanel provider={accountingProvider} />}
+
       <div className="flex gap-0 border-b-2 border-border mb-4 md:mb-5 overflow-x-auto scrollbar-hide">
         {tabs.map((t, i) => (
           <button key={t} onClick={() => { setActiveTab(i); setPage(0); }} className={`px-4 md:px-5 py-2.5 text-[12px] md:text-[13px] font-bold border-b-2 -mb-[2px] transition-colors whitespace-nowrap ${i === activeTab ? "text-primary border-primary" : "text-t3 border-transparent hover:text-secondary-foreground"}`}>
@@ -642,6 +655,7 @@ const InvoicesPage = () => {
                     <tr
                       key={inv.id}
                       onClick={() => setSelectedId(inv.id)}
+                      onDoubleClick={() => handleOpenDetail(inv)}
                       className={`hover:bg-bg-hover transition-colors cursor-pointer ${selected?.id === inv.id ? "bg-bg-active" : ""}`}
                     >
                       <td className="px-5 py-3 text-[12px] font-mono">{inv.invoice_number || <span className="text-muted-foreground italic">Concept</span>}</td>
@@ -686,6 +700,13 @@ const InvoicesPage = () => {
       )}
 
       <InvoiceDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <InvoiceDetailSheet
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        invoice={editInvoice}
+        accountingProvider={accountingProvider}
+        onPullStatus={() => queryClient.invalidateQueries({ queryKey: ["invoices-paginated"] })}
+      />
     </div>
   );
 };
