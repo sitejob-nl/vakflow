@@ -567,6 +567,10 @@ const InvoicesPage = () => {
           {refreshing && <span className="text-[11px]">Verversen...</span>}
         </div>
       </div>
+
+      {/* Provider Sync Panel */}
+      {accountingProvider && <ProviderSyncPanel provider={accountingProvider} />}
+
       <div className="flex gap-0 border-b-2 border-border mb-4 md:mb-5 overflow-x-auto scrollbar-hide">
         {tabs.map((t, i) => (
           <button key={t} onClick={() => { setActiveTab(i); setPage(0); }} className={`px-4 md:px-5 py-2.5 text-[12px] md:text-[13px] font-bold border-b-2 -mb-[2px] transition-colors whitespace-nowrap ${i === activeTab ? "text-primary border-primary" : "text-t3 border-transparent hover:text-secondary-foreground"}`}>
