@@ -107,18 +107,46 @@ export default function WorkOrderMaterials({ workOrderId }: { workOrderId: strin
     (m) => name.length > 0 && m.name.toLowerCase().includes(name.toLowerCase())
   );
 
+  const browseMaterials = (catalogMaterials ?? []).filter(
+    (m) => browserSearch.length === 0 || m.name.toLowerCase().includes(browserSearch.toLowerCase())
+  );
+
+  const handleBrowserSelect = async (mat: { id: string; name: string; unit: string; unit_price: number }) => {
+    try {
+      await addMaterial.mutateAsync({
+        work_order_id: workOrderId,
+        material_id: mat.id,
+        name: mat.name,
+        unit: mat.unit,
+        quantity: 1,
+        unit_price: mat.unit_price,
+      });
+      toast({ title: `${mat.name} toegevoegd` });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="bg-background border border-border rounded-sm p-4">
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-[11px] uppercase tracking-widest text-t3 font-bold flex items-center gap-1.5">
           <Package className="h-3.5 w-3.5" /> Materialen
         </h4>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary-hover transition-colors"
-        >
-          <Plus className="h-3 w-3" /> Toevoegen
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowBrowser(true)}
+            className="flex items-center gap-1 text-[11px] font-bold text-t3 hover:text-foreground transition-colors"
+          >
+            <FolderOpen className="h-3 w-3" /> Bladeren
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary-hover transition-colors"
+          >
+            <Plus className="h-3 w-3" /> Toevoegen
+          </button>
+        </div>
       </div>
 
       {/* Add form */}
