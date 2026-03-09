@@ -788,11 +788,16 @@ Deno.serve(async (req) => {
           return jsonRes({ error: "Klant kon niet naar Exact worden gepusht" }, 500);
         }
 
+        if (!config.gl_revenue_id) {
+          return jsonRes({ error: "Stel eerst een omzet-grootboekrekening in via Instellingen > Boekhouding" }, 400);
+        }
+
         const items = (invoice.items as any[]) || [];
         const invoiceLines = items.map((item: any) => ({
           Description: item.description || item.name || "Regel",
           Quantity: item.qty || item.quantity || 1,
           NetPrice: item.unit_price || item.price || 0,
+          GLAccount: config.gl_revenue_id,
         }));
 
         if (!invoiceLines.length) {

@@ -139,6 +139,51 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
               {disconnecting ? "Ontkoppelen..." : "Ontkoppelen"}
             </button>
           </div>
+
+          {/* GL Account & Journal Code settings */}
+          <div className="border-t border-border pt-4 mt-4 space-y-3">
+            <h4 className="text-[13px] font-bold">Facturatiekoppeling</h4>
+
+            <div>
+              <label className={labelClass}>Omzet-grootboekrekening *</label>
+              {loadingGl ? (
+                <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Grootboekrekeningen ophalen...
+                </div>
+              ) : (
+                <select
+                  value={glRevenueId}
+                  onChange={(e) => {
+                    setGlRevenueId(e.target.value);
+                    handleSaveGlSettings(e.target.value, undefined);
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">— Selecteer grootboekrekening —</option>
+                  {glAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.code} — {acc.description}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {!glRevenueId && !loadingGl && (
+                <p className="text-[11px] text-destructive mt-1">⚠️ Vereist voor factuur-synchronisatie</p>
+              )}
+            </div>
+
+            <div>
+              <label className={labelClass}>Verkoopjournaal code</label>
+              <input
+                value={journalCode}
+                onChange={(e) => setJournalCode(e.target.value)}
+                onBlur={() => handleSaveGlSettings(undefined, journalCode)}
+                className={inputClass}
+                placeholder="70"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">Standaard: 70 (Verkoopboek)</p>
+            </div>
+          </div>
         </div>
       ) : isPending ? (
         <div className="space-y-2">
