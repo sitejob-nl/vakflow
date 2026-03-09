@@ -1,0 +1,1 @@
+ALTER TABLE public.exact_config ADD COLUMN IF NOT EXISTS gl_revenue_id text;
