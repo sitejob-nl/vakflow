@@ -1,51 +1,127 @@
 
+# Uitgebreide Administratie/Facturen Module per Boekhoudkoppeling
 
-## Agenda UI Verbetering — Look & Feel + Leesbaarheid
+## Huidige Situatie
 
-### Problemen
+De facturen-module is nu een generieke lijst met basis CRUD-functionaliteit. Er zijn al **6 boekhoudproviders** geïmplementeerd met uitgebreide Edge Functions:
+- **Exact Online**: sync-contacts, pull-contacts, sync-invoices, pull-invoices, pull-invoice-status, sync-quotes, pull-quotes, pull-payments
+- **Moneybird**: sync-contacts, pull-contacts, sync-invoices, pull-invoices, pull-invoice-status, sync-quotes, pull-quotes, sync-products, pull-products, pull-subscriptions
+- **Rompslomp**: sync-contacts, pull-contacts, sync-invoices, pull-invoices, pull-invoice-status, sync-quotes, pull-quotes, get-pdf
+- **WeFact**: sync-contacts, pull-contacts, sync-invoices, pull-invoices, pull-invoice-status, sync-products, pull-products
+- **e-Boekhouden**: sync, sync-all-contacts, sync-all-invoices, pull-contacts, pull-invoices, pull-invoice-status
+- **SnelStart**: artikelen, relaties, facturen, offertes, verkooporders
 
-1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
-2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
+Deze endpoints worden nauwelijks benut in de UI!
 
-### Aanpak
+---
 
-**1. Grotere tijdslots en events**
-- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
-- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
-- Meer ruimte voor service-naam en stad onder de klantnaam
+## Oplossing: Provider-specifieke Administratiemodule
 
-**2. Event cards verbeteren**
-- Subtielere achtergrondkleur met betere contrast
-- Lichte shadow toevoegen aan events voor diepte
-- Rounded corners vergroten, padding verruimen
-- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
-- Hover-effect verbeteren met schaal + shadow
+### Architectuur
 
-**3. Toolbar opschonen (desktop)**
-- Knoppen groeperen met visuele scheiders
-- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
-- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
-- Badge voor aantal afspraken subtieler
+```text
+InvoicesPage.tsx
+├── NoProviderView (standaard facturenlijst)
+└── ProviderAdminModule (dynamisch per provider)
+    ├── EboekhoudenModule
+    ├── MoneybirdModule
+    ├── RompslompModule
+    ├── WefactModule
+    ├── ExactModule
+    └── SnelstartModule
+```
 
-**4. Dagkolom headers verbeteren (desktop weekview)**
-- Datum groter en duidelijker, weekdag + dagnummer gescheiden
-- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+### 1. Facturenlijst uitbreiden
+- **Factuur klikbaar openen** → detail-sheet of fullscreen dialog
+- **Per-regel BTW** aanpasbaar (0/9/21%)
+- **Korting** per regel of op totaal (% of vast bedrag)
+- **Bijwerken bestaande factuur** met alle velden
 
-**5. Zijpaneel styling**
-- Subtielere card-styling, betere spacing
-- Status-dots vergroten in de afsprakenlijst
-- Betere typografie-hiërarchie
+### 2. Provider-specifieke actiepaneel
+Per gekoppelde provider tonen we een "Sync Center" met alle beschikbare acties:
 
-**6. Mobile day view**
-- Zelfde slot-hoogte verbetering
-- Events met meer padding en grotere tekst
+| Provider | Beschikbare acties in UI |
+|----------|--------------------------|
+| Exact | Pull/sync contacten, Pull/sync facturen, Pull betalingen, Pull/sync offertes |
+| Moneybird | Pull/sync contacten, Pull/sync facturen, Pull status, Pull producten, Pull abonnementen |
+| Rompslomp | Pull/sync contacten, Pull/sync facturen, Pull/sync offertes, Download PDF's |
+| WeFact | Pull/sync debiteuren, Pull/sync facturen, Pull producten |
+| e-Boekhouden | Full sync contacten/facturen, Pull status |
+| SnelStart | Sync artikelen, relaties, facturen |
 
-### Bestanden
+### 3. Detail-paneel per factuur
+Als een factuur een provider-ID heeft (exact_id, moneybird_id, etc.):
+- Toon **provider status** (betaald/openstaand)
+- Knop: **Open in [Provider]** (externe link)
+- Knop: **Pull status** (haal actuele betaalstatus op)
+- Bij Rompslomp/Moneybird: **Download PDF** vanuit provider
+
+### 4. Korting & BTW per regel
+Huidige factuurregels:
+```typescript
+{ description, qty, unit_price, total }
+```
+Uitbreiden naar:
+```typescript
+{ description, qty, unit_price, vat_percentage, discount, discount_type, total }
+```
+Met discount_type: 'percentage' | 'fixed'
+
+---
+
+## Implementatieplan
+
+### Fase 1: InvoiceDetailSheet (core)
+- Nieuw component: `InvoiceDetailSheet.tsx`
+- Volledig factuuroverzicht met bewerkingsmodus
+- BTW per regel selector
+- Korting per regel of op totaal
+- Provider status badge + link
+
+### Fase 2: ProviderSyncPanel component
+- Dynamisch panel dat beschikbare acties toont per provider
+- Alle hooks uit `useInvoices.ts` al beschikbaar
+- Progress indicators voor bulk sync operaties
+
+### Fase 3: InvoicesPage refactor
+- Master-detail layout (lijst links, detail rechts)
+- Provider sync-panel in header of sidebar
+- Bulk acties: "Sync alle openstaande naar [Provider]"
+
+### Fase 4: Provider-specifieke features
+- **Moneybird**: Import recurring invoices (subscriptions)
+- **Exact**: View payment history
+- **Rompslomp**: Download & attach provider PDF
+- **WeFact**: Product catalog sync
+
+---
+
+## Database wijzigingen
+
+```sql
+-- Uitbreiding factuurregels voor korting
+-- Geen schema-wijziging nodig: items is al JSONB
+-- Nieuwe properties in items[]: vat_percentage, discount, discount_type
+```
+
+---
+
+## Bestanden
 
 | Bestand | Wijziging |
-|---|---|
-| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
-| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+|---------|-----------|
+| `src/components/InvoiceDetailSheet.tsx` | **Nieuw** - volledige factuur detail/bewerk view |
+| `src/components/ProviderSyncPanel.tsx` | **Nieuw** - provider-specifieke acties |
+| `src/pages/InvoicesPage.tsx` | Refactor naar master-detail + provider panel |
+| `src/components/InvoiceDialog.tsx` | BTW per regel, korting velden |
+| `src/hooks/useInvoices.ts` | Eventuele nieuwe hooks voor provider-specifieke calls |
 
-Geen database-wijzigingen, geen nieuwe dependencies.
+---
+
+## Prioriteit
+
+1. **InvoiceDetailSheet** met provider-aware status — Hoog
+2. **BTW per regel + korting** in InvoiceDialog — Hoog
+3. **ProviderSyncPanel** met alle beschikbare acties — Gemiddeld
+4. **Provider-specifieke features** (PDF download, etc.) — Laag
 
