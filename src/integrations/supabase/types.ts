@@ -4170,6 +4170,7 @@ export type Database = {
           appointment_id: string | null
           asset_id: string | null
           assigned_to: string | null
+          attachments: Json | null
           bay_id: string | null
           checklist: Json | null
           company_id: string
@@ -4178,6 +4179,7 @@ export type Database = {
           customer_id: string
           description: string | null
           id: string
+          internal_notes: string | null
           mileage_end: number | null
           mileage_start: number | null
           notes: Json | null
@@ -4207,6 +4209,7 @@ export type Database = {
           appointment_id?: string | null
           asset_id?: string | null
           assigned_to?: string | null
+          attachments?: Json | null
           bay_id?: string | null
           checklist?: Json | null
           company_id: string
@@ -4215,6 +4218,7 @@ export type Database = {
           customer_id: string
           description?: string | null
           id?: string
+          internal_notes?: string | null
           mileage_end?: number | null
           mileage_start?: number | null
           notes?: Json | null
@@ -4244,6 +4248,7 @@ export type Database = {
           appointment_id?: string | null
           asset_id?: string | null
           assigned_to?: string | null
+          attachments?: Json | null
           bay_id?: string | null
           checklist?: Json | null
           company_id?: string
@@ -4252,6 +4257,7 @@ export type Database = {
           customer_id?: string
           description?: string | null
           id?: string
+          internal_notes?: string | null
           mileage_end?: number | null
           mileage_start?: number | null
           notes?: Json | null

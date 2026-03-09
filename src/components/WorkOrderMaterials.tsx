@@ -6,10 +6,16 @@ import {
   useDeleteWorkOrderMaterial,
   useCreateMaterial,
 } from "@/hooks/useMaterials";
-import { Package, Plus, Trash2, X } from "lucide-react";
+import { Package, Plus, Trash2, X, Search, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function WorkOrderMaterials({ workOrderId }: { workOrderId: string }) {
   const { toast } = useToast();
@@ -20,6 +26,8 @@ export default function WorkOrderMaterials({ workOrderId }: { workOrderId: strin
   const createCatalogMaterial = useCreateMaterial();
 
   const [showForm, setShowForm] = useState(false);
+  const [showBrowser, setShowBrowser] = useState(false);
+  const [browserSearch, setBrowserSearch] = useState("");
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("stuk");
   const [quantity, setQuantity] = useState("1");
@@ -99,18 +107,46 @@ export default function WorkOrderMaterials({ workOrderId }: { workOrderId: strin
     (m) => name.length > 0 && m.name.toLowerCase().includes(name.toLowerCase())
   );
 
+  const browseMaterials = (catalogMaterials ?? []).filter(
+    (m) => browserSearch.length === 0 || m.name.toLowerCase().includes(browserSearch.toLowerCase())
+  );
+
+  const handleBrowserSelect = async (mat: { id: string; name: string; unit: string; unit_price: number }) => {
+    try {
+      await addMaterial.mutateAsync({
+        work_order_id: workOrderId,
+        material_id: mat.id,
+        name: mat.name,
+        unit: mat.unit,
+        quantity: 1,
+        unit_price: mat.unit_price,
+      });
+      toast({ title: `${mat.name} toegevoegd` });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="bg-background border border-border rounded-sm p-4">
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-[11px] uppercase tracking-widest text-t3 font-bold flex items-center gap-1.5">
           <Package className="h-3.5 w-3.5" /> Materialen
         </h4>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary-hover transition-colors"
-        >
-          <Plus className="h-3 w-3" /> Toevoegen
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowBrowser(true)}
+            className="flex items-center gap-1 text-[11px] font-bold text-t3 hover:text-foreground transition-colors"
+          >
+            <FolderOpen className="h-3 w-3" /> Bladeren
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary-hover transition-colors"
+          >
+            <Plus className="h-3 w-3" /> Toevoegen
+          </button>
+        </div>
       </div>
 
       {/* Add form */}
@@ -225,6 +261,51 @@ export default function WorkOrderMaterials({ workOrderId }: { workOrderId: strin
           </div>
         </div>
       )}
+      {/* Material browser dialog */}
+      <Dialog open={showBrowser} onOpenChange={setShowBrowser}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Materialen catalogus</DialogTitle>
+          </DialogHeader>
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-t3" />
+            <Input
+              placeholder="Zoeken..."
+              value={browserSearch}
+              onChange={(e) => setBrowserSearch(e.target.value)}
+              className="pl-9"
+              autoFocus
+            />
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+            {browseMaterials.length === 0 && (
+              <p className="text-[13px] text-t3 italic text-center py-4">Geen materialen gevonden</p>
+            )}
+            {browseMaterials.map((mat) => (
+              <button
+                key={mat.id}
+                onClick={() => handleBrowserSelect(mat)}
+                disabled={addMaterial.isPending}
+                className="w-full text-left p-3 rounded-sm border border-border hover:bg-bg-hover transition-colors disabled:opacity-50"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-semibold text-[13px]">{mat.name}</p>
+                    {mat.category && <p className="text-[11px] text-t3">{mat.category}</p>}
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-[13px] text-primary">€{mat.unit_price.toFixed(2)}</p>
+                    <p className="text-[11px] text-t3">per {mat.unit}</p>
+                  </div>
+                </div>
+                {mat.stock_quantity > 0 && (
+                  <p className="text-[11px] text-success mt-1">{mat.stock_quantity} op voorraad</p>
+                )}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

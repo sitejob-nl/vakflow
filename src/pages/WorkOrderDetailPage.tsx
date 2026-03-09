@@ -5,6 +5,8 @@ import { Loader2, Plus, Download, AlertTriangle, Share2, Link2, Link2Off } from 
 import PhotoUpload from "@/components/PhotoUpload";
 import WorkOrderTimer from "@/components/WorkOrderTimer";
 import WorkOrderMaterials from "@/components/WorkOrderMaterials";
+import WorkOrderInternalNotes from "@/components/WorkOrderInternalNotes";
+import WorkOrderAttachments from "@/components/WorkOrderAttachments";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
@@ -419,6 +421,14 @@ const WorkOrderDetailPage = () => {
             )}
           </div>
 
+          {/* Interne notities */}
+          <div className="mb-3">
+            <WorkOrderInternalNotes
+              workOrderId={wo.id}
+              internalNotes={(wo as any).internal_notes ?? null}
+            />
+          </div>
+
           <div className="bg-background border border-border rounded-sm p-4">
             <h4 className="text-[11px] uppercase tracking-widest text-t3 mb-3 font-bold">Dienst & tarieven</h4>
             <div className="text-[13px]">
@@ -511,6 +521,16 @@ const WorkOrderDetailPage = () => {
               }}
             />
           </div>
+
+          {/* Bijlagen */}
+          <div className="mb-3">
+            <WorkOrderAttachments
+              workOrderId={wo.id}
+              attachments={((wo as any).attachments ?? []) as any[]}
+              companyId={wo.company_id}
+            />
+          </div>
+
           {wo.signed_by && (
             <div className="bg-background border border-border rounded-sm p-4 mb-3">
               <h4 className="text-[11px] uppercase tracking-widest text-t3 mb-3 font-bold">Handtekening klant</h4>
