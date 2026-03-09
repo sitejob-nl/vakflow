@@ -26,6 +26,8 @@ export default function WorkOrderMaterials({ workOrderId }: { workOrderId: strin
   const createCatalogMaterial = useCreateMaterial();
 
   const [showForm, setShowForm] = useState(false);
+  const [showBrowser, setShowBrowser] = useState(false);
+  const [browserSearch, setBrowserSearch] = useState("");
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("stuk");
   const [quantity, setQuantity] = useState("1");
