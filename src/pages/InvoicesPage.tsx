@@ -39,6 +39,8 @@ const InvoicesPage = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobilePreview, setMobilePreview] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
   const [page, setPage] = useState(0);
 
   const statusFilter = activeTab === 0 ? null : activeTab === 1 ? "openstaand" : "betaald";
