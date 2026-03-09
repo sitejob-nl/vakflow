@@ -699,6 +699,13 @@ const InvoicesPage = () => {
       )}
 
       <InvoiceDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <InvoiceDetailSheet
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        invoice={editInvoice}
+        accountingProvider={accountingProvider}
+        onPullStatus={() => queryClient.invalidateQueries({ queryKey: ["invoices-paginated"] })}
+      />
     </div>
   );
 };
