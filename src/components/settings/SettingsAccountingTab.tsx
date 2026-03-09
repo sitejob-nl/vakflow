@@ -6,6 +6,12 @@ import { Loader2, Check, X } from "lucide-react";
 import { useSnelstartConnection, useSaveSnelstartConnection, useDeleteSnelstartConnection, useTestSnelstartConnection } from "@/hooks/useSnelstart";
 import { SETTINGS_INPUT_CLASS as inputClass, SETTINGS_LABEL_CLASS as labelClass } from "./shared";
 
+interface GlAccount {
+  id: string;
+  code: string;
+  description: string;
+}
+
 const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: string | null; saving: boolean }) => {
   const { toast } = useToast();
   const [exactStatus, setExactStatus] = useState<string | null>(null);
@@ -13,20 +19,53 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
   const [loadingExact, setLoadingExact] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [glAccounts, setGlAccounts] = useState<GlAccount[]>([]);
+  const [glRevenueId, setGlRevenueId] = useState<string>("");
+  const [journalCode, setJournalCode] = useState<string>("70");
+  const [loadingGl, setLoadingGl] = useState(false);
+  const [savingGl, setSavingGl] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
     supabase
       .from("exact_config")
-      .select("status, company_name_exact, tenant_id")
+      .select("status, company_name_exact, tenant_id, gl_revenue_id, journal_code")
       .eq("company_id", companyId)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data }: { data: any }) => {
         setExactStatus(data?.status ?? null);
         setExactCompanyName(data?.company_name_exact ?? null);
+        setGlRevenueId(data?.gl_revenue_id ?? "");
+        setJournalCode(data?.journal_code ?? "70");
         setLoadingExact(false);
       });
   }, [companyId]);
+
+  // Fetch GL accounts when connected
+  useEffect(() => {
+    if (exactStatus !== "connected") return;
+    setLoadingGl(true);
+    supabase.functions.invoke("sync-exact", { body: { action: "fetch-gl-accounts" } })
+      .then(({ data, error }) => {
+        if (!error && data?.accounts) setGlAccounts(data.accounts);
+        setLoadingGl(false);
+      });
+  }, [exactStatus]);
+
+  const handleSaveGlSettings = async (newGlId?: string, newJournalCode?: string) => {
+    if (!companyId) return;
+    setSavingGl(true);
+    const updates: Record<string, any> = {};
+    if (newGlId !== undefined) updates.gl_revenue_id = newGlId || null;
+    if (newJournalCode !== undefined) updates.journal_code = newJournalCode || null;
+    const { error } = await supabase.from("exact_config").update(updates).eq("company_id", companyId);
+    setSavingGl(false);
+    if (error) {
+      toast({ title: "Fout bij opslaan", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Exact instellingen opgeslagen" });
+    }
+  };
 
   const handleConnect = async () => {
     if (!companyId) return;
@@ -99,6 +138,51 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
             <button onClick={handleDisconnect} disabled={disconnecting} className="px-3 py-2 bg-destructive/10 text-destructive rounded-sm text-[12px] font-medium hover:bg-destructive/20 transition-colors">
               {disconnecting ? "Ontkoppelen..." : "Ontkoppelen"}
             </button>
+          </div>
+
+          {/* GL Account & Journal Code settings */}
+          <div className="border-t border-border pt-4 mt-4 space-y-3">
+            <h4 className="text-[13px] font-bold">Facturatiekoppeling</h4>
+
+            <div>
+              <label className={labelClass}>Omzet-grootboekrekening *</label>
+              {loadingGl ? (
+                <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Grootboekrekeningen ophalen...
+                </div>
+              ) : (
+                <select
+                  value={glRevenueId}
+                  onChange={(e) => {
+                    setGlRevenueId(e.target.value);
+                    handleSaveGlSettings(e.target.value, undefined);
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">— Selecteer grootboekrekening —</option>
+                  {glAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.code} — {acc.description}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {!glRevenueId && !loadingGl && (
+                <p className="text-[11px] text-destructive mt-1">⚠️ Vereist voor factuur-synchronisatie</p>
+              )}
+            </div>
+
+            <div>
+              <label className={labelClass}>Verkoopjournaal code</label>
+              <input
+                value={journalCode}
+                onChange={(e) => setJournalCode(e.target.value)}
+                onBlur={() => handleSaveGlSettings(undefined, journalCode)}
+                className={inputClass}
+                placeholder="70"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">Standaard: 70 (Verkoopboek)</p>
+            </div>
           </div>
         </div>
       ) : isPending ? (

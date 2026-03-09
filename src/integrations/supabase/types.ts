@@ -1352,6 +1352,7 @@ export type Database = {
           company_name_exact: string | null
           created_at: string
           division: number | null
+          gl_revenue_id: string | null
           id: string
           journal_code: string | null
           region: string | null
@@ -1365,6 +1366,7 @@ export type Database = {
           company_name_exact?: string | null
           created_at?: string
           division?: number | null
+          gl_revenue_id?: string | null
           id?: string
           journal_code?: string | null
           region?: string | null
@@ -1378,6 +1380,7 @@ export type Database = {
           company_name_exact?: string | null
           created_at?: string
           division?: number | null
+          gl_revenue_id?: string | null
           id?: string
           journal_code?: string | null
           region?: string | null
