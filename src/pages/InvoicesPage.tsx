@@ -234,6 +234,11 @@ const InvoicesPage = () => {
     setMobilePreview(true);
   };
 
+  const handleOpenDetail = (inv: Invoice) => {
+    setEditInvoice(inv);
+    setDetailSheetOpen(true);
+  };
+
   // Invoice preview component
   const InvoicePreview = () => {
     if (!selected) return (
