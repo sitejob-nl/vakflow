@@ -261,6 +261,51 @@ export default function WorkOrderMaterials({ workOrderId }: { workOrderId: strin
           </div>
         </div>
       )}
+      {/* Material browser dialog */}
+      <Dialog open={showBrowser} onOpenChange={setShowBrowser}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Materialen catalogus</DialogTitle>
+          </DialogHeader>
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-t3" />
+            <Input
+              placeholder="Zoeken..."
+              value={browserSearch}
+              onChange={(e) => setBrowserSearch(e.target.value)}
+              className="pl-9"
+              autoFocus
+            />
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+            {browseMaterials.length === 0 && (
+              <p className="text-[13px] text-t3 italic text-center py-4">Geen materialen gevonden</p>
+            )}
+            {browseMaterials.map((mat) => (
+              <button
+                key={mat.id}
+                onClick={() => handleBrowserSelect(mat)}
+                disabled={addMaterial.isPending}
+                className="w-full text-left p-3 rounded-sm border border-border hover:bg-bg-hover transition-colors disabled:opacity-50"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-semibold text-[13px]">{mat.name}</p>
+                    {mat.category && <p className="text-[11px] text-t3">{mat.category}</p>}
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-[13px] text-primary">€{mat.unit_price.toFixed(2)}</p>
+                    <p className="text-[11px] text-t3">per {mat.unit}</p>
+                  </div>
+                </div>
+                {mat.stock_quantity > 0 && (
+                  <p className="text-[11px] text-success mt-1">{mat.stock_quantity} op voorraad</p>
+                )}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
