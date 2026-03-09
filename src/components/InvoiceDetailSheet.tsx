@@ -164,9 +164,18 @@ const InvoiceDetailSheet = ({ open, onOpenChange, invoice, accountingProvider, o
     if (!invoice) return;
     setSaving(true);
     try {
+      const itemsJson = items.filter((i) => i.description).map(recalcItem).map((item) => ({
+        description: item.description,
+        qty: item.qty,
+        unit_price: item.unit_price,
+        vat_percentage: item.vat_percentage,
+        discount: item.discount,
+        discount_type: item.discount_type,
+        total: item.total,
+      }));
       await updateInvoice.mutateAsync({
         id: invoice.id,
-        items: items.filter((i) => i.description).map(recalcItem),
+        items: itemsJson as any,
         subtotal: Number(subtotal.toFixed(2)),
         vat_percentage: globalVat,
         vat_amount: Number(vatAmount.toFixed(2)),
