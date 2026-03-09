@@ -408,12 +408,12 @@ const InvoiceDetailSheet = ({ open, onOpenChange, invoice, accountingProvider, o
                   <span className="text-sm font-medium">{providerLabels[accountingProvider]}</span>
                   {providerId ? (
                     <Badge variant="outline" className="text-xs">
-                      <CheckCircle2 className="w-3 h-3 mr-1 text-green-500" />
+                      <CheckCircle2 className="w-3 h-3 mr-1 text-success" />
                       Gekoppeld
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="text-xs">
-                      <Clock className="w-3 h-3 mr-1 text-yellow-500" />
+                      <Clock className="w-3 h-3 mr-1 text-warning" />
                       Niet gesynchroniseerd
                     </Badge>
                   )}
