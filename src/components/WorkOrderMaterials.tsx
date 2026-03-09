@@ -6,10 +6,16 @@ import {
   useDeleteWorkOrderMaterial,
   useCreateMaterial,
 } from "@/hooks/useMaterials";
-import { Package, Plus, Trash2, X } from "lucide-react";
+import { Package, Plus, Trash2, X, Search, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function WorkOrderMaterials({ workOrderId }: { workOrderId: string }) {
   const { toast } = useToast();
