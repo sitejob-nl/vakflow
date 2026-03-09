@@ -3,7 +3,7 @@ import { Paperclip, Plus, Trash2, Download, FileText, Loader2 } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { useUpdateWorkOrder } from "@/hooks/useWorkOrders";
 import { useToast } from "@/hooks/use-toast";
-import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Attachment {
@@ -16,6 +16,7 @@ interface Attachment {
 interface Props {
   workOrderId: string;
   attachments: Attachment[];
+  companyId: string;
 }
 
 const formatFileSize = (bytes: number) => {
@@ -24,9 +25,8 @@ const formatFileSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export default function WorkOrderAttachments({ workOrderId, attachments }: Props) {
+export default function WorkOrderAttachments({ workOrderId, attachments, companyId }: Props) {
   const { toast } = useToast();
-  const { companyId } = useTenant();
   const updateWO = useUpdateWorkOrder();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
