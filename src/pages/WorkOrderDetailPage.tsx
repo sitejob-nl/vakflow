@@ -521,6 +521,16 @@ const WorkOrderDetailPage = () => {
               }}
             />
           </div>
+
+          {/* Bijlagen */}
+          <div className="mb-3">
+            <WorkOrderAttachments
+              workOrderId={wo.id}
+              attachments={((wo as any).attachments ?? []) as any[]}
+              companyId={wo.company_id}
+            />
+          </div>
+
           {wo.signed_by && (
             <div className="bg-background border border-border rounded-sm p-4 mb-3">
               <h4 className="text-[11px] uppercase tracking-widest text-t3 mb-3 font-bold">Handtekening klant</h4>
