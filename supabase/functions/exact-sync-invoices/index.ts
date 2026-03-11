@@ -169,9 +169,9 @@ async function pullPaymentStatus(supabase: any, accessToken: string, baseUrl: st
 }
 
 function mapVatCode(vatPct: number): string {
-  if (vatPct === 0) return "1";
-  if (vatPct === 9) return "4";
-  return "2"; // 21%
+  if (vatPct === 0) return "VN";
+  if (vatPct === 9) return "VL";
+  return "VH"; // 21%
 }
 
 async function getDefaultRevenueGLAccount(accessToken: string, baseUrl: string, division: number): Promise<string | null> {
