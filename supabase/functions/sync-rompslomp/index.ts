@@ -317,12 +317,15 @@ Deno.serve(async (req) => {
     if (action === "pull-invoices") {
       let page = 1;
       let allInvoices: any[] = [];
+      const PER_PAGE = 100;
+      let totalRecords: number | null = null;
       while (true) {
-        const result = await rompslompGet(rompslompCompanyId, `/sales_invoices?page=${page}&per_page=100`, apiToken);
-        const invoices = result?.sales_invoices || result || [];
+        const { data: result, total, perPage } = await rompslompGet(rompslompCompanyId, `/sales_invoices?page=${page}&per_page=${PER_PAGE}`, apiToken);
+        const invoices = (result as any)?.sales_invoices || result || [];
         if (!Array.isArray(invoices) || invoices.length === 0) break;
         allInvoices = allInvoices.concat(invoices);
-        if (invoices.length < 100) break;
+        if (totalRecords === null && total !== null) totalRecords = total;
+        if (totalRecords !== null ? allInvoices.length >= totalRecords : invoices.length < (perPage || PER_PAGE)) break;
         page++;
       }
 
