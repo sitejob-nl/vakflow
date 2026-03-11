@@ -502,7 +502,7 @@ Deno.serve(async (req) => {
               InvoiceDate: inv.issued_at || new Date().toISOString().split("T")[0],
               SalesInvoiceLines: invoiceLines,
             };
-            if (config?.journal_code) invoiceData.Journal = config.journal_code;
+            if (config?.journal_code) invoiceData.Journal = parseInt(config.journal_code, 10) || config.journal_code;
 
             if (inv.due_at) {
               invoiceData.DueDate = inv.due_at;
