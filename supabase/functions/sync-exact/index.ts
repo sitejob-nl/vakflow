@@ -255,7 +255,7 @@ Deno.serve(async (req) => {
         // Push new customers
         for (const cust of newCustomers || []) {
           try {
-            const accountData: Record<string, unknown> = {
+            const accountData = cleanBody({
               Name: cust.name,
               Status: "C",
               Country: "NL",
@@ -266,7 +266,7 @@ Deno.serve(async (req) => {
               AddressLine1: cust.address || undefined,
               ...(cust.kvk_number ? { ChamberOfCommerce: cust.kvk_number } : {}),
               ...(cust.btw_number ? { VATNumber: cust.btw_number } : {}),
-            };
+            });
 
             const result = await exactPost(
               `${base_url}/api/v1/${division}/crm/Accounts`,
