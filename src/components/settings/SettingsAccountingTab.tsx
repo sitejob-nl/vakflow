@@ -251,7 +251,45 @@ const PROVIDERS = [
   { key: "snelstart", label: "SnelStart" },
 ] as const;
 
-const SettingsAccountingTab = () => {
+type RompslompTab = "contacts" | "invoices" | "quotations" | "products";
+const ROMPSLOMP_TABS: { key: RompslompTab; label: string }[] = [
+  { key: "contacts", label: "Contacten" },
+  { key: "invoices", label: "Facturen" },
+  { key: "quotations", label: "Offertes" },
+  { key: "products", label: "Producten" },
+];
+
+const RompslompManagementSection = () => {
+  const [activeTab, setActiveTab] = useState<RompslompTab>("contacts");
+  return (
+    <div className="border-t border-border pt-5 space-y-3">
+      <h3 className="text-[14px] font-bold">Rompslomp beheer</h3>
+      <div className="flex gap-1 border-b border-border pb-0">
+        {ROMPSLOMP_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-3 py-1.5 text-[12px] font-medium rounded-t-sm transition-colors border-b-2 -mb-px ${
+              activeTab === tab.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+        {activeTab === "contacts" && <RompslompContacts />}
+        {activeTab === "invoices" && <RompslompInvoices />}
+        {activeTab === "quotations" && <RompslompQuotations />}
+        {activeTab === "products" && <RompslompProducts />}
+      </Suspense>
+    </div>
+  );
+};
+
+
   const { companyId } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
