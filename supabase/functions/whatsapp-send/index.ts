@@ -196,6 +196,28 @@ Deno.serve(async (req) => {
       return jsonRes({ ok: true });
     }
 
+    // === PHONE QUALITY ===
+    if (body.action === "phone_quality") {
+      if (!config?.phone_number_id) return jsonRes({ error: "Niet gekoppeld" }, 400);
+      const res = await fetch(
+        `https://graph.facebook.com/v25.0/${config.phone_number_id}?fields=quality_rating,verified_name,code_verification_status,display_phone_number,name_status,is_official_business_account`,
+        { headers: { Authorization: `Bearer ${config.access_token}` } }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("Phone quality error:", JSON.stringify(data));
+        return jsonRes({ error: data.error?.message || "Quality ophalen mislukt" }, res.status);
+      }
+      return jsonRes({
+        quality_rating: data.quality_rating || null,
+        verified_name: data.verified_name || null,
+        code_verification_status: data.code_verification_status || null,
+        display_phone_number: data.display_phone_number || null,
+        name_status: data.name_status || null,
+        is_official_business_account: data.is_official_business_account || false,
+      });
+    }
+
     // === TYPING INDICATOR ===
     if (body.action === "typing") {
       if (!config) return jsonRes({ error: "WhatsApp niet gekoppeld" }, 400);
