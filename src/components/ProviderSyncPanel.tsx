@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +12,6 @@ import {
   useSyncContactsRompslomp, usePullContactsRompslomp, useSyncInvoicesRompslomp, usePullInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncQuotesRompslomp, usePullQuotesRompslomp,
   useSyncContactsMoneybird, usePullContactsMoneybird, useSyncInvoicesMoneybird, usePullInvoicesMoneybird, usePullInvoiceStatusMoneybird, useSyncQuotesMoneybird, usePullQuotesMoneybird, useSyncProductsMoneybird, usePullProductsMoneybird, usePullSubscriptionsMoneybird,
   useSyncAllContactsEboekhouden, useSyncAllInvoicesEboekhouden, usePullContactsEboekhouden, usePullInvoicesEboekhouden, usePullInvoiceStatusEboekhouden,
-  useSyncContactsExact, usePullContactsExact, useSyncInvoicesExact, usePullInvoicesExact, usePullInvoiceStatusExact, useSyncQuotesExact, usePullQuotesExact,
   useSyncContactsWefact, usePullContactsWefact, useSyncInvoicesWefact, usePullInvoicesWefact, usePullInvoiceStatusWefact, useSyncProductsWefact, usePullProductsWefact,
 } from "@/hooks/useInvoices";
 
@@ -72,15 +71,6 @@ const ProviderSyncPanel = ({ provider }: Props) => {
   const pullInvoicesEb = usePullInvoicesEboekhouden();
   const pullStatusEb = usePullInvoiceStatusEboekhouden();
 
-  // Exact hooks
-  const syncContactsExact = useSyncContactsExact();
-  const pullContactsExact = usePullContactsExact();
-  const syncInvoicesExact = useSyncInvoicesExact();
-  const pullInvoicesExact = usePullInvoicesExact();
-  const pullStatusExact = usePullInvoiceStatusExact();
-  const syncQuotesExact = useSyncQuotesExact();
-  const pullQuotesExact = usePullQuotesExact();
-
   // WeFact hooks
   const syncContactsWefact = useSyncContactsWefact();
   const pullContactsWefact = usePullContactsWefact();
@@ -126,17 +116,6 @@ const ProviderSyncPanel = ({ provider }: Props) => {
           { label: "Pull betaalstatus", description: "Haal actuele betaalstatus op", icon: <RefreshCw className="w-4 h-4" />, direction: "pull", category: "invoices", action: () => pullStatusEb.mutateAsync() },
         ];
 
-      case "exact":
-        return [
-          { label: "Push contacten", description: "Stuur klanten naar Exact Online", icon: <ArrowUpFromLine className="w-4 h-4" />, direction: "push", category: "contacts", action: () => syncContactsExact.mutateAsync() },
-          { label: "Pull contacten", description: "Haal klanten op uit Exact Online", icon: <ArrowDownToLine className="w-4 h-4" />, direction: "pull", category: "contacts", action: () => pullContactsExact.mutateAsync() },
-          { label: "Push facturen", description: "Stuur facturen naar Exact Online", icon: <ArrowUpFromLine className="w-4 h-4" />, direction: "push", category: "invoices", action: () => syncInvoicesExact.mutateAsync() },
-          { label: "Pull facturen", description: "Haal facturen op uit Exact Online", icon: <ArrowDownToLine className="w-4 h-4" />, direction: "pull", category: "invoices", action: () => pullInvoicesExact.mutateAsync() },
-          { label: "Pull betaalstatus", description: "Haal actuele betaalstatus op", icon: <RefreshCw className="w-4 h-4" />, direction: "pull", category: "invoices", action: () => pullStatusExact.mutateAsync() },
-          { label: "Push offertes", description: "Stuur offertes naar Exact Online", icon: <ArrowUpFromLine className="w-4 h-4" />, direction: "push", category: "quotes", action: () => syncQuotesExact.mutateAsync() },
-          { label: "Pull offertes", description: "Haal offertes op uit Exact Online", icon: <ArrowDownToLine className="w-4 h-4" />, direction: "pull", category: "quotes", action: () => pullQuotesExact.mutateAsync() },
-        ];
-
       case "wefact":
         return [
           { label: "Push debiteuren", description: "Stuur klanten naar WeFact", icon: <ArrowUpFromLine className="w-4 h-4" />, direction: "push", category: "contacts", action: () => syncContactsWefact.mutateAsync() },
@@ -147,6 +126,10 @@ const ProviderSyncPanel = ({ provider }: Props) => {
           { label: "Push producten", description: "Stuur materialen naar WeFact", icon: <ArrowUpFromLine className="w-4 h-4" />, direction: "push", category: "products", action: () => syncProductsWefact.mutateAsync() },
           { label: "Pull producten", description: "Haal producten op uit WeFact", icon: <ArrowDownToLine className="w-4 h-4" />, direction: "pull", category: "products", action: () => pullProductsWefact.mutateAsync() },
         ];
+
+      // Exact sync is now handled in ExactAdmin.tsx directly
+      case "exact":
+        return [];
 
       default:
         return [];
@@ -199,7 +182,6 @@ const ProviderSyncPanel = ({ provider }: Props) => {
     subscriptions: "Abonnementen",
   };
 
-  // Group actions by category
   const categories = [...new Set(actions.map((a) => a.category))];
 
   return (
