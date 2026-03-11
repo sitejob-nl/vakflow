@@ -23,9 +23,16 @@ Deno.serve(async (req) => {
 
     const tokenData = await getExactTokenFromConnection(connection);
     const division = tokenData.division;
+
+    // Endpoints like /current/Me don't need a division prefix
+    const noDivisionPrefixes = ["/current/"];
+    const needsDivision = !noDivisionPrefixes.some(p => endpoint.startsWith(p));
+
     const exactEndpoint = endpoint.startsWith("/api/v1/")
       ? endpoint.replace("{division}", division.toString())
-      : `/api/v1/${division}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
+      : needsDivision
+        ? `/api/v1/${division}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`
+        : `/api/v1${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
     const exactUrl = `${tokenData.base_url}${exactEndpoint}`;
 
     const exactResponse = await fetch(exactUrl, {

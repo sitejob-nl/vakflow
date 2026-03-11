@@ -1,21 +1,51 @@
 
 
-# Fix: Exact API 404 op `/current/Me` endpoint
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Probleem
+### Problemen
 
-Het endpoint `/current/Me` wordt omgebouwd naar `/api/v1/{division}/current/Me`, maar Exact Online verwacht dit op `/api/v1/current/Me` (zonder division prefix). Dat verklaart de 404.
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-De uploaded werkende code (index_32.ts) gebruikt `exactFetch` met altijd `${baseUrl}/api/v1/${division}/${path}`, maar roept `/current/Me` nooit via die helper aan — het wordt apart afgehandeld.
+### Aanpak
 
-## Oplossing
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-In `exact-api/index.ts`: detecteer endpoints die GEEN division prefix nodig hebben (zoals `/current/Me`) en bouw de URL correct op.
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-```
-if endpoint starts with "/current/" → /api/v1/current/...
-else → /api/v1/{division}/...
-```
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-Eén kleine wijziging in de URL-constructie logica van `exact-api/index.ts`, daarna redeployen.
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
+
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
+
+### Bestanden
+
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+
+Geen database-wijzigingen, geen nieuwe dependencies.
 
