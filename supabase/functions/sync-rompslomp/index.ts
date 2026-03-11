@@ -549,8 +549,8 @@ Deno.serve(async (req) => {
           if (existingSet.has(rompId)) continue;
 
           // Fetch full detail
-          const fullResult = await rompslompGet(rompslompCompanyId, `/quotations/${rQuote.id}`, apiToken);
-          const rQ = fullResult?.quotation || fullResult;
+          const { data: fullResult } = await rompslompGet(rompslompCompanyId, `/quotations/${rQuote.id}`, apiToken);
+          const rQ = (fullResult as any)?.quotation || fullResult;
 
           const contactId = rQ.contact_id ? String(rQ.contact_id) : null;
           let customer = null;
