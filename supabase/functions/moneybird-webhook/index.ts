@@ -5,7 +5,7 @@ import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 /**
  * Moneybird Webhook Receiver
  * Receives POST from Moneybird with event payloads.
- * verify_jwt = false — validates by matching administration_id to a known company.
+ * verify_jwt = false — validates via URL secret + administration_id match.
  */
 
 Deno.serve(async (req) => {
@@ -15,6 +15,14 @@ Deno.serve(async (req) => {
   const supabaseAdmin = createAdminClient();
 
   try {
+    // Verify URL-based webhook secret
+    const url = new URL(req.url);
+    const urlSecret = url.searchParams.get("secret");
+    if (!urlSecret) {
+      console.warn("moneybird-webhook: missing secret parameter");
+      return jsonRes({ error: "Unauthorized" }, 401);
+    }
+
     const payload = await req.json();
 
     // Moneybird webhook payload structure:
@@ -27,16 +35,22 @@ Deno.serve(async (req) => {
 
     const adminIdStr = String(administration_id);
 
-    // Lookup company by moneybird_administration_id
+    // Lookup company by moneybird_administration_id AND verify webhook secret
     const { data: company, error: companyErr } = await supabaseAdmin
       .from("companies")
-      .select("id, moneybird_api_token, moneybird_administration_id")
+      .select("id, moneybird_api_token, moneybird_administration_id, moneybird_webhook_secret")
       .eq("moneybird_administration_id", adminIdStr)
       .maybeSingle();
 
     if (companyErr || !company) {
       console.warn(`moneybird-webhook: unknown administration_id ${adminIdStr}`);
       return jsonRes({ ok: true, skipped: "unknown_administration" });
+    }
+
+    // Verify webhook secret matches
+    if (company.moneybird_webhook_secret && company.moneybird_webhook_secret !== urlSecret) {
+      console.warn(`moneybird-webhook: invalid secret for company ${company.id}`);
+      return jsonRes({ error: "Invalid webhook secret" }, 403);
     }
 
     const companyId = company.id;

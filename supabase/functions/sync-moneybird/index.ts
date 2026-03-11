@@ -1016,7 +1016,11 @@ Deno.serve(async (req) => {
     // Action: register-webhook
     if (action === "register-webhook") {
       const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-      const callbackUrl = `${supabaseUrl}/functions/v1/moneybird-webhook`;
+
+      // Generate a random secret for webhook verification
+      const secretBytes = crypto.getRandomValues(new Uint8Array(32));
+      const webhookSecret = Array.from(secretBytes).map(b => b.toString(16).padStart(2, "0")).join("");
+      const callbackUrl = `${supabaseUrl}/functions/v1/moneybird-webhook?secret=${webhookSecret}`;
 
       const webhookData = {
         url: callbackUrl,
@@ -1031,6 +1035,11 @@ Deno.serve(async (req) => {
 
       const result = await mbPost(adminId, "webhooks", apiToken, webhookData);
       const webhookId = result?.id ? String(result.id) : null;
+
+      // Store the secret in the company record for verification
+      if (webhookId) {
+        await supabaseAdmin.from("companies").update({ moneybird_webhook_secret: webhookSecret }).eq("id", companyId);
+      }
 
       console.log(`register-webhook: created webhook ${webhookId} for company ${companyId}`);
       return jsonRes({ success: true, webhook_id: webhookId, callback_url: callbackUrl });

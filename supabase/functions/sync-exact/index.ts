@@ -2,7 +2,7 @@ import { jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { logUsage } from "../_shared/usage.ts";
 import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
-import { getExactTokenFromConnection } from "../_shared/exact-connect.ts";
+import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
 /** Parse OData v3 /Date(...)/ or ISO date strings to YYYY-MM-DD */
 function parseODataDate(val: unknown): string | null {
@@ -21,11 +21,28 @@ function cleanBody(obj: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== undefined));
 }
 
-// ExactToken type kept for internal use
 interface ExactToken {
   access_token: string;
   division: number;
+  region: string;
   base_url: string;
+  expires_at: string;
+}
+
+async function getExactToken(tenantId: string, webhookSecret: string): Promise<ExactToken> {
+  const res = await fetch("https://xeshjkznwdrxjjhbpisn.supabase.co/functions/v1/exact-token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tenant_id: tenantId, secret: webhookSecret }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    if (err.needs_reauth) throw new Error("REAUTH_REQUIRED");
+    throw new Error(err.error || `Token request failed: ${res.status}`);
+  }
+
+  return res.json();
 }
 
 /** Paginated GET using __next URL pattern (OData v3) */
@@ -181,35 +198,27 @@ Deno.serve(async (req) => {
     // Rate limit: max 5 syncs per minute per company
     await checkRateLimit(supabaseAdmin, companyId, "sync_exact", 5);
 
-    // Get exact_online_connections (source of truth for token)
-    const { data: connection } = await supabaseAdmin
-      .from("exact_online_connections")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (!connection?.tenant_id || !connection?.webhook_secret) {
-      return jsonRes({ error: "Exact Online is niet gekoppeld" }, 400);
-    }
-
-    // Get exact_config for GL/journal settings
+    // Get exact config
     const { data: config } = await supabaseAdmin
       .from("exact_config")
       .select("*")
       .eq("company_id", companyId)
       .maybeSingle();
 
+    if (!config?.tenant_id || !config?.webhook_secret) {
+      return jsonRes({ error: "Exact Online is niet gekoppeld" }, 400);
+    }
+
     const body = await req.json();
     const { action } = body;
 
-    // Get fresh token via shared helper
+    // Get fresh token
     let tokenData: ExactToken;
     try {
-      tokenData = await getExactTokenFromConnection(connection);
+      tokenData = await getExactToken(config.tenant_id, config.webhook_secret);
     } catch (err: any) {
-      if (err.message === "REAUTH_REQUIRED" || err.message?.includes("Tenant not active")) {
-        await supabaseAdmin.from("exact_online_connections").update({ is_active: false, updated_at: new Date().toISOString() }).eq("company_id", companyId);
+      if (err.message === "REAUTH_REQUIRED" || err.message === "Tenant not active" || (err.message && err.message.includes("Tenant not active"))) {
+        await supabaseAdmin.from("exact_config").update({ status: "error", updated_at: new Date().toISOString() }).eq("company_id", companyId);
         return jsonRes({ error: "Exact Online koppeling niet actief. Koppel opnieuw via instellingen.", needs_reauth: true }, 401);
       }
       throw err;
@@ -419,20 +428,25 @@ Deno.serve(async (req) => {
         return jsonRes({ success: true, exact_account_id: exactId });
       }
 
-      // ── Fix 1: status filter + Fix 5: qty mapping ──
+      // ── sync-invoices: push to Exact ──
       case "sync-invoices": {
         if (!config.gl_revenue_id) {
           return jsonRes({ error: "Stel eerst een omzet-grootboekrekening in via Instellingen > Boekhouding" }, 400);
         }
+
+        // Only sync invoices from the current fiscal year to avoid closed-period errors
+        const currentYear = new Date().getFullYear();
+        const fiscalYearStart = `${currentYear}-01-01`;
 
         const { data: invoices } = await supabaseAdmin
           .from("invoices")
           .select("*, customers(id, name, email, exact_account_id, phone, city, postal_code, address, kvk_number, btw_number)")
           .eq("company_id", companyId)
           .in("status", ["verzonden", "verstuurd"])
-          .is("exact_id", null);
+          .is("exact_id", null)
+          .gte("issued_at", fiscalYearStart);
 
-        if (!invoices?.length) return jsonRes({ synced: 0, skipped: 0, errors: [], auto_synced_customers: 0 });
+        if (!invoices?.length) return jsonRes({ synced: 0, skipped: 0, errors: [], auto_synced_customers: 0, skipped_old: 0 });
 
         // Pre-check: auto-push customers without exact_account_id
         let autoSyncedCustomers = 0;
@@ -461,13 +475,21 @@ Deno.serve(async (req) => {
               continue;
             }
 
+            const vatPct = Number(inv.vat_percentage || 21);
+            const vatDivisor = 1 + vatPct / 100;
+
             const items = (inv.items as any[]) || [];
-            const invoiceLines = items.map((item: any) => ({
-              Description: item.description || item.name || "Regel",
-              Quantity: item.qty || item.quantity || 1,
-              NetPrice: item.unit_price || item.price || 0,
-              GLAccount: config.gl_revenue_id,
-            }));
+            const invoiceLines = items.map((item: any) => {
+              // unit_price in Vakflow is incl. BTW; Exact expects excl. BTW (NetPrice)
+              const priceIncl = Number(item.unit_price || item.price || 0);
+              const priceExcl = priceIncl / vatDivisor;
+              return {
+                Description: item.description || item.name || "Regel",
+                Quantity: item.qty || item.quantity || 1,
+                NetPrice: Math.round(priceExcl * 100) / 100,
+                GLAccount: config.gl_revenue_id,
+              };
+            });
 
             if (!invoiceLines.length) {
               skipped++;
@@ -496,6 +518,8 @@ Deno.serve(async (req) => {
 
             if (!result.ok) {
               errors.push(`${inv.invoice_number}: ${result.error}`);
+              // Log individual failures for debugging
+              await logEdgeFunctionError(supabaseAdmin, "sync-exact", `Invoice ${inv.invoice_number} sync failed: ${result.error}`, { invoice_id: inv.id, status: result.status });
               continue;
             }
 
@@ -510,6 +534,7 @@ Deno.serve(async (req) => {
             synced++;
           } catch (err: any) {
             errors.push(`${inv.invoice_number}: ${err.message}`);
+            await logEdgeFunctionError(supabaseAdmin, "sync-exact", `Invoice ${inv.invoice_number} exception: ${err.message}`, { invoice_id: inv.id, stack: err.stack });
           }
         }
 
@@ -832,13 +857,20 @@ Deno.serve(async (req) => {
           return jsonRes({ error: "Stel eerst een omzet-grootboekrekening in via Instellingen > Boekhouding" }, 400);
         }
 
+        const vatPct = Number(invoice.vat_percentage || 21);
+        const vatDivisor = 1 + vatPct / 100;
+
         const items = (invoice.items as any[]) || [];
-        const invoiceLines = items.map((item: any) => ({
-          Description: item.description || item.name || "Regel",
-          Quantity: item.qty || item.quantity || 1,
-          NetPrice: item.unit_price || item.price || 0,
-          GLAccount: config.gl_revenue_id,
-        }));
+        const invoiceLines = items.map((item: any) => {
+          const priceIncl = Number(item.unit_price || item.price || 0);
+          const priceExcl = priceIncl / vatDivisor;
+          return {
+            Description: item.description || item.name || "Regel",
+            Quantity: item.qty || item.quantity || 1,
+            NetPrice: Math.round(priceExcl * 100) / 100,
+            GLAccount: config.gl_revenue_id,
+          };
+        });
 
         if (!invoiceLines.length) {
           return jsonRes({ error: "Geen factuurregels" }, 400);
