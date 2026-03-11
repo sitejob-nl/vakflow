@@ -1,48 +1,51 @@
 
 
-# WhatsApp Instellingen — UI Uitbreiding
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Analyse
+### Problemen
 
-Vakflow's WhatsApp **backend** is al uitgebreider dan de referentie (multi-tenant, alle berichttypen, rate limiting, error mapping, typing indicator). De referentie biedt echter een veel rijkere **instellingen-UI** (1248 regels vs. Vakflow's 177 regels).
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-## Wat Vakflow al heeft (backend)
+### Aanpak
 
-| Feature | Backend | UI |
-|---------|---------|-----|
-| Business profiel get/update/upload foto | ✓ | Deels (geen foto, geen vertical, geen websites) |
-| Template ophalen | ✓ | ✓ (read-only lijst) |
-| Template create/delete | ✓ | ✗ |
-| Disconnect | ✓ | ✗ |
-| Mark as read / Typing | ✓ | ✓ (in chat) |
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-## Wat ontbreekt
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-### 1. Phone quality check (nieuw backend endpoint)
-Vakflow mist een `quality_rating` / `verified_name` / `code_verification_status` endpoint. Toevoegen als nieuwe actie `"phone_quality"` in `whatsapp-send/index.ts`.
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-### 2. Rijkere SettingsWhatsAppTab (UI upgrade)
-De huidige tab is minimaal. Uitbreiden met:
-- **Telefoonkwaliteit badge** — quality_rating (GREEN/YELLOW/RED), verified_name, verificatiestatus
-- **Berichtenstatistieken** — verstuurd/ontvangen/afgeleverd/gelezen met Recharts grafiek per dag (periode-selector: 7/14/30 dagen)
-- **Template management** — toevoegen van create en delete knoppen (backend bestaat al in `whatsapp-templates`)
-- **Volledig profiel** — vertical-selectie, websites beheer, profielfoto uploaden (backend bestaat al in `whatsapp-business-profile`)
-- **Ontkoppelen** — disconnect knop met bevestigingsdialoog
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-## Implementatieplan
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-### Stap 1: Phone quality actie toevoegen aan `whatsapp-send/index.ts`
-Nieuwe `action: "phone_quality"` die `quality_rating`, `verified_name`, `code_verification_status`, `display_phone_number` ophaalt via Meta Graph API.
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-### Stap 2: `SettingsWhatsAppTab.tsx` herschrijven
-Uitbreiden van 177 → ~600 regels met alle bovengenoemde features. Blijft Vakflow's design-systeem en hooks-patroon gebruiken (useQuery/useMutation via bestaande hooks + nieuwe inline fetches).
+### Bestanden
 
-## Bestanden
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
 
-| Bestand | Actie |
-|---------|-------|
-| `supabase/functions/whatsapp-send/index.ts` | Toevoegen `phone_quality` actie (~15 regels) |
-| `src/components/settings/SettingsWhatsAppTab.tsx` | Herschrijven met uitgebreide UI |
-
-Geen database-wijzigingen nodig.
+Geen database-wijzigingen, geen nieuwe dependencies.
 
