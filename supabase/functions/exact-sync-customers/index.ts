@@ -1,7 +1,7 @@
 // exact-sync-customers — Push/Pull/Sync klanten naar/van Exact Online
 // Aangepast aan Vakflow schema: customers.name (niet first_name/last_name), company_id (niet division_id)
 
-import { corsHeaders, jsonRes, optionsResponse } from "../_shared/cors.ts";
+import { jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { getExactTokenFromConnection } from "../_shared/exact-connect.ts";
 
