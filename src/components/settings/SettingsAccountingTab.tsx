@@ -18,11 +18,22 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
   const [disconnecting, setDisconnecting] = useState(false);
   const [connection, setConnection] = useState<any>(null);
 
+  // GL / Journal config state
+  const [glAccounts, setGlAccounts] = useState<GlAccount[]>([]);
+  const [journals, setJournals] = useState<GlAccount[]>([]);
+  const [selectedGl, setSelectedGl] = useState("");
+  const [selectedJournal, setSelectedJournal] = useState("");
+  const [loadingGl, setLoadingGl] = useState(false);
+  const [loadingJournals, setLoadingJournals] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [glError, setGlError] = useState("");
+  const [journalError, setJournalError] = useState("");
+
   useEffect(() => {
     if (!companyId) return;
     supabase
       .from("exact_online_connections" as any)
-      .select("id, is_active, company_name, tenant_id, exact_division, connected_at")
+      .select("id, is_active, company_name, tenant_id, exact_division, connected_at, division_id")
       .eq("company_id", companyId)
       .maybeSingle()
       .then(({ data }: { data: any }) => {
@@ -30,6 +41,75 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
         setLoadingExact(false);
       });
   }, [companyId]);
+
+  // Load current exact_config values
+  useEffect(() => {
+    if (!companyId) return;
+    supabase
+      .from("exact_config" as any)
+      .select("gl_revenue_id, journal_code")
+      .eq("company_id", companyId)
+      .maybeSingle()
+      .then(({ data }: { data: any }) => {
+        if (data) {
+          setSelectedGl(data.gl_revenue_id ?? "");
+          setSelectedJournal(data.journal_code ?? "");
+        }
+      });
+  }, [companyId]);
+
+  // Fetch GL accounts & journals when connected
+  const isConnected = connection?.is_active === true;
+  const divisionId = connection?.division_id;
+
+  useEffect(() => {
+    if (!isConnected || !divisionId) return;
+
+    const fetchExactData = async (endpoint: string, setter: (v: GlAccount[]) => void, setLoading: (v: boolean) => void, setErr: (v: string) => void) => {
+      setLoading(true);
+      setErr("");
+      try {
+        const { data, error } = await supabase.functions.invoke("exact-api", {
+          body: { divisionId, endpoint, method: "GET" },
+        });
+        if (error || data?.error) throw new Error(data?.error || error?.message);
+        const results = data?.d?.results ?? data?.d ?? [];
+        setter(
+          results.map((r: any) => ({
+            id: r.ID ?? r.Code ?? "",
+            code: r.Code?.toString() ?? "",
+            description: r.Description ?? "",
+          }))
+        );
+      } catch (err: any) {
+        setErr(err.message || "Kon data niet ophalen");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExactData(
+      "financial/GLAccounts?$filter=Type eq 110&$select=ID,Code,Description",
+      setGlAccounts, setLoadingGl, setGlError
+    );
+    fetchExactData(
+      "financial/Journals?$filter=Type eq 20&$select=ID,Code,Description",
+      setJournals, setLoadingJournals, setJournalError
+    );
+  }, [isConnected, divisionId]);
+
+  const handleSaveExactConfig = async (field: "gl_revenue_id" | "journal_code", value: string) => {
+    if (!companyId) return;
+    setSavingConfig(true);
+    const updates: Record<string, any> = { company_id: companyId, [field]: value || null };
+    const { error } = await supabase.from("exact_config" as any).upsert(updates, { onConflict: "company_id" } as any);
+    setSavingConfig(false);
+    if (error) {
+      toast({ title: "Fout bij opslaan", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Instelling opgeslagen" });
+    }
+  };
 
   const handleConnect = async () => {
     if (!companyId) return;
