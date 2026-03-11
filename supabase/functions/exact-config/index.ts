@@ -46,6 +46,13 @@ Deno.serve(async (req) => {
         .from("exact_online_connections")
         .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq("id", connection.id);
+
+      // Also reset exact_config status
+      await admin
+        .from("exact_config")
+        .update({ status: "disconnected", updated_at: new Date().toISOString() })
+        .eq("company_id", connection.company_id);
+
       console.log("Exact disconnected for company:", connection.company_id);
       return jsonRes({ ok: true });
     }
@@ -64,6 +71,20 @@ Deno.serve(async (req) => {
       .from("exact_online_connections")
       .update(updateData)
       .eq("id", connection.id);
+
+    // Also update exact_config with connected status and division
+    const configUpdate: Record<string, unknown> = {
+      status: "connected",
+      updated_at: new Date().toISOString(),
+    };
+    if (division !== undefined) configUpdate.division = division;
+    if (company_name !== undefined) configUpdate.company_name_exact = company_name;
+    if (region !== undefined) configUpdate.region = region;
+
+    await admin
+      .from("exact_config")
+      .update(configUpdate)
+      .eq("company_id", connection.company_id);
 
     console.log("Exact connection activated for company:", connection.company_id, "division:", division);
     return jsonRes({ ok: true });

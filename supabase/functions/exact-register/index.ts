@@ -74,6 +74,21 @@ Deno.serve(async (req) => {
       return jsonRes({ error: "Kon verbinding niet opslaan" }, 500);
     }
 
+    // Also create exact_config row so the settings UI shows the pending state
+    const { error: configError } = await admin
+      .from("exact_config")
+      .upsert({
+        company_id: companyId,
+        tenant_id,
+        webhook_secret: webhook_secret || null,
+        status: "pending",
+      }, { onConflict: "company_id" });
+
+    if (configError) {
+      console.error("Upsert exact_config failed:", configError);
+      // Non-fatal — connection still works, config can be created later
+    }
+
     console.log("Exact tenant registered for company:", companyId);
     return jsonRes({ tenant_id });
   } catch (err: any) {

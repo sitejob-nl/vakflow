@@ -1,45 +1,50 @@
 
 
-# Fix: Exact Online connection not visible — missing `exact_config` row
+# Apply uploaded edge function improvements
 
-## Root cause
+The uploaded files contain improvements to 4 edge functions. Here's a summary of the changes from the patch file:
 
-Two tables store Exact Online data:
-- **`exact_online_connections`** — created by `exact-register`, stores OAuth connection data (tenant_id, webhook_secret, division). Has an active row for your company.
-- **`exact_config`** — read by the settings UI and `sync-exact`, stores sync settings (GL account, journal, VAT codes, status). **Has no row for your company.**
+## 1. `exact-webhook/index.ts` — Add invoice payment status processing
 
-The `exact-register` function inserts into `exact_online_connections` but never creates a corresponding `exact_config` row. The `exact-config` webhook (called by SiteJob Connect after OAuth) also only updates `exact_online_connections`. So the settings UI shows "not connected" because it reads from `exact_config`.
+Currently just logs and acknowledges webhooks. The update adds:
+- `getExactToken` helper to fetch access tokens from SiteJob Connect
+- `logEdgeFunctionError` import for error logging
+- Query `tenant_id` and `division` from `exact_config`
+- When a `SalesInvoices` webhook arrives, fetch the invoice from Exact to check if `Status === 50` (paid), and if so update the local invoice to `betaald`
 
-## Fix
+## 2. `moneybird-webhook/index.ts` — Add URL-based webhook secret verification
 
-### 1. `exact-register/index.ts` — also create `exact_config` row
+Currently validates only by `administration_id` match. The update adds:
+- Parse `?secret=` from the webhook URL
+- Reject requests without a secret parameter (401)
+- Verify the secret matches `company.moneybird_webhook_secret` (403 if mismatch)
+- Select `moneybird_webhook_secret` in the company query
 
-After inserting into `exact_online_connections`, also upsert into `exact_config` with status `"pending"`, copying `tenant_id` and `webhook_secret`. This ensures the settings UI immediately shows the pending state.
+## 3. `sync-exact/index.ts` — Invoice sync improvements
 
-### 2. `exact-config/index.ts` (webhook) — also update `exact_config` row
+Three fixes:
+- **Fiscal year filter**: Only sync invoices from current year (`gte("issued_at", fiscalYearStart)`) to avoid closed-period errors
+- **VAT-exclusive pricing**: Convert `unit_price` (incl. BTW) to `NetPrice` (excl. BTW) using `vat_percentage` before pushing to Exact
+- **Error logging**: Log individual invoice sync failures via `logEdgeFunctionError`
+- Add `logEdgeFunctionError` import
 
-When the webhook receives the `connected` callback (division + company_name), also update `exact_config` to set `status = "connected"`, `division`, and `company_name_exact`. When disconnecting, set `status = null`.
+Both the batch `sync-invoices` and single `push-invoice` cases get the VAT fix.
 
-### 3. Immediate fix — insert the missing row now
+## 4. `sync-moneybird/index.ts` — Secure webhook registration
 
-Run a migration to create the `exact_config` row from the existing `exact_online_connections` data, so your current connection becomes visible immediately without re-registering.
+Currently registers webhooks without a secret. The update:
+- Generates a random 32-byte hex secret
+- Appends `?secret={secret}` to the webhook callback URL
+- Stores the secret in `companies.moneybird_webhook_secret` after successful registration
 
 ## Files to modify
 
 | File | Change |
 |---|---|
-| `supabase/functions/exact-register/index.ts` | After `exact_online_connections` insert, also upsert `exact_config` with status "pending" |
-| `supabase/functions/exact-config/index.ts` | On connect callback, also update `exact_config` status/division/company_name; on disconnect, reset status |
-| Database migration | Insert `exact_config` row from existing `exact_online_connections` data |
+| `supabase/functions/exact-webhook/index.ts` | Replace with uploaded `index_36.ts` |
+| `supabase/functions/moneybird-webhook/index.ts` | Replace with uploaded `index_37.ts` |
+| `supabase/functions/sync-exact/index.ts` | Apply VAT fix, fiscal year filter, error logging |
+| `supabase/functions/sync-moneybird/index.ts` | Secure webhook registration with secret |
 
-## Migration SQL
-
-```sql
-INSERT INTO exact_config (company_id, tenant_id, webhook_secret, division, company_name_exact, status)
-SELECT company_id, tenant_id, webhook_secret, exact_division::integer, company_name, 'connected'
-FROM exact_online_connections
-WHERE is_active = true
-  AND company_id NOT IN (SELECT company_id FROM exact_config)
-ON CONFLICT DO NOTHING;
-```
+All 4 functions will be redeployed. No database changes needed (`moneybird_webhook_secret` column already exists).
 
