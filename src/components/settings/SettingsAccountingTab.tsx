@@ -51,13 +51,14 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
     if (!companyId) return;
     supabase
       .from("exact_config" as any)
-      .select("gl_revenue_id, journal_code")
+      .select("gl_revenue_id, journal_code, default_item_id")
       .eq("company_id", companyId)
       .maybeSingle()
       .then(({ data }: { data: any }) => {
         if (data) {
           setSelectedGl(data.gl_revenue_id ?? "");
           setSelectedJournal(data.journal_code ?? "");
+          setSelectedItem(data.default_item_id ?? "");
         }
       });
   }, [companyId]);
