@@ -867,13 +867,12 @@ Deno.serve(async (req) => {
         }
 
         const invoiceData: Record<string, unknown> = {
-          Journal: config.journal_code || "70",
-          Type: 8023,
           OrderedBy: exactAccountId,
           Description: `Factuur ${invoice.invoice_number || ""}`.trim(),
           InvoiceDate: invoice.issued_at || new Date().toISOString().split("T")[0],
           SalesInvoiceLines: invoiceLines,
         };
+        if (config?.journal_code) invoiceData.Journal = config.journal_code;
 
         if (invoice.due_at) invoiceData.DueDate = invoice.due_at;
 
