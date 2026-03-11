@@ -694,8 +694,8 @@ Deno.serve(async (req) => {
       }
 
       // Fetch full invoice to get the Rompslomp invoice number
-      const fullInvoice = await rompslompGet(rompslompCompanyId, `/sales_invoices/${rompslompId}`, apiToken);
-      const rInv = fullInvoice?.sales_invoice || fullInvoice;
+      const { data: fullInvoice } = await rompslompGet(rompslompCompanyId, `/sales_invoices/${rompslompId}`, apiToken);
+      const rInv = (fullInvoice as any)?.sales_invoice || fullInvoice;
       const rompslompInvoiceNumber = rInv?.invoice_number || null;
 
       // Update Vakflow invoice with rompslomp data
