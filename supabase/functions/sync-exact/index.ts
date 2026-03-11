@@ -478,13 +478,15 @@ Deno.serve(async (req) => {
               const priceIncl = Number(item.unit_price || item.price || 0);
               const qty = item.qty || item.quantity || 1;
               const priceExcl = priceIncl / vatDivisor;
+              const itemId = item.exact_item_id || config.default_item_id;
               const lineData: Record<string, unknown> = {
                 Description: item.description || item.name || "Regel",
                 Quantity: qty,
-                NetPrice: Math.round(priceExcl * 100) / 100,
-                GLAccount: config.gl_revenue_id,
-                Item: item.exact_item_id || config.default_item_id,
+                UnitPrice: Math.round(priceExcl * 100) / 100,
+                Item: itemId,
               };
+              // Only send GLAccount when no Item is present (Exact auto-populates from Item)
+              if (!itemId) lineData.GLAccount = config.gl_revenue_id;
               return lineData;
             });
 
