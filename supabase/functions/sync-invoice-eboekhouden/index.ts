@@ -925,15 +925,12 @@ Deno.serve(async (req) => {
 
       for (const inv of unpaidInvoices) {
         try {
-          // If we have the outstanding list, use it for reliable detection
           if (outstandingIds.size > 0) {
-            const ebInv = await ebGet(session, `/invoice/${inv.eboekhouden_id}`);
-            const ebInvoiceNumber = ebInv.invoiceNumber || "";
-            if (!outstandingIds.has(String(ebInvoiceNumber))) {
-              // Not in outstanding list = paid
+            // We have the outstanding list — if eboekhouden_id is NOT in it, it's paid
+            if (!outstandingIds.has(String(inv.eboekhouden_id))) {
               await supabase
                 .from("invoices")
-                .update({ status: "betaald", paid_at: ebInv.paymentDate || new Date().toISOString().split("T")[0] })
+                .update({ status: "betaald", paid_at: new Date().toISOString().split("T")[0] })
                 .eq("id", inv.id);
               updated++;
             }
