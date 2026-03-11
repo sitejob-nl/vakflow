@@ -70,15 +70,17 @@ async function pushInvoices(supabase: any, accessToken: string, baseUrl: string,
       const items = (invoice.items as any[]) || [];
       // deno-lint-ignore no-explicit-any
       const lines: any[] = items.map((item: any) => {
+        const itemId = item.exact_item_id || undefined;
         // deno-lint-ignore no-explicit-any
         const line: any = {
           Description: (item.description || item.omschrijving || "").substring(0, 100),
           Quantity: item.quantity || item.aantal || 1,
-          NetPrice: item.unit_price || item.prijs || 0,
+          UnitPrice: item.unit_price || item.prijs || 0,
           VATCode: mapVatCode(item.vat_percentage ?? item.btw_percentage ?? 21),
-          Item: item.exact_item_id || undefined,
+          Item: itemId,
         };
-        if (glAccountId) line.GLAccount = glAccountId;
+        // Only send GLAccount when no Item is present (Exact auto-populates from Item)
+        if (!itemId && glAccountId) line.GLAccount = glAccountId;
         return line;
       });
 
