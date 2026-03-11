@@ -13,111 +13,76 @@ interface GlAccount {
 
 const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: string | null; saving: boolean }) => {
   const { toast } = useToast();
+  const [exactStatus, setExactStatus] = useState<string | null>(null);
+  const [exactCompanyName, setExactCompanyName] = useState<string | null>(null);
   const [loadingExact, setLoadingExact] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
-  const [connection, setConnection] = useState<any>(null);
-
-  // GL / Journal / Item config state
   const [glAccounts, setGlAccounts] = useState<GlAccount[]>([]);
-  const [journals, setJournals] = useState<GlAccount[]>([]);
-  const [salesItems, setSalesItems] = useState<GlAccount[]>([]);
-  const [selectedGl, setSelectedGl] = useState("");
-  const [selectedJournal, setSelectedJournal] = useState("");
-  const [selectedItem, setSelectedItem] = useState("");
+  const [glRevenueId, setGlRevenueId] = useState<string>("");
+  const [journalCode, setJournalCode] = useState<string>("70");
   const [loadingGl, setLoadingGl] = useState(false);
-  const [loadingJournals, setLoadingJournals] = useState(false);
-  const [loadingItems, setLoadingItems] = useState(false);
-  const [savingConfig, setSavingConfig] = useState(false);
-  const [glError, setGlError] = useState("");
-  const [journalError, setJournalError] = useState("");
-  const [itemError, setItemError] = useState("");
+  const [savingGl, setSavingGl] = useState(false);
+  const [vatCodeHigh, setVatCodeHigh] = useState<string>("VH");
+  const [vatCodeLow, setVatCodeLow] = useState<string>("VL");
+  const [vatCodeZero, setVatCodeZero] = useState<string>("VN");
+  const [invoiceType, setInvoiceType] = useState<number>(8020);
+  const [autoFinalize, setAutoFinalize] = useState<boolean>(false);
+  const [paymentCondition, setPaymentCondition] = useState<string>("");
 
   useEffect(() => {
     if (!companyId) return;
     supabase
-      .from("exact_online_connections" as any)
-      .select("id, is_active, company_name, tenant_id, exact_division, connected_at, division_id")
+      .from("exact_config")
+      .select("status, company_name_exact, tenant_id, gl_revenue_id, journal_code, vat_code_high, vat_code_low, vat_code_zero, invoice_type, auto_finalize, payment_condition")
       .eq("company_id", companyId)
       .maybeSingle()
       .then(({ data }: { data: any }) => {
-        setConnection(data);
+        setExactStatus(data?.status ?? null);
+        setExactCompanyName(data?.company_name_exact ?? null);
+        setGlRevenueId(data?.gl_revenue_id ?? "");
+        setJournalCode(data?.journal_code ?? "70");
+        setVatCodeHigh(data?.vat_code_high ?? "VH");
+        setVatCodeLow(data?.vat_code_low ?? "VL");
+        setVatCodeZero(data?.vat_code_zero ?? "VN");
+        setInvoiceType(data?.invoice_type ?? 8020);
+        setAutoFinalize(data?.auto_finalize ?? false);
+        setPaymentCondition(data?.payment_condition ?? "");
         setLoadingExact(false);
       });
   }, [companyId]);
 
-  // Load current exact_config values
+  // Fetch GL accounts when connected
   useEffect(() => {
-    if (!companyId) return;
-    supabase
-      .from("exact_config" as any)
-      .select("gl_revenue_id, journal_code, default_item_id")
-      .eq("company_id", companyId)
-      .maybeSingle()
-      .then(({ data }: { data: any }) => {
-        if (data) {
-          setSelectedGl(data.gl_revenue_id ?? "");
-          setSelectedJournal(data.journal_code ?? "");
-          setSelectedItem(data.default_item_id ?? "");
-        }
+    if (exactStatus !== "connected") return;
+    setLoadingGl(true);
+    supabase.functions.invoke("sync-exact", { body: { action: "fetch-gl-accounts" } })
+      .then(({ data, error }) => {
+        if (!error && data?.accounts) setGlAccounts(data.accounts);
+        setLoadingGl(false);
       });
-  }, [companyId]);
+  }, [exactStatus]);
 
-  // Fetch GL accounts & journals when connected
-  const isConnected = connection?.is_active === true;
-  const divisionId = connection?.division_id;
-
-  useEffect(() => {
-    if (!isConnected || !divisionId) return;
-
-    const fetchExactData = async (endpoint: string, setter: (v: GlAccount[]) => void, setLoading: (v: boolean) => void, setErr: (v: string) => void) => {
-      setLoading(true);
-      setErr("");
-      try {
-        const { data, error } = await supabase.functions.invoke("exact-api", {
-          body: { divisionId, endpoint, method: "GET" },
-        });
-        if (error || data?.error) throw new Error(data?.error || error?.message);
-        const results = data?.d?.results ?? data?.d ?? [];
-        setter(
-          results.map((r: any) => ({
-            id: r.ID ?? r.Code ?? "",
-            code: r.Code?.toString() ?? "",
-            description: r.Description ?? "",
-          }))
-        );
-      } catch (err: any) {
-        setErr(err.message || "Kon data niet ophalen");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchExactData(
-      "financial/GLAccounts?$filter=Type eq 110&$select=ID,Code,Description",
-      setGlAccounts, setLoadingGl, setGlError
-    );
-    fetchExactData(
-      "financial/Journals?$filter=Type eq 20&$select=ID,Code,Description",
-      setJournals, setLoadingJournals, setJournalError
-    );
-    fetchExactData(
-      "logistics/Items?$filter=IsSalesItem eq true&$select=ID,Code,Description&$top=200",
-      setSalesItems, setLoadingItems, setItemError
-    );
-  }, [isConnected, divisionId]);
-
-  const handleSaveExactConfig = async (field: "gl_revenue_id" | "journal_code" | "default_item_id", value: string) => {
+  const handleSaveGlSettings = async (newGlId?: string, newJournalCode?: string) => {
     if (!companyId) return;
-    setSavingConfig(true);
-    const updates: Record<string, any> = { company_id: companyId, [field]: value || null };
-    const { error } = await supabase.from("exact_config" as any).upsert(updates, { onConflict: "company_id" } as any);
-    setSavingConfig(false);
+    setSavingGl(true);
+    const updates: Record<string, any> = {};
+    if (newGlId !== undefined) updates.gl_revenue_id = newGlId || null;
+    if (newJournalCode !== undefined) updates.journal_code = newJournalCode || null;
+    const { error } = await supabase.from("exact_config").update(updates).eq("company_id", companyId);
+    setSavingGl(false);
     if (error) {
       toast({ title: "Fout bij opslaan", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Instelling opgeslagen" });
+      toast({ title: "Exact instellingen opgeslagen" });
     }
+  };
+
+  const handleSaveExactField = async (field: string, value: any) => {
+    if (!companyId) return;
+    const { error } = await supabase.from("exact_config").update({ [field]: value }).eq("company_id", companyId);
+    if (error) toast({ title: "Fout", description: error.message, variant: "destructive" });
+    else toast({ title: "Instelling opgeslagen" });
   };
 
   const handleConnect = async () => {
@@ -129,9 +94,11 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
       const tenantId = data?.tenant_id;
       if (!tenantId) throw new Error("Geen tenant_id ontvangen");
 
+      // Open the Exact Online setup page as popup
       const connectUrl = `https://connect.sitejob.nl/exact-setup?tenant_id=${tenantId}`;
       window.open(connectUrl, "exact-setup", "width=600,height=700");
 
+      // Listen for postMessage from the popup on successful connection
       const handleMessage = (e: MessageEvent) => {
         if (e.data?.type === "exact-connected") {
           window.removeEventListener("message", handleMessage);
@@ -140,6 +107,7 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
       };
       window.addEventListener("message", handleMessage);
 
+      setExactStatus("pending");
       toast({ title: "Exact Online koppeling gestart", description: "Rond de autorisatie af in het geopende venster." });
     } catch (err: any) {
       toast({ title: "Fout bij koppelen", description: err.message, variant: "destructive" });
@@ -149,85 +117,170 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
   };
 
   const handleDisconnect = async () => {
-    if (!companyId || !connection) return;
+    if (!companyId) return;
     setDisconnecting(true);
-    await supabase.from("exact_online_connections" as any).update({ is_active: false } as any).eq("id", connection.id);
-    setConnection(null);
+    await supabase.from("exact_config").delete().eq("company_id", companyId);
+    setExactStatus(null);
+    setExactCompanyName(null);
     setDisconnecting(false);
     toast({ title: "Exact Online ontkoppeld" });
   };
 
   const handleRefreshStatus = async () => {
     if (!companyId) return;
-    const { data } = await supabase.from("exact_online_connections" as any).select("id, is_active, company_name, tenant_id, exact_division, connected_at").eq("company_id", companyId).maybeSingle() as { data: any };
-    setConnection(data);
-    toast({ title: "Status vernieuwd", description: data?.is_active ? "Verbonden" : "Niet verbonden" });
+    const { data } = await supabase.from("exact_config").select("status, company_name_exact").eq("company_id", companyId).maybeSingle();
+    setExactStatus(data?.status ?? null);
+    setExactCompanyName(data?.company_name_exact ?? null);
+    toast({ title: "Status vernieuwd", description: data?.status ?? "Geen configuratie gevonden" });
   };
 
   if (loadingExact) return <div className="border-t border-border pt-5"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>;
 
-  const renderDropdown = (
-    label: string,
-    items: GlAccount[],
-    value: string,
-    onChange: (v: string) => void,
-    field: "gl_revenue_id" | "journal_code" | "default_item_id",
-    loading: boolean,
-    error: string
-  ) => (
-    <div>
-      <label className={labelClass}>{label}</label>
-      {loading ? (
-        <div className="flex items-center gap-2 py-2"><Loader2 className="h-3 w-3 animate-spin text-muted-foreground" /><span className="text-[11px] text-muted-foreground">Laden...</span></div>
-      ) : error ? (
-        <p className="text-[11px] text-destructive">{error}</p>
-      ) : (
-        <select
-          value={value}
-          onChange={(e) => { onChange(e.target.value); handleSaveExactConfig(field, e.target.value); }}
-          disabled={savingConfig}
-          className={inputClass}
-        >
-          <option value="">— Selecteer —</option>
-          {items.map((item) => (
-            <option key={item.id} value={field === "journal_code" ? item.code : item.id}>{item.code} — {item.description}</option>
-          ))}
-        </select>
-      )}
-    </div>
-  );
+  const isConnected = exactStatus === "connected";
+  const isPending = exactStatus === "pending";
 
   return (
     <div className="border-t border-border pt-5 space-y-3">
       <h3 className="text-[14px] font-bold">Exact Online</h3>
 
       {isConnected ? (
-        <div className="space-y-4">
+        <div className="space-y-2">
           <p className="text-[11px] text-success font-bold flex items-center gap-1">
             <Check className="h-3 w-3" /> Exact Online gekoppeld
           </p>
-          {connection?.company_name && <p className="text-[12px] text-muted-foreground">Administratie: {connection.company_name}</p>}
-
-          {/* GL & Journal dropdowns */}
-          <div className="space-y-3 border-t border-border pt-3">
-            <h4 className="text-[13px] font-semibold">Boekhoud-instellingen</h4>
-            {renderDropdown("Omzet-grootboekrekening", glAccounts, selectedGl, setSelectedGl, "gl_revenue_id", loadingGl, glError)}
-            {renderDropdown("Verkoopjournaal", journals, selectedJournal, setSelectedJournal, "journal_code", loadingJournals, journalError)}
-            {renderDropdown("Standaard artikel", salesItems, selectedItem, setSelectedItem, "default_item_id", loadingItems, itemError)}
-            {!selectedGl && !loadingGl && !glError && (
-              <p className="text-[11px] text-amber-600">⚠ Selecteer een grootboekrekening om facturen naar Exact te kunnen syncen.</p>
-            )}
-            {!selectedItem && !loadingItems && !itemError && (
-              <p className="text-[11px] text-amber-600">⚠ Selecteer een standaard artikel om facturen naar Exact te kunnen syncen.</p>
-            )}
-          </div>
-
+          {exactCompanyName && <p className="text-[12px] text-muted-foreground">Administratie: {exactCompanyName}</p>}
           <div className="flex gap-2">
             <button onClick={handleRefreshStatus} className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors">
               Status vernieuwen
             </button>
             <button onClick={handleDisconnect} disabled={disconnecting} className="px-3 py-2 bg-destructive/10 text-destructive rounded-sm text-[12px] font-medium hover:bg-destructive/20 transition-colors">
               {disconnecting ? "Ontkoppelen..." : "Ontkoppelen"}
+            </button>
+          </div>
+
+          {/* GL Account & Journal Code settings */}
+          <div className="border-t border-border pt-4 mt-4 space-y-3">
+            <h4 className="text-[13px] font-bold">Facturatiekoppeling</h4>
+
+            <div>
+              <label className={labelClass}>Omzet-grootboekrekening *</label>
+              {loadingGl ? (
+                <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Grootboekrekeningen ophalen...
+                </div>
+              ) : (
+                <select
+                  value={glRevenueId}
+                  onChange={(e) => {
+                    setGlRevenueId(e.target.value);
+                    handleSaveGlSettings(e.target.value, undefined);
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">— Selecteer grootboekrekening —</option>
+                  {glAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.code} — {acc.description}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {!glRevenueId && !loadingGl && (
+                <p className="text-[11px] text-destructive mt-1">⚠️ Vereist voor factuur-synchronisatie</p>
+              )}
+            </div>
+
+            <div>
+              <label className={labelClass}>Verkoopjournaal code</label>
+              <input
+                value={journalCode}
+                onChange={(e) => setJournalCode(e.target.value)}
+                onBlur={() => handleSaveGlSettings(undefined, journalCode)}
+                className={inputClass}
+                placeholder="70"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">Standaard: 70 (Verkoopboek)</p>
+            </div>
+
+            <div>
+              <label className={labelClass}>Factuurtype</label>
+              <select
+                value={invoiceType}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setInvoiceType(val);
+                  handleSaveExactField("invoice_type", val);
+                }}
+                className={inputClass}
+              >
+                <option value={8020}>8020 — Standaard factuur</option>
+                <option value={8023}>8023 — Directe factuur (Advanced editie)</option>
+              </select>
+              <p className="text-[11px] text-muted-foreground mt-1">Gebruik 8020 tenzij je Exact Advanced/Premium hebt</p>
+            </div>
+
+            <div>
+              <label className={labelClass}>Betalingsconditie</label>
+              <input
+                value={paymentCondition}
+                onChange={(e) => setPaymentCondition(e.target.value)}
+                onBlur={() => handleSaveExactField("payment_condition", paymentCondition || null)}
+                className={inputClass}
+                placeholder="Bijv. 30 (wordt anders berekend uit vervaldatum)"
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>BTW-codes</label>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <p className="text-[11px] text-muted-foreground mb-1">21% (hoog)</p>
+                  <input value={vatCodeHigh} onChange={(e) => setVatCodeHigh(e.target.value)} onBlur={() => handleSaveExactField("vat_code_high", vatCodeHigh)} className={inputClass} placeholder="VH" />
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground mb-1">9% (laag)</p>
+                  <input value={vatCodeLow} onChange={(e) => setVatCodeLow(e.target.value)} onBlur={() => handleSaveExactField("vat_code_low", vatCodeLow)} className={inputClass} placeholder="VL" />
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground mb-1">0%</p>
+                  <input value={vatCodeZero} onChange={(e) => setVatCodeZero(e.target.value)} onBlur={() => handleSaveExactField("vat_code_zero", vatCodeZero)} className={inputClass} placeholder="VN" />
+                </div>
+              </div>
+            </div>
+
+            <label className="flex items-center justify-between gap-3 pt-2">
+              <div>
+                <span className="text-[13px] font-medium">Facturen automatisch finaliseren</span>
+                <p className="text-[11px] text-muted-foreground">Facturen direct verwerken in Exact (krijgen een factuurnummer)</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoFinalize}
+                onClick={() => {
+                  const newVal = !autoFinalize;
+                  setAutoFinalize(newVal);
+                  handleSaveExactField("auto_finalize", newVal);
+                }}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${autoFinalize ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow-lg ring-0 transition-transform ${autoFinalize ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+            </label>
+          </div>
+        </div>
+      ) : isPending ? (
+        <div className="space-y-2">
+          <p className="text-[11px] text-warning font-bold flex items-center gap-1">
+            ⏳ Wachten op autorisatie...
+          </p>
+          <p className="text-[12px] text-muted-foreground">Rond de autorisatie af in Exact Online. Klik daarna op "Status vernieuwen".</p>
+          <div className="flex gap-2">
+            <button onClick={handleRefreshStatus} className="px-3 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors">
+              Status vernieuwen
+            </button>
+            <button onClick={handleConnect} disabled={connecting} className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors">
+              {connecting ? "Bezig..." : "Opnieuw starten"}
             </button>
           </div>
         </div>
