@@ -65,7 +65,7 @@ async function decryptToken(encrypted: string): Promise<string> {
   return new TextDecoder().decode(decrypted);
 }
 
-async function ebSession(apiToken: string, source = "VentFlow"): Promise<string> {
+async function ebSession(apiToken: string, source = "Vakflow"): Promise<string> {
   const res = await fetch(`${EB_BASE}/session`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
