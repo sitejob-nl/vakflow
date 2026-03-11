@@ -868,6 +868,7 @@ export type Database = {
           max_users: number
           moneybird_administration_id: string | null
           moneybird_api_token: string | null
+          moneybird_webhook_secret: string | null
           monthly_price: number | null
           name: string
           outlook_client_id: string | null
@@ -926,6 +927,7 @@ export type Database = {
           max_users?: number
           moneybird_administration_id?: string | null
           moneybird_api_token?: string | null
+          moneybird_webhook_secret?: string | null
           monthly_price?: number | null
           name: string
           outlook_client_id?: string | null
@@ -984,6 +986,7 @@ export type Database = {
           max_users?: number
           moneybird_administration_id?: string | null
           moneybird_api_token?: string | null
+          moneybird_webhook_secret?: string | null
           monthly_price?: number | null
           name?: string
           outlook_client_id?: string | null
