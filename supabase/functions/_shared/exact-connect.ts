@@ -34,15 +34,14 @@ export async function getExactTokenFromConnection(
     throw new Error("CONNECT_API_KEY is niet geconfigureerd als Supabase secret");
   }
 
-  const response = await fetch(`${CONNECT_BASE_URL}/exact-get-token`, {
+  const response = await fetch(`${CONNECT_BASE_URL}/exact-token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-API-Key": connectApiKey,
     },
     body: JSON.stringify({
       tenant_id: connection.tenant_id,
-      webhook_secret: connection.webhook_secret,
+      secret: connection.webhook_secret,
     }),
   });
 
