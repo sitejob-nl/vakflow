@@ -128,7 +128,15 @@ async function exactRequest(
 
     if (!res.ok) {
       const errText = await res.text();
-      return { ok: false, error: errText.slice(0, 200), status: res.status };
+      // Parse Exact error details for better diagnostics
+      let errorDetail = errText.slice(0, 500);
+      try {
+        const errJson = JSON.parse(errText);
+        const msg = errJson?.error?.message?.value || errJson?.error?.message || errJson?.error?.innererror?.message;
+        if (msg) errorDetail = msg;
+      } catch { /* keep raw text */ }
+      console.error(`Exact ${method} ${url} → ${res.status}: ${errorDetail}`);
+      return { ok: false, error: errorDetail.slice(0, 300), status: res.status };
     }
 
     const data = await res.json().catch(() => ({}));
