@@ -148,7 +148,7 @@ async function ensureExactAccount(
 ): Promise<string | null> {
   if (customer.exact_account_id) return customer.exact_account_id;
 
-  const accountData: Record<string, unknown> = {
+  const accountData = cleanBody({
     Name: customer.name,
     Status: "C",
     Country: "NL",
@@ -159,7 +159,7 @@ async function ensureExactAccount(
     AddressLine1: customer.address || undefined,
     ...(customer.kvk_number ? { ChamberOfCommerce: customer.kvk_number } : {}),
     ...(customer.btw_number ? { VATNumber: customer.btw_number } : {}),
-  };
+  });
 
   const result = await exactPost(
     `${baseUrl}/api/v1/${division}/crm/Accounts`,
