@@ -82,7 +82,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing", "contracts", "projects", "leads",
+      "reminders", "assets", "marketing", "contracts", "projects", "leads", "accounting",
     ],
   },
   cleaning: {
@@ -118,7 +118,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing", "contracts", "schedule", "audits", "projects", "leads",
+      "reminders", "assets", "marketing", "contracts", "schedule", "audits", "projects", "leads", "accounting",
     ],
   },
   automotive: {
@@ -162,7 +162,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "vehicles", "marketing", "contracts", "trade", "projects", "leads",
+      "reminders", "vehicles", "marketing", "contracts", "trade", "projects", "leads", "accounting",
     ],
   },
   pest: {
@@ -190,7 +190,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing", "contracts", "projects", "leads",
+      "reminders", "assets", "marketing", "contracts", "projects", "leads", "accounting",
     ],
   },
   landscaping: {
@@ -232,7 +232,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing", "contracts", "projects", "leads",
+      "reminders", "assets", "marketing", "contracts", "projects", "leads", "accounting",
     ],
   },
 };

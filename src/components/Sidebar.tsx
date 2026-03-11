@@ -1,11 +1,12 @@
 import { useNavigation, type Page } from "@/hooks/useNavigation";
 import {
   LayoutGrid, Calendar, Users, FileText, DollarSign,
-  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car, Repeat, CalendarCheck, ClipboardCheck, FolderKanban, UserPlus
+  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car, Repeat, CalendarCheck, ClipboardCheck, FolderKanban, UserPlus, BookOpen, Link
 } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { useLowStockCount } from "@/hooks/useMaterials";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAccountingProvider } from "@/hooks/useAccountingProvider";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import {
   Sidebar as ShadcnSidebar,
@@ -45,6 +46,7 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
     items: [
       { id: "invoices" as Page, icon: DollarSign, label: "Facturatie", adminOnly: true },
       { id: "quotes" as Page, icon: FileText, label: "Offertes", adminOnly: true },
+      { id: "accounting" as Page, icon: BookOpen, label: "Boekhouding", adminOnly: true },
       { id: "reports" as Page, icon: BarChart3, label: "Rapportages", adminOnly: true },
       { id: "email" as Page, icon: Mail, label: "E-mail", adminOnly: true },
       { id: "whatsapp" as Page, icon: MessageSquare, label: "WhatsApp", adminOnly: true },

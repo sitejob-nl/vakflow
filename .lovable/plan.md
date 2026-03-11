@@ -1,44 +1,51 @@
 
 
-# Boekhouding als aparte pagina — Aangepast plan
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Aanpassingen o.b.v. feedback
+### Problemen
 
-1. **Route `/boekhouding`** i.p.v. `/administratie` — voorkomt verwarring met eigen Facturatie/Offertes modules
-2. **Informatieve placeholders** voor providers zonder beheer-UI (e-Boekhouden, Exact, SnelStart, WeFact) — geen "Coming soon" maar uitleg dat sync automatisch verloopt + link naar provider
-3. **Empty state CTA** in sidebar wanneer geen provider is ingesteld — "Koppel je boekhouding" met link naar settings
-4. **Provider-switching** — parkeren voor nu, maar de pagina toont alleen de actieve provider
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-## Bestanden
+### Aanpak
 
-| Bestand | Actie |
-|---------|-------|
-| `src/pages/AccountingAdminPage.tsx` | **Nieuw** — full-width pagina, rendert provider-component of informatieve placeholder |
-| `src/components/RompslompAdmin.tsx` | **Nieuw** — tabbed wrapper (contacten/facturen/offertes/producten), verplaatst uit settings |
-| `src/components/settings/SettingsAccountingTab.tsx` | Verwijder `RompslompManagementSection` + `MoneybirdManagementSection`, lazy imports, tab state — alleen config behouden |
-| `src/App.tsx` | Route `/boekhouding` toevoegen (AdminRoute) |
-| `src/hooks/useNavigation.tsx` | `accounting` page type toevoegen |
-| `src/components/Sidebar.tsx` | Nav-item "Boekhouding" in sectie "Administratie", conditioneel op `accounting_provider`. Zonder provider: toon "Koppel boekhouding" item met link naar `/settings` (accounting tab) |
-| `src/config/industryConfig.ts` | `"accounting"` toevoegen aan alle industry modules arrays |
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-## AccountingAdminPage logica
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-```text
-provider === "moneybird"  → <MoneybirdAdmin />
-provider === "rompslomp"  → <RompslompAdmin />
-provider === "exact"      → <ProviderPlaceholder name="Exact Online" />
-provider === "eboekhouden"→ <ProviderPlaceholder name="e-Boekhouden" />
-provider === "snelstart"  → <ProviderPlaceholder name="SnelStart" />
-provider === "wefact"     → <ProviderPlaceholder name="WeFact" />
-geen provider             → redirect naar /settings + toast
-```
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-ProviderPlaceholder toont: "Je boekhouding wordt automatisch gesynchroniseerd met [provider]. Beheer je facturen, contacten en producten direct in [provider]." + link naar provider website + link naar sync-instellingen.
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-## Sidebar gedrag
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-- Provider ingesteld → toon "Boekhouding" nav-item met `BookOpen` icon
-- Geen provider → toon "Koppel boekhouding" met subtiele styling + navigeert naar `/settings` (accounting tab)
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-De sidebar leest `accounting_provider` via `useAuth` context (al beschikbaar via `companyId` + een kleine query, of we voegen het toe aan de auth context). Simpelste aanpak: een kleine `useAccountingProvider` hook die cached uit `companies_safe`.
+### Bestanden
+
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+
+Geen database-wijzigingen, geen nieuwe dependencies.
 

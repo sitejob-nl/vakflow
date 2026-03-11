@@ -48,6 +48,7 @@ const AuditsPage = lazy(() => import("@/pages/AuditsPage"));
 const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const ProjectDetailPage = lazy(() => import("@/pages/ProjectDetailPage"));
 const LeadsPage = lazy(() => import("@/pages/LeadsPage"));
+const AccountingAdminPage = lazy(() => import("@/pages/AccountingAdminPage"));
 const PortalLoginPage = lazy(() => import("@/pages/PortalLoginPage"));
 const PortalQuotesPage = lazy(() => import("@/pages/PortalQuotesPage"));
 const PortalWorkOrdersPage = lazy(() => import("@/pages/PortalWorkOrdersPage"));
@@ -116,6 +117,7 @@ const App = () => (
                 <Route path="projects" element={<AdminRoute><ProjectsPage /></AdminRoute>} />
                 <Route path="projects/:id" element={<AdminRoute><ProjectDetailPage /></AdminRoute>} />
                 <Route path="leads" element={<AdminRoute><LeadsPage /></AdminRoute>} />
+                <Route path="boekhouding" element={<AdminRoute><AccountingAdminPage /></AdminRoute>} />
                 <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
                 <Route path="superadmin" element={<SuperAdminRoute><SuperAdminPage /></SuperAdminRoute>} />
               </Route>
