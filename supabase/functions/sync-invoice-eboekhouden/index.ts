@@ -207,14 +207,13 @@ Deno.serve(async (req) => {
             let cUpdated = 0, cCreated = 0;
             for (const rel of allRelations) {
               try {
-                const detail = await ebGet(sess, `/relation/${rel.id}`);
                 const customerData: Record<string, any> = {
-                  name: detail.name || detail.contact || `Relatie ${rel.id}`,
-                  address: detail.address || null,
-                  postal_code: detail.postalCode || null,
-                  city: detail.city || null,
-                  email: sanitizeEmail(detail.emailAddress) || null,
-                  phone: sanitizePhone(detail.phoneNumber) || null,
+                  name: rel.name || rel.contact || `Relatie ${rel.id}`,
+                  address: rel.address || null,
+                  postal_code: rel.postalCode || null,
+                  city: rel.city || null,
+                  email: sanitizeEmail(rel.emailAddress) || null,
+                  phone: sanitizePhone(rel.phoneNumber) || null,
                   eboekhouden_relation_id: rel.id,
                 };
                 const { data: existing } = await supabase.from("customers").select("id").eq("eboekhouden_relation_id", rel.id).eq("company_id", comp.id).maybeSingle();
