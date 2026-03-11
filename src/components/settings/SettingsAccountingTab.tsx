@@ -10,7 +10,7 @@ const RompslompContacts = lazy(() => import("@/components/RompslompContacts").th
 const RompslompInvoices = lazy(() => import("@/components/RompslompInvoices").then(m => ({ default: m.RompslompInvoices })));
 const RompslompQuotations = lazy(() => import("@/components/RompslompQuotations").then(m => ({ default: m.RompslompQuotations })));
 const RompslompProducts = lazy(() => import("@/components/RompslompProducts").then(m => ({ default: m.RompslompProducts })));
-
+const MoneybirdAdmin = lazy(() => import("@/components/MoneybirdAdmin"));
 interface GlAccount {
   id: string;
   code: string;
