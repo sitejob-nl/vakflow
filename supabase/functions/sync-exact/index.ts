@@ -2,6 +2,7 @@ import { jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { logUsage } from "../_shared/usage.ts";
 import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
+import { getExactTokenFromConnection } from "../_shared/exact-connect.ts";
 
 /** Parse OData v3 /Date(...)/ or ISO date strings to YYYY-MM-DD */
 function parseODataDate(val: unknown): string | null {
