@@ -94,7 +94,7 @@ const Sidebar = () => {
       items: section.items.filter((item) =>
         (!item.adminOnly || isAdmin) &&
         industryModules.includes(item.id) &&
-        (enabledFeatures.length === 0 || enabledFeatures.includes(item.id))
+        (enabledFeatures.length === 0 || enabledFeatures.includes(item.id) || item.id === "accounting")
       ),
     }))
     .filter((section) => section.items.length > 0);
