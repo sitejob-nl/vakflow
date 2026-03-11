@@ -18,16 +18,20 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
   const [disconnecting, setDisconnecting] = useState(false);
   const [connection, setConnection] = useState<any>(null);
 
-  // GL / Journal config state
+  // GL / Journal / Item config state
   const [glAccounts, setGlAccounts] = useState<GlAccount[]>([]);
   const [journals, setJournals] = useState<GlAccount[]>([]);
+  const [salesItems, setSalesItems] = useState<GlAccount[]>([]);
   const [selectedGl, setSelectedGl] = useState("");
   const [selectedJournal, setSelectedJournal] = useState("");
+  const [selectedItem, setSelectedItem] = useState("");
   const [loadingGl, setLoadingGl] = useState(false);
   const [loadingJournals, setLoadingJournals] = useState(false);
+  const [loadingItems, setLoadingItems] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [glError, setGlError] = useState("");
   const [journalError, setJournalError] = useState("");
+  const [itemError, setItemError] = useState("");
 
   useEffect(() => {
     if (!companyId) return;
