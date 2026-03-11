@@ -2,6 +2,7 @@ import { jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
 import { logUsage } from "../_shared/usage.ts";
 import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
+import { getExactTokenFromConnection } from "../_shared/exact-connect.ts";
 import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
 /** Parse OData v3 /Date(...)/ or ISO date strings to YYYY-MM-DD */
@@ -24,25 +25,7 @@ function cleanBody(obj: Record<string, unknown>): Record<string, unknown> {
 interface ExactToken {
   access_token: string;
   division: number;
-  region: string;
   base_url: string;
-  expires_at: string;
-}
-
-async function getExactToken(tenantId: string, webhookSecret: string): Promise<ExactToken> {
-  const res = await fetch("https://xeshjkznwdrxjjhbpisn.supabase.co/functions/v1/exact-token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tenant_id: tenantId, secret: webhookSecret }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    if (err.needs_reauth) throw new Error("REAUTH_REQUIRED");
-    throw new Error(err.error || `Token request failed: ${res.status}`);
-  }
-
-  return res.json();
 }
 
 /** Paginated GET using __next URL pattern (OData v3) */
@@ -198,27 +181,35 @@ Deno.serve(async (req) => {
     // Rate limit: max 5 syncs per minute per company
     await checkRateLimit(supabaseAdmin, companyId, "sync_exact", 5);
 
-    // Get exact config
+    // Get exact_online_connections (source of truth for token)
+    const { data: connection } = await supabaseAdmin
+      .from("exact_online_connections")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!connection?.tenant_id || !connection?.webhook_secret) {
+      return jsonRes({ error: "Exact Online is niet gekoppeld" }, 400);
+    }
+
+    // Get exact_config for GL/journal settings
     const { data: config } = await supabaseAdmin
       .from("exact_config")
       .select("*")
       .eq("company_id", companyId)
       .maybeSingle();
 
-    if (!config?.tenant_id || !config?.webhook_secret) {
-      return jsonRes({ error: "Exact Online is niet gekoppeld" }, 400);
-    }
-
     const body = await req.json();
     const { action } = body;
 
-    // Get fresh token
+    // Get fresh token via shared helper
     let tokenData: ExactToken;
     try {
-      tokenData = await getExactToken(config.tenant_id, config.webhook_secret);
+      tokenData = await getExactTokenFromConnection(connection);
     } catch (err: any) {
-      if (err.message === "REAUTH_REQUIRED" || err.message === "Tenant not active" || (err.message && err.message.includes("Tenant not active"))) {
-        await supabaseAdmin.from("exact_config").update({ status: "error", updated_at: new Date().toISOString() }).eq("company_id", companyId);
+      if (err.message === "REAUTH_REQUIRED" || err.message?.includes("Tenant not active")) {
+        await supabaseAdmin.from("exact_online_connections").update({ is_active: false, updated_at: new Date().toISOString() }).eq("company_id", companyId);
         return jsonRes({ error: "Exact Online koppeling niet actief. Koppel opnieuw via instellingen.", needs_reauth: true }, 401);
       }
       throw err;
