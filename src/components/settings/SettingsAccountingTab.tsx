@@ -1,16 +1,10 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Check, X } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
 import { useSnelstartConnection, useSaveSnelstartConnection, useDeleteSnelstartConnection, useTestSnelstartConnection } from "@/hooks/useSnelstart";
 import { SETTINGS_INPUT_CLASS as inputClass, SETTINGS_LABEL_CLASS as labelClass } from "./shared";
-
-const RompslompContacts = lazy(() => import("@/components/RompslompContacts").then(m => ({ default: m.RompslompContacts })));
-const RompslompInvoices = lazy(() => import("@/components/RompslompInvoices").then(m => ({ default: m.RompslompInvoices })));
-const RompslompQuotations = lazy(() => import("@/components/RompslompQuotations").then(m => ({ default: m.RompslompQuotations })));
-const RompslompProducts = lazy(() => import("@/components/RompslompProducts").then(m => ({ default: m.RompslompProducts })));
-const MoneybirdAdmin = lazy(() => import("@/components/MoneybirdAdmin"));
 interface GlAccount {
   id: string;
   code: string;
