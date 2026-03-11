@@ -1,51 +1,50 @@
 
 
-## Agenda UI Verbetering — Look & Feel + Leesbaarheid
+# Apply uploaded edge function improvements
 
-### Problemen
+The uploaded files contain improvements to 4 edge functions. Here's a summary of the changes from the patch file:
 
-1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
-2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
+## 1. `exact-webhook/index.ts` — Add invoice payment status processing
 
-### Aanpak
+Currently just logs and acknowledges webhooks. The update adds:
+- `getExactToken` helper to fetch access tokens from SiteJob Connect
+- `logEdgeFunctionError` import for error logging
+- Query `tenant_id` and `division` from `exact_config`
+- When a `SalesInvoices` webhook arrives, fetch the invoice from Exact to check if `Status === 50` (paid), and if so update the local invoice to `betaald`
 
-**1. Grotere tijdslots en events**
-- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
-- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
-- Meer ruimte voor service-naam en stad onder de klantnaam
+## 2. `moneybird-webhook/index.ts` — Add URL-based webhook secret verification
 
-**2. Event cards verbeteren**
-- Subtielere achtergrondkleur met betere contrast
-- Lichte shadow toevoegen aan events voor diepte
-- Rounded corners vergroten, padding verruimen
-- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
-- Hover-effect verbeteren met schaal + shadow
+Currently validates only by `administration_id` match. The update adds:
+- Parse `?secret=` from the webhook URL
+- Reject requests without a secret parameter (401)
+- Verify the secret matches `company.moneybird_webhook_secret` (403 if mismatch)
+- Select `moneybird_webhook_secret` in the company query
 
-**3. Toolbar opschonen (desktop)**
-- Knoppen groeperen met visuele scheiders
-- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
-- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
-- Badge voor aantal afspraken subtieler
+## 3. `sync-exact/index.ts` — Invoice sync improvements
 
-**4. Dagkolom headers verbeteren (desktop weekview)**
-- Datum groter en duidelijker, weekdag + dagnummer gescheiden
-- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
+Three fixes:
+- **Fiscal year filter**: Only sync invoices from current year (`gte("issued_at", fiscalYearStart)`) to avoid closed-period errors
+- **VAT-exclusive pricing**: Convert `unit_price` (incl. BTW) to `NetPrice` (excl. BTW) using `vat_percentage` before pushing to Exact
+- **Error logging**: Log individual invoice sync failures via `logEdgeFunctionError`
+- Add `logEdgeFunctionError` import
 
-**5. Zijpaneel styling**
-- Subtielere card-styling, betere spacing
-- Status-dots vergroten in de afsprakenlijst
-- Betere typografie-hiërarchie
+Both the batch `sync-invoices` and single `push-invoice` cases get the VAT fix.
 
-**6. Mobile day view**
-- Zelfde slot-hoogte verbetering
-- Events met meer padding en grotere tekst
+## 4. `sync-moneybird/index.ts` — Secure webhook registration
 
-### Bestanden
+Currently registers webhooks without a secret. The update:
+- Generates a random 32-byte hex secret
+- Appends `?secret={secret}` to the webhook callback URL
+- Stores the secret in `companies.moneybird_webhook_secret` after successful registration
 
-| Bestand | Wijziging |
+## Files to modify
+
+| File | Change |
 |---|---|
-| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
-| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+| `supabase/functions/exact-webhook/index.ts` | Replace with uploaded `index_36.ts` |
+| `supabase/functions/moneybird-webhook/index.ts` | Replace with uploaded `index_37.ts` |
+| `supabase/functions/sync-exact/index.ts` | Apply VAT fix, fiscal year filter, error logging |
+| `supabase/functions/sync-moneybird/index.ts` | Secure webhook registration with secret |
 
-Geen database-wijzigingen, geen nieuwe dependencies.
+All 4 functions will be redeployed. No database changes needed (`moneybird_webhook_secret` column already exists).
 
