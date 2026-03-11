@@ -295,7 +295,7 @@ Deno.serve(async (req) => {
         // Update existing customers in Exact
         for (const cust of existingCustomers || []) {
           try {
-            const accountData: Record<string, unknown> = {
+            const accountData = cleanBody({
               Name: cust.name,
               Email: cust.email || undefined,
               Phone: cust.phone || undefined,
@@ -304,7 +304,7 @@ Deno.serve(async (req) => {
               AddressLine1: cust.address || undefined,
               ...(cust.kvk_number ? { ChamberOfCommerce: cust.kvk_number } : {}),
               ...(cust.btw_number ? { VATNumber: cust.btw_number } : {}),
-            };
+            });
 
             const result = await exactPut(
               `${base_url}/api/v1/${division}/crm/Accounts(guid'${cust.exact_account_id}')`,
