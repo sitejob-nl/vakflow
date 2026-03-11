@@ -25,25 +25,7 @@ function cleanBody(obj: Record<string, unknown>): Record<string, unknown> {
 interface ExactToken {
   access_token: string;
   division: number;
-  region: string;
   base_url: string;
-  expires_at: string;
-}
-
-async function getExactToken(tenantId: string, webhookSecret: string): Promise<ExactToken> {
-  const res = await fetch("https://xeshjkznwdrxjjhbpisn.supabase.co/functions/v1/exact-token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tenant_id: tenantId, secret: webhookSecret }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    if (err.needs_reauth) throw new Error("REAUTH_REQUIRED");
-    throw new Error(err.error || `Token request failed: ${res.status}`);
-  }
-
-  return res.json();
 }
 
 /** Paginated GET using __next URL pattern (OData v3) */
