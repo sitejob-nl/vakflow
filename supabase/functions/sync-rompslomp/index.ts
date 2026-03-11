@@ -260,12 +260,16 @@ Deno.serve(async (req) => {
     if (action === "pull-contacts") {
       let page = 1;
       let allContacts: any[] = [];
+      const PER_PAGE = 100;
+      let totalRecords: number | null = null;
       while (true) {
-        const result = await rompslompGet(rompslompCompanyId, `/contacts?page=${page}&per_page=100`, apiToken);
-        const contacts = result?.contacts || result || [];
+        const { data: result, total, perPage } = await rompslompGet(rompslompCompanyId, `/contacts?page=${page}&per_page=${PER_PAGE}`, apiToken);
+        const contacts = (result as any)?.contacts || result || [];
         if (!Array.isArray(contacts) || contacts.length === 0) break;
         allContacts = allContacts.concat(contacts);
-        if (contacts.length < 100) break;
+        if (totalRecords === null && total !== null) totalRecords = total;
+        // Stop als we alles hebben (header-based) of fallback op length
+        if (totalRecords !== null ? allContacts.length >= totalRecords : contacts.length < (perPage || PER_PAGE)) break;
         page++;
       }
 
