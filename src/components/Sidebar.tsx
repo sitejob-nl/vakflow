@@ -46,6 +46,7 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
     items: [
       { id: "invoices" as Page, icon: DollarSign, label: "Facturatie", adminOnly: true },
       { id: "quotes" as Page, icon: FileText, label: "Offertes", adminOnly: true },
+      { id: "accounting" as Page, icon: BookOpen, label: "Boekhouding", adminOnly: true },
       { id: "reports" as Page, icon: BarChart3, label: "Rapportages", adminOnly: true },
       { id: "email" as Page, icon: Mail, label: "E-mail", adminOnly: true },
       { id: "whatsapp" as Page, icon: MessageSquare, label: "WhatsApp", adminOnly: true },
