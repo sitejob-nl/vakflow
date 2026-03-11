@@ -157,18 +157,58 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
 
   if (loadingExact) return <div className="border-t border-border pt-5"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>;
 
-  const isConnected = connection?.is_active === true;
+  const renderDropdown = (
+    label: string,
+    items: GlAccount[],
+    value: string,
+    onChange: (v: string) => void,
+    field: "gl_revenue_id" | "journal_code",
+    loading: boolean,
+    error: string
+  ) => (
+    <div>
+      <label className={labelClass}>{label}</label>
+      {loading ? (
+        <div className="flex items-center gap-2 py-2"><Loader2 className="h-3 w-3 animate-spin text-muted-foreground" /><span className="text-[11px] text-muted-foreground">Laden...</span></div>
+      ) : error ? (
+        <p className="text-[11px] text-destructive">{error}</p>
+      ) : (
+        <select
+          value={value}
+          onChange={(e) => { onChange(e.target.value); handleSaveExactConfig(field, e.target.value); }}
+          disabled={savingConfig}
+          className={inputClass}
+        >
+          <option value="">— Selecteer —</option>
+          {items.map((item) => (
+            <option key={item.id} value={item.id}>{item.code} — {item.description}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
 
   return (
     <div className="border-t border-border pt-5 space-y-3">
       <h3 className="text-[14px] font-bold">Exact Online</h3>
 
       {isConnected ? (
-        <div className="space-y-2">
+        <div className="space-y-4">
           <p className="text-[11px] text-success font-bold flex items-center gap-1">
             <Check className="h-3 w-3" /> Exact Online gekoppeld
           </p>
           {connection?.company_name && <p className="text-[12px] text-muted-foreground">Administratie: {connection.company_name}</p>}
+
+          {/* GL & Journal dropdowns */}
+          <div className="space-y-3 border-t border-border pt-3">
+            <h4 className="text-[13px] font-semibold">Boekhoud-instellingen</h4>
+            {renderDropdown("Omzet-grootboekrekening", glAccounts, selectedGl, setSelectedGl, "gl_revenue_id", loadingGl, glError)}
+            {renderDropdown("Verkoopjournaal", journals, selectedJournal, setSelectedJournal, "journal_code", loadingJournals, journalError)}
+            {!selectedGl && !loadingGl && !glError && (
+              <p className="text-[11px] text-amber-600">⚠ Selecteer een grootboekrekening om facturen naar Exact te kunnen syncen.</p>
+            )}
+          </div>
+
           <div className="flex gap-2">
             <button onClick={handleRefreshStatus} className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors">
               Status vernieuwen
