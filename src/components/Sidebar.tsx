@@ -6,6 +6,7 @@ import {
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { useLowStockCount } from "@/hooks/useMaterials";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAccountingProvider } from "@/hooks/useAccountingProvider";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import {
   Sidebar as ShadcnSidebar,
