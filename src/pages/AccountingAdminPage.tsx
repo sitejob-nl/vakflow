@@ -7,6 +7,10 @@ import ProviderSyncPanel from "@/components/ProviderSyncPanel";
 
 const MoneybirdAdmin = lazy(() => import("@/components/MoneybirdAdmin"));
 const RompslompAdmin = lazy(() => import("@/components/RompslompAdmin"));
+const ExactAdmin = lazy(() => import("@/components/ExactAdmin"));
+const EboekhoudenAdmin = lazy(() => import("@/components/EboekhoudenAdmin"));
+const WefactAdmin = lazy(() => import("@/components/WefactAdmin"));
+const SnelstartAdmin = lazy(() => import("@/components/SnelstartAdmin"));
 
 const PROVIDER_INFO: Record<string, { name: string; url: string; description: string }> = {
   exact: {
