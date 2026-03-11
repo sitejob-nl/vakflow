@@ -355,8 +355,8 @@ Deno.serve(async (req) => {
           if (existing && existing.subtotal > 0) continue;
 
           // Fetch full invoice detail to get lines
-          const fullResult = await rompslompGet(rompslompCompanyId, `/sales_invoices/${rInvSummary.id}`, apiToken);
-          const rInv = fullResult?.sales_invoice || fullResult;
+          const { data: fullResult } = await rompslompGet(rompslompCompanyId, `/sales_invoices/${rInvSummary.id}`, apiToken);
+          const rInv = (fullResult as any)?.sales_invoice || fullResult;
 
           const contactId = rInv.contact_id ? String(rInv.contact_id) : null;
           let customer = null;
