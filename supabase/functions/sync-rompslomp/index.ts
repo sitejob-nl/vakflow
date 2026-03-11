@@ -4,9 +4,15 @@ import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 import { decrypt } from "../_shared/crypto.ts";
 import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
-const ROMPSLOMP_BASE = "https://app.rompslomp.nl/api/v2";
+const ROMPSLOMP_BASE = "https://api.rompslomp.nl/api/v1";
 
-async function rompslompGet(companyId: string, path: string, token: string) {
+interface RompslompResponse<T = unknown> {
+  data: T;
+  total: number | null;
+  perPage: number;
+}
+
+async function rompslompGet<T = unknown>(companyId: string, path: string, token: string): Promise<RompslompResponse<T>> {
   const url = `${ROMPSLOMP_BASE}/companies/${companyId}${path}`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
@@ -15,7 +21,10 @@ async function rompslompGet(companyId: string, path: string, token: string) {
     const errText = await res.text();
     throw new Error(`Rompslomp GET ${path}: ${res.status} ${errText}`);
   }
-  return res.json();
+  const data = await res.json() as T;
+  const total = res.headers.get("X-Total") ? parseInt(res.headers.get("X-Total")!) : null;
+  const perPage = res.headers.get("X-Per-Page") ? parseInt(res.headers.get("X-Per-Page")!) : 100;
+  return { data, total, perPage };
 }
 
 async function rompslompGetRaw(companyId: string, path: string, token: string): Promise<ArrayBuffer> {
