@@ -911,7 +911,9 @@ Deno.serve(async (req) => {
           const items = batch?.items || batch || [];
           if (!Array.isArray(items) || items.length === 0) break;
           for (const item of items) {
-            if (item.invoiceNumber) outstandingIds.add(String(item.invoiceNumber));
+            // Use invoice ID for matching against our eboekhouden_id
+            if (item.id) outstandingIds.add(String(item.id));
+            else if (item.invoiceId) outstandingIds.add(String(item.invoiceId));
           }
           if (items.length < limit) break;
           offset += limit;
