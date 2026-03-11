@@ -70,15 +70,17 @@ async function pushInvoices(supabase: any, accessToken: string, baseUrl: string,
       const items = (invoice.items as any[]) || [];
       // deno-lint-ignore no-explicit-any
       const lines: any[] = items.map((item: any) => {
+        const itemId = item.exact_item_id || undefined;
         // deno-lint-ignore no-explicit-any
         const line: any = {
           Description: (item.description || item.omschrijving || "").substring(0, 100),
           Quantity: item.quantity || item.aantal || 1,
-          NetPrice: item.unit_price || item.prijs || 0,
+          UnitPrice: item.unit_price || item.prijs || 0,
           VATCode: mapVatCode(item.vat_percentage ?? item.btw_percentage ?? 21),
-          Item: item.exact_item_id || undefined,
+          Item: itemId,
         };
-        if (glAccountId) line.GLAccount = glAccountId;
+        // Only send GLAccount when no Item is present (Exact auto-populates from Item)
+        if (!itemId && glAccountId) line.GLAccount = glAccountId;
         return line;
       });
 
@@ -86,8 +88,8 @@ async function pushInvoices(supabase: any, accessToken: string, baseUrl: string,
         lines.push({
           Description: `Factuur ${invoice.invoice_number}`,
           Quantity: 1,
-          NetPrice: invoice.subtotal || 0,
-          VATCode: "2",
+          UnitPrice: invoice.subtotal || 0,
+          VATCode: "VH",
           ...(glAccountId ? { GLAccount: glAccountId } : {}),
         });
       }
@@ -131,26 +133,30 @@ async function pullPaymentStatus(supabase: any, accessToken: string, baseUrl: st
 
   const { data: invoices, error } = await supabase.from("invoices")
     .select("id, invoice_number, exact_id, status, total")
-    .eq("company_id", companyId).not("exact_id", "is", null);
+    .eq("company_id", companyId).not("exact_id", "is", null).neq("status", "betaald");
   if (error) throw error;
+  if (!invoices?.length) return results;
+
+  // Use ReceivablesList to find unpaid invoices — any synced invoice NOT in this list is paid
+  const receivablesRes = await fetch(`${baseUrl}/api/v1/${exactDivision}/read/financial/ReceivablesList?$select=InvoiceNumber,Amount,HID`, {
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+  });
+  
+  const unpaidInvoiceNumbers = new Set<string>();
+  if (receivablesRes.ok) {
+    const data = await receivablesRes.json();
+    const receivables = data.d?.results || [];
+    for (const r of receivables) {
+      if (r.InvoiceNumber) unpaidInvoiceNumbers.add(String(r.InvoiceNumber));
+      if (r.HID) unpaidInvoiceNumbers.add(String(r.HID));
+    }
+  }
 
   for (const invoice of (invoices || [])) {
     try {
-      const url = `${baseUrl}/api/v1/${exactDivision}/salesinvoice/SalesInvoices(guid'${invoice.exact_id}')?$select=InvoiceID,AmountDC,Status`;
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" } });
-      if (!res.ok) { results.skipped++; continue; }
-
-      const data = await res.json();
-      const amountDC = data.d?.AmountDC || 0;
-
-      // AmountDC = remaining amount. If <= 0.01, fully paid
-      let newStatus = invoice.status;
-      if (amountDC <= 0.01 && invoice.status !== "betaald") {
-        newStatus = "betaald";
-      }
-
-      if (newStatus !== invoice.status) {
-        await supabase.from("invoices").update({ status: newStatus, paid_at: new Date().toISOString() }).eq("id", invoice.id);
+      const invoiceNum = invoice.invoice_number;
+      if (invoiceNum && !unpaidInvoiceNumbers.has(invoiceNum)) {
+        await supabase.from("invoices").update({ status: "betaald", paid_at: new Date().toISOString() }).eq("id", invoice.id);
         results.updated++;
       } else {
         results.skipped++;
@@ -163,9 +169,9 @@ async function pullPaymentStatus(supabase: any, accessToken: string, baseUrl: st
 }
 
 function mapVatCode(vatPct: number): string {
-  if (vatPct === 0) return "1";
-  if (vatPct === 9) return "4";
-  return "2"; // 21%
+  if (vatPct === 0) return "VN";
+  if (vatPct === 9) return "VL";
+  return "VH"; // 21%
 }
 
 async function getDefaultRevenueGLAccount(accessToken: string, baseUrl: string, division: number): Promise<string | null> {

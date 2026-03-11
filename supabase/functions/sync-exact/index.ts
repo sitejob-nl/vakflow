@@ -478,13 +478,15 @@ Deno.serve(async (req) => {
               const priceIncl = Number(item.unit_price || item.price || 0);
               const qty = item.qty || item.quantity || 1;
               const priceExcl = priceIncl / vatDivisor;
+              const itemId = item.exact_item_id || config.default_item_id;
               const lineData: Record<string, unknown> = {
                 Description: item.description || item.name || "Regel",
                 Quantity: qty,
-                NetPrice: Math.round(priceExcl * 100) / 100,
-                GLAccount: config.gl_revenue_id,
-                Item: item.exact_item_id || config.default_item_id,
+                UnitPrice: Math.round(priceExcl * 100) / 100,
+                Item: itemId,
               };
+              // Only send GLAccount when no Item is present (Exact auto-populates from Item)
+              if (!itemId) lineData.GLAccount = config.gl_revenue_id;
               return lineData;
             });
 
@@ -500,7 +502,7 @@ Deno.serve(async (req) => {
               InvoiceDate: inv.issued_at || new Date().toISOString().split("T")[0],
               SalesInvoiceLines: invoiceLines,
             };
-            if (config?.journal_code) invoiceData.Journal = config.journal_code;
+            if (config?.journal_code) invoiceData.Journal = parseInt(config.journal_code, 10) || config.journal_code;
 
             if (inv.due_at) {
               invoiceData.DueDate = inv.due_at;
@@ -632,7 +634,7 @@ Deno.serve(async (req) => {
         return jsonRes({ total_in_exact: invoices.length, imported, already_linked, unlinked_customers, errors });
       }
 
-      // ── Fix 2: pull-status fully implemented ──
+      // ── pull-status: use ReceivablesList to detect paid invoices ──
       case "pull-status": {
         // Get all local invoices that are synced to Exact but not yet paid
         const { data: localInvoices } = await supabaseAdmin
@@ -644,16 +646,17 @@ Deno.serve(async (req) => {
 
         if (!localInvoices?.length) return jsonRes({ checked: 0, updated: 0, errors: [] });
 
-        // Fetch only non-paid invoices from Exact (Status 50 = betaald) to reduce API calls
-        const exactInvoices = await exactGetAll(
-          base_url, division, "salesinvoice/SalesInvoices", access_token,
-          "$select=InvoiceID,InvoiceNumber,Status,AmountDC&$filter=Status ne 50"
+        // ReceivablesList returns all UNPAID invoices. If an invoice is NOT in this list, it's paid.
+        const receivables = await exactGetAll(
+          base_url, division, "read/financial/ReceivablesList", access_token,
+          "$select=InvoiceNumber,Amount,HID"
         );
 
-        // Build lookup: InvoiceID → Status
-        const exactStatusMap = new Map<string, number>();
-        for (const ei of exactInvoices) {
-          if (ei.InvoiceID) exactStatusMap.set(ei.InvoiceID, Number(ei.Status));
+        // Build set of invoice numbers that are still unpaid
+        const unpaidInvoiceNumbers = new Set<string>();
+        for (const r of receivables) {
+          if (r.InvoiceNumber) unpaidInvoiceNumbers.add(String(r.InvoiceNumber));
+          if (r.HID) unpaidInvoiceNumbers.add(String(r.HID));
         }
 
         let checked = localInvoices.length;
@@ -661,8 +664,9 @@ Deno.serve(async (req) => {
         const errors: string[] = [];
 
         for (const inv of localInvoices) {
-          const exactStatus = exactStatusMap.get(inv.exact_id);
-          if (exactStatus === 50) {
+          // If the invoice number is NOT in the unpaid receivables list, it has been paid
+          const invoiceNum = inv.invoice_number;
+          if (invoiceNum && !unpaidInvoiceNumbers.has(invoiceNum)) {
             try {
               await supabaseAdmin
                 .from("invoices")
@@ -861,13 +865,14 @@ Deno.serve(async (req) => {
           const priceIncl = Number(item.unit_price || item.price || 0);
           const qty = item.qty || item.quantity || 1;
           const priceExcl = priceIncl / vatDivisor;
+          const itemId = item.exact_item_id || config.default_item_id;
           const lineData: Record<string, unknown> = {
             Description: item.description || item.name || "Regel",
             Quantity: qty,
-            NetPrice: Math.round(priceExcl * 100) / 100,
-            GLAccount: config.gl_revenue_id,
+            UnitPrice: Math.round(priceExcl * 100) / 100,
+            Item: itemId,
           };
-          if (item.exact_item_id) lineData.Item = item.exact_item_id;
+          if (!itemId) lineData.GLAccount = config.gl_revenue_id;
           return lineData;
         });
 
@@ -881,7 +886,7 @@ Deno.serve(async (req) => {
           InvoiceDate: invoice.issued_at || new Date().toISOString().split("T")[0],
           SalesInvoiceLines: invoiceLines,
         };
-        if (config?.journal_code) invoiceData.Journal = config.journal_code;
+        if (config?.journal_code) invoiceData.Journal = parseInt(config.journal_code, 10) || config.journal_code;
 
         if (invoice.due_at) invoiceData.DueDate = invoice.due_at;
 
