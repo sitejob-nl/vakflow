@@ -136,6 +136,22 @@ const AccountingAdminPage = () => {
         <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
           <RompslompAdmin />
         </Suspense>
+      ) : provider === "exact" ? (
+        <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+          <ExactAdmin />
+        </Suspense>
+      ) : provider === "eboekhouden" ? (
+        <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+          <EboekhoudenAdmin />
+        </Suspense>
+      ) : provider === "wefact" ? (
+        <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+          <WefactAdmin />
+        </Suspense>
+      ) : provider === "snelstart" ? (
+        <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+          <SnelstartAdmin />
+        </Suspense>
       ) : (
         <ProviderPlaceholder providerKey={provider} />
       )}
