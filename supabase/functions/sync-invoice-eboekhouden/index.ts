@@ -907,7 +907,7 @@ Deno.serve(async (req) => {
         let offset = 0;
         const limit = 500;
         while (true) {
-          const batch: any = await ebGet(session, `/mutation/invoice/outstanding?limit=${limit}&offset=${offset}`);
+          const batch: any = await ebGet(session, `/mutation/invoice/outstanding?type=debtors&limit=${limit}&offset=${offset}`);
           const items = batch?.items || batch || [];
           if (!Array.isArray(items) || items.length === 0) break;
           for (const item of items) {
