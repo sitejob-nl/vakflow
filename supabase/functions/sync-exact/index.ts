@@ -857,13 +857,16 @@ Deno.serve(async (req) => {
         const items = (invoice.items as any[]) || [];
         const invoiceLines = items.map((item: any) => {
           const priceIncl = Number(item.unit_price || item.price || 0);
+          const qty = item.qty || item.quantity || 1;
           const priceExcl = priceIncl / vatDivisor;
-          return {
+          const lineData: Record<string, unknown> = {
             Description: item.description || item.name || "Regel",
-            Quantity: item.qty || item.quantity || 1,
+            Quantity: qty,
             NetPrice: Math.round(priceExcl * 100) / 100,
             GLAccount: config.gl_revenue_id,
           };
+          if (item.exact_item_id) lineData.Item = item.exact_item_id;
+          return lineData;
         });
 
         if (!invoiceLines.length) {
