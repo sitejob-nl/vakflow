@@ -519,12 +519,15 @@ Deno.serve(async (req) => {
     if (action === "pull-quotes") {
       let page = 1;
       let allQuotations: any[] = [];
+      const PER_PAGE = 100;
+      let totalRecords: number | null = null;
       while (true) {
-        const result = await rompslompGet(rompslompCompanyId, `/quotations?page=${page}&per_page=100`, apiToken);
-        const quotations = result?.quotations || result || [];
+        const { data: result, total, perPage } = await rompslompGet(rompslompCompanyId, `/quotations?page=${page}&per_page=${PER_PAGE}`, apiToken);
+        const quotations = (result as any)?.quotations || result || [];
         if (!Array.isArray(quotations) || quotations.length === 0) break;
         allQuotations = allQuotations.concat(quotations);
-        if (quotations.length < 100) break;
+        if (totalRecords === null && total !== null) totalRecords = total;
+        if (totalRecords !== null ? allQuotations.length >= totalRecords : quotations.length < (perPage || PER_PAGE)) break;
         page++;
       }
 
