@@ -631,10 +631,10 @@ Deno.serve(async (req) => {
 
         if (!localInvoices?.length) return jsonRes({ checked: 0, updated: 0, errors: [] });
 
-        // Fetch ALL invoices from Exact (including paid ones, Status = 50)
+        // Fetch only non-paid invoices from Exact (Status 50 = betaald) to reduce API calls
         const exactInvoices = await exactGetAll(
           base_url, division, "salesinvoice/SalesInvoices", access_token,
-          "$select=InvoiceID,InvoiceNumber,Status,AmountDC"
+          "$select=InvoiceID,InvoiceNumber,Status,AmountDC&$filter=Status ne 50"
         );
 
         // Build lookup: InvoiceID → Status
