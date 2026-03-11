@@ -1,50 +1,29 @@
 
 
-# Apply uploaded edge function improvements
+# Replace InvoicesPage.tsx with provider-agnostic version
 
-The uploaded files contain improvements to 4 edge functions. Here's a summary of the changes from the patch file:
+## What changes
 
-## 1. `exact-webhook/index.ts` — Add invoice payment status processing
+Full file replacement of `src/pages/InvoicesPage.tsx` (714 lines → 675 lines). The uploaded file is taken verbatim — no merging.
 
-Currently just logs and acknowledges webhooks. The update adds:
-- `getExactToken` helper to fetch access tokens from SiteJob Connect
-- `logEdgeFunctionError` import for error logging
-- Query `tenant_id` and `division` from `exact_config`
-- When a `SalesInvoices` webhook arrives, fetch the invoice from Exact to check if `Status === 50` (paid), and if so update the local invoice to `betaald`
+## Key differences from current file
 
-## 2. `moneybird-webhook/index.ts` — Add URL-based webhook secret verification
+1. **Removed imports**: `useInvoices`, `useSyncInvoiceEboekhouden`, `usePullInvoiceStatusEboekhouden`, `useSyncInvoicesRompslomp`, `usePullInvoiceStatusRompslomp`, `useSyncInvoicesMoneybird`, `usePullInvoiceStatusMoneybird` — all gone
+2. **Removed hooks**: `syncEb`, `pullStatusEb`, `syncRompslomp`, `pullStatusRompslomp`, `syncMoneybird`, `pullStatusMoneybird` — 6 hook instantiations removed
+3. **Removed handlers**: `handleSyncRompslomp`, `handleSyncMoneybird`, `handleSyncEb`, `handleSyncExact` — replaced by generic `funcMap` pattern
+4. **Generic auto-sync on "verzonden"** (lines 97-113): One `funcMap` with all 5 providers
+5. **Generic pull-status on "betaald"** (lines 139-153): One `pullFuncMap` with correct action names
+6. **Generic sync button + indicator** (lines 452-512): IIFE pattern with `providerIdMap` and `providerLabelMap`
 
-Currently validates only by `administration_id` match. The update adds:
-- Parse `?secret=` from the webhook URL
-- Reject requests without a secret parameter (401)
-- Verify the secret matches `company.moneybird_webhook_secret` (403 if mismatch)
-- Select `moneybird_webhook_secret` in the company query
+## Three verification points (per your instructions)
 
-## 3. `sync-exact/index.ts` — Invoice sync improvements
+1. **IIFE in JSX** (lines 453-512): The `{accountingProvider && (() => { ... })()}` pattern with `providerIdMap` using `(selected as any).exact_id` — will be preserved exactly as-is
+2. **`useQueryClient` import** (line 12): Present in the uploaded file — `import { useQueryClient } from "@tanstack/react-query"`
+3. **Edge functions**: No edge function files are modified — only the frontend file changes
 
-Three fixes:
-- **Fiscal year filter**: Only sync invoices from current year (`gte("issued_at", fiscalYearStart)`) to avoid closed-period errors
-- **VAT-exclusive pricing**: Convert `unit_price` (incl. BTW) to `NetPrice` (excl. BTW) using `vat_percentage` before pushing to Exact
-- **Error logging**: Log individual invoice sync failures via `logEdgeFunctionError`
-- Add `logEdgeFunctionError` import
+## File
 
-Both the batch `sync-invoices` and single `push-invoice` cases get the VAT fix.
-
-## 4. `sync-moneybird/index.ts` — Secure webhook registration
-
-Currently registers webhooks without a secret. The update:
-- Generates a random 32-byte hex secret
-- Appends `?secret={secret}` to the webhook callback URL
-- Stores the secret in `companies.moneybird_webhook_secret` after successful registration
-
-## Files to modify
-
-| File | Change |
+| File | Action |
 |---|---|
-| `supabase/functions/exact-webhook/index.ts` | Replace with uploaded `index_36.ts` |
-| `supabase/functions/moneybird-webhook/index.ts` | Replace with uploaded `index_37.ts` |
-| `supabase/functions/sync-exact/index.ts` | Apply VAT fix, fiscal year filter, error logging |
-| `supabase/functions/sync-moneybird/index.ts` | Secure webhook registration with secret |
-
-All 4 functions will be redeployed. No database changes needed (`moneybird_webhook_secret` column already exists).
+| `src/pages/InvoicesPage.tsx` | Full replacement with uploaded 675-line version |
 
