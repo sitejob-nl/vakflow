@@ -1406,6 +1406,69 @@ export type Database = {
           },
         ]
       }
+      exact_online_connections: {
+        Row: {
+          company_id: string
+          company_name: string | null
+          connected_at: string | null
+          created_at: string | null
+          division_id: string
+          exact_division: number | null
+          id: string
+          is_active: boolean | null
+          region: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          webhook_secret: string | null
+          webhooks_enabled: boolean | null
+        }
+        Insert: {
+          company_id: string
+          company_name?: string | null
+          connected_at?: string | null
+          created_at?: string | null
+          division_id: string
+          exact_division?: number | null
+          id?: string
+          is_active?: boolean | null
+          region?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+          webhooks_enabled?: boolean | null
+        }
+        Update: {
+          company_id?: string
+          company_name?: string | null
+          connected_at?: string | null
+          created_at?: string | null
+          division_id?: string
+          exact_division?: number | null
+          id?: string
+          is_active?: boolean | null
+          region?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+          webhooks_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exact_online_connections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exact_online_connections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleet_vehicle_types: {
         Row: {
           asset_id: string

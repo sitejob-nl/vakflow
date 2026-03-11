@@ -54,6 +54,21 @@ verify_jwt = false
 [functions.exact-webhook]
 verify_jwt = false
 
+[functions.exact-api]
+verify_jwt = false
+
+[functions.exact-sync-customers]
+verify_jwt = false
+
+[functions.exact-sync-invoices]
+verify_jwt = false
+
+[functions.exact-sync-quotes]
+verify_jwt = false
+
+[functions.exact-sync-items]
+verify_jwt = false
+
 [functions.snelstart-sync]
 verify_jwt = false
 
