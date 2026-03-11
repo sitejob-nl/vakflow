@@ -181,27 +181,35 @@ Deno.serve(async (req) => {
     // Rate limit: max 5 syncs per minute per company
     await checkRateLimit(supabaseAdmin, companyId, "sync_exact", 5);
 
-    // Get exact config
+    // Get exact_online_connections (source of truth for token)
+    const { data: connection } = await supabaseAdmin
+      .from("exact_online_connections")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!connection?.tenant_id || !connection?.webhook_secret) {
+      return jsonRes({ error: "Exact Online is niet gekoppeld" }, 400);
+    }
+
+    // Get exact_config for GL/journal settings
     const { data: config } = await supabaseAdmin
       .from("exact_config")
       .select("*")
       .eq("company_id", companyId)
       .maybeSingle();
 
-    if (!config?.tenant_id || !config?.webhook_secret) {
-      return jsonRes({ error: "Exact Online is niet gekoppeld" }, 400);
-    }
-
     const body = await req.json();
     const { action } = body;
 
-    // Get fresh token
+    // Get fresh token via shared helper
     let tokenData: ExactToken;
     try {
-      tokenData = await getExactToken(config.tenant_id, config.webhook_secret);
+      tokenData = await getExactTokenFromConnection(connection);
     } catch (err: any) {
-      if (err.message === "REAUTH_REQUIRED" || err.message === "Tenant not active" || (err.message && err.message.includes("Tenant not active"))) {
-        await supabaseAdmin.from("exact_config").update({ status: "error", updated_at: new Date().toISOString() }).eq("company_id", companyId);
+      if (err.message === "REAUTH_REQUIRED" || err.message?.includes("Tenant not active")) {
+        await supabaseAdmin.from("exact_online_connections").update({ is_active: false, updated_at: new Date().toISOString() }).eq("company_id", companyId);
         return jsonRes({ error: "Exact Online koppeling niet actief. Koppel opnieuw via instellingen.", needs_reauth: true }, 401);
       }
       throw err;
