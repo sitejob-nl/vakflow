@@ -181,7 +181,7 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
         >
           <option value="">— Selecteer —</option>
           {items.map((item) => (
-            <option key={item.id} value={item.id}>{item.code} — {item.description}</option>
+            <option key={item.id} value={field === "journal_code" ? item.code : item.id}>{item.code} — {item.description}</option>
           ))}
         </select>
       )}
