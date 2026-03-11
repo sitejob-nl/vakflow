@@ -15,6 +15,11 @@ function parseODataDate(val: unknown): string | null {
   return s;
 }
 
+/** Strip undefined values from an object before sending to Exact API */
+function cleanBody(obj: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== undefined));
+}
+
 interface ExactToken {
   access_token: string;
   division: number;
@@ -123,7 +128,15 @@ async function exactRequest(
 
     if (!res.ok) {
       const errText = await res.text();
-      return { ok: false, error: errText.slice(0, 200), status: res.status };
+      // Parse Exact error details for better diagnostics
+      let errorDetail = errText.slice(0, 500);
+      try {
+        const errJson = JSON.parse(errText);
+        const msg = errJson?.error?.message?.value || errJson?.error?.message || errJson?.error?.innererror?.message;
+        if (msg) errorDetail = msg;
+      } catch { /* keep raw text */ }
+      console.error(`Exact ${method} ${url} → ${res.status}: ${errorDetail}`);
+      return { ok: false, error: errorDetail.slice(0, 300), status: res.status };
     }
 
     const data = await res.json().catch(() => ({}));
@@ -143,7 +156,7 @@ async function ensureExactAccount(
 ): Promise<string | null> {
   if (customer.exact_account_id) return customer.exact_account_id;
 
-  const accountData: Record<string, unknown> = {
+  const accountData = cleanBody({
     Name: customer.name,
     Status: "C",
     Country: "NL",
@@ -154,7 +167,7 @@ async function ensureExactAccount(
     AddressLine1: customer.address || undefined,
     ...(customer.kvk_number ? { ChamberOfCommerce: customer.kvk_number } : {}),
     ...(customer.btw_number ? { VATNumber: customer.btw_number } : {}),
-  };
+  });
 
   const result = await exactPost(
     `${baseUrl}/api/v1/${division}/crm/Accounts`,
@@ -250,7 +263,7 @@ Deno.serve(async (req) => {
         // Push new customers
         for (const cust of newCustomers || []) {
           try {
-            const accountData: Record<string, unknown> = {
+            const accountData = cleanBody({
               Name: cust.name,
               Status: "C",
               Country: "NL",
@@ -261,7 +274,7 @@ Deno.serve(async (req) => {
               AddressLine1: cust.address || undefined,
               ...(cust.kvk_number ? { ChamberOfCommerce: cust.kvk_number } : {}),
               ...(cust.btw_number ? { VATNumber: cust.btw_number } : {}),
-            };
+            });
 
             const result = await exactPost(
               `${base_url}/api/v1/${division}/crm/Accounts`,
@@ -290,7 +303,7 @@ Deno.serve(async (req) => {
         // Update existing customers in Exact
         for (const cust of existingCustomers || []) {
           try {
-            const accountData: Record<string, unknown> = {
+            const accountData = cleanBody({
               Name: cust.name,
               Email: cust.email || undefined,
               Phone: cust.phone || undefined,
@@ -299,7 +312,7 @@ Deno.serve(async (req) => {
               AddressLine1: cust.address || undefined,
               ...(cust.kvk_number ? { ChamberOfCommerce: cust.kvk_number } : {}),
               ...(cust.btw_number ? { VATNumber: cust.btw_number } : {}),
-            };
+            });
 
             const result = await exactPut(
               `${base_url}/api/v1/${division}/crm/Accounts(guid'${cust.exact_account_id}')`,
@@ -383,7 +396,7 @@ Deno.serve(async (req) => {
       case "fetch-gl-accounts": {
         const accounts = await exactGetAll(
           base_url, division, "financial/GLAccounts", access_token,
-          "$select=ID,Code,Description&$filter=Type eq 20&$orderby=Code"
+          "$select=ID,Code,Description&$filter=Type eq 110&$orderby=Code"
         );
         return jsonRes({
           accounts: accounts.map((a: any) => ({
@@ -618,10 +631,10 @@ Deno.serve(async (req) => {
 
         if (!localInvoices?.length) return jsonRes({ checked: 0, updated: 0, errors: [] });
 
-        // Fetch ALL invoices from Exact (including paid ones, Status = 50)
+        // Fetch only non-paid invoices from Exact (Status 50 = betaald) to reduce API calls
         const exactInvoices = await exactGetAll(
           base_url, division, "salesinvoice/SalesInvoices", access_token,
-          "$select=InvoiceID,InvoiceNumber,Status,AmountDC"
+          "$select=InvoiceID,InvoiceNumber,Status,AmountDC&$filter=Status ne 50"
         );
 
         // Build lookup: InvoiceID → Status
