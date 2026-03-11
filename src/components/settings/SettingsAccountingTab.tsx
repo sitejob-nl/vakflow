@@ -449,9 +449,6 @@ const SettingsAccountingTab = () => {
               Instellingen opslaan
             </button>
           </div>
-
-          {/* Rompslomp Management Tabs */}
-          <RompslompManagementSection />
         </div>
       )}
 
