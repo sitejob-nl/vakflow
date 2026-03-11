@@ -786,8 +786,8 @@ Deno.serve(async (req) => {
       }
 
       // Fetch full quotation to get the Rompslomp quote number
-      const fullQuotation = await rompslompGet(rompslompCompanyId, `/quotations/${rompslompId}`, apiToken);
-      const rQ = fullQuotation?.quotation || fullQuotation;
+      const { data: fullQuotation } = await rompslompGet(rompslompCompanyId, `/quotations/${rompslompId}`, apiToken);
+      const rQ = (fullQuotation as any)?.quotation || fullQuotation;
       const rompslompQuoteNumber = rQ?.invoice_number || null;
 
       const updateData: any = {
