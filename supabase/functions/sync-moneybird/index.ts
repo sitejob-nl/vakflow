@@ -1052,6 +1052,197 @@ Deno.serve(async (req) => {
       return jsonRes({ webhooks: Array.isArray(webhooks) ? webhooks : [] });
     }
 
+    // ─── Direct API proxy actions (browse Moneybird data live) ───
+
+    // Action: list-contacts-live (browse Moneybird contacts directly)
+    if (action === "list-contacts-live") {
+      const query = body.query || "";
+      const page = body.page || 1;
+      const perPage = body.per_page || 50;
+      const path = query
+        ? `contacts?query=${encodeURIComponent(query)}&page=${page}&per_page=${perPage}`
+        : `contacts?page=${page}&per_page=${perPage}`;
+      const contacts = await mbGet(adminId, path, apiToken);
+      return jsonRes({ success: true, contacts: Array.isArray(contacts) ? contacts : [] });
+    }
+
+    // Action: list-invoices-live (browse Moneybird invoices with state filter)
+    if (action === "list-invoices-live") {
+      const state = body.state || "all";
+      const page = body.page || 1;
+      const perPage = body.per_page || 50;
+      const path = state === "all"
+        ? `sales_invoices?page=${page}&per_page=${perPage}`
+        : `sales_invoices?filter=state:${state}&page=${page}&per_page=${perPage}`;
+      const invoices = await mbGet(adminId, path, apiToken);
+      return jsonRes({ success: true, invoices: Array.isArray(invoices) ? invoices : [] });
+    }
+
+    // Action: list-products-live (browse Moneybird products directly)
+    if (action === "list-products-live") {
+      const query = body.query || "";
+      const page = body.page || 1;
+      const perPage = body.per_page || 100;
+      let path = `products?page=${page}&per_page=${perPage}`;
+      if (query) path += `&query=${encodeURIComponent(query)}`;
+      const products = await mbGet(adminId, path, apiToken);
+      return jsonRes({ success: true, products: Array.isArray(products) ? products : [] });
+    }
+
+    // Action: list-ledger-accounts
+    if (action === "list-ledger-accounts") {
+      const accounts = await mbGet(adminId, "ledger_accounts", apiToken);
+      return jsonRes({ success: true, ledger_accounts: Array.isArray(accounts) ? accounts : [] });
+    }
+
+    // Action: list-tax-rates
+    if (action === "list-tax-rates") {
+      const rates = await mbGet(adminId, "tax_rates", apiToken);
+      return jsonRes({ success: true, tax_rates: Array.isArray(rates) ? rates : [] });
+    }
+
+    // Action: financial-summary
+    if (action === "financial-summary") {
+      const states = ["open", "late", "paid"];
+      const results = await Promise.all(states.map(async (state) => {
+        try {
+          const invoices = await mbGet(adminId, `sales_invoices?filter=state:${state}&per_page=100`, apiToken);
+          const list = Array.isArray(invoices) ? invoices : [];
+          const total = list.reduce((sum: number, inv: any) => sum + parseFloat(inv.total_price_incl_tax || "0"), 0);
+          return { state, count: list.length, total };
+        } catch {
+          return { state, count: 0, total: 0 };
+        }
+      }));
+      const summary: Record<string, { count: number; total: number }> = {};
+      results.forEach((r) => { summary[r.state] = { count: r.count, total: r.total }; });
+      return jsonRes({ success: true, summary });
+    }
+
+    // Action: create-contact-direct (create contact in Moneybird without Vakflow link)
+    if (action === "create-contact-direct") {
+      const { contact_data } = body;
+      if (!contact_data) return jsonRes({ error: "contact_data is verplicht" }, 400);
+      const result = await mbPost(adminId, "contacts", apiToken, { contact: contact_data });
+      return jsonRes({ success: true, contact: result });
+    }
+
+    // Action: update-contact-direct
+    if (action === "update-contact-direct") {
+      const { contact_id, contact_data } = body;
+      if (!contact_id || !contact_data) return jsonRes({ error: "contact_id en contact_data zijn verplicht" }, 400);
+      const result = await mbPatch(adminId, `contacts/${contact_id}`, apiToken, { contact: contact_data });
+      return jsonRes({ success: true, contact: result });
+    }
+
+    // Action: delete-contact-direct
+    if (action === "delete-contact-direct") {
+      const { contact_id } = body;
+      if (!contact_id) return jsonRes({ error: "contact_id is verplicht" }, 400);
+      await mbDelete(adminId, `contacts/${contact_id}`, apiToken);
+      return jsonRes({ success: true });
+    }
+
+    // Action: create-product-direct
+    if (action === "create-product-direct") {
+      const productPayload: Record<string, unknown> = {};
+      if (body.product_description) productPayload.description = body.product_description;
+      if (body.product_title) productPayload.title = body.product_title;
+      if (body.product_price) productPayload.price = body.product_price;
+      if (body.product_identifier) productPayload.identifier = body.product_identifier;
+      if (body.product_frequency) productPayload.frequency = body.product_frequency;
+      if (body.product_frequency_type) productPayload.frequency_type = body.product_frequency_type;
+      if (body.tax_rate_id) productPayload.tax_rate_id = body.tax_rate_id;
+      if (body.ledger_account_id) productPayload.ledger_account_id = body.ledger_account_id;
+      const result = await mbPost(adminId, "products", apiToken, { product: productPayload });
+      return jsonRes({ success: true, product: result });
+    }
+
+    // Action: update-product-direct
+    if (action === "update-product-direct") {
+      const { mb_product_id } = body;
+      if (!mb_product_id) return jsonRes({ error: "mb_product_id is verplicht" }, 400);
+      const productPayload: Record<string, unknown> = {};
+      if (body.product_description !== undefined) productPayload.description = body.product_description;
+      if (body.product_title !== undefined) productPayload.title = body.product_title;
+      if (body.product_price !== undefined) productPayload.price = body.product_price;
+      if (body.product_identifier !== undefined) productPayload.identifier = body.product_identifier;
+      const result = await mbPatch(adminId, `products/${mb_product_id}`, apiToken, { product: productPayload });
+      return jsonRes({ success: true, product: result });
+    }
+
+    // Action: send-invoice-direct (set to open via Manual delivery)
+    if (action === "send-invoice-direct") {
+      const { moneybird_invoice_id } = body;
+      if (!moneybird_invoice_id) return jsonRes({ error: "moneybird_invoice_id is verplicht" }, 400);
+      await mbPatch(adminId, `sales_invoices/${moneybird_invoice_id}/send_invoice`, apiToken, {
+        sales_invoice_sending: { delivery_method: "Manual" },
+      });
+      return jsonRes({ success: true });
+    }
+
+    // Action: get-invoice-pdf-url (get PDF redirect URL)
+    if (action === "get-invoice-pdf-url") {
+      const { moneybird_invoice_id } = body;
+      if (!moneybird_invoice_id) return jsonRes({ error: "moneybird_invoice_id is verplicht" }, 400);
+      // Use fetch with redirect: manual to get the 302 location
+      const url = `${MB_BASE}/${adminId}/sales_invoices/${moneybird_invoice_id}/download_pdf.json`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${apiToken}` },
+        redirect: "manual",
+      });
+      if (res.status === 302) {
+        const pdfUrl = res.headers.get("Location");
+        return jsonRes({ success: true, pdf_url: pdfUrl });
+      }
+      // Fallback: return binary as base64
+      const pdfBytes = await mbGetRaw(adminId, `sales_invoices/${moneybird_invoice_id}/download_pdf`, apiToken);
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
+      return jsonRes({ success: true, pdf_base64: base64 });
+    }
+
+    // Action: create-standalone-invoice (create invoice directly in Moneybird)
+    if (action === "create-standalone-invoice") {
+      const { contact_id, lines, reference, invoice_date, due_date, send_immediately } = body;
+      if (!contact_id) return jsonRes({ error: "contact_id is verplicht" }, 400);
+      if (!Array.isArray(lines) || lines.length === 0) return jsonRes({ error: "Minimaal één factuurregel is verplicht" }, 400);
+
+      const details_attributes = lines.map((l: any) => ({
+        description: l.description || "",
+        price: String(l.price || "0"),
+        amount: String(l.amount || "1"),
+        tax_rate_id: l.tax_rate_id || undefined,
+        ledger_account_id: l.ledger_account_id || undefined,
+        product_id: l.product_id || undefined,
+      }));
+
+      const invoicePayload: Record<string, unknown> = {
+        contact_id: parseInt(contact_id),
+        details_attributes,
+      };
+      if (reference) invoicePayload.reference = reference;
+      if (invoice_date) invoicePayload.invoice_date = invoice_date;
+      if (due_date) invoicePayload.due_date = due_date;
+
+      const result = await mbPost(adminId, "sales_invoices", apiToken, { sales_invoice: invoicePayload });
+      const mbId = result?.id;
+
+      if (send_immediately && mbId) {
+        await mbPatch(adminId, `sales_invoices/${mbId}/send_invoice`, apiToken, {
+          sales_invoice_sending: { delivery_method: "Manual" },
+        });
+      }
+
+      const fullInvoice = mbId ? await mbGet(adminId, `sales_invoices/${mbId}`, apiToken) : result;
+
+      return jsonRes({
+        success: true,
+        invoice: fullInvoice,
+        invoice_number: fullInvoice?.invoice_id || null,
+        moneybird_id: mbId ? String(mbId) : null,
+      });
+    }
+
     return jsonRes({ error: `Onbekende actie: ${action}` }, 400);
   } catch (err: any) {
     if (err instanceof AuthError) return jsonRes({ error: err.message }, err.status);
