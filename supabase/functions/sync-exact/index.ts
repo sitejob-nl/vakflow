@@ -388,7 +388,7 @@ Deno.serve(async (req) => {
       case "fetch-gl-accounts": {
         const accounts = await exactGetAll(
           base_url, division, "financial/GLAccounts", access_token,
-          "$select=ID,Code,Description&$filter=Type eq 20&$orderby=Code"
+          "$select=ID,Code,Description&$filter=Type eq 110&$orderby=Code"
         );
         return jsonRes({
           accounts: accounts.map((a: any) => ({
