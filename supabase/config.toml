@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.leads-api]
 verify_jwt = false
+
+[functions.rompslomp-api]
+verify_jwt = false

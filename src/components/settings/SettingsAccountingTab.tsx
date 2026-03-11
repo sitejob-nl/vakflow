@@ -1,10 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Check, X } from "lucide-react";
 import { useSnelstartConnection, useSaveSnelstartConnection, useDeleteSnelstartConnection, useTestSnelstartConnection } from "@/hooks/useSnelstart";
 import { SETTINGS_INPUT_CLASS as inputClass, SETTINGS_LABEL_CLASS as labelClass } from "./shared";
+
+const RompslompContacts = lazy(() => import("@/components/RompslompContacts").then(m => ({ default: m.RompslompContacts })));
+const RompslompInvoices = lazy(() => import("@/components/RompslompInvoices").then(m => ({ default: m.RompslompInvoices })));
+const RompslompQuotations = lazy(() => import("@/components/RompslompQuotations").then(m => ({ default: m.RompslompQuotations })));
+const RompslompProducts = lazy(() => import("@/components/RompslompProducts").then(m => ({ default: m.RompslompProducts })));
 
 interface GlAccount {
   id: string;
@@ -246,7 +251,46 @@ const PROVIDERS = [
   { key: "snelstart", label: "SnelStart" },
 ] as const;
 
+type RompslompTab = "contacts" | "invoices" | "quotations" | "products";
+const ROMPSLOMP_TABS: { key: RompslompTab; label: string }[] = [
+  { key: "contacts", label: "Contacten" },
+  { key: "invoices", label: "Facturen" },
+  { key: "quotations", label: "Offertes" },
+  { key: "products", label: "Producten" },
+];
+
+const RompslompManagementSection = () => {
+  const [activeTab, setActiveTab] = useState<RompslompTab>("contacts");
+  return (
+    <div className="border-t border-border pt-5 space-y-3">
+      <h3 className="text-[14px] font-bold">Rompslomp beheer</h3>
+      <div className="flex gap-1 border-b border-border pb-0">
+        {ROMPSLOMP_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-3 py-1.5 text-[12px] font-medium rounded-t-sm transition-colors border-b-2 -mb-px ${
+              activeTab === tab.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+        {activeTab === "contacts" && <RompslompContacts />}
+        {activeTab === "invoices" && <RompslompInvoices />}
+        {activeTab === "quotations" && <RompslompQuotations />}
+        {activeTab === "products" && <RompslompProducts />}
+      </Suspense>
+    </div>
+  );
+};
+
 const SettingsAccountingTab = () => {
+
   const { companyId } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -435,15 +479,20 @@ const SettingsAccountingTab = () => {
       )}
 
       {provider === "rompslomp" && (
-        <div className="border-t border-border pt-5 space-y-3">
-          <h3 className="text-[14px] font-bold">Rompslomp instellingen</h3>
-          <TokenField label="API Token" fieldName="rompslomp_api_token" hasToken={false} saving={saving} onSave={handleSaveToken} />
-          {field("Bedrijfsnaam", "rompslomp_company_name")}
-          {field("Bedrijfs-ID", "rompslomp_company_id")}
-          {field("Tenant-ID", "rompslomp_tenant_id")}
-          <button onClick={handleSaveCredentials} disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
-            Instellingen opslaan
-          </button>
+        <div className="border-t border-border pt-5 space-y-5">
+          <div className="space-y-3">
+            <h3 className="text-[14px] font-bold">Rompslomp instellingen</h3>
+            <TokenField label="API Token" fieldName="rompslomp_api_token" hasToken={false} saving={saving} onSave={handleSaveToken} />
+            {field("Bedrijfsnaam", "rompslomp_company_name")}
+            {field("Bedrijfs-ID", "rompslomp_company_id")}
+            {field("Tenant-ID", "rompslomp_tenant_id")}
+            <button onClick={handleSaveCredentials} disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
+              Instellingen opslaan
+            </button>
+          </div>
+
+          {/* Rompslomp Management Tabs */}
+          <RompslompManagementSection />
         </div>
       )}
 
