@@ -22,7 +22,10 @@ Deno.serve(async (req) => {
     if (connError || !connection) throw new Error("Geen actieve Exact Online verbinding gevonden");
 
     const tokenData = await getExactTokenFromConnection(connection);
-    const exactEndpoint = endpoint.replace("{division}", tokenData.division.toString());
+    const division = tokenData.division;
+    const exactEndpoint = endpoint.startsWith("/api/v1/")
+      ? endpoint.replace("{division}", division.toString())
+      : `/api/v1/${division}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
     const exactUrl = `${tokenData.base_url}${exactEndpoint}`;
 
     const exactResponse = await fetch(exactUrl, {
