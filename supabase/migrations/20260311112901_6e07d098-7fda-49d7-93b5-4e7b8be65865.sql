@@ -1,0 +1,1 @@
+ALTER TABLE exact_config ADD COLUMN IF NOT EXISTS default_item_id text;

@@ -1354,6 +1354,7 @@ export type Database = {
           company_id: string
           company_name_exact: string | null
           created_at: string
+          default_item_id: string | null
           division: number | null
           gl_revenue_id: string | null
           id: string
@@ -1368,6 +1369,7 @@ export type Database = {
           company_id: string
           company_name_exact?: string | null
           created_at?: string
+          default_item_id?: string | null
           division?: number | null
           gl_revenue_id?: string | null
           id?: string
@@ -1382,6 +1384,7 @@ export type Database = {
           company_id?: string
           company_name_exact?: string | null
           created_at?: string
+          default_item_id?: string | null
           division?: number | null
           gl_revenue_id?: string | null
           id?: string

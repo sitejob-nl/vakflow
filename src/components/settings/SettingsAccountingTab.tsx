@@ -18,16 +18,20 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
   const [disconnecting, setDisconnecting] = useState(false);
   const [connection, setConnection] = useState<any>(null);
 
-  // GL / Journal config state
+  // GL / Journal / Item config state
   const [glAccounts, setGlAccounts] = useState<GlAccount[]>([]);
   const [journals, setJournals] = useState<GlAccount[]>([]);
+  const [salesItems, setSalesItems] = useState<GlAccount[]>([]);
   const [selectedGl, setSelectedGl] = useState("");
   const [selectedJournal, setSelectedJournal] = useState("");
+  const [selectedItem, setSelectedItem] = useState("");
   const [loadingGl, setLoadingGl] = useState(false);
   const [loadingJournals, setLoadingJournals] = useState(false);
+  const [loadingItems, setLoadingItems] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [glError, setGlError] = useState("");
   const [journalError, setJournalError] = useState("");
+  const [itemError, setItemError] = useState("");
 
   useEffect(() => {
     if (!companyId) return;
@@ -47,13 +51,14 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
     if (!companyId) return;
     supabase
       .from("exact_config" as any)
-      .select("gl_revenue_id, journal_code")
+      .select("gl_revenue_id, journal_code, default_item_id")
       .eq("company_id", companyId)
       .maybeSingle()
       .then(({ data }: { data: any }) => {
         if (data) {
           setSelectedGl(data.gl_revenue_id ?? "");
           setSelectedJournal(data.journal_code ?? "");
+          setSelectedItem(data.default_item_id ?? "");
         }
       });
   }, [companyId]);
@@ -96,9 +101,13 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
       "financial/Journals?$filter=Type eq 20&$select=ID,Code,Description",
       setJournals, setLoadingJournals, setJournalError
     );
+    fetchExactData(
+      "logistics/Items?$filter=IsSalesItem eq true&$select=ID,Code,Description&$top=200",
+      setSalesItems, setLoadingItems, setItemError
+    );
   }, [isConnected, divisionId]);
 
-  const handleSaveExactConfig = async (field: "gl_revenue_id" | "journal_code", value: string) => {
+  const handleSaveExactConfig = async (field: "gl_revenue_id" | "journal_code" | "default_item_id", value: string) => {
     if (!companyId) return;
     setSavingConfig(true);
     const updates: Record<string, any> = { company_id: companyId, [field]: value || null };
@@ -162,7 +171,7 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
     items: GlAccount[],
     value: string,
     onChange: (v: string) => void,
-    field: "gl_revenue_id" | "journal_code",
+    field: "gl_revenue_id" | "journal_code" | "default_item_id",
     loading: boolean,
     error: string
   ) => (
@@ -204,8 +213,12 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
             <h4 className="text-[13px] font-semibold">Boekhoud-instellingen</h4>
             {renderDropdown("Omzet-grootboekrekening", glAccounts, selectedGl, setSelectedGl, "gl_revenue_id", loadingGl, glError)}
             {renderDropdown("Verkoopjournaal", journals, selectedJournal, setSelectedJournal, "journal_code", loadingJournals, journalError)}
+            {renderDropdown("Standaard artikel", salesItems, selectedItem, setSelectedItem, "default_item_id", loadingItems, itemError)}
             {!selectedGl && !loadingGl && !glError && (
               <p className="text-[11px] text-amber-600">⚠ Selecteer een grootboekrekening om facturen naar Exact te kunnen syncen.</p>
+            )}
+            {!selectedItem && !loadingItems && !itemError && (
+              <p className="text-[11px] text-amber-600">⚠ Selecteer een standaard artikel om facturen naar Exact te kunnen syncen.</p>
             )}
           </div>
 

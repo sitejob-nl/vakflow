@@ -76,6 +76,7 @@ async function pushInvoices(supabase: any, accessToken: string, baseUrl: string,
           Quantity: item.quantity || item.aantal || 1,
           NetPrice: item.unit_price || item.prijs || 0,
           VATCode: mapVatCode(item.vat_percentage ?? item.btw_percentage ?? 21),
+          Item: item.exact_item_id || undefined,
         };
         if (glAccountId) line.GLAccount = glAccountId;
         return line;
