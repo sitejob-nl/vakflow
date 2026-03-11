@@ -107,7 +107,7 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
     );
   }, [isConnected, divisionId]);
 
-  const handleSaveExactConfig = async (field: "gl_revenue_id" | "journal_code", value: string) => {
+  const handleSaveExactConfig = async (field: "gl_revenue_id" | "journal_code" | "default_item_id", value: string) => {
     if (!companyId) return;
     setSavingConfig(true);
     const updates: Record<string, any> = { company_id: companyId, [field]: value || null };
