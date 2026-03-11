@@ -133,26 +133,30 @@ async function pullPaymentStatus(supabase: any, accessToken: string, baseUrl: st
 
   const { data: invoices, error } = await supabase.from("invoices")
     .select("id, invoice_number, exact_id, status, total")
-    .eq("company_id", companyId).not("exact_id", "is", null);
+    .eq("company_id", companyId).not("exact_id", "is", null).neq("status", "betaald");
   if (error) throw error;
+  if (!invoices?.length) return results;
+
+  // Use ReceivablesList to find unpaid invoices — any synced invoice NOT in this list is paid
+  const receivablesRes = await fetch(`${baseUrl}/api/v1/${exactDivision}/read/financial/ReceivablesList?$select=InvoiceNumber,Amount,HID`, {
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+  });
+  
+  const unpaidInvoiceNumbers = new Set<string>();
+  if (receivablesRes.ok) {
+    const data = await receivablesRes.json();
+    const receivables = data.d?.results || [];
+    for (const r of receivables) {
+      if (r.InvoiceNumber) unpaidInvoiceNumbers.add(String(r.InvoiceNumber));
+      if (r.HID) unpaidInvoiceNumbers.add(String(r.HID));
+    }
+  }
 
   for (const invoice of (invoices || [])) {
     try {
-      const url = `${baseUrl}/api/v1/${exactDivision}/salesinvoice/SalesInvoices(guid'${invoice.exact_id}')?$select=InvoiceID,AmountDC,Status`;
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" } });
-      if (!res.ok) { results.skipped++; continue; }
-
-      const data = await res.json();
-      const amountDC = data.d?.AmountDC || 0;
-
-      // AmountDC = remaining amount. If <= 0.01, fully paid
-      let newStatus = invoice.status;
-      if (amountDC <= 0.01 && invoice.status !== "betaald") {
-        newStatus = "betaald";
-      }
-
-      if (newStatus !== invoice.status) {
-        await supabase.from("invoices").update({ status: newStatus, paid_at: new Date().toISOString() }).eq("id", invoice.id);
+      const invoiceNum = invoice.invoice_number;
+      if (invoiceNum && !unpaidInvoiceNumbers.has(invoiceNum)) {
+        await supabase.from("invoices").update({ status: "betaald", paid_at: new Date().toISOString() }).eq("id", invoice.id);
         results.updated++;
       } else {
         results.skipped++;
