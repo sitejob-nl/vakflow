@@ -15,6 +15,11 @@ function parseODataDate(val: unknown): string | null {
   return s;
 }
 
+/** Strip undefined values from an object before sending to Exact API */
+function cleanBody(obj: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== undefined));
+}
+
 interface ExactToken {
   access_token: string;
   division: number;
