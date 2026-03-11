@@ -71,7 +71,7 @@ const MobileNav = forwardRef<HTMLElement>((_props, ref) => {
   const filterItem = (item: NavItem) =>
     (!item.adminOnly || isAdmin) &&
     industryModules.includes(item.id) &&
-    (enabledFeatures.length === 0 || enabledFeatures.includes(item.id));
+    (enabledFeatures.length === 0 || enabledFeatures.includes(item.id) || item.id === "accounting");
 
   const primaryItems = buildPrimaryItems(labels.workOrders).filter(filterItem);
   const allSections = buildAllItems(labels, industry).map((s) => ({
