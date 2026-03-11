@@ -865,13 +865,14 @@ Deno.serve(async (req) => {
           const priceIncl = Number(item.unit_price || item.price || 0);
           const qty = item.qty || item.quantity || 1;
           const priceExcl = priceIncl / vatDivisor;
+          const itemId = item.exact_item_id || config.default_item_id;
           const lineData: Record<string, unknown> = {
             Description: item.description || item.name || "Regel",
             Quantity: qty,
-            NetPrice: Math.round(priceExcl * 100) / 100,
-            GLAccount: config.gl_revenue_id,
+            UnitPrice: Math.round(priceExcl * 100) / 100,
+            Item: itemId,
           };
-          if (item.exact_item_id) lineData.Item = item.exact_item_id;
+          if (!itemId) lineData.GLAccount = config.gl_revenue_id;
           return lineData;
         });
 
