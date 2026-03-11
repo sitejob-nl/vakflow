@@ -88,8 +88,8 @@ async function pushInvoices(supabase: any, accessToken: string, baseUrl: string,
         lines.push({
           Description: `Factuur ${invoice.invoice_number}`,
           Quantity: 1,
-          NetPrice: invoice.subtotal || 0,
-          VATCode: "2",
+          UnitPrice: invoice.subtotal || 0,
+          VATCode: "VH",
           ...(glAccountId ? { GLAccount: glAccountId } : {}),
         });
       }
