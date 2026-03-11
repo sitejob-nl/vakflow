@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useInvoices, usePaginatedInvoices, useUpdateInvoice, useDeleteInvoice, useSyncInvoiceEboekhouden, usePullInvoiceStatusEboekhouden, useSyncInvoicesRompslomp, usePullInvoiceStatusRompslomp, useSyncInvoicesMoneybird, usePullInvoiceStatusMoneybird } from "@/hooks/useInvoices";
+import { usePaginatedInvoices, useUpdateInvoice } from "@/hooks/useInvoices";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCreateCommunicationLog } from "@/hooks/useCommunicationLogs";
 import type { Invoice } from "@/hooks/useInvoices";
@@ -52,12 +52,6 @@ const InvoicesPage = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { companyId } = useAuth();
-  const syncEb = useSyncInvoiceEboekhouden();
-  const pullStatusEb = usePullInvoiceStatusEboekhouden();
-  const syncRompslomp = useSyncInvoicesRompslomp();
-  const pullStatusRompslomp = usePullInvoiceStatusRompslomp();
-  const syncMoneybird = useSyncInvoicesMoneybird();
-  const pullStatusMoneybird = usePullInvoiceStatusMoneybird();
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const createLog = useCreateCommunicationLog();
@@ -100,14 +94,22 @@ const InvoicesPage = () => {
 
       // Auto-sync when status becomes "verzonden"
       if (status === "verzonden" && syncInvoices && accountingProvider) {
-        if (accountingProvider === "rompslomp") {
-          handleSyncRompslomp();
-        } else if (accountingProvider === "moneybird") {
-          handleSyncMoneybird();
-        } else if (accountingProvider === "eboekhouden") {
-          handleSyncEb(id);
-        } else if (accountingProvider === "exact") {
-          handleSyncExact(id);
+        const funcMap: Record<string, { func: string; bodyFn: (invoiceId: string) => any }> = {
+          eboekhouden: { func: "sync-invoice-eboekhouden", bodyFn: (iid) => ({ action: "create-invoice", invoice_id: iid }) },
+          rompslomp: { func: "sync-rompslomp", bodyFn: (iid) => ({ action: "create-invoice", invoice_id: iid }) },
+          moneybird: { func: "sync-moneybird", bodyFn: (iid) => ({ action: "create-invoice", invoice_id: iid }) },
+          exact: { func: "sync-exact", bodyFn: (iid) => ({ action: "create-invoice", invoice_id: iid }) },
+          wefact: { func: "sync-wefact", bodyFn: (iid) => ({ action: "create-invoice", invoice_id: iid }) },
+        };
+        const cfg = funcMap[accountingProvider];
+        if (cfg) {
+          try {
+            const res = await supabase.functions.invoke(cfg.func, { body: cfg.bodyFn(id) });
+            if (!res.error && !res.data?.error) {
+              toast({ title: `✓ Gesynchroniseerd met ${accountingProvider}` });
+              queryClient.invalidateQueries({ queryKey: ["invoices-paginated"] });
+            }
+          } catch { /* sync failure shouldn't block status change */ }
         }
       }
 
@@ -134,96 +136,25 @@ const InvoicesPage = () => {
           // Automation failure shouldn't block status change
         }
 
-        if (accountingProvider === "rompslomp") {
-          pullStatusRompslomp.mutateAsync().then(() => {
-            toast({ title: "✓ Betaalstatus gesynchroniseerd met Rompslomp" });
-          }).catch((err: any) => {
-            toast({ title: "Rompslomp status sync mislukt", description: err.message, variant: "destructive" });
-          });
-        } else if (accountingProvider === "moneybird") {
-          pullStatusMoneybird.mutateAsync().then(() => {
-            toast({ title: "✓ Betaalstatus gesynchroniseerd met Moneybird" });
-          }).catch((err: any) => {
-            toast({ title: "Moneybird status sync mislukt", description: err.message, variant: "destructive" });
-          });
-        } else if (accountingProvider === "eboekhouden") {
-          pullStatusEb.mutateAsync().then(() => {
-            toast({ title: "✓ Betaalstatus gesynchroniseerd met e-Boekhouden" });
-          }).catch((err: any) => {
-            toast({ title: "e-Boekhouden status sync mislukt", description: err.message, variant: "destructive" });
-          });
+        if (accountingProvider) {
+          const pullFuncMap: Record<string, { func: string; action: string }> = {
+            rompslomp: { func: "sync-rompslomp", action: "pull-invoice-status" },
+            moneybird: { func: "sync-moneybird", action: "pull-invoice-status" },
+            eboekhouden: { func: "sync-invoice-eboekhouden", action: "pull-invoice-status" },
+            exact: { func: "sync-exact", action: "pull-status" },
+            wefact: { func: "sync-wefact", action: "pull-invoice-status" },
+          };
+          const cfg = pullFuncMap[accountingProvider];
+          if (cfg) {
+            supabase.functions.invoke(cfg.func, { body: { action: cfg.action } }).then(({ data, error }) => {
+              if (!error && !data?.error) toast({ title: `✓ Betaalstatus gesynchroniseerd` });
+            }).catch(() => {});
+          }
         }
       }
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
     }
-  };
-
-  const handleSyncRompslomp = async () => {
-    setSyncingId("rompslomp");
-    try {
-      const result = await syncRompslomp.mutateAsync();
-      const errMsg = result?.errors?.length ? `\nFouten: ${result.errors.join(", ")}` : "";
-      if ((result?.synced ?? 0) > 0) {
-        toast({ title: "Gesynchroniseerd met Rompslomp", description: `${result.synced} facturen gesynchroniseerd${errMsg}` });
-      } else if (result?.errors?.length) {
-        toast({ title: "Rompslomp sync mislukt", description: result.errors.join("; "), variant: "destructive" });
-      } else {
-        toast({ title: "Geen facturen om te synchroniseren", description: `Overgeslagen: ${result?.skipped ?? 0}` });
-      }
-    } catch (err: any) {
-      toast({ title: "Rompslomp sync mislukt", description: err.message, variant: "destructive" });
-    }
-    setSyncingId(null);
-  };
-
-  const handleSyncMoneybird = async () => {
-    setSyncingId("moneybird");
-    try {
-      const result = await syncMoneybird.mutateAsync();
-      const errMsg = result?.errors?.length ? `\nFouten: ${result.errors.join(", ")}` : "";
-      if ((result?.synced ?? 0) > 0) {
-        toast({ title: "Gesynchroniseerd met Moneybird", description: `${result.synced} facturen gesynchroniseerd${errMsg}` });
-      } else if (result?.errors?.length) {
-        toast({ title: "Moneybird sync mislukt", description: result.errors.join("; "), variant: "destructive" });
-      } else {
-        toast({ title: "Geen facturen om te synchroniseren", description: `Overgeslagen: ${result?.skipped ?? 0}` });
-      }
-    } catch (err: any) {
-      toast({ title: "Moneybird sync mislukt", description: err.message, variant: "destructive" });
-    }
-    setSyncingId(null);
-  };
-
-  const handleSyncEb = async (id: string) => {
-    setSyncingId(id);
-    try {
-      const result = await syncEb.mutateAsync(id);
-      if (result?.message === "Al gesynchroniseerd") {
-        toast({ title: "Al gesynchroniseerd", description: "Deze factuur staat al in e-Boekhouden." });
-      } else {
-        toast({ title: "Gesynchroniseerd met e-Boekhouden", description: `ID: ${result?.eboekhouden_id}` });
-      }
-    } catch (err: any) {
-      toast({ title: "e-Boekhouden sync mislukt", description: err.message, variant: "destructive" });
-    }
-    setSyncingId(null);
-  };
-
-  const handleSyncExact = async (id: string) => {
-    setSyncingId(id);
-    try {
-      const res = await supabase.functions.invoke("sync-exact", {
-        body: { action: "create-invoice", invoice_id: id },
-      });
-      if (res.error) throw res.error;
-      if (res.data?.error) throw new Error(res.data.error);
-      toast({ title: "Gesynchroniseerd met Exact Online", description: res.data?.invoice_number ? `Factuurnummer: ${res.data.invoice_number}` : undefined });
-      queryClient.invalidateQueries({ queryKey: ["invoices-paginated"] });
-    } catch (err: any) {
-      toast({ title: "Boekhoudkoppeling niet compleet", description: `Factuur is wel opgeslagen. ${err.message}` });
-    }
-    setSyncingId(null);
   };
 
   const serviceName = (inv: Invoice) => (inv.work_orders as any)?.services?.name ?? "Dienst";
@@ -518,37 +449,67 @@ const InvoicesPage = () => {
               E-mail
             </button>
           )}
-          {/* Accounting sync button */}
-          {accountingProvider === "eboekhouden" && (selected.status === "verzonden" || selected.status === "betaald") && !selected.eboekhouden_id && (
-            <button
-              onClick={() => handleSyncEb(selected.id)}
-              disabled={syncingId === selected.id}
-              className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1 disabled:opacity-50"
-            >
-              {syncingId === selected.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BookOpen className="h-3.5 w-3.5" />}
-              Sync e-Boekhouden
-            </button>
-          )}
-          {accountingProvider === "rompslomp" && (selected.status === "verzonden" || selected.status === "betaald") && !selected.rompslomp_id && (
-            <button
-              onClick={() => handleSyncRompslomp()}
-              disabled={syncingId === "rompslomp"}
-              className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1 disabled:opacity-50"
-            >
-              {syncingId === "rompslomp" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BookOpen className="h-3.5 w-3.5" />}
-              Sync Rompslomp
-            </button>
-          )}
-          {selected.eboekhouden_id && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-success">
-              ✓ e-Boekhouden #{selected.eboekhouden_id}
-            </span>
-          )}
-          {selected.rompslomp_id && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-success">
-                ✓ Rompslomp #{selected.rompslomp_id}
-              </span>
-          )}
+          {/* Accounting sync — provider-agnostic */}
+          {accountingProvider && (() => {
+            const providerIdMap: Record<string, string | null> = {
+              eboekhouden: selected.eboekhouden_id ?? null,
+              rompslomp: selected.rompslomp_id ?? null,
+              moneybird: (selected as any).moneybird_id ?? null,
+              exact: (selected as any).exact_id ?? null,
+              wefact: (selected as any).wefact_id ?? null,
+            };
+            const providerLabelMap: Record<string, string> = {
+              eboekhouden: "e-Boekhouden", rompslomp: "Rompslomp", moneybird: "Moneybird",
+              exact: "Exact Online", wefact: "WeFact", snelstart: "SnelStart",
+            };
+            const pid = providerIdMap[accountingProvider] ?? null;
+            const label = providerLabelMap[accountingProvider] ?? accountingProvider;
+            const canSync = !pid && (selected.status === "verzonden" || selected.status === "verstuurd" || selected.status === "betaald" || selected.status === "concept");
+
+            const handleGenericSync = async () => {
+              setSyncingId(selected.id);
+              try {
+                const funcMap: Record<string, { func: string; body: any }> = {
+                  eboekhouden: { func: "sync-invoice-eboekhouden", body: { action: "create-invoice", invoice_id: selected.id } },
+                  rompslomp: { func: "sync-rompslomp", body: { action: "create-invoice", invoice_id: selected.id } },
+                  moneybird: { func: "sync-moneybird", body: { action: "create-invoice", invoice_id: selected.id } },
+                  exact: { func: "sync-exact", body: { action: "create-invoice", invoice_id: selected.id } },
+                  wefact: { func: "sync-wefact", body: { action: "create-invoice", invoice_id: selected.id } },
+                };
+                const cfg = funcMap[accountingProvider];
+                if (!cfg) throw new Error("Provider niet ondersteund");
+                const res = await supabase.functions.invoke(cfg.func, { body: cfg.body });
+                if (res.error) throw res.error;
+                if (res.data?.error) throw new Error(res.data.error);
+                const rNumber = res.data?.invoice_number || res.data?.eboekhouden_id || res.data?.moneybird_id;
+                toast({ title: `✓ Gesynchroniseerd met ${label}`, description: rNumber ? `ID: ${rNumber}` : undefined });
+                queryClient.invalidateQueries({ queryKey: ["invoices-paginated"] });
+              } catch (err: any) {
+                toast({ title: `${label} sync mislukt`, description: err.message, variant: "destructive" });
+              }
+              setSyncingId(null);
+            };
+
+            return (
+              <>
+                {canSync && (
+                  <button
+                    onClick={handleGenericSync}
+                    disabled={!!syncingId}
+                    className="px-3 py-1.5 bg-card border border-border text-secondary-foreground rounded-sm text-[12px] font-bold hover:bg-bg-hover transition-colors flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {syncingId === selected.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BookOpen className="h-3.5 w-3.5" />}
+                    Sync {label}
+                  </button>
+                )}
+                {pid && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-success">
+                    ✓ {label}
+                  </span>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
     );
