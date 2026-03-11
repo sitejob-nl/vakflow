@@ -440,8 +440,8 @@ Deno.serve(async (req) => {
 
       for (const inv of unpaid || []) {
         try {
-          const rInv = await rompslompGet(rompslompCompanyId, `/sales_invoices/${inv.rompslomp_id}`, apiToken);
-          const invoiceData = rInv?.sales_invoice || rInv;
+          const { data: rInv } = await rompslompGet(rompslompCompanyId, `/sales_invoices/${inv.rompslomp_id}`, apiToken);
+          const invoiceData = (rInv as any)?.sales_invoice || rInv;
           checked++;
           const isPaid = parseFloat(invoiceData.open_amount || "1") === 0;
           if (isPaid) {
