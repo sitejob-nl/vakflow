@@ -10,7 +10,7 @@ const RompslompContacts = lazy(() => import("@/components/RompslompContacts").th
 const RompslompInvoices = lazy(() => import("@/components/RompslompInvoices").then(m => ({ default: m.RompslompInvoices })));
 const RompslompQuotations = lazy(() => import("@/components/RompslompQuotations").then(m => ({ default: m.RompslompQuotations })));
 const RompslompProducts = lazy(() => import("@/components/RompslompProducts").then(m => ({ default: m.RompslompProducts })));
-
+const MoneybirdAdmin = lazy(() => import("@/components/MoneybirdAdmin"));
 interface GlAccount {
   id: string;
   code: string;
@@ -289,6 +289,17 @@ const RompslompManagementSection = () => {
   );
 };
 
+const MoneybirdManagementSection = () => {
+  return (
+    <div className="border-t border-border pt-5 space-y-3">
+      <h3 className="text-[14px] font-bold">Moneybird beheer</h3>
+      <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+        <MoneybirdAdmin />
+      </Suspense>
+    </div>
+  );
+};
+
 const SettingsAccountingTab = () => {
 
   const { companyId } = useAuth();
@@ -467,14 +478,19 @@ const SettingsAccountingTab = () => {
         </div>
       )}
 
-      {provider === "moneybird" && (
-        <div className="border-t border-border pt-5 space-y-3">
-          <h3 className="text-[14px] font-bold">Moneybird instellingen</h3>
-          <TokenField label="API Token" fieldName="moneybird_api_token" hasToken={false} saving={saving} onSave={handleSaveToken} />
-          {field("Administratie-ID", "moneybird_administration_id", "Bijv. 123456789")}
-          <button onClick={handleSaveCredentials} disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
-            Instellingen opslaan
-          </button>
+    {provider === "moneybird" && (
+        <div className="border-t border-border pt-5 space-y-5">
+          <div className="space-y-3">
+            <h3 className="text-[14px] font-bold">Moneybird instellingen</h3>
+            <TokenField label="API Token" fieldName="moneybird_api_token" hasToken={false} saving={saving} onSave={handleSaveToken} />
+            {field("Administratie-ID", "moneybird_administration_id", "Bijv. 123456789")}
+            <button onClick={handleSaveCredentials} disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
+              Instellingen opslaan
+            </button>
+          </div>
+
+          {/* Moneybird Management */}
+          <MoneybirdManagementSection />
         </div>
       )}
 
