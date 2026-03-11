@@ -434,9 +434,6 @@ const SettingsAccountingTab = () => {
               Instellingen opslaan
             </button>
           </div>
-
-          {/* Moneybird Management */}
-          <MoneybirdManagementSection />
         </div>
       )}
 
