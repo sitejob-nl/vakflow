@@ -213,8 +213,12 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
             <h4 className="text-[13px] font-semibold">Boekhoud-instellingen</h4>
             {renderDropdown("Omzet-grootboekrekening", glAccounts, selectedGl, setSelectedGl, "gl_revenue_id", loadingGl, glError)}
             {renderDropdown("Verkoopjournaal", journals, selectedJournal, setSelectedJournal, "journal_code", loadingJournals, journalError)}
+            {renderDropdown("Standaard artikel", salesItems, selectedItem, setSelectedItem, "default_item_id", loadingItems, itemError)}
             {!selectedGl && !loadingGl && !glError && (
               <p className="text-[11px] text-amber-600">⚠ Selecteer een grootboekrekening om facturen naar Exact te kunnen syncen.</p>
+            )}
+            {!selectedItem && !loadingItems && !itemError && (
+              <p className="text-[11px] text-amber-600">⚠ Selecteer een standaard artikel om facturen naar Exact te kunnen syncen.</p>
             )}
           </div>
 
