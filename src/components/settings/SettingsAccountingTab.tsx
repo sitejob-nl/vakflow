@@ -171,7 +171,7 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
     items: GlAccount[],
     value: string,
     onChange: (v: string) => void,
-    field: "gl_revenue_id" | "journal_code",
+    field: "gl_revenue_id" | "journal_code" | "default_item_id",
     loading: boolean,
     error: string
   ) => (

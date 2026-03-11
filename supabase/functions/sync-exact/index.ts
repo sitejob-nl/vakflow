@@ -483,9 +483,8 @@ Deno.serve(async (req) => {
                 Quantity: qty,
                 NetPrice: Math.round(priceExcl * 100) / 100,
                 GLAccount: config.gl_revenue_id,
+                Item: item.exact_item_id || config.default_item_id,
               };
-              // If item has an Exact item reference, include it
-              if (item.exact_item_id) lineData.Item = item.exact_item_id;
               return lineData;
             });
 
