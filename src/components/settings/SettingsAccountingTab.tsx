@@ -289,6 +289,7 @@ const RompslompManagementSection = () => {
   );
 };
 
+const SettingsAccountingTab = () => {
 
   const { companyId } = useAuth();
   const { toast } = useToast();
