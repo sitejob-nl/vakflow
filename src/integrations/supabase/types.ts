@@ -1351,6 +1351,7 @@ export type Database = {
       }
       exact_config: {
         Row: {
+          auto_finalize: boolean | null
           company_id: string
           company_name_exact: string | null
           created_at: string
@@ -1358,14 +1359,20 @@ export type Database = {
           division: number | null
           gl_revenue_id: string | null
           id: string
+          invoice_type: number | null
           journal_code: string | null
+          payment_condition: string | null
           region: string | null
           status: string
           tenant_id: string | null
           updated_at: string
+          vat_code_high: string | null
+          vat_code_low: string | null
+          vat_code_zero: string | null
           webhook_secret: string | null
         }
         Insert: {
+          auto_finalize?: boolean | null
           company_id: string
           company_name_exact?: string | null
           created_at?: string
@@ -1373,14 +1380,20 @@ export type Database = {
           division?: number | null
           gl_revenue_id?: string | null
           id?: string
+          invoice_type?: number | null
           journal_code?: string | null
+          payment_condition?: string | null
           region?: string | null
           status?: string
           tenant_id?: string | null
           updated_at?: string
+          vat_code_high?: string | null
+          vat_code_low?: string | null
+          vat_code_zero?: string | null
           webhook_secret?: string | null
         }
         Update: {
+          auto_finalize?: boolean | null
           company_id?: string
           company_name_exact?: string | null
           created_at?: string
@@ -1388,11 +1401,16 @@ export type Database = {
           division?: number | null
           gl_revenue_id?: string | null
           id?: string
+          invoice_type?: number | null
           journal_code?: string | null
+          payment_condition?: string | null
           region?: string | null
           status?: string
           tenant_id?: string | null
           updated_at?: string
+          vat_code_high?: string | null
+          vat_code_low?: string | null
+          vat_code_zero?: string | null
           webhook_secret?: string | null
         }
         Relationships: [

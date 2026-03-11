@@ -2,19 +2,17 @@ import { jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient } from "../_shared/supabase.ts";
 import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 
-/** Get an Exact Online access token via SiteJob Connect */
-async function getExactToken(tenantId: string, webhookSecret: string): Promise<{ access_token: string; division: number; base_url: string } | null> {
+/** Get Exact Online access token via SiteJob Connect */
+async function getExactToken(tenantId: string, secret: string): Promise<{ access_token: string; division: number; base_url: string } | null> {
   try {
     const res = await fetch("https://xeshjkznwdrxjjhbpisn.supabase.co/functions/v1/exact-token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenant_id: tenantId, secret: webhookSecret }),
+      body: JSON.stringify({ tenant_id: tenantId, secret }),
     });
     if (!res.ok) return null;
     return res.json();
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 Deno.serve(async (req) => {
@@ -29,10 +27,9 @@ Deno.serve(async (req) => {
       return jsonRes({ error: "Missing webhook secret or company_id" }, 401);
     }
 
-    const supabaseAdmin = createAdminClient();
+    const sb = createAdminClient();
 
-    // Verify webhook secret
-    const { data: config } = await supabaseAdmin
+    const { data: config } = await sb
       .from("exact_config")
       .select("id, webhook_secret, tenant_id, division")
       .eq("company_id", companyId)
@@ -44,57 +41,60 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { Topic, Division, Key, EventAction } = body;
 
-    console.log(`Exact webhook: ${EventAction} ${Topic} key=${Key} division=${Division} company=${companyId}`);
+    // Exact webhook payload: { Content: { Topic, Action, Key, Division, ... }, HashCode }
+    // The raw body may be wrapped in Content/HashCode or flat — handle both
+    const content = body.Content || body;
+    const { Topic, Division, Key, Action: EventAction } = content;
 
-    // Process SalesInvoice events — check payment status
+    console.log(`exact-webhook: ${EventAction} ${Topic} key=${Key} div=${Division} company=${companyId}`);
+
+    // Process SalesInvoice events — check payment via ReceivablesList
     if (Topic === "SalesInvoices" && Key) {
       try {
-        // Get a fresh access token
         const token = await getExactToken(config.tenant_id, config.webhook_secret);
         if (!token) {
-          console.warn("exact-webhook: could not get token for invoice status check");
+          console.warn("exact-webhook: could not get token");
           return jsonRes({ ok: true, skipped: "no_token" });
         }
 
-        // Fetch the invoice from Exact to check its current status
-        const invoiceUrl = `${token.base_url}/api/v1/${token.division}/salesinvoice/SalesInvoices?$filter=InvoiceID eq guid'${Key}'&$select=InvoiceID,InvoiceNumber,Status,AmountDC,PaymentCondition`;
-        const invRes = await fetch(invoiceUrl, {
-          headers: { Authorization: `Bearer ${token.access_token}`, Accept: "application/json" },
-        });
+        // Find local invoice by exact_id
+        const { data: localInv } = await sb
+          .from("invoices")
+          .select("id, invoice_number, status")
+          .eq("exact_id", Key)
+          .eq("company_id", companyId)
+          .maybeSingle();
 
-        if (invRes.ok) {
-          const invData = await invRes.json();
-          const invoice = invData?.d?.results?.[0] || invData?.d;
+        if (!localInv || localInv.status === "betaald") {
+          return jsonRes({ ok: true, skipped: "not_found_or_already_paid" });
+        }
 
-          if (invoice) {
-            // Exact status: 20 = Open, 50 = Paid
-            const isPaid = invoice.Status === 50;
-            const invoiceNumber = invoice.InvoiceNumber;
+        // #1: Use ReceivablesList to check if invoice is paid
+        // If the invoice_number is NOT in the receivables list, it's fully paid
+        if (localInv.invoice_number) {
+          const recvUrl = `${token.base_url}/api/v1/${token.division}/read/financial/ReceivablesList?$select=InvoiceNumber,Amount&$filter=InvoiceNumber eq '${localInv.invoice_number}'`;
+          const recvRes = await fetch(recvUrl, {
+            headers: { Authorization: `Bearer ${token.access_token}`, Accept: "application/json" },
+          });
 
-            if (isPaid) {
-              // Find the local invoice by exact_id and update
-              const { data: localInv, error: findErr } = await supabaseAdmin
-                .from("invoices")
-                .select("id, status")
-                .eq("exact_id", Key)
-                .eq("company_id", companyId)
-                .maybeSingle();
+          if (recvRes.ok) {
+            const recvData = await recvRes.json();
+            const results = recvData?.d?.results || recvData?.d || [];
+            const isOutstanding = Array.isArray(results) && results.length > 0;
 
-              if (localInv && localInv.status !== "betaald") {
-                await supabaseAdmin
-                  .from("invoices")
-                  .update({ status: "betaald", paid_at: new Date().toISOString().split("T")[0] })
-                  .eq("id", localInv.id);
-                console.log(`exact-webhook: invoice ${invoiceNumber || Key} → betaald`);
-              }
+            if (!isOutstanding) {
+              // Not in receivables = fully paid
+              await sb.from("invoices")
+                .update({ status: "betaald", paid_at: new Date().toISOString().split("T")[0] })
+                .eq("id", localInv.id);
+              console.log(`exact-webhook: invoice ${localInv.invoice_number} → betaald`);
             }
           }
         }
       } catch (err: any) {
         console.error("exact-webhook: invoice processing error:", err.message);
-        await logEdgeFunctionError(supabaseAdmin, "exact-webhook", err.message, { company_id: companyId, key: Key, topic: Topic });
+        await logEdgeFunctionError(sb, "exact-webhook", err.message, { company_id: companyId, key: Key });
       }
     }
 
