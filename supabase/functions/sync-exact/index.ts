@@ -421,8 +421,11 @@ Deno.serve(async (req) => {
 
       // ── sync-invoices: push to Exact ──
       case "sync-invoices": {
-        if (!config.gl_revenue_id) {
+        if (!config?.gl_revenue_id) {
           return jsonRes({ error: "Stel eerst een omzet-grootboekrekening in via Instellingen > Boekhouding" }, 400);
+        }
+        if (!config?.default_item_id) {
+          return jsonRes({ error: "Stel eerst een standaard artikel in via Instellingen > Boekhouding" }, 400);
         }
 
         // Only sync invoices from the current fiscal year to avoid closed-period errors
