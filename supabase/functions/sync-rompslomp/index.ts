@@ -4,9 +4,15 @@ import { logEdgeFunctionError } from "../_shared/error-logger.ts";
 import { decrypt } from "../_shared/crypto.ts";
 import { checkRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 
-const ROMPSLOMP_BASE = "https://app.rompslomp.nl/api/v2";
+const ROMPSLOMP_BASE = "https://api.rompslomp.nl/api/v1";
 
-async function rompslompGet(companyId: string, path: string, token: string) {
+interface RompslompResponse<T = unknown> {
+  data: T;
+  total: number | null;
+  perPage: number;
+}
+
+async function rompslompGet<T = unknown>(companyId: string, path: string, token: string): Promise<RompslompResponse<T>> {
   const url = `${ROMPSLOMP_BASE}/companies/${companyId}${path}`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
@@ -15,7 +21,10 @@ async function rompslompGet(companyId: string, path: string, token: string) {
     const errText = await res.text();
     throw new Error(`Rompslomp GET ${path}: ${res.status} ${errText}`);
   }
-  return res.json();
+  const data = await res.json() as T;
+  const total = res.headers.get("X-Total") ? parseInt(res.headers.get("X-Total")!) : null;
+  const perPage = res.headers.get("X-Per-Page") ? parseInt(res.headers.get("X-Per-Page")!) : 100;
+  return { data, total, perPage };
 }
 
 async function rompslompGetRaw(companyId: string, path: string, token: string): Promise<ArrayBuffer> {
@@ -251,12 +260,16 @@ Deno.serve(async (req) => {
     if (action === "pull-contacts") {
       let page = 1;
       let allContacts: any[] = [];
+      const PER_PAGE = 100;
+      let totalRecords: number | null = null;
       while (true) {
-        const result = await rompslompGet(rompslompCompanyId, `/contacts?page=${page}&per_page=100`, apiToken);
-        const contacts = result?.contacts || result || [];
+        const { data: result, total, perPage } = await rompslompGet(rompslompCompanyId, `/contacts?page=${page}&per_page=${PER_PAGE}`, apiToken);
+        const contacts = (result as any)?.contacts || result || [];
         if (!Array.isArray(contacts) || contacts.length === 0) break;
         allContacts = allContacts.concat(contacts);
-        if (contacts.length < 100) break;
+        if (totalRecords === null && total !== null) totalRecords = total;
+        // Stop als we alles hebben (header-based) of fallback op length
+        if (totalRecords !== null ? allContacts.length >= totalRecords : contacts.length < (perPage || PER_PAGE)) break;
         page++;
       }
 
@@ -304,12 +317,15 @@ Deno.serve(async (req) => {
     if (action === "pull-invoices") {
       let page = 1;
       let allInvoices: any[] = [];
+      const PER_PAGE = 100;
+      let totalRecords: number | null = null;
       while (true) {
-        const result = await rompslompGet(rompslompCompanyId, `/sales_invoices?page=${page}&per_page=100`, apiToken);
-        const invoices = result?.sales_invoices || result || [];
+        const { data: result, total, perPage } = await rompslompGet(rompslompCompanyId, `/sales_invoices?page=${page}&per_page=${PER_PAGE}`, apiToken);
+        const invoices = (result as any)?.sales_invoices || result || [];
         if (!Array.isArray(invoices) || invoices.length === 0) break;
         allInvoices = allInvoices.concat(invoices);
-        if (invoices.length < 100) break;
+        if (totalRecords === null && total !== null) totalRecords = total;
+        if (totalRecords !== null ? allInvoices.length >= totalRecords : invoices.length < (perPage || PER_PAGE)) break;
         page++;
       }
 
@@ -339,8 +355,8 @@ Deno.serve(async (req) => {
           if (existing && existing.subtotal > 0) continue;
 
           // Fetch full invoice detail to get lines
-          const fullResult = await rompslompGet(rompslompCompanyId, `/sales_invoices/${rInvSummary.id}`, apiToken);
-          const rInv = fullResult?.sales_invoice || fullResult;
+          const { data: fullResult } = await rompslompGet(rompslompCompanyId, `/sales_invoices/${rInvSummary.id}`, apiToken);
+          const rInv = (fullResult as any)?.sales_invoice || fullResult;
 
           const contactId = rInv.contact_id ? String(rInv.contact_id) : null;
           let customer = null;
@@ -424,8 +440,8 @@ Deno.serve(async (req) => {
 
       for (const inv of unpaid || []) {
         try {
-          const rInv = await rompslompGet(rompslompCompanyId, `/sales_invoices/${inv.rompslomp_id}`, apiToken);
-          const invoiceData = rInv?.sales_invoice || rInv;
+          const { data: rInv } = await rompslompGet(rompslompCompanyId, `/sales_invoices/${inv.rompslomp_id}`, apiToken);
+          const invoiceData = (rInv as any)?.sales_invoice || rInv;
           checked++;
           const isPaid = parseFloat(invoiceData.open_amount || "1") === 0;
           if (isPaid) {
@@ -503,12 +519,15 @@ Deno.serve(async (req) => {
     if (action === "pull-quotes") {
       let page = 1;
       let allQuotations: any[] = [];
+      const PER_PAGE = 100;
+      let totalRecords: number | null = null;
       while (true) {
-        const result = await rompslompGet(rompslompCompanyId, `/quotations?page=${page}&per_page=100`, apiToken);
-        const quotations = result?.quotations || result || [];
+        const { data: result, total, perPage } = await rompslompGet(rompslompCompanyId, `/quotations?page=${page}&per_page=${PER_PAGE}`, apiToken);
+        const quotations = (result as any)?.quotations || result || [];
         if (!Array.isArray(quotations) || quotations.length === 0) break;
         allQuotations = allQuotations.concat(quotations);
-        if (quotations.length < 100) break;
+        if (totalRecords === null && total !== null) totalRecords = total;
+        if (totalRecords !== null ? allQuotations.length >= totalRecords : quotations.length < (perPage || PER_PAGE)) break;
         page++;
       }
 
@@ -530,8 +549,8 @@ Deno.serve(async (req) => {
           if (existingSet.has(rompId)) continue;
 
           // Fetch full detail
-          const fullResult = await rompslompGet(rompslompCompanyId, `/quotations/${rQuote.id}`, apiToken);
-          const rQ = fullResult?.quotation || fullResult;
+          const { data: fullResult } = await rompslompGet(rompslompCompanyId, `/quotations/${rQuote.id}`, apiToken);
+          const rQ = (fullResult as any)?.quotation || fullResult;
 
           const contactId = rQ.contact_id ? String(rQ.contact_id) : null;
           let customer = null;
@@ -675,8 +694,8 @@ Deno.serve(async (req) => {
       }
 
       // Fetch full invoice to get the Rompslomp invoice number
-      const fullInvoice = await rompslompGet(rompslompCompanyId, `/sales_invoices/${rompslompId}`, apiToken);
-      const rInv = fullInvoice?.sales_invoice || fullInvoice;
+      const { data: fullInvoice } = await rompslompGet(rompslompCompanyId, `/sales_invoices/${rompslompId}`, apiToken);
+      const rInv = (fullInvoice as any)?.sales_invoice || fullInvoice;
       const rompslompInvoiceNumber = rInv?.invoice_number || null;
 
       // Update Vakflow invoice with rompslomp data
@@ -767,8 +786,8 @@ Deno.serve(async (req) => {
       }
 
       // Fetch full quotation to get the Rompslomp quote number
-      const fullQuotation = await rompslompGet(rompslompCompanyId, `/quotations/${rompslompId}`, apiToken);
-      const rQ = fullQuotation?.quotation || fullQuotation;
+      const { data: fullQuotation } = await rompslompGet(rompslompCompanyId, `/quotations/${rompslompId}`, apiToken);
+      const rQ = (fullQuotation as any)?.quotation || fullQuotation;
       const rompslompQuoteNumber = rQ?.invoice_number || null;
 
       const updateData: any = {

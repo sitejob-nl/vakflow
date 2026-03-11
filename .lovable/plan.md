@@ -1,38 +1,51 @@
 
 
-# Rompslomp Koppeling — Fixes
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Problemen
+### Problemen
 
-### 1. Verkeerde Base URL
-**Regel 7**: `https://app.rompslomp.nl/api/v2` bestaat niet.
-**Fix**: `https://api.rompslomp.nl/api/v1`
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-### 2. Fragiele paginering
-**Regels 259, 312, 511**: `contacts.length < 100` stopt te vroeg als Rompslomp een lagere default page size hanteert.
-**Fix**: `rompslompGet` aanpassen om ook response headers terug te geven, en `X-Total` gebruiken om te bepalen of er meer pagina's zijn.
+### Aanpak
 
-## Wat klopt
-- Per-tenant encrypted token auth: correct voor multi-tenant SaaS
-- URL-pad `/companies/${companyId}/...`: correct per spec en referentie
-- Contact/invoice/quotation POST wrappers: correct
-- PDF download, webhook, config endpoints: correct
-- `open_amount` check voor betaalstatus: correct
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-## Implementatieplan
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-### Bestand: `supabase/functions/sync-rompslomp/index.ts`
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-**1. Fix base URL** (regel 7):
-```
-"https://app.rompslomp.nl/api/v2" → "https://api.rompslomp.nl/api/v1"
-```
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-**2. Refactor `rompslompGet` om headers terug te geven**:
-Wijzig return type naar `{ data, headers }` zodat paginatielogica `X-Total` en `X-Per-Page` kan uitlezen.
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-**3. Update alle paginatie-loops** (pull-contacts, pull-invoices, pull-quotes):
-Gebruik `X-Total` header uit de eerste response om het totaal aantal pagina's te berekenen. Fallback naar `length < perPage` als header ontbreekt.
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-Totaal: 1 bestand, 3 gerichte wijzigingen. Geen database-wijzigingen.
+### Bestanden
+
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
+
+Geen database-wijzigingen, geen nieuwe dependencies.
 
