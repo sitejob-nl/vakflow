@@ -1,60 +1,51 @@
 
 
-# Audit: e-Boekhouden koppeling
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Gevonden problemen
+### Problemen
 
-### 1. Verkeerde BTW-code voor 0%
-**Locatie**: regel 13
-**Probleem**: `VRIJ_VERK` bestaat niet in de API spec. De juiste code voor 0% verkoop is `GEEN`.
-**Fix**: `return "GEEN"`
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-### 2. Source naam "VentFlow" in sessie
-**Locatie**: regel 68
-**Probleem**: Product heet "Vakflow", niet "VentFlow".
-**Fix**: `source = "Vakflow"`
+### Aanpak
 
-### 3. Outstanding invoices mist `type=debtors` parameter
-**Locatie**: regel 913
-**Probleem**: Per spec is `/mutation/invoice/outstanding?type=debtors` vereist. Code stuurt geen `type` mee.
-**Fix**: Voeg `&type=debtors` toe aan de query.
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-### 4. pull-contacts haalt elke relatie individueel op (N+1)
-**Locatie**: regels 768-803
-**Probleem**: Na het ophalen van alle relaties via `GET /relation?limit=2000`, wordt voor elke relatie nog een individuele `GET /relation/{id}` gedaan. De list-response bevat al alle velden — de extra calls zijn onnodig en veroorzaken honderden extra API-calls.
-**Fix**: Gebruik de data uit de list-response direct (die bevat `name`, `address`, `postalCode`, `city`, `emailAddress`, `phoneNumber`). Verwijder de individuele fetch.
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-### 5. pull-invoice-status doet onnodige individuele fetches
-**Locatie**: regels 929-953
-**Probleem**: Zelfs als de outstanding-lijst succesvol is opgehaald, wordt voor elke onbetaalde factuur alsnog een individuele `GET /invoice/{id}` gedaan om het factuurnummer te vergelijken. Dit is N+1 overhead.
-**Fix**: Vergelijk op `eboekhouden_id` in plaats van `invoiceNumber`. Als de factuur NIET in de outstanding lijst staat → markeer als betaald. Skip de individuele fetch.
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-### 6. Auto-sync pull-contacts heeft hetzelfde N+1 probleem
-**Locatie**: regels 208-229
-**Probleem**: Zelfde als punt 4, maar in de cron auto-sync context.
-**Fix**: Verwijder de individuele `ebGet(sess, `/relation/${rel.id}`)` call, gebruik `rel` direct.
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-## Wat klopt
-- Base URL `https://api.e-boekhouden.nl/v1`: correct
-- Session POST met `accessToken` + `source`: correct
-- Authorization header met session token (zonder "Bearer"): correct
-- Pagination met `limit` en `offset`: correct
-- `POST /v1/invoice` met `relationId`, `templateId`, `items`: correct
-- `PATCH /v1/relation/{id}` voor updates: correct
-- `inExVat: "IN"` voor inclusief-BTW prijzen: correct
-- `mutation.ledgerId` voor debiteurenrekening: correct
-- Rate limiting: correct
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-## Implementatieplan
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
-### Bestand: `supabase/functions/sync-invoice-eboekhouden/index.ts`
+### Bestanden
 
-1. **Fix BTW-code** (regel 13): `"VRIJ_VERK"` → `"GEEN"`
-2. **Fix source** (regel 68): `"VentFlow"` → `"Vakflow"`
-3. **Fix outstanding query** (regel 913): voeg `&type=debtors` toe
-4. **Elimineer N+1 in pull-contacts** (regels 768-803): gebruik list-data direct i.p.v. individuele fetches
-5. **Elimineer N+1 in auto-sync pull-contacts** (regels 208-229): idem
-6. **Optimaliseer pull-invoice-status** (regels 929-953): vergelijk op ID i.p.v. individueel ophalen; sla `paymentDate` als `now()` op als niet beschikbaar
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
 
-Totaal: 1 bestand, 6 gerichte fixes.
+Geen database-wijzigingen, geen nieuwe dependencies.
 

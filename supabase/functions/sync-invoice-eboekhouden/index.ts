@@ -10,7 +10,7 @@ const corsHeaders = {
 const EB_BASE = "https://api.e-boekhouden.nl/v1";
 
 function eboekhoudenVatCode(vatPct: number): string {
-  if (vatPct === 0) return "VRIJ_VERK";
+  if (vatPct === 0) return "GEEN";
   if (vatPct === 9) return "LAAG_VERK_9";
   return "HOOG_VERK_21";
 }
@@ -65,7 +65,7 @@ async function decryptToken(encrypted: string): Promise<string> {
   return new TextDecoder().decode(decrypted);
 }
 
-async function ebSession(apiToken: string, source = "VentFlow"): Promise<string> {
+async function ebSession(apiToken: string, source = "Vakflow"): Promise<string> {
   const res = await fetch(`${EB_BASE}/session`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -207,14 +207,13 @@ Deno.serve(async (req) => {
             let cUpdated = 0, cCreated = 0;
             for (const rel of allRelations) {
               try {
-                const detail = await ebGet(sess, `/relation/${rel.id}`);
                 const customerData: Record<string, any> = {
-                  name: detail.name || detail.contact || `Relatie ${rel.id}`,
-                  address: detail.address || null,
-                  postal_code: detail.postalCode || null,
-                  city: detail.city || null,
-                  email: sanitizeEmail(detail.emailAddress) || null,
-                  phone: sanitizePhone(detail.phoneNumber) || null,
+                  name: rel.name || rel.contact || `Relatie ${rel.id}`,
+                  address: rel.address || null,
+                  postal_code: rel.postalCode || null,
+                  city: rel.city || null,
+                  email: sanitizeEmail(rel.emailAddress) || null,
+                  phone: sanitizePhone(rel.phoneNumber) || null,
                   eboekhouden_relation_id: rel.id,
                 };
                 const { data: existing } = await supabase.from("customers").select("id").eq("eboekhouden_relation_id", rel.id).eq("company_id", comp.id).maybeSingle();
@@ -767,15 +766,13 @@ Deno.serve(async (req) => {
 
       for (const rel of allRelations) {
         try {
-          const detail = await ebGet(session, `/relation/${rel.id}`);
-
           const customerData = {
-            name: detail.name || detail.contact || `Relatie ${rel.id}`,
-            address: detail.address || null,
-            postal_code: detail.postalCode || null,
-            city: detail.city || null,
-            email: sanitizeEmail(detail.emailAddress) || null,
-            phone: sanitizePhone(detail.phoneNumber) || null,
+            name: rel.name || rel.contact || `Relatie ${rel.id}`,
+            address: rel.address || null,
+            postal_code: rel.postalCode || null,
+            city: rel.city || null,
+            email: sanitizeEmail(rel.emailAddress) || null,
+            phone: sanitizePhone(rel.phoneNumber) || null,
             eboekhouden_relation_id: rel.id,
           };
 
@@ -910,11 +907,13 @@ Deno.serve(async (req) => {
         let offset = 0;
         const limit = 500;
         while (true) {
-          const batch: any = await ebGet(session, `/mutation/invoice/outstanding?limit=${limit}&offset=${offset}`);
+          const batch: any = await ebGet(session, `/mutation/invoice/outstanding?type=debtors&limit=${limit}&offset=${offset}`);
           const items = batch?.items || batch || [];
           if (!Array.isArray(items) || items.length === 0) break;
           for (const item of items) {
-            if (item.invoiceNumber) outstandingIds.add(String(item.invoiceNumber));
+            // Use invoice ID for matching against our eboekhouden_id
+            if (item.id) outstandingIds.add(String(item.id));
+            else if (item.invoiceId) outstandingIds.add(String(item.invoiceId));
           }
           if (items.length < limit) break;
           offset += limit;
@@ -928,15 +927,12 @@ Deno.serve(async (req) => {
 
       for (const inv of unpaidInvoices) {
         try {
-          // If we have the outstanding list, use it for reliable detection
           if (outstandingIds.size > 0) {
-            const ebInv = await ebGet(session, `/invoice/${inv.eboekhouden_id}`);
-            const ebInvoiceNumber = ebInv.invoiceNumber || "";
-            if (!outstandingIds.has(String(ebInvoiceNumber))) {
-              // Not in outstanding list = paid
+            // We have the outstanding list — if eboekhouden_id is NOT in it, it's paid
+            if (!outstandingIds.has(String(inv.eboekhouden_id))) {
               await supabase
                 .from("invoices")
-                .update({ status: "betaald", paid_at: ebInv.paymentDate || new Date().toISOString().split("T")[0] })
+                .update({ status: "betaald", paid_at: new Date().toISOString().split("T")[0] })
                 .eq("id", inv.id);
               updated++;
             }
