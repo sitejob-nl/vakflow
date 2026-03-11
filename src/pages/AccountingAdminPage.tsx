@@ -7,6 +7,10 @@ import ProviderSyncPanel from "@/components/ProviderSyncPanel";
 
 const MoneybirdAdmin = lazy(() => import("@/components/MoneybirdAdmin"));
 const RompslompAdmin = lazy(() => import("@/components/RompslompAdmin"));
+const ExactAdmin = lazy(() => import("@/components/ExactAdmin"));
+const EboekhoudenAdmin = lazy(() => import("@/components/EboekhoudenAdmin"));
+const WefactAdmin = lazy(() => import("@/components/WefactAdmin"));
+const SnelstartAdmin = lazy(() => import("@/components/SnelstartAdmin"));
 
 const PROVIDER_INFO: Record<string, { name: string; url: string; description: string }> = {
   exact: {
@@ -131,6 +135,22 @@ const AccountingAdminPage = () => {
       ) : provider === "rompslomp" ? (
         <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
           <RompslompAdmin />
+        </Suspense>
+      ) : provider === "exact" ? (
+        <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+          <ExactAdmin />
+        </Suspense>
+      ) : provider === "eboekhouden" ? (
+        <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+          <EboekhoudenAdmin />
+        </Suspense>
+      ) : provider === "wefact" ? (
+        <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+          <WefactAdmin />
+        </Suspense>
+      ) : provider === "snelstart" ? (
+        <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+          <SnelstartAdmin />
         </Suspense>
       ) : (
         <ProviderPlaceholder providerKey={provider} />

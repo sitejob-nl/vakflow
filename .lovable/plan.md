@@ -1,50 +1,51 @@
 
 
-# Admin-componenten voor Exact, e-Boekhouden, WeFact en SnelStart
+## Agenda UI Verbetering — Look & Feel + Leesbaarheid
 
-## Situatie
+### Problemen
 
-Moneybird en Rompslomp hebben volledige admin-componenten met tabbed interfaces (contacten, facturen, offertes, producten). De andere vier providers worden afgehandeld met een statische placeholder + ProviderSyncPanel, terwijl hun backends net zo uitgebreid zijn:
+1. **Events te klein / moeilijk leesbaar** — `SLOT_HEIGHT` is 20px (kwartier), events zijn erg krap met tekst op 9-10px
+2. **Algehele look & feel** — toolbar ziet er functioneel maar niet gepolijst uit, het grid mist visuele hiërarchie, events missen diepte
 
-| Provider | Backend acties | Admin UI |
-|----------|---------------|----------|
-| Exact Online | sync/pull contacts, invoices, quotes + grootboek config | Placeholder |
-| e-Boekhouden | sync/pull contacts, invoices, quotes + templates/ledgers | Placeholder |
-| WeFact | sync/pull contacts, invoices, quotes, products | Placeholder |
-| SnelStart | sync relaties, artikelen, facturen, verkooporders, offertes | Placeholder |
+### Aanpak
 
-## Aanpak
+**1. Grotere tijdslots en events**
+- `SLOT_HEIGHT` verhogen van 20px naar 28px — events worden 40% groter
+- Event tekst vergroten: klantnaam naar 11-12px, tijdstip naar 10px
+- Meer ruimte voor service-naam en stad onder de klantnaam
 
-Per provider een admin-component bouwen met hetzelfde tabbed patroon als `RompslompAdmin.tsx`. Elke tab haalt data op uit de lokale Supabase-tabellen (die al gevuld worden door de sync-functies) en toont een zoekbare lijst.
+**2. Event cards verbeteren**
+- Subtielere achtergrondkleur met betere contrast
+- Lichte shadow toevoegen aan events voor diepte
+- Rounded corners vergroten, padding verruimen
+- Status-indicatie (kleurig bolletje) toevoegen aan event cards in het grid
+- Hover-effect verbeteren met schaal + shadow
 
-### Componenten
+**3. Toolbar opschonen (desktop)**
+- Knoppen groeperen met visuele scheiders
+- "Nieuwe afspraak" knop prominenter maken (groter, duidelijker icon)
+- Navigatie-pijlen verbeteren (echte icon-buttons i.p.v. tekst ‹ ›)
+- Badge voor aantal afspraken subtieler
 
-| Bestand | Tabs |
-|---------|------|
-| `src/components/ExactAdmin.tsx` | Contacten, Facturen, Offertes |
-| `src/components/EboekhoudenAdmin.tsx` | Contacten, Facturen |
-| `src/components/WefactAdmin.tsx` | Contacten, Facturen, Offertes, Producten |
-| `src/components/SnelstartAdmin.tsx` | Relaties, Artikelen, Facturen, Offertes |
+**4. Dagkolom headers verbeteren (desktop weekview)**
+- Datum groter en duidelijker, weekdag + dagnummer gescheiden
+- Vandaag-indicator prominenter met filled cirkel rond dagnummer (zoals Google Calendar)
 
-Elke component:
-- Tabbed wrapper (zelfde stijl als `RompslompAdmin`)
-- Per tab: zoekbare tabel met data uit lokale tabellen (customers, invoices, quotes, materials — gefilterd op company_id)
-- ProviderSyncPanel onderaan voor handmatige sync
-- Externe link-knop naar de provider
+**5. Zijpaneel styling**
+- Subtielere card-styling, betere spacing
+- Status-dots vergroten in de afsprakenlijst
+- Betere typografie-hiërarchie
 
-### AccountingAdminPage aanpassen
-
-`AccountingAdminPage.tsx` uitbreiden met lazy imports voor alle vier nieuwe componenten, zodat elke provider zijn eigen admin-component rendert in plaats van de placeholder.
+**6. Mobile day view**
+- Zelfde slot-hoogte verbetering
+- Events met meer padding en grotere tekst
 
 ### Bestanden
 
-| Bestand | Actie |
-|---------|-------|
-| `src/components/ExactAdmin.tsx` | Nieuw |
-| `src/components/EboekhoudenAdmin.tsx` | Nieuw |
-| `src/components/WefactAdmin.tsx` | Nieuw |
-| `src/components/SnelstartAdmin.tsx` | Nieuw |
-| `src/pages/AccountingAdminPage.tsx` | Lazy imports + provider-switch uitbreiden |
+| Bestand | Wijziging |
+|---|---|
+| `src/pages/PlanningPage.tsx` | SLOT_HEIGHT, event rendering, toolbar, kolom headers |
+| `src/components/planning/CurrentTimeIndicator.tsx` | Mogelijk aanpassen aan nieuwe slot hoogte |
 
-Geen backend-wijzigingen nodig — alle sync-functies bestaan al.
+Geen database-wijzigingen, geen nieuwe dependencies.
 
