@@ -101,6 +101,10 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
       "financial/Journals?$filter=Type eq 20&$select=ID,Code,Description",
       setJournals, setLoadingJournals, setJournalError
     );
+    fetchExactData(
+      "logistics/Items?$filter=IsSalesItem eq true&$select=ID,Code,Description&$top=200",
+      setSalesItems, setLoadingItems, setItemError
+    );
   }, [isConnected, divisionId]);
 
   const handleSaveExactConfig = async (field: "gl_revenue_id" | "journal_code", value: string) => {
