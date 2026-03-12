@@ -52,7 +52,9 @@ const LeadsPage = lazy(() => import("@/pages/LeadsPage"));
 const AccountingAdminPage = lazy(() => import("@/pages/AccountingAdminPage"));
 const PortalLoginPage = lazy(() => import("@/pages/PortalLoginPage"));
 const PortalQuotesPage = lazy(() => import("@/pages/PortalQuotesPage"));
+const PortalInvoicesPage = lazy(() => import("@/pages/PortalInvoicesPage"));
 const PortalWorkOrdersPage = lazy(() => import("@/pages/PortalWorkOrdersPage"));
+const PortalAssetsPage = lazy(() => import("@/pages/PortalAssetsPage"));
 const PortalVehiclesPage = lazy(() => import("@/pages/PortalVehiclesPage"));
 const PortalAppointmentsPage = lazy(() => import("@/pages/PortalAppointmentsPage"));
 const PortalTireStoragePage = lazy(() => import("@/pages/PortalTireStoragePage"));
@@ -84,7 +86,9 @@ const App = () => (
             <Route path="/portal" element={<PortalAuthProvider><PortalRoute><PortalLayout /></PortalRoute></PortalAuthProvider>}>
               <Route index element={<Navigate to="/portal/quotes" replace />} />
               <Route path="quotes" element={<PortalQuotesPage />} />
+              <Route path="invoices" element={<PortalInvoicesPage />} />
               <Route path="workorders" element={<PortalWorkOrdersPage />} />
+              <Route path="assets" element={<PortalAssetsPage />} />
               <Route path="appointments" element={<PortalAppointmentsPage />} />
               <Route path="vehicles" element={<PortalVehiclesPage />} />
               <Route path="tires" element={<PortalTireStoragePage />} />
