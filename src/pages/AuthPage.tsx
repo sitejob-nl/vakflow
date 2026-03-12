@@ -21,6 +21,7 @@ const AuthPage = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [isPortalUser, setIsPortalUser] = useState<boolean | null>(null);
 
   // Password setup flow for invited users
   const [isSettingPassword, setIsSettingPassword] = useState(false);
@@ -46,7 +47,23 @@ const AuthPage = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) {
+  // Check if the logged-in user is a portal user (not a staff member)
+  useEffect(() => {
+    if (!user) {
+      setIsPortalUser(null);
+      return;
+    }
+    supabase
+      .from("portal_users")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setIsPortalUser(!!data);
+      });
+  }, [user]);
+
+  if (loading || (user && isPortalUser === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -54,8 +71,10 @@ const AuthPage = () => {
     );
   }
 
-  // If user is logged in and NOT setting password, redirect
-  if (user && !isSettingPassword) return <Navigate to="/" replace />;
+  // Portal users get redirected to the customer portal
+  if (user && !isSettingPassword && isPortalUser) return <Navigate to="/portal/quotes" replace />;
+  // Regular users get redirected to the main app
+  if (user && !isSettingPassword && !isPortalUser) return <Navigate to="/" replace />;
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
