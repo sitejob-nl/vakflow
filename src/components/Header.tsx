@@ -1,5 +1,6 @@
 import { useNavigation, type Page } from "@/hooks/useNavigation";
-import { Search, Bell, User, Loader2, CheckCheck } from "lucide-react";
+import { Search, Bell, User, Loader2, CheckCheck, Building2 } from "lucide-react";
+import { useCompanySwitcher } from "@/hooks/useCompanySwitcher";
 import { useState, useEffect, useRef, useCallback } from "react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { supabase } from "@/integrations/supabase/client";
@@ -137,6 +138,7 @@ const Header = () => {
         <h1 className="text-base md:text-lg font-extrabold tracking-tight truncate">{info.title}</h1>
         <p className="text-[11px] md:text-[12.5px] text-t3 font-medium hidden md:block">{info.sub}</p>
       </div>
+      <CompanyNameBadge />
       <div className="flex-1" />
 
       {/* Search */}
@@ -252,6 +254,17 @@ const Header = () => {
         )}
       </div>
     </header>
+  );
+};
+
+const CompanyNameBadge = () => {
+  const { activeCompany, hasMultipleCompanies } = useCompanySwitcher();
+  if (!hasMultipleCompanies || !activeCompany) return null;
+  return (
+    <span className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted text-muted-foreground text-[11px] font-semibold ml-2 shrink-0">
+      <Building2 className="h-3 w-3" />
+      {activeCompany.company_name}
+    </span>
   );
 };
 

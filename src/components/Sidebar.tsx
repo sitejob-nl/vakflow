@@ -4,6 +4,7 @@ import {
   MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car, Repeat, CalendarCheck, ClipboardCheck, FolderKanban, UserPlus, BookOpen, Link
 } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
+import CompanySwitcher from "@/components/CompanySwitcher";
 import { useLowStockCount } from "@/hooks/useMaterials";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccountingProvider } from "@/hooks/useAccountingProvider";
@@ -111,6 +112,8 @@ const Sidebar = () => {
           )}
         </div>
       </SidebarHeader>
+
+      <CompanySwitcher />
 
       {/* Navigation */}
       <SidebarContent>
