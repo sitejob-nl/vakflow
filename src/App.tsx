@@ -58,6 +58,7 @@ const PortalAssetsPage = lazy(() => import("@/pages/PortalAssetsPage"));
 const PortalContractsPage = lazy(() => import("@/pages/PortalContractsPage"));
 const PortalVehiclesPage = lazy(() => import("@/pages/PortalVehiclesPage"));
 const PortalAppointmentsPage = lazy(() => import("@/pages/PortalAppointmentsPage"));
+const PortalServiceRequestsPage = lazy(() => import("@/pages/PortalServiceRequestsPage"));
 const PortalTireStoragePage = lazy(() => import("@/pages/PortalTireStoragePage"));
 const WorkOrderStatusPage = lazy(() => import("@/pages/WorkOrderStatusPage"));
 
@@ -91,6 +92,7 @@ const App = () => (
               <Route path="workorders" element={<PortalWorkOrdersPage />} />
               <Route path="contracts" element={<PortalContractsPage />} />
               <Route path="assets" element={<PortalAssetsPage />} />
+              <Route path="service" element={<PortalServiceRequestsPage />} />
               <Route path="appointments" element={<PortalAppointmentsPage />} />
               <Route path="vehicles" element={<PortalVehiclesPage />} />
               <Route path="tires" element={<PortalTireStoragePage />} />
