@@ -698,7 +698,7 @@ const InvoicesPage = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-background">
-                  {["Nummer", "Klant", "Dienst", "Bedrag", "Status"].map((h) => (
+                  {["Nummer", "Klant", "Dienst", "Bedrag", "Status", ...(accountingProvider ? ["Boekhouding"] : [])].map((h) => (
                     <th key={h} className="text-left px-5 py-2.5 text-[10.5px] font-bold uppercase tracking-wider text-t3 border-b border-border">{h}</th>
                   ))}
                 </tr>
@@ -707,6 +707,7 @@ const InvoicesPage = () => {
                 {filtered.map((inv) => {
                   const cfg = statusConfig[inv.status] ?? statusConfig.concept;
                   const isOverdue = inv.status === "verzonden" && inv.due_at && new Date(inv.due_at) < new Date();
+                  const syncStatus = getSyncStatus(inv, accountingProvider);
                   return (
                     <tr
                       key={inv.id}
@@ -726,6 +727,11 @@ const InvoicesPage = () => {
                           </span>
                         </div>
                       </td>
+                      {accountingProvider && (
+                        <td className="px-5 py-3">
+                          <SyncBadge status={syncStatus} />
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
