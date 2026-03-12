@@ -613,6 +613,20 @@ const InvoicesPage = () => {
       {/* Provider Sync Panel */}
       {accountingProvider && <ProviderSyncPanel provider={accountingProvider} />}
 
+      {/* Bulk sync actions */}
+      {accountingProvider && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <Button variant="outline" size="sm" onClick={handleBulkSync} disabled={bulkSyncing} className="text-[12px]">
+            {bulkSyncing ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ArrowUpFromLine className="h-3.5 w-3.5 mr-1" />}
+            Alles synchroniseren naar {providerLabel}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handlePullStatus} disabled={pullingStatus} className="text-[12px]">
+            {pullingStatus ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ArrowDownToLine className="h-3.5 w-3.5 mr-1" />}
+            Betalingsstatus ophalen
+          </Button>
+        </div>
+      )}
+
       <div className="flex gap-0 border-b-2 border-border mb-4 md:mb-5 overflow-x-auto scrollbar-hide">
         {tabs.map((t, i) => (
           <button key={t} onClick={() => { setActiveTab(i); setPage(0); }} className={`px-4 md:px-5 py-2.5 text-[12px] md:text-[13px] font-bold border-b-2 -mb-[2px] transition-colors whitespace-nowrap ${i === activeTab ? "text-primary border-primary" : "text-t3 border-transparent hover:text-secondary-foreground"}`}>
