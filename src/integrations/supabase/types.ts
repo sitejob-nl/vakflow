@@ -3768,6 +3768,48 @@ export type Database = {
           },
         ]
       }
+      user_companies: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_default: boolean
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_outlook_tokens: {
         Row: {
           company_id: string
@@ -4692,6 +4734,17 @@ export type Database = {
           work_order_count: number
         }[]
       }
+      get_my_companies: {
+        Args: never
+        Returns: {
+          company_id: string
+          company_name: string
+          company_slug: string
+          is_active: boolean
+          is_default: boolean
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
       get_my_company_id: { Args: never; Returns: string }
       get_portal_customer_id: { Args: never; Returns: string }
       get_usage_summary: {
@@ -4720,6 +4773,7 @@ export type Database = {
           }
       is_portal_user: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      switch_company: { Args: { target_company_id: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "monteur" | "super_admin"
