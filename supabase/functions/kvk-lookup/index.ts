@@ -113,6 +113,7 @@ serve(async (req) => {
           headers: {
             apikey: KVK_API_KEY,
             Accept: "application/json",
+            "User-Agent": "Vakflow/1.0",
           },
         });
         break; // success
