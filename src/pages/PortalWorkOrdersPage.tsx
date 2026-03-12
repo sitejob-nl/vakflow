@@ -72,7 +72,7 @@ const PortalWorkOrdersPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {workOrders.map((wo) => {
             const appointment = wo.appointments?.[0];
             const cfg = statusConfig[wo.status] || statusConfig.open;
