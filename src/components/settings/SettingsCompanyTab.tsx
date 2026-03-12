@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Upload, Search } from "lucide-react";
+import { useKvkLookup } from "@/hooks/useKvkLookup";
 import { SETTINGS_INPUT_CLASS as inputClass, SETTINGS_LABEL_CLASS as labelClass } from "./shared";
 
 const SettingsCompanyTab = () => {
   const { companyId } = useAuth();
   const { toast } = useToast();
+  const { getCompanyData, isLoading: kvkLoading } = useKvkLookup();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -53,6 +55,28 @@ const SettingsCompanyTab = () => {
     toast({ title: "Logo geüpload" });
   };
 
+  const handleKvkLookup = async () => {
+    const kvk = form.kvk_number.replace(/\s/g, "");
+    if (!kvk) {
+      toast({ title: "Vul eerst een KVK-nummer in", variant: "destructive" });
+      return;
+    }
+    const data = await getCompanyData(kvk);
+    if (!data) {
+      toast({ title: "KVK-gegevens niet gevonden", variant: "destructive" });
+      return;
+    }
+    const addr = data.visit_address;
+    setForm((f) => ({
+      ...f,
+      name: data.company_name || f.name,
+      address: addr ? `${addr.street} ${addr.house_number}`.trim() : f.address,
+      postal_code: addr?.postal_code || f.postal_code,
+      city: addr?.city || f.city,
+    }));
+    toast({ title: "KVK-gegevens ingevuld" });
+  };
+
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   const field = (label: string, key: keyof typeof form, placeholder = "") => (
@@ -85,7 +109,16 @@ const SettingsCompanyTab = () => {
       </div>
       {field("Telefoon", "phone", "06-12345678")}
       <div className="grid grid-cols-2 gap-3">
-        {field("KvK-nummer", "kvk_number", "12345678")}
+        <div>
+          <label className={labelClass}>KvK-nummer</label>
+          <div className="flex gap-2">
+            <input value={form.kvk_number} onChange={(e) => setForm((f) => ({ ...f, kvk_number: e.target.value }))} className={inputClass + " flex-1"} placeholder="12345678" />
+            <button type="button" onClick={handleKvkLookup} disabled={kvkLoading} className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap">
+              {kvkLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+              Ophalen
+            </button>
+          </div>
+        </div>
         {field("BTW-nummer", "btw_number", "NL123456789B01")}
       </div>
       {field("IBAN", "iban", "NL00BANK0123456789")}
