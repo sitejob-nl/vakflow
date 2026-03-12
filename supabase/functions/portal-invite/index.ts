@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = createServiceClient();
+    const supabase = createAdminClient();
 
     // Authenticate the calling user (admin)
     const authHeader = req.headers.get("Authorization");
