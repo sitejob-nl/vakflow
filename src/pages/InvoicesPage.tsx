@@ -5,7 +5,7 @@ import { useCreateCommunicationLog } from "@/hooks/useCommunicationLogs";
 import type { Invoice } from "@/hooks/useInvoices";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { Loader2, ChevronLeft, ChevronRight, FileDown, RefreshCw, BookOpen, Plus, Mail, Pencil } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, FileDown, RefreshCw, BookOpen, Plus, Mail, Pencil, CheckCircle, ArrowUpFromLine, ArrowDownToLine } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -14,6 +14,37 @@ import { Button } from "@/components/ui/button";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import InvoiceDetailSheet from "@/components/InvoiceDetailSheet";
 import ProviderSyncPanel from "@/components/ProviderSyncPanel";
+
+const providerLabelMap: Record<string, string> = {
+  exact: "Exact Online", wefact: "WeFact", eboekhouden: "e-Boekhouden",
+  moneybird: "Moneybird", rompslomp: "Rompslomp", snelstart: "SnelStart",
+};
+
+const getSyncStatus = (inv: Invoice, provider: string | null): "synced" | "not_synced" | "no_provider" => {
+  if (!provider) return "no_provider";
+  const providerIdMap: Record<string, string | null> = {
+    exact: (inv as any).exact_id ?? null,
+    wefact: (inv as any).wefact_id ?? null,
+    eboekhouden: inv.eboekhouden_id ?? null,
+    moneybird: (inv as any).moneybird_id ?? null,
+    rompslomp: inv.rompslomp_id ?? null,
+  };
+  return providerIdMap[provider] ? "synced" : "not_synced";
+};
+
+const SyncBadge = ({ status }: { status: "synced" | "not_synced" | "no_provider" }) => {
+  if (status === "no_provider") return null;
+  if (status === "synced") return (
+    <span className="inline-flex items-center gap-1 px-2 py-[2px] rounded-full text-[10px] font-bold bg-success-muted text-success">
+      <CheckCircle className="h-3 w-3" /> Gesyncet
+    </span>
+  );
+  return (
+    <span className="inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold bg-muted text-muted-foreground">
+      Niet gesyncet
+    </span>
+  );
+};
 
 const tabs = ["Alle", "Openstaand", "Betaald"];
 
@@ -58,6 +89,8 @@ const InvoicesPage = () => {
   const [sendingReminder, setSendingReminder] = useState(false);
   const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
   const [syncInvoices, setSyncInvoices] = useState(true);
+  const [bulkSyncing, setBulkSyncing] = useState(false);
+  const [pullingStatus, setPullingStatus] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
@@ -159,6 +192,54 @@ const InvoicesPage = () => {
 
   const serviceName = (inv: Invoice) => (inv.work_orders as any)?.services?.name ?? "Dienst";
   const woNumber = (inv: Invoice) => (inv.work_orders as any)?.work_order_number ?? "—";
+  const providerLabel = accountingProvider ? providerLabelMap[accountingProvider] ?? accountingProvider : null;
+
+  const handleBulkSync = async () => {
+    if (!accountingProvider) return;
+    setBulkSyncing(true);
+    const funcMap: Record<string, string> = { exact: "sync-exact", wefact: "sync-wefact", eboekhouden: "sync-invoice-eboekhouden", moneybird: "sync-moneybird", rompslomp: "sync-rompslomp" };
+    const funcName = funcMap[accountingProvider];
+    if (!funcName) { setBulkSyncing(false); return; }
+    try {
+      const { data, error } = await supabase.functions.invoke(funcName, { body: { action: "sync-invoices" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const synced = data?.synced ?? data?.created ?? 0;
+      const skipped = data?.skipped ?? 0;
+      const errors = data?.errors?.length ?? 0;
+      toast({ title: "✓ Bulk synchronisatie voltooid", description: `${synced} facturen gesyncet, ${skipped} overgeslagen, ${errors} fouten` });
+      queryClient.invalidateQueries({ queryKey: ["invoices-paginated"] });
+    } catch (err: any) {
+      toast({ title: "Bulk sync mislukt", description: err.message, variant: "destructive" });
+    }
+    setBulkSyncing(false);
+  };
+
+  const handlePullStatus = async () => {
+    if (!accountingProvider) return;
+    setPullingStatus(true);
+    const pullMap: Record<string, { func: string; action: string }> = {
+      exact: { func: "sync-exact", action: "pull-status" },
+      wefact: { func: "sync-wefact", action: "pull-invoice-status" },
+      eboekhouden: { func: "sync-invoice-eboekhouden", action: "pull-invoice-status" },
+      moneybird: { func: "sync-moneybird", action: "pull-invoice-status" },
+      rompslomp: { func: "sync-rompslomp", action: "pull-invoice-status" },
+    };
+    const cfg = pullMap[accountingProvider];
+    if (!cfg) { setPullingStatus(false); return; }
+    try {
+      const { data, error } = await supabase.functions.invoke(cfg.func, { body: { action: cfg.action } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const checked = data?.checked ?? 0;
+      const updated = data?.updated ?? 0;
+      toast({ title: "✓ Betalingsstatus opgehaald", description: `${checked} gecontroleerd, ${updated} bijgewerkt naar betaald` });
+      queryClient.invalidateQueries({ queryKey: ["invoices-paginated"] });
+    } catch (err: any) {
+      toast({ title: "Status ophalen mislukt", description: err.message, variant: "destructive" });
+    }
+    setPullingStatus(false);
+  };
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
@@ -532,6 +613,20 @@ const InvoicesPage = () => {
       {/* Provider Sync Panel */}
       {accountingProvider && <ProviderSyncPanel provider={accountingProvider} />}
 
+      {/* Bulk sync actions */}
+      {accountingProvider && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <Button variant="outline" size="sm" onClick={handleBulkSync} disabled={bulkSyncing} className="text-[12px]">
+            {bulkSyncing ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ArrowUpFromLine className="h-3.5 w-3.5 mr-1" />}
+            Alles synchroniseren naar {providerLabel}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handlePullStatus} disabled={pullingStatus} className="text-[12px]">
+            {pullingStatus ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ArrowDownToLine className="h-3.5 w-3.5 mr-1" />}
+            Betalingsstatus ophalen
+          </Button>
+        </div>
+      )}
+
       <div className="flex gap-0 border-b-2 border-border mb-4 md:mb-5 overflow-x-auto scrollbar-hide">
         {tabs.map((t, i) => (
           <button key={t} onClick={() => { setActiveTab(i); setPage(0); }} className={`px-4 md:px-5 py-2.5 text-[12px] md:text-[13px] font-bold border-b-2 -mb-[2px] transition-colors whitespace-nowrap ${i === activeTab ? "text-primary border-primary" : "text-t3 border-transparent hover:text-secondary-foreground"}`}>
@@ -603,7 +698,7 @@ const InvoicesPage = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-background">
-                  {["Nummer", "Klant", "Dienst", "Bedrag", "Status"].map((h) => (
+                  {["Nummer", "Klant", "Dienst", "Bedrag", "Status", ...(accountingProvider ? ["Boekhouding"] : [])].map((h) => (
                     <th key={h} className="text-left px-5 py-2.5 text-[10.5px] font-bold uppercase tracking-wider text-t3 border-b border-border">{h}</th>
                   ))}
                 </tr>
@@ -612,6 +707,7 @@ const InvoicesPage = () => {
                 {filtered.map((inv) => {
                   const cfg = statusConfig[inv.status] ?? statusConfig.concept;
                   const isOverdue = inv.status === "verzonden" && inv.due_at && new Date(inv.due_at) < new Date();
+                  const syncStatus = getSyncStatus(inv, accountingProvider);
                   return (
                     <tr
                       key={inv.id}
@@ -631,6 +727,11 @@ const InvoicesPage = () => {
                           </span>
                         </div>
                       </td>
+                      {accountingProvider && (
+                        <td className="px-5 py-3">
+                          <SyncBadge status={syncStatus} />
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
