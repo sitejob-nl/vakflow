@@ -138,6 +138,7 @@ const Header = () => {
         <h1 className="text-base md:text-lg font-extrabold tracking-tight truncate">{info.title}</h1>
         <p className="text-[11px] md:text-[12.5px] text-t3 font-medium hidden md:block">{info.sub}</p>
       </div>
+      <CompanyNameBadge />
       <div className="flex-1" />
 
       {/* Search */}
