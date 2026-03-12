@@ -20,6 +20,7 @@ const Header = () => {
     dashboard: { title: "Dashboard", sub: "Overzicht van vandaag" },
     planning: { title: "Planning", sub: "Weekoverzicht" },
     customers: { title: "Klanten", sub: "Klantenoverzicht" },
+    custCreate: { title: "Nieuwe klant", sub: "Klant toevoegen" },
     custDetail: { title: "Klantdetail", sub: "Klantinformatie" },
     workorders: { title: labels.workOrders, sub: `Alle ${labels.workOrders.toLowerCase()}` },
     woDetail: { title: labels.workOrder, sub: `${labels.workOrder}details` },
