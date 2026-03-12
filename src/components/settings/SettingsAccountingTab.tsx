@@ -288,6 +288,7 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
               <label className={labelClass}>Default artikel (Item ID)</label>
               <input value={defaultItemId} onChange={(e) => setDefaultItemId(e.target.value)} onBlur={() => handleSaveExactField("default_item_id", defaultItemId || null)} className={inputClass} placeholder="GUID van fallback artikel" />
               <p className="text-[11px] text-muted-foreground mt-1">Wordt automatisch ingevuld door auto-configureren</p>
+            </div>
             <div>
               <label className={labelClass}>BTW-codes</label>
               <div className="grid grid-cols-3 gap-2">
