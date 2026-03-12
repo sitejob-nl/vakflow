@@ -23,6 +23,7 @@ const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const MonteurDashboardPage = lazy(() => import("@/pages/MonteurDashboardPage"));
 const PlanningPage = lazy(() => import("@/pages/PlanningPage"));
 const CustomersPage = lazy(() => import("@/pages/CustomersPage"));
+const CustomerCreatePage = lazy(() => import("@/pages/CustomerCreatePage"));
 const CustomerDetailPage = lazy(() => import("@/pages/CustomerDetailPage"));
 const WorkOrdersPage = lazy(() => import("@/pages/WorkOrdersPage"));
 const WorkOrderDetailPage = lazy(() => import("@/pages/WorkOrderDetailPage"));
