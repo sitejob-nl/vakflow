@@ -43,27 +43,35 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
   const [invoiceType, setInvoiceType] = useState<number>(8020);
   const [autoFinalize, setAutoFinalize] = useState<boolean>(false);
   const [paymentCondition, setPaymentCondition] = useState<string>("");
+  const [defaultItemId, setDefaultItemId] = useState<string>("");
+  const [autoConfiguring, setAutoConfiguring] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<{ valid: boolean; issues?: string[] } | null>(null);
+  const [polling, setPolling] = useState(false);
+
+  const loadConfig = async () => {
+    if (!companyId) return;
+    const { data }: { data: any } = await supabase
+      .from("exact_config")
+      .select("status, company_name_exact, tenant_id, gl_revenue_id, journal_code, vat_code_high, vat_code_low, vat_code_zero, invoice_type, auto_finalize, payment_condition, default_item_id")
+      .eq("company_id", companyId)
+      .maybeSingle();
+    setExactStatus(data?.status ?? null);
+    setExactCompanyName(data?.company_name_exact ?? null);
+    setGlRevenueId(data?.gl_revenue_id ?? "");
+    setJournalCode(data?.journal_code ?? "70");
+    setVatCodeHigh(data?.vat_code_high ?? "VH");
+    setVatCodeLow(data?.vat_code_low ?? "VL");
+    setVatCodeZero(data?.vat_code_zero ?? "VN");
+    setInvoiceType(data?.invoice_type ?? 8020);
+    setAutoFinalize(data?.auto_finalize ?? false);
+    setPaymentCondition(data?.payment_condition ?? "");
+    setDefaultItemId(data?.default_item_id ?? "");
+    return data?.status;
+  };
 
   useEffect(() => {
-    if (!companyId) return;
-    supabase
-      .from("exact_config")
-      .select("status, company_name_exact, tenant_id, gl_revenue_id, journal_code, vat_code_high, vat_code_low, vat_code_zero, invoice_type, auto_finalize, payment_condition")
-      .eq("company_id", companyId)
-      .maybeSingle()
-      .then(({ data }: { data: any }) => {
-        setExactStatus(data?.status ?? null);
-        setExactCompanyName(data?.company_name_exact ?? null);
-        setGlRevenueId(data?.gl_revenue_id ?? "");
-        setJournalCode(data?.journal_code ?? "70");
-        setVatCodeHigh(data?.vat_code_high ?? "VH");
-        setVatCodeLow(data?.vat_code_low ?? "VL");
-        setVatCodeZero(data?.vat_code_zero ?? "VN");
-        setInvoiceType(data?.invoice_type ?? 8020);
-        setAutoFinalize(data?.auto_finalize ?? false);
-        setPaymentCondition(data?.payment_condition ?? "");
-        setLoadingExact(false);
-      });
+    loadConfig().then(() => setLoadingExact(false));
   }, [companyId]);
 
   useEffect(() => {
@@ -75,6 +83,50 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
         setLoadingGl(false);
       });
   }, [exactStatus]);
+
+  // Auto-configure when status becomes connected
+  const runAutoConfigure = async () => {
+    setAutoConfiguring(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-exact", {
+        body: { action: "auto-configure" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      // Reload config to reflect auto-configured values
+      await loadConfig();
+      toast({
+        title: "✓ Configuratie automatisch ingesteld",
+        description: `BTW-codes, verkoopboek en grootboekrekening zijn gedetecteerd uit Exact.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Auto-configuratie mislukt", description: err.message, variant: "destructive" });
+    } finally {
+      setAutoConfiguring(false);
+    }
+  };
+
+  const runValidateConfig = async () => {
+    setValidating(true);
+    setValidationResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-exact", {
+        body: { action: "validate-config" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setValidationResult({ valid: data.valid, issues: data.issues });
+      if (data.valid) {
+        toast({ title: "✓ Configuratie is geldig", description: "Alle waarden zijn geverifieerd in Exact." });
+      } else {
+        toast({ title: "⚠️ Configuratie ongeldig", description: (data.issues || []).join(", "), variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Validatie mislukt", description: err.message, variant: "destructive" });
+    } finally {
+      setValidating(false);
+    }
+  };
 
   const handleSaveGlSettings = async (newGlId?: string, newJournalCode?: string) => {
     if (!companyId) return;
@@ -105,15 +157,31 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
       if (!tenantId) throw new Error("Geen tenant_id ontvangen");
       const connectUrl = `https://connect.sitejob.nl/exact-setup?tenant_id=${tenantId}`;
       window.open(connectUrl, "exact-setup", "width=600,height=700");
-      const handleMessage = (e: MessageEvent) => {
-        if (e.data?.type === "exact-connected") {
-          window.removeEventListener("message", handleMessage);
-          handleRefreshStatus();
-        }
-      };
-      window.addEventListener("message", handleMessage);
       setExactStatus("pending");
       toast({ title: "Exact Online koppeling gestart", description: "Rond de autorisatie af in het geopende venster." });
+
+      // Start polling for connection status
+      setPolling(true);
+      let attempts = 0;
+      const maxAttempts = 100; // 5 min at 3s intervals
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        const { data: cfg } = await supabase
+          .from("exact_config")
+          .select("status")
+          .eq("company_id", companyId)
+          .maybeSingle();
+        if (cfg?.status === "connected") {
+          clearInterval(pollInterval);
+          setPolling(false);
+          await loadConfig();
+          // Auto-configure after successful OAuth
+          await runAutoConfigure();
+        } else if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          setPolling(false);
+        }
+      }, 3000);
     } catch (err: any) {
       toast({ title: "Fout bij koppelen", description: err.message, variant: "destructive" });
     } finally {
@@ -127,16 +195,15 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
     await supabase.from("exact_config").delete().eq("company_id", companyId);
     setExactStatus(null);
     setExactCompanyName(null);
+    setValidationResult(null);
     setDisconnecting(false);
     toast({ title: "Exact Online ontkoppeld" });
   };
 
   const handleRefreshStatus = async () => {
     if (!companyId) return;
-    const { data } = await supabase.from("exact_config").select("status, company_name_exact").eq("company_id", companyId).maybeSingle();
-    setExactStatus(data?.status ?? null);
-    setExactCompanyName(data?.company_name_exact ?? null);
-    toast({ title: "Status vernieuwd", description: data?.status ?? "Geen configuratie gevonden" });
+    const status = await loadConfig();
+    toast({ title: "Status vernieuwd", description: status ?? "Geen configuratie gevonden" });
   };
 
   if (loadingExact) return <div className="pt-3"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>;
