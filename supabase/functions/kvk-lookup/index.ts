@@ -104,12 +104,32 @@ serve(async (req) => {
         );
     }
 
-    const kvkResponse = await fetch(url, {
-      headers: {
-        apikey: KVK_API_KEY,
-        Accept: "application/json",
-      },
-    });
+    // Retry up to 3 times — Supabase edge runtime sometimes gets "Connection reset by peer"
+    let kvkResponse: Response | null = null;
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        kvkResponse = await fetch(url, {
+          headers: {
+            apikey: KVK_API_KEY,
+            Accept: "application/json",
+          },
+        });
+        break; // success
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        console.warn(`KVK fetch attempt ${attempt + 1} failed: ${lastError.message}`);
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+      }
+    }
+
+    if (!kvkResponse) {
+      console.error("KVK fetch failed after 3 attempts:", lastError?.message);
+      return new Response(
+        JSON.stringify({ error: "KVK API niet bereikbaar, probeer het opnieuw" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (!kvkResponse.ok) {
       const errorBody = await kvkResponse.text();
