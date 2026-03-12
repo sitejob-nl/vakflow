@@ -1,5 +1,6 @@
 import { useNavigation, type Page } from "@/hooks/useNavigation";
-import { Search, Bell, User, Loader2, CheckCheck } from "lucide-react";
+import { Search, Bell, User, Loader2, CheckCheck, Building2 } from "lucide-react";
+import { useCompanySwitcher } from "@/hooks/useCompanySwitcher";
 import { useState, useEffect, useRef, useCallback } from "react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { supabase } from "@/integrations/supabase/client";
