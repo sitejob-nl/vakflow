@@ -222,6 +222,7 @@ const DashboardPage = () => {
         </div>
       )}
       <AppointmentRequestsWidget />
+      <ServiceRequestsWidget />
 
 
       <div className="flex gap-2 mb-5 flex-wrap">
