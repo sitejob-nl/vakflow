@@ -192,6 +192,54 @@ const InvoicesPage = () => {
 
   const serviceName = (inv: Invoice) => (inv.work_orders as any)?.services?.name ?? "Dienst";
   const woNumber = (inv: Invoice) => (inv.work_orders as any)?.work_order_number ?? "—";
+  const providerLabel = accountingProvider ? providerLabelMap[accountingProvider] ?? accountingProvider : null;
+
+  const handleBulkSync = async () => {
+    if (!accountingProvider) return;
+    setBulkSyncing(true);
+    const funcMap: Record<string, string> = { exact: "sync-exact", wefact: "sync-wefact", eboekhouden: "sync-invoice-eboekhouden", moneybird: "sync-moneybird", rompslomp: "sync-rompslomp" };
+    const funcName = funcMap[accountingProvider];
+    if (!funcName) { setBulkSyncing(false); return; }
+    try {
+      const { data, error } = await supabase.functions.invoke(funcName, { body: { action: "sync-invoices" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const synced = data?.synced ?? data?.created ?? 0;
+      const skipped = data?.skipped ?? 0;
+      const errors = data?.errors?.length ?? 0;
+      toast({ title: "✓ Bulk synchronisatie voltooid", description: `${synced} facturen gesyncet, ${skipped} overgeslagen, ${errors} fouten` });
+      queryClient.invalidateQueries({ queryKey: ["invoices-paginated"] });
+    } catch (err: any) {
+      toast({ title: "Bulk sync mislukt", description: err.message, variant: "destructive" });
+    }
+    setBulkSyncing(false);
+  };
+
+  const handlePullStatus = async () => {
+    if (!accountingProvider) return;
+    setPullingStatus(true);
+    const pullMap: Record<string, { func: string; action: string }> = {
+      exact: { func: "sync-exact", action: "pull-status" },
+      wefact: { func: "sync-wefact", action: "pull-invoice-status" },
+      eboekhouden: { func: "sync-invoice-eboekhouden", action: "pull-invoice-status" },
+      moneybird: { func: "sync-moneybird", action: "pull-invoice-status" },
+      rompslomp: { func: "sync-rompslomp", action: "pull-invoice-status" },
+    };
+    const cfg = pullMap[accountingProvider];
+    if (!cfg) { setPullingStatus(false); return; }
+    try {
+      const { data, error } = await supabase.functions.invoke(cfg.func, { body: { action: cfg.action } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const checked = data?.checked ?? 0;
+      const updated = data?.updated ?? 0;
+      toast({ title: "✓ Betalingsstatus opgehaald", description: `${checked} gecontroleerd, ${updated} bijgewerkt naar betaald` });
+      queryClient.invalidateQueries({ queryKey: ["invoices-paginated"] });
+    } catch (err: any) {
+      toast({ title: "Status ophalen mislukt", description: err.message, variant: "destructive" });
+    }
+    setPullingStatus(false);
+  };
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
