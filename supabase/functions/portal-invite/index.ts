@@ -1,5 +1,5 @@
 import { corsHeaders } from "../_shared/cors.ts";
-import { createServiceClient } from "../_shared/supabase.ts";
+import { createAdminClient } from "../_shared/supabase.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = createServiceClient();
+    const supabase = createAdminClient();
 
     // Authenticate the calling user (admin)
     const authHeader = req.headers.get("Authorization");
