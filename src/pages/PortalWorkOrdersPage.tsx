@@ -57,10 +57,10 @@ const PortalWorkOrdersPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Werkbonnen</h1>
-        <p className="text-sm text-muted-foreground">Overzicht van alle werkzaamheden</p>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Werkbonnen</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">Overzicht van alle werkzaamheden</p>
       </div>
 
       {!workOrders?.length ? (
@@ -72,7 +72,7 @@ const PortalWorkOrdersPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {workOrders.map((wo) => {
             const appointment = wo.appointments?.[0];
             const cfg = statusConfig[wo.status] || statusConfig.open;
@@ -85,7 +85,7 @@ const PortalWorkOrdersPage = () => {
                 className="cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => setSelected(wo)}
               >
-                <CardContent className="p-4">
+                <CardContent className="p-3.5 sm:p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
@@ -126,7 +126,7 @@ const PortalWorkOrdersPage = () => {
 
       {/* Detail dialog */}
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto p-4 sm:p-6">
           {selected && (() => {
             const cfg = statusConfig[selected.status] || statusConfig.open;
             const StatusIcon = cfg.icon;

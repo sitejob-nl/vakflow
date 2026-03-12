@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePortalAuth } from "@/contexts/PortalAuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -59,7 +59,6 @@ const PortalQuotesPage = () => {
 
   const respond = useMutation({
     mutationFn: async ({ quoteId, status, signature, responseNotes }: { quoteId: string; status: string; signature: string; responseNotes: string }) => {
-      // Insert response
       const { error: respErr } = await supabase.from("quote_responses").insert({
         quote_id: quoteId,
         company_id: companyId!,
@@ -70,12 +69,7 @@ const PortalQuotesPage = () => {
         responded_by: (await supabase.auth.getUser()).data.user?.id,
       });
       if (respErr) throw respErr;
-
-      // Update quote status
-      const { error: quoteErr } = await supabase
-        .from("quotes")
-        .update({ status })
-        .eq("id", quoteId);
+      const { error: quoteErr } = await supabase.from("quotes").update({ status }).eq("id", quoteId);
       if (quoteErr) throw quoteErr;
     },
     onSuccess: () => {
@@ -110,106 +104,67 @@ const PortalQuotesPage = () => {
   };
 
   if (isLoading) {
-    return <div className="space-y-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}</div>;
+    return <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}</div>;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Offertes</h1>
-        <p className="text-sm text-muted-foreground">Bekijk en beoordeel uw offertes</p>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Offertes</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">Bekijk en beoordeel uw offertes</p>
       </div>
 
       {!quotes?.length ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-lg font-medium">Geen offertes beschikbaar</p>
+            <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p className="text-base font-medium">Geen offertes beschikbaar</p>
             <p className="text-sm">Er zijn nog geen offertes voor u beschikbaar.</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-2.5">
           {quotes.map((q) => {
-            const items = (q.items ?? []) as QuoteItem[];
             const canRespond = q.status === "verzonden";
             return (
               <Card key={q.id} className="overflow-hidden">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-base">{q.quote_number ?? "Offerte"}</CardTitle>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                        <Calendar className="h-3.5 w-3.5" />
-                        {q.issued_at ? format(new Date(q.issued_at), "d MMMM yyyy", { locale: nl }) : format(new Date(q.created_at), "d MMMM yyyy", { locale: nl })}
+                <CardContent className="p-3.5 sm:p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{q.quote_number ?? "Offerte"}</span>
+                        <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${statusColors[q.status] ?? ""}`}>
+                          {statusLabels[q.status] ?? q.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <Calendar className="h-3 w-3 shrink-0" />
+                        {q.issued_at ? format(new Date(q.issued_at), "d MMM yyyy", { locale: nl }) : format(new Date(q.created_at), "d MMM yyyy", { locale: nl })}
                         {q.valid_until && (
-                          <span className="ml-2">· Geldig t/m {format(new Date(q.valid_until), "d MMM yyyy", { locale: nl })}</span>
+                          <span className="hidden sm:inline ml-1">· Geldig t/m {format(new Date(q.valid_until), "d MMM yyyy", { locale: nl })}</span>
                         )}
                       </p>
                     </div>
-                    <Badge variant="secondary" className={statusColors[q.status] ?? ""}>
-                      {statusLabels[q.status] ?? q.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Items table */}
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="text-left px-3 py-2 font-medium">Omschrijving</th>
-                          <th className="text-right px-3 py-2 font-medium w-20">Aantal</th>
-                          <th className="text-right px-3 py-2 font-medium w-24">Prijs</th>
-                          <th className="text-right px-3 py-2 font-medium w-24">Totaal</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map((item, idx) => (
-                          <tr key={idx} className="border-t border-border/50">
-                            <td className="px-3 py-2">{item.description}</td>
-                            <td className="text-right px-3 py-2">{item.quantity}</td>
-                            <td className="text-right px-3 py-2">€{(item.unit_price ?? 0).toFixed(2)}</td>
-                            <td className="text-right px-3 py-2">€{(item.total ?? 0).toFixed(2)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <span className="font-bold text-sm whitespace-nowrap">€{(q.total ?? 0).toFixed(2)}</span>
                   </div>
 
-                  {/* Totals */}
-                  <div className="flex justify-end">
-                    <div className="w-48 space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Subtotaal</span>
-                        <span>€{(q.subtotal ?? 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">BTW ({q.vat_percentage}%)</span>
-                        <span>€{(q.vat_amount ?? 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between font-bold text-base border-t border-border pt-1">
-                        <span>Totaal</span>
-                        <span>€{(q.total ?? 0).toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {q.notes && (
-                    <div className="bg-muted/30 rounded-lg p-3 text-sm text-muted-foreground">
-                      {q.notes}
-                    </div>
-                  )}
-
-                  {/* Action buttons */}
                   {canRespond && (
-                    <div className="flex gap-3 pt-2">
-                      <Button onClick={() => handleRespond(q, "goedgekeurd")} className="flex-1 bg-accent hover:bg-accent-hover text-accent-foreground">
-                        <CheckCircle className="h-4 w-4 mr-2" />
+                    <div className="flex gap-2 mt-3">
+                      <Button
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); handleRespond(q, "goedgekeurd"); }}
+                        className="flex-1 h-8 text-xs bg-accent hover:bg-accent-hover text-accent-foreground"
+                      >
+                        <CheckCircle className="h-3.5 w-3.5 mr-1" />
                         Goedkeuren
                       </Button>
-                      <Button variant="outline" onClick={() => handleRespond(q, "afgewezen")} className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/5">
-                        <XCircle className="h-4 w-4 mr-2" />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); handleRespond(q, "afgewezen"); }}
+                        className="flex-1 h-8 text-xs text-destructive border-destructive/30 hover:bg-destructive/5"
+                      >
+                        <XCircle className="h-3.5 w-3.5 mr-1" />
                         Afwijzen
                       </Button>
                     </div>
@@ -223,7 +178,7 @@ const PortalQuotesPage = () => {
 
       {/* Response dialog */}
       <Dialog open={respondOpen} onOpenChange={setRespondOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>
               {respondStatus === "goedgekeurd" ? "Offerte goedkeuren" : "Offerte afwijzen"}
@@ -231,10 +186,25 @@ const PortalQuotesPage = () => {
           </DialogHeader>
           <div className="space-y-4">
             {selectedQuote && (
-              <div className="bg-muted/30 rounded-lg p-3 text-sm">
-                <p className="font-medium">{selectedQuote.quote_number}</p>
-                <p className="text-muted-foreground">Totaal: €{(selectedQuote.total ?? 0).toFixed(2)}</p>
-              </div>
+              <>
+                <div className="bg-muted/30 rounded-lg p-3 text-sm">
+                  <p className="font-medium">{selectedQuote.quote_number}</p>
+                  <p className="text-muted-foreground">Totaal: €{(selectedQuote.total ?? 0).toFixed(2)}</p>
+                </div>
+
+                {/* Items */}
+                <div className="space-y-2">
+                  {((selectedQuote.items ?? []) as QuoteItem[]).map((item, idx) => (
+                    <div key={idx} className="bg-muted/20 rounded-lg p-2.5">
+                      <p className="text-sm font-medium">{item.description}</p>
+                      <div className="flex items-center justify-between mt-0.5 text-xs text-muted-foreground">
+                        <span>{item.quantity}x · €{(item.unit_price ?? 0).toFixed(2)}</span>
+                        <span className="font-semibold text-foreground">€{(item.total ?? 0).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             {respondStatus === "goedgekeurd" && (
