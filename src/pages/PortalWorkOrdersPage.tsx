@@ -2,29 +2,22 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePortalAuth } from "@/contexts/PortalAuthContext";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Wrench, Calendar, User, MapPin, Image } from "lucide-react";
+import { Wrench, Calendar, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SignedMedia } from "@/components/SignedMedia";
 
-const statusColors: Record<string, string> = {
-  gepland: "bg-primary/10 text-primary",
-  onderweg: "bg-warning/10 text-warning",
-  bezig: "bg-purple/10 text-purple",
-  afgerond: "bg-accent/10 text-accent",
-  geannuleerd: "bg-destructive/10 text-destructive",
-};
-
-const statusLabels: Record<string, string> = {
-  gepland: "Gepland",
-  onderweg: "Onderweg",
-  bezig: "Bezig",
-  afgerond: "Afgerond",
-  geannuleerd: "Geannuleerd",
+const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
+  gepland: { label: "Ingepland", icon: Clock, className: "bg-primary/10 text-primary" },
+  onderweg: { label: "Onderweg", icon: Clock, className: "bg-warning/10 text-warning" },
+  bezig: { label: "In behandeling", icon: Clock, className: "bg-primary/10 text-primary" },
+  open: { label: "Ingepland", icon: Clock, className: "bg-primary/10 text-primary" },
+  afgerond: { label: "Afgerond", icon: CheckCircle2, className: "bg-accent/10 text-accent" },
+  geannuleerd: { label: "Geannuleerd", icon: AlertCircle, className: "bg-destructive/10 text-destructive" },
 };
 
 const PortalWorkOrdersPage = () => {
@@ -32,7 +25,6 @@ const PortalWorkOrdersPage = () => {
   const [selected, setSelected] = useState<any | null>(null);
   const queryClient = useQueryClient();
 
-  // Realtime subscription for work order status changes
   useEffect(() => {
     if (!customerId) return;
     const channel = supabase
@@ -40,9 +32,7 @@ const PortalWorkOrdersPage = () => {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "work_orders", filter: `customer_id=eq.${customerId}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["portal-workorders", customerId] });
-        }
+        () => queryClient.invalidateQueries({ queryKey: ["portal-workorders", customerId] })
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -54,7 +44,7 @@ const PortalWorkOrdersPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("work_orders")
-        .select("*, services(name, color), profiles:assigned_to(full_name), appointments(scheduled_at, duration_minutes)")
+        .select("*, services(name, color), appointments(scheduled_at)")
         .eq("customer_id", customerId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -63,7 +53,7 @@ const PortalWorkOrdersPage = () => {
   });
 
   if (isLoading) {
-    return <div className="space-y-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}</div>;
+    return <div className="space-y-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}</div>;
   }
 
   return (
@@ -74,75 +64,60 @@ const PortalWorkOrdersPage = () => {
       </div>
 
       {!workOrders?.length ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <Wrench className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-lg font-medium">Geen werkbonnen beschikbaar</p>
-            <p className="text-sm">Er zijn nog geen werkbonnen voor u.</p>
+        <Card className="border-dashed">
+          <CardContent className="py-16 text-center text-muted-foreground">
+            <Wrench className="h-10 w-10 mx-auto mb-3 opacity-20" />
+            <p className="font-medium">Geen werkbonnen</p>
+            <p className="text-sm mt-1">Er zijn nog geen werkbonnen voor u.</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {workOrders.map((wo) => {
             const appointment = wo.appointments?.[0];
+            const cfg = statusConfig[wo.status] || statusConfig.open;
+            const StatusIcon = cfg.icon;
             const photosAfter = (wo.photos_after ?? []) as string[];
-            const photosBefore = (wo.photos_before ?? []) as string[];
-            const hasPhotos = photosAfter.length > 0 || photosBefore.length > 0;
 
             return (
               <Card
                 key={wo.id}
-                className="overflow-hidden cursor-pointer hover:border-primary/30 transition-colors"
+                className="cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => setSelected(wo)}
               >
-                <CardHeader className="pb-3">
+                <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        {wo.work_order_number ?? "Werkbon"}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{wo.work_order_number ?? "Werkbon"}</span>
                         {wo.services && (
                           <span
                             className="text-xs px-2 py-0.5 rounded-full font-medium"
                             style={{
-                              backgroundColor: `${wo.services.color || "#3b82f6"}18`,
-                              color: wo.services.color || "#3b82f6",
+                              backgroundColor: `${wo.services.color || "hsl(var(--primary))"}18`,
+                              color: wo.services.color || "hsl(var(--primary))",
                             }}
                           >
                             {wo.services.name}
                           </span>
                         )}
-                      </CardTitle>
-                      <div className="flex flex-wrap items-center gap-3 mt-1.5 text-sm text-muted-foreground">
-                        {appointment && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {format(new Date(appointment.scheduled_at), "d MMM yyyy HH:mm", { locale: nl })}
-                          </span>
-                        )}
-                        {wo.profiles?.full_name && (
-                          <span className="flex items-center gap-1">
-                            <User className="h-3.5 w-3.5" />
-                            {wo.profiles.full_name}
-                          </span>
-                        )}
-                        {hasPhotos && (
-                          <span className="flex items-center gap-1">
-                            <Image className="h-3.5 w-3.5" />
-                            {photosAfter.length + photosBefore.length} foto's
-                          </span>
-                        )}
                       </div>
+                      {wo.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-1">{wo.description}</p>
+                      )}
+                      {appointment && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(appointment.scheduled_at), "d MMMM yyyy", { locale: nl })}
+                        </p>
+                      )}
                     </div>
-                    <Badge variant="secondary" className={statusColors[wo.status] ?? ""}>
-                      {statusLabels[wo.status] ?? wo.status}
+                    <Badge variant="secondary" className={`${cfg.className} flex items-center gap-1 shrink-0`}>
+                      <StatusIcon className="h-3 w-3" />
+                      {cfg.label}
                     </Badge>
                   </div>
-                </CardHeader>
-                {wo.description && (
-                  <CardContent className="pt-0">
-                    <p className="text-sm text-muted-foreground line-clamp-2">{wo.description}</p>
-                  </CardContent>
-                )}
+                </CardContent>
               </Card>
             );
           })}
@@ -152,92 +127,69 @@ const PortalWorkOrdersPage = () => {
       {/* Detail dialog */}
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-          {selected && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  {selected.work_order_number ?? "Werkbon"}
-                  <Badge variant="secondary" className={statusColors[selected.status] ?? ""}>
-                    {statusLabels[selected.status] ?? selected.status}
-                  </Badge>
-                </DialogTitle>
-              </DialogHeader>
+          {selected && (() => {
+            const cfg = statusConfig[selected.status] || statusConfig.open;
+            const StatusIcon = cfg.icon;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    {selected.work_order_number ?? "Werkbon"}
+                    <Badge variant="secondary" className={`${cfg.className} flex items-center gap-1`}>
+                      <StatusIcon className="h-3 w-3" />
+                      {cfg.label}
+                    </Badge>
+                  </DialogTitle>
+                </DialogHeader>
 
-              <div className="space-y-4">
-                {/* Info grid */}
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  {selected.services && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    {selected.services && (
+                      <div>
+                        <p className="text-muted-foreground text-xs">Dienst</p>
+                        <p className="font-medium">{selected.services.name}</p>
+                      </div>
+                    )}
+                    {selected.appointments?.[0] && (
+                      <div>
+                        <p className="text-muted-foreground text-xs">Datum</p>
+                        <p className="font-medium">
+                          {format(new Date(selected.appointments[0].scheduled_at), "d MMMM yyyy", { locale: nl })}
+                        </p>
+                      </div>
+                    )}
+                    {selected.completed_at && (
+                      <div>
+                        <p className="text-muted-foreground text-xs">Afgerond op</p>
+                        <p className="font-medium">
+                          {format(new Date(selected.completed_at), "d MMMM yyyy", { locale: nl })}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {selected.description && (
                     <div>
-                      <p className="text-muted-foreground text-xs">Dienst</p>
-                      <p className="font-medium">{selected.services.name}</p>
+                      <p className="text-xs text-muted-foreground mb-1">Omschrijving</p>
+                      <p className="text-sm bg-muted/30 rounded-lg p-3">{selected.description}</p>
                     </div>
                   )}
-                  {selected.profiles?.full_name && (
+
+                  {/* Only show "after" photos to customer */}
+                  {(selected.photos_after ?? []).length > 0 && (
                     <div>
-                      <p className="text-muted-foreground text-xs">Monteur</p>
-                      <p className="font-medium">{selected.profiles.full_name}</p>
-                    </div>
-                  )}
-                  {selected.appointments?.[0] && (
-                    <div>
-                      <p className="text-muted-foreground text-xs">Gepland</p>
-                      <p className="font-medium">
-                        {format(new Date(selected.appointments[0].scheduled_at), "d MMM yyyy HH:mm", { locale: nl })}
-                      </p>
-                    </div>
-                  )}
-                  {selected.completed_at && (
-                    <div>
-                      <p className="text-muted-foreground text-xs">Afgerond</p>
-                      <p className="font-medium">
-                        {format(new Date(selected.completed_at), "d MMM yyyy HH:mm", { locale: nl })}
-                      </p>
+                      <p className="text-xs text-muted-foreground mb-2">Foto's van de werkzaamheden</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(selected.photos_after as string[]).map((url, i) => (
+                          <SignedMedia key={i} url={url} bucket="work-order-photos" type="image" className="rounded-lg aspect-square object-cover w-full" />
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
-
-                {/* Description */}
-                {selected.description && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Omschrijving</p>
-                    <p className="text-sm bg-muted/30 rounded-lg p-3">{selected.description}</p>
-                  </div>
-                )}
-
-                {/* Remarks */}
-                {selected.remarks && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Opmerkingen monteur</p>
-                    <p className="text-sm bg-muted/30 rounded-lg p-3">{selected.remarks}</p>
-                  </div>
-                )}
-
-                {/* Photos before */}
-                {(selected.photos_before ?? []).length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-2">Foto's voor</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(selected.photos_before as string[]).map((url, i) => (
-                        <SignedMedia key={i} url={url} bucket="work-order-photos" type="image" className="rounded-lg aspect-square object-cover w-full" />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Photos after */}
-                {(selected.photos_after ?? []).length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-2">Foto's na</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(selected.photos_after as string[]).map((url, i) => (
-                        <SignedMedia key={i} url={url} bucket="work-order-photos" type="image" className="rounded-lg aspect-square object-cover w-full" />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
