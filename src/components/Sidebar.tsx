@@ -113,6 +113,8 @@ const Sidebar = () => {
         </div>
       </SidebarHeader>
 
+      <CompanySwitcher />
+
       {/* Navigation */}
       <SidebarContent>
         {sections.map((section) => (
