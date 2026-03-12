@@ -126,7 +126,7 @@ const PortalWorkOrdersPage = () => {
 
       {/* Detail dialog */}
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto p-4 sm:p-6">
           {selected && (() => {
             const cfg = statusConfig[selected.status] || statusConfig.open;
             const StatusIcon = cfg.icon;
