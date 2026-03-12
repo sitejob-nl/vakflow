@@ -157,3 +157,7 @@
     font-size: 16px !important; /* Prevents iOS zoom */
   }
 }
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
