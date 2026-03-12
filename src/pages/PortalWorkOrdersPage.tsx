@@ -85,7 +85,7 @@ const PortalWorkOrdersPage = () => {
                 className="cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => setSelected(wo)}
               >
-                <CardContent className="p-4">
+                <CardContent className="p-3.5 sm:p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
