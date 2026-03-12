@@ -11,6 +11,7 @@ import AppointmentDialog from "@/components/AppointmentDialog";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import AppointmentRequestsWidget from "@/components/AppointmentRequestsWidget";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useAutomotiveDashboardStats } from "@/hooks/useAutomotiveDashboard";
@@ -219,6 +220,7 @@ const DashboardPage = () => {
           </div>
         </div>
       )}
+      <AppointmentRequestsWidget />
 
 
       <div className="flex gap-2 mb-5 flex-wrap">
