@@ -47,75 +47,70 @@ const PortalContractsPage = () => {
   });
 
   if (isLoading) {
-    return <div className="space-y-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>;
+    return <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}</div>;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Contracten</h1>
-        <p className="text-sm text-muted-foreground">Overzicht van uw servicecontracten</p>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Contracten</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">Overzicht van uw servicecontracten</p>
       </div>
 
       {!contracts?.length ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            <ScrollText className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-lg font-medium">Geen contracten gevonden</p>
+            <ScrollText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p className="text-base font-medium">Geen contracten gevonden</p>
             <p className="text-sm">Er zijn nog geen contracten aan uw account gekoppeld.</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {contracts.map((contract) => (
             <Card key={contract.id}>
-              <CardContent className="py-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                      <ScrollText className="h-5 w-5 text-primary" />
+              <CardContent className="p-3.5 sm:p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <ScrollText className="h-4 w-4 text-primary" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium">{contract.name}</p>
-                      {contract.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{contract.description}</p>
-                      )}
+                      <p className="font-medium text-sm">{contract.name}</p>
                       {contract.services && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Service: {(contract.services as any).name}
-                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{(contract.services as any).name}</p>
                       )}
-
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {format(new Date(contract.start_date), "d MMM yyyy", { locale: nl })}
-                          {contract.end_date && ` – ${format(new Date(contract.end_date), "d MMM yyyy", { locale: nl })}`}
-                        </span>
-
-                        {contract.frequency && (
-                          <span className="flex items-center gap-1">
-                            <RefreshCw className="h-3 w-3" />
-                            {frequencyLabels[contract.frequency] ?? `Elke ${contract.interval_months} maanden`}
-                          </span>
-                        )}
-
-                        {contract.price > 0 && (
-                          <span>€{contract.price.toFixed(2)} per beurt</span>
-                        )}
-                      </div>
-
-                      {contract.next_due_date && contract.status === "actief" && (
-                        <p className="text-xs text-primary mt-1.5">
-                          Volgende beurt: {format(new Date(contract.next_due_date), "d MMMM yyyy", { locale: nl })}
-                        </p>
+                      {contract.description && (
+                        <p className="text-[11px] text-muted-foreground line-clamp-1">{contract.description}</p>
                       )}
                     </div>
                   </div>
-                  <Badge variant="secondary" className={statusColors[contract.status] ?? ""}>
+                  <Badge variant="secondary" className={`text-[10px] shrink-0 ${statusColors[contract.status] ?? ""}`}>
                     {statusLabels[contract.status] ?? contract.status}
                   </Badge>
                 </div>
+
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground mt-2 ml-[46px]">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {format(new Date(contract.start_date), "d MMM yyyy", { locale: nl })}
+                  </span>
+                  {contract.frequency && (
+                    <span className="flex items-center gap-1">
+                      <RefreshCw className="h-3 w-3" />
+                      {frequencyLabels[contract.frequency] ?? `${contract.interval_months}m`}
+                    </span>
+                  )}
+                  {contract.price > 0 && (
+                    <span>€{contract.price.toFixed(2)}</span>
+                  )}
+                </div>
+
+                {contract.next_due_date && contract.status === "actief" && (
+                  <p className="text-[11px] text-primary mt-1 ml-[46px]">
+                    Volgende: {format(new Date(contract.next_due_date), "d MMM yyyy", { locale: nl })}
+                  </p>
+                )}
               </CardContent>
             </Card>
           ))}

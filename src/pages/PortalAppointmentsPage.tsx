@@ -40,14 +40,12 @@ const PortalAppointmentsPage = () => {
   const requestMutation = useMutation({
     mutationFn: async () => {
       if (!customerId || !companyId) throw new Error("Niet ingelogd");
-      // Build a preferred datetime or use a placeholder
       let scheduledAt: string;
       if (preferredDate && preferredTime) {
         scheduledAt = new Date(`${preferredDate}T${preferredTime}`).toISOString();
       } else if (preferredDate) {
         scheduledAt = new Date(`${preferredDate}T09:00`).toISOString();
       } else {
-        // No preference given – use tomorrow 09:00 as placeholder
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         tomorrow.setHours(9, 0, 0, 0);
@@ -69,7 +67,7 @@ const PortalAppointmentsPage = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Afspraak aangevraagd! U ontvangt bericht zodra deze is bevestigd.");
+      toast.success("Afspraak aangevraagd!");
       queryClient.invalidateQueries({ queryKey: ["portal-appointments"] });
       setRequestOpen(false);
       setPreferredDate("");
@@ -96,53 +94,56 @@ const PortalAppointmentsPage = () => {
   };
 
   if (isLoading) {
-    return <div className="space-y-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>;
+    return <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}</div>;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex items-start justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Afspraken</h1>
-          <p className="text-sm text-muted-foreground">Bekijk uw afspraken of vraag een nieuwe aan</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Afspraken</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">Bekijk of vraag een nieuwe aan</p>
         </div>
-        <Button onClick={() => setRequestOpen(true)} className="gap-2">
+        <Button size="sm" onClick={() => setRequestOpen(true)} className="gap-1.5 shrink-0">
           <CalendarPlus className="h-4 w-4" />
-          Afspraak aanvragen
+          <span className="hidden sm:inline">Afspraak aanvragen</span>
+          <span className="sm:hidden">Aanvragen</span>
         </Button>
       </div>
 
       {!myAppointments?.length ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            <CalendarIcon className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-lg font-medium">Geen afspraken</p>
-            <p className="text-sm">Vraag uw eerste afspraak aan via de knop hierboven.</p>
+            <CalendarIcon className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p className="text-base font-medium">Geen afspraken</p>
+            <p className="text-sm">Vraag uw eerste afspraak aan.</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {myAppointments.map((apt) => (
             <Card key={apt.id}>
-              <CardContent className="py-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <Clock className="h-5 w-5 text-primary" />
+              <CardContent className="p-3.5 sm:py-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Clock className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        {format(new Date(apt.scheduled_at), "EEE d MMM yyyy", { locale: nl })}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {format(new Date(apt.scheduled_at), "HH:mm")} – {apt.duration_minutes} min
+                        {apt.services && ` · ${(apt.services as any).name}`}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm">
-                      {format(new Date(apt.scheduled_at), "EEEE d MMMM yyyy", { locale: nl })}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(apt.scheduled_at), "HH:mm")} – {apt.duration_minutes} min
-                      {apt.services && ` · ${(apt.services as any).name}`}
-                    </p>
-                    {apt.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{apt.notes}</p>}
-                  </div>
+                  <Badge variant="secondary" className={`text-[10px] shrink-0 ${statusColors[apt.status] ?? ""}`}>
+                    {statusLabels[apt.status] ?? apt.status}
+                  </Badge>
                 </div>
-                <Badge variant="secondary" className={statusColors[apt.status] ?? ""}>
-                  {statusLabels[apt.status] ?? apt.status}
-                </Badge>
+                {apt.notes && <p className="text-[11px] text-muted-foreground mt-1.5 ml-[46px] line-clamp-2">{apt.notes}</p>}
               </CardContent>
             </Card>
           ))}
@@ -151,14 +152,14 @@ const PortalAppointmentsPage = () => {
 
       {/* Request dialog */}
       <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Afspraak aanvragen</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Geef uw voorkeur op en wij nemen contact met u op om de afspraak te bevestigen.
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Geef uw voorkeur op en wij nemen contact met u op.
             </p>
 
             <div className="space-y-2">
