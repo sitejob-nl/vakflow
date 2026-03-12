@@ -97,6 +97,7 @@ const App = () => (
                 <Route path="dashboard" element={<AdminRoute fallback={<MonteurDashboardPage />}><DashboardPage /></AdminRoute>} />
                 <Route path="planning" element={<PlanningPage />} />
                 <Route path="customers" element={<AdminRoute><CustomersPage /></AdminRoute>} />
+                <Route path="customers/new" element={<AdminRoute><CustomerCreatePage /></AdminRoute>} />
                 <Route path="customers/:id" element={<AdminRoute><CustomerDetailPage /></AdminRoute>} />
                 <Route path="workorders" element={<WorkOrdersPage />} />
                 <Route path="workorders/:id" element={<WorkOrderDetailPage />} />
