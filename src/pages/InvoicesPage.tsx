@@ -89,6 +89,8 @@ const InvoicesPage = () => {
   const [sendingReminder, setSendingReminder] = useState(false);
   const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
   const [syncInvoices, setSyncInvoices] = useState(true);
+  const [bulkSyncing, setBulkSyncing] = useState(false);
+  const [pullingStatus, setPullingStatus] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
