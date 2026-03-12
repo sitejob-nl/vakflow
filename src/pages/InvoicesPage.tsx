@@ -5,7 +5,7 @@ import { useCreateCommunicationLog } from "@/hooks/useCommunicationLogs";
 import type { Invoice } from "@/hooks/useInvoices";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { Loader2, ChevronLeft, ChevronRight, FileDown, RefreshCw, BookOpen, Plus, Mail, Pencil } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, FileDown, RefreshCw, BookOpen, Plus, Mail, Pencil, CheckCircle, ArrowUpFromLine, ArrowDownToLine } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -14,6 +14,37 @@ import { Button } from "@/components/ui/button";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import InvoiceDetailSheet from "@/components/InvoiceDetailSheet";
 import ProviderSyncPanel from "@/components/ProviderSyncPanel";
+
+const providerLabelMap: Record<string, string> = {
+  exact: "Exact Online", wefact: "WeFact", eboekhouden: "e-Boekhouden",
+  moneybird: "Moneybird", rompslomp: "Rompslomp", snelstart: "SnelStart",
+};
+
+const getSyncStatus = (inv: Invoice, provider: string | null): "synced" | "not_synced" | "no_provider" => {
+  if (!provider) return "no_provider";
+  const providerIdMap: Record<string, string | null> = {
+    exact: (inv as any).exact_id ?? null,
+    wefact: (inv as any).wefact_id ?? null,
+    eboekhouden: inv.eboekhouden_id ?? null,
+    moneybird: (inv as any).moneybird_id ?? null,
+    rompslomp: inv.rompslomp_id ?? null,
+  };
+  return providerIdMap[provider] ? "synced" : "not_synced";
+};
+
+const SyncBadge = ({ status }: { status: "synced" | "not_synced" | "no_provider" }) => {
+  if (status === "no_provider") return null;
+  if (status === "synced") return (
+    <span className="inline-flex items-center gap-1 px-2 py-[2px] rounded-full text-[10px] font-bold bg-success-muted text-success">
+      <CheckCircle className="h-3 w-3" /> Gesyncet
+    </span>
+  );
+  return (
+    <span className="inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold bg-muted text-muted-foreground">
+      Niet gesyncet
+    </span>
+  );
+};
 
 const tabs = ["Alle", "Openstaand", "Betaald"];
 
