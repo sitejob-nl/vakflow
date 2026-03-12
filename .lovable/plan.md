@@ -1,50 +1,36 @@
 
 
-# Apply uploaded edge function improvements
+# KVK Lookup geeft geen resultaten — diagnose
 
-The uploaded files contain improvements to 4 edge functions. Here's a summary of the changes from the patch file:
+## Probleem
 
-## 1. `exact-webhook/index.ts` — Add invoice payment status processing
+De network requests tonen **"Failed to fetch"** voor alle calls naar `kvk-lookup`. Er zijn **geen edge function logs** — dat betekent dat de functie niet is gedeployed of crasht bij boot.
 
-Currently just logs and acknowledges webhooks. The update adds:
-- `getExactToken` helper to fetch access tokens from SiteJob Connect
-- `logEdgeFunctionError` import for error logging
-- Query `tenant_id` and `division` from `exact_config`
-- When a `SalesInvoices` webhook arrives, fetch the invoice from Exact to check if `Status === 50` (paid), and if so update the local invoice to `betaald`
+## Oorzaak
 
-## 2. `moneybird-webhook/index.ts` — Add URL-based webhook secret verification
+De CORS headers missen de extra Supabase client headers die de browser meestuurt. De `Access-Control-Allow-Headers` bevat alleen `authorization, x-client-info, apikey, content-type`, maar de Supabase JS client stuurt ook:
+- `x-supabase-client-platform`
+- `x-supabase-client-platform-version`
+- `x-supabase-client-runtime`
+- `x-supabase-client-runtime-version`
 
-Currently validates only by `administration_id` match. The update adds:
-- Parse `?secret=` from the webhook URL
-- Reject requests without a secret parameter (401)
-- Verify the secret matches `company.moneybird_webhook_secret` (403 if mismatch)
-- Select `moneybird_webhook_secret` in the company query
+De browser blokkeert het preflight request (OPTIONS) en de eigenlijke POST komt nooit aan. Vandaar "Failed to fetch" zonder logs.
 
-## 3. `sync-exact/index.ts` — Invoice sync improvements
+## Fix
 
-Three fixes:
-- **Fiscal year filter**: Only sync invoices from current year (`gte("issued_at", fiscalYearStart)`) to avoid closed-period errors
-- **VAT-exclusive pricing**: Convert `unit_price` (incl. BTW) to `NetPrice` (excl. BTW) using `vat_percentage` before pushing to Exact
-- **Error logging**: Log individual invoice sync failures via `logEdgeFunctionError`
-- Add `logEdgeFunctionError` import
+### `supabase/functions/kvk-lookup/index.ts`
 
-Both the batch `sync-invoices` and single `push-invoice` cases get the VAT fix.
+Update de `corsHeaders` om alle vereiste Supabase client headers toe te staan:
 
-## 4. `sync-moneybird/index.ts` — Secure webhook registration
+```typescript
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+```
 
-Currently registers webhooks without a secret. The update:
-- Generates a random 32-byte hex secret
-- Appends `?secret={secret}` to the webhook callback URL
-- Stores the secret in `companies.moneybird_webhook_secret` after successful registration
+Verwijder ook `"Access-Control-Allow-Methods"` — die is niet nodig en kan verwarring veroorzaken.
 
-## Files to modify
-
-| File | Change |
-|---|---|
-| `supabase/functions/exact-webhook/index.ts` | Replace with uploaded `index_36.ts` |
-| `supabase/functions/moneybird-webhook/index.ts` | Replace with uploaded `index_37.ts` |
-| `supabase/functions/sync-exact/index.ts` | Apply VAT fix, fiscal year filter, error logging |
-| `supabase/functions/sync-moneybird/index.ts` | Secure webhook registration with secret |
-
-All 4 functions will be redeployed. No database changes needed (`moneybird_webhook_secret` column already exists).
+Dat is de enige wijziging. Geen andere bestanden hoeven aangepast te worden.
 
