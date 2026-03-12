@@ -219,7 +219,15 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
             <Check className="h-3 w-3" /> Exact Online gekoppeld
           </p>
           {exactCompanyName && <p className="text-[12px] text-muted-foreground">Administratie: {exactCompanyName}</p>}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={runAutoConfigure} disabled={autoConfiguring} className="px-3 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center gap-1">
+              {autoConfiguring ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+              {autoConfiguring ? "Configureren..." : "Auto-configureren"}
+            </button>
+            <button onClick={runValidateConfig} disabled={validating} className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50 flex items-center gap-1">
+              {validating ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+              {validating ? "Valideren..." : "Config valideren"}
+            </button>
             <button onClick={handleRefreshStatus} className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors">
               Status vernieuwen
             </button>
@@ -227,6 +235,21 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
               {disconnecting ? "Ontkoppelen..." : "Ontkoppelen"}
             </button>
           </div>
+
+          {validationResult && (
+            <div className={`p-3 rounded-lg text-[12px] ${validationResult.valid ? "bg-success-muted text-success" : "bg-destructive/10 text-destructive"}`}>
+              {validationResult.valid ? (
+                <p className="font-bold flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Configuratie is geldig — klaar om te syncen</p>
+              ) : (
+                <div>
+                  <p className="font-bold mb-1">⚠️ Configuratie ongeldig:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {validationResult.issues?.map((issue, i) => <li key={i}>{issue}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="border-t border-border pt-4 mt-4 space-y-3">
             <h4 className="text-[13px] font-bold">Facturatiekoppeling</h4>
