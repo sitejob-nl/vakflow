@@ -43,13 +43,16 @@ const CustomerCreatePage = () => {
   const set = (key: string, value: unknown) => setForm((f) => ({ ...f, [key]: value }));
 
   const handleKvkSelected = (data: KvkCompanyData) => {
+    const addr = data.visit_address || data.postal_address;
     setForm((f) => ({
       ...f,
-      name: data.name || f.name,
-      address: data.address || f.address,
-      postal_code: data.postal_code || f.postal_code,
-      city: data.city || f.city,
+      name: data.company_name || f.name,
+      address: addr ? [addr.street, addr.house_number].filter(Boolean).join(" ") : f.address,
+      postal_code: addr?.postal_code || f.postal_code,
+      city: addr?.city || f.city,
       kvk_number: data.kvk_number || f.kvk_number,
+      lat: data.latitude ?? f.lat,
+      lng: data.longitude ?? f.lng,
     }));
   };
 
