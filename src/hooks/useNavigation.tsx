@@ -5,6 +5,7 @@ export type Page =
   | "dashboard"
   | "planning"
   | "customers"
+  | "custCreate"
   | "custDetail"
   | "workorders"
   | "woDetail"
