@@ -35,6 +35,7 @@ const routeMap: Record<Page, string> = {
   dashboard: "/dashboard",
   planning: "/planning",
   customers: "/customers",
+  custCreate: "/customers/new",
   custDetail: "/customers/:id",
   workorders: "/workorders",
   woDetail: "/workorders/:id",
