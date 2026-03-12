@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { usePortalAuth } from "@/contexts/PortalAuthContext";
-import { FileText, Wrench, LogOut, CalendarPlus, Receipt, Building2, ScrollText } from "lucide-react";
+import { FileText, Wrench, LogOut, CalendarPlus, Receipt, Building2, ScrollText, Headset } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import { Button } from "@/components/ui/button";
 
