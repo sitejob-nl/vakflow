@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wind, Loader2, Building2 } from "lucide-react";
+import { Wind, Loader2, Building2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useKvkLookup } from "@/hooks/useKvkLookup";
 
 const CompanySignupPage = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { getCompanyData, isLoading: kvkLoading } = useKvkLookup();
   const [submitting, setSubmitting] = useState(false);
 
   const [companyName, setCompanyName] = useState("");
@@ -32,6 +34,21 @@ const CompanySignupPage = () => {
   }
 
   if (user) return <Navigate to="/" replace />;
+
+  const handleKvkLookup = async () => {
+    const kvk = kvkNumber.replace(/\s/g, "");
+    if (!kvk) {
+      toast({ title: "Vul eerst een KVK-nummer in", variant: "destructive" });
+      return;
+    }
+    const data = await getCompanyData(kvk);
+    if (!data) {
+      toast({ title: "KVK-gegevens niet gevonden", variant: "destructive" });
+      return;
+    }
+    if (data.company_name) setCompanyName(data.company_name);
+    toast({ title: "Bedrijfsnaam ingevuld via KVK" });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,6 +115,22 @@ const CompanySignupPage = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="kvkNumber">KVK-nummer</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="kvkNumber"
+                  value={kvkNumber}
+                  onChange={(e) => setKvkNumber(e.target.value)}
+                  placeholder="12345678"
+                  className="flex-1"
+                />
+                <Button type="button" variant="secondary" size="sm" onClick={handleKvkLookup} disabled={kvkLoading} className="flex items-center gap-1.5 whitespace-nowrap">
+                  {kvkLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                  Ophalen
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="companyName">Bedrijfsnaam *</Label>
               <Input
                 id="companyName"
@@ -105,15 +138,6 @@ const CompanySignupPage = () => {
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="MV Solutions B.V."
                 required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="kvkNumber">KVK-nummer</Label>
-              <Input
-                id="kvkNumber"
-                value={kvkNumber}
-                onChange={(e) => setKvkNumber(e.target.value)}
-                placeholder="12345678"
               />
             </div>
             <div className="space-y-2">

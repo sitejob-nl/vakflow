@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.rompslomp-api]
 verify_jwt = false
+
+[functions.kvk-lookup]
+verify_jwt = false
