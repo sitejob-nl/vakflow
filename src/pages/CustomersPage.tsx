@@ -258,7 +258,7 @@ const CustomersPage = () => {
                 />
               </div>
               <button
-                onClick={() => setDialogOpen(true)}
+                onClick={() => navigate("custCreate")}
                 className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors whitespace-nowrap flex-shrink-0"
               >
                 + Nieuw
