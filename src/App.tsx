@@ -86,7 +86,9 @@ const App = () => (
             <Route path="/portal" element={<PortalAuthProvider><PortalRoute><PortalLayout /></PortalRoute></PortalAuthProvider>}>
               <Route index element={<Navigate to="/portal/quotes" replace />} />
               <Route path="quotes" element={<PortalQuotesPage />} />
+              <Route path="invoices" element={<PortalInvoicesPage />} />
               <Route path="workorders" element={<PortalWorkOrdersPage />} />
+              <Route path="assets" element={<PortalAssetsPage />} />
               <Route path="appointments" element={<PortalAppointmentsPage />} />
               <Route path="vehicles" element={<PortalVehiclesPage />} />
               <Route path="tires" element={<PortalTireStoragePage />} />
