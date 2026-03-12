@@ -2,15 +2,29 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Check } from "lucide-react";
+import { Loader2, Check, CheckCircle, Clock, Link2, ExternalLink } from "lucide-react";
 import { useSnelstartConnection, useSaveSnelstartConnection, useDeleteSnelstartConnection, useTestSnelstartConnection } from "@/hooks/useSnelstart";
 import { SETTINGS_INPUT_CLASS as inputClass, SETTINGS_LABEL_CLASS as labelClass } from "./shared";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 interface GlAccount {
   id: string;
   code: string;
   description: string;
 }
 
+/* ═══════════════════════════════════════════
+   Exact Online Configuration Section
+   ═══════════════════════════════════════════ */
 const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: string | null; saving: boolean }) => {
   const { toast } = useToast();
   const [exactStatus, setExactStatus] = useState<string | null>(null);
@@ -52,7 +66,6 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
       });
   }, [companyId]);
 
-  // Fetch GL accounts when connected
   useEffect(() => {
     if (exactStatus !== "connected") return;
     setLoadingGl(true);
@@ -71,11 +84,8 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
     if (newJournalCode !== undefined) updates.journal_code = newJournalCode || null;
     const { error } = await supabase.from("exact_config").update(updates).eq("company_id", companyId);
     setSavingGl(false);
-    if (error) {
-      toast({ title: "Fout bij opslaan", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Exact instellingen opgeslagen" });
-    }
+    if (error) toast({ title: "Fout bij opslaan", description: error.message, variant: "destructive" });
+    else toast({ title: "Exact instellingen opgeslagen" });
   };
 
   const handleSaveExactField = async (field: string, value: any) => {
@@ -93,12 +103,8 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
       if (error || data?.error) throw new Error(data?.error || error?.message);
       const tenantId = data?.tenant_id;
       if (!tenantId) throw new Error("Geen tenant_id ontvangen");
-
-      // Open the Exact Online setup page as popup
       const connectUrl = `https://connect.sitejob.nl/exact-setup?tenant_id=${tenantId}`;
       window.open(connectUrl, "exact-setup", "width=600,height=700");
-
-      // Listen for postMessage from the popup on successful connection
       const handleMessage = (e: MessageEvent) => {
         if (e.data?.type === "exact-connected") {
           window.removeEventListener("message", handleMessage);
@@ -106,7 +112,6 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
         }
       };
       window.addEventListener("message", handleMessage);
-
       setExactStatus("pending");
       toast({ title: "Exact Online koppeling gestart", description: "Rond de autorisatie af in het geopende venster." });
     } catch (err: any) {
@@ -134,15 +139,13 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
     toast({ title: "Status vernieuwd", description: data?.status ?? "Geen configuratie gevonden" });
   };
 
-  if (loadingExact) return <div className="border-t border-border pt-5"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>;
+  if (loadingExact) return <div className="pt-3"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>;
 
   const isConnected = exactStatus === "connected";
   const isPending = exactStatus === "pending";
 
   return (
-    <div className="border-t border-border pt-5 space-y-3">
-      <h3 className="text-[14px] font-bold">Exact Online</h3>
-
+    <div className="space-y-3">
       {isConnected ? (
         <div className="space-y-2">
           <p className="text-[11px] text-success font-bold flex items-center gap-1">
@@ -158,10 +161,8 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
             </button>
           </div>
 
-          {/* GL Account & Journal Code settings */}
           <div className="border-t border-border pt-4 mt-4 space-y-3">
             <h4 className="text-[13px] font-bold">Facturatiekoppeling</h4>
-
             <div>
               <label className={labelClass}>Omzet-grootboekrekening *</label>
               {loadingGl ? (
@@ -169,67 +170,30 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
                   <Loader2 className="h-3 w-3 animate-spin" /> Grootboekrekeningen ophalen...
                 </div>
               ) : (
-                <select
-                  value={glRevenueId}
-                  onChange={(e) => {
-                    setGlRevenueId(e.target.value);
-                    handleSaveGlSettings(e.target.value, undefined);
-                  }}
-                  className={inputClass}
-                >
+                <select value={glRevenueId} onChange={(e) => { setGlRevenueId(e.target.value); handleSaveGlSettings(e.target.value, undefined); }} className={inputClass}>
                   <option value="">— Selecteer grootboekrekening —</option>
-                  {glAccounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.code} — {acc.description}
-                    </option>
-                  ))}
+                  {glAccounts.map((acc) => (<option key={acc.id} value={acc.id}>{acc.code} — {acc.description}</option>))}
                 </select>
               )}
-              {!glRevenueId && !loadingGl && (
-                <p className="text-[11px] text-destructive mt-1">⚠️ Vereist voor factuur-synchronisatie</p>
-              )}
+              {!glRevenueId && !loadingGl && <p className="text-[11px] text-destructive mt-1">⚠️ Vereist voor factuur-synchronisatie</p>}
             </div>
-
             <div>
               <label className={labelClass}>Verkoopjournaal code</label>
-              <input
-                value={journalCode}
-                onChange={(e) => setJournalCode(e.target.value)}
-                onBlur={() => handleSaveGlSettings(undefined, journalCode)}
-                className={inputClass}
-                placeholder="70"
-              />
+              <input value={journalCode} onChange={(e) => setJournalCode(e.target.value)} onBlur={() => handleSaveGlSettings(undefined, journalCode)} className={inputClass} placeholder="70" />
               <p className="text-[11px] text-muted-foreground mt-1">Standaard: 70 (Verkoopboek)</p>
             </div>
-
             <div>
               <label className={labelClass}>Factuurtype</label>
-              <select
-                value={invoiceType}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setInvoiceType(val);
-                  handleSaveExactField("invoice_type", val);
-                }}
-                className={inputClass}
-              >
+              <select value={invoiceType} onChange={(e) => { const val = Number(e.target.value); setInvoiceType(val); handleSaveExactField("invoice_type", val); }} className={inputClass}>
                 <option value={8020}>8020 — Standaard factuur</option>
                 <option value={8023}>8023 — Directe factuur (Advanced editie)</option>
               </select>
               <p className="text-[11px] text-muted-foreground mt-1">Gebruik 8020 tenzij je Exact Advanced/Premium hebt</p>
             </div>
-
             <div>
               <label className={labelClass}>Betalingsconditie</label>
-              <input
-                value={paymentCondition}
-                onChange={(e) => setPaymentCondition(e.target.value)}
-                onBlur={() => handleSaveExactField("payment_condition", paymentCondition || null)}
-                className={inputClass}
-                placeholder="Bijv. 30 (wordt anders berekend uit vervaldatum)"
-              />
+              <input value={paymentCondition} onChange={(e) => setPaymentCondition(e.target.value)} onBlur={() => handleSaveExactField("payment_condition", paymentCondition || null)} className={inputClass} placeholder="Bijv. 30" />
             </div>
-
             <div>
               <label className={labelClass}>BTW-codes</label>
               <div className="grid grid-cols-3 gap-2">
@@ -247,23 +211,13 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
                 </div>
               </div>
             </div>
-
             <label className="flex items-center justify-between gap-3 pt-2">
               <div>
                 <span className="text-[13px] font-medium">Facturen automatisch finaliseren</span>
                 <p className="text-[11px] text-muted-foreground">Facturen direct verwerken in Exact (krijgen een factuurnummer)</p>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={autoFinalize}
-                onClick={() => {
-                  const newVal = !autoFinalize;
-                  setAutoFinalize(newVal);
-                  handleSaveExactField("auto_finalize", newVal);
-                }}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${autoFinalize ? 'bg-primary' : 'bg-muted'}`}
-              >
+              <button type="button" role="switch" aria-checked={autoFinalize} onClick={() => { const newVal = !autoFinalize; setAutoFinalize(newVal); handleSaveExactField("auto_finalize", newVal); }}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${autoFinalize ? 'bg-primary' : 'bg-muted'}`}>
                 <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow-lg ring-0 transition-transform ${autoFinalize ? 'translate-x-4' : 'translate-x-0'}`} />
               </button>
             </label>
@@ -271,17 +225,11 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
         </div>
       ) : isPending ? (
         <div className="space-y-2">
-          <p className="text-[11px] text-warning font-bold flex items-center gap-1">
-            ⏳ Wachten op autorisatie...
-          </p>
+          <p className="text-[11px] text-warning font-bold flex items-center gap-1">⏳ Wachten op autorisatie...</p>
           <p className="text-[12px] text-muted-foreground">Rond de autorisatie af in Exact Online. Klik daarna op "Status vernieuwen".</p>
           <div className="flex gap-2">
-            <button onClick={handleRefreshStatus} className="px-3 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors">
-              Status vernieuwen
-            </button>
-            <button onClick={handleConnect} disabled={connecting} className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors">
-              {connecting ? "Bezig..." : "Opnieuw starten"}
-            </button>
+            <button onClick={handleRefreshStatus} className="px-3 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors">Status vernieuwen</button>
+            <button onClick={handleConnect} disabled={connecting} className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors">{connecting ? "Bezig..." : "Opnieuw starten"}</button>
           </div>
         </div>
       ) : (
@@ -305,6 +253,9 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
   );
 };
 
+/* ═══════════════════════════════════════════
+   Token Field
+   ═══════════════════════════════════════════ */
 const TokenField = ({ label, fieldName, hasToken, saving, onSave }: { label: string; fieldName: string; hasToken: boolean; saving: boolean; onSave: (field: string, value: string) => void }) => {
   const [val, setVal] = useState("");
   return (
@@ -321,27 +272,41 @@ const TokenField = ({ label, fieldName, hasToken, saving, onSave }: { label: str
   );
 };
 
-const PROVIDERS = [
-  { key: "eboekhouden", label: "e-Boekhouden" },
-  { key: "moneybird", label: "Moneybird" },
-  { key: "rompslomp", label: "Rompslomp" },
-  { key: "wefact", label: "WeFact" },
-  { key: "exact", label: "Exact Online" },
-  { key: "snelstart", label: "SnelStart" },
-] as const;
+/* ═══════════════════════════════════════════
+   Provider Definitions
+   ═══════════════════════════════════════════ */
+interface ProviderDef {
+  key: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+}
 
+const PROVIDERS: ProviderDef[] = [
+  { key: "exact", label: "Exact Online", description: "Volledige boekhouding met OAuth-koppeling", enabled: true },
+  { key: "wefact", label: "WeFact", description: "Factuur- en debiteurenbeheer via API", enabled: true },
+  { key: "eboekhouden", label: "e-Boekhouden", description: "Online boekhoudpakket", enabled: false },
+  { key: "moneybird", label: "Moneybird", description: "Boekhouden voor ondernemers", enabled: false },
+  { key: "rompslomp", label: "Rompslomp", description: "Eenvoudige boekhouding", enabled: false },
+  { key: "snelstart", label: "SnelStart", description: "Boekhoudpakket voor het MKB", enabled: false },
+];
 
+/* ═══════════════════════════════════════════
+   Main Settings Tab
+   ═══════════════════════════════════════════ */
 const SettingsAccountingTab = () => {
-
   const { companyId } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [provider, setProvider] = useState<string>("");
+  const [activeProvider, setActiveProvider] = useState<string>("");
+  const [configProvider, setConfigProvider] = useState<string | null>(null); // provider being configured
   const [form, setForm] = useState<Record<string, string | number>>({});
   const [hasTokens, setHasTokens] = useState<Record<string, boolean>>({});
   const [syncInvoices, setSyncInvoices] = useState(true);
   const [syncQuotes, setSyncQuotes] = useState(false);
+  const [switchConfirm, setSwitchConfirm] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   // Snelstart hooks
   const { data: snelstartConn, isLoading: snelLoading } = useSnelstartConnection();
@@ -350,6 +315,9 @@ const SettingsAccountingTab = () => {
   const testSnelstart = useTestSnelstartConnection();
   const [snelstartKey, setSnelstartKey] = useState("");
 
+  // Exact connected status
+  const [exactConnected, setExactConnected] = useState(false);
+
   useEffect(() => {
     if (!companyId) return;
     (async () => {
@@ -357,7 +325,7 @@ const SettingsAccountingTab = () => {
         "accounting_provider, has_eboekhouden_token, has_wefact_key, eboekhouden_ledger_id, eboekhouden_template_id, eboekhouden_debtor_ledger_id, moneybird_administration_id, rompslomp_company_name, rompslomp_company_id, rompslomp_tenant_id, sync_invoices_to_accounting, sync_quotes_to_accounting"
       ).eq("id", companyId).single() as { data: any };
       if (data) {
-        setProvider(data.accounting_provider ?? "");
+        setActiveProvider(data.accounting_provider ?? "");
         setHasTokens({ eboekhouden: !!data.has_eboekhouden_token, wefact: !!data.has_wefact_key });
         setSyncInvoices(data.sync_invoices_to_accounting ?? true);
         setSyncQuotes(data.sync_quotes_to_accounting ?? false);
@@ -371,29 +339,72 @@ const SettingsAccountingTab = () => {
           rompslomp_tenant_id: data.rompslomp_tenant_id ?? "",
         });
       }
+
+      // Check exact connection status
+      const { data: exactData } = await supabase.from("exact_config").select("status").eq("company_id", companyId!).maybeSingle();
+      setExactConnected(exactData?.status === "connected");
+
       setLoading(false);
     })();
   }, [companyId]);
 
-  const handleSaveProvider = async () => {
+  const getProviderStatus = (key: string): "connected" | "not_connected" | "coming_soon" => {
+    const def = PROVIDERS.find(p => p.key === key);
+    if (!def?.enabled) return "coming_soon";
+    if (key === "exact") return exactConnected ? "connected" : "not_connected";
+    if (key === "wefact") return hasTokens.wefact ? "connected" : "not_connected";
+    return "not_connected";
+  };
+
+  const handleSelectProvider = (key: string) => {
+    const def = PROVIDERS.find(p => p.key === key);
+    if (!def?.enabled) {
+      toast({ title: `${def?.label} wordt binnenkort ondersteund`, description: "We werken aan deze integratie. Houd de updates in de gaten!" });
+      return;
+    }
+    // If switching from an active provider, confirm first
+    if (activeProvider && activeProvider !== key) {
+      setSwitchConfirm(key);
+      return;
+    }
+    setConfigProvider(key);
+  };
+
+  const handleConfirmSwitch = async () => {
+    if (!switchConfirm || !companyId) return;
+    setSaving(true);
+    await supabase.from("companies").update({ accounting_provider: switchConfirm }).eq("id", companyId);
+    setActiveProvider(switchConfirm);
+    setConfigProvider(switchConfirm);
+    setSwitchConfirm(null);
+    setSaving(false);
+    toast({ title: `Gewisseld naar ${PROVIDERS.find(p => p.key === switchConfirm)?.label}` });
+  };
+
+  const handleSaveProvider = async (providerKey: string) => {
     if (!companyId) return;
     setSaving(true);
-    const { error } = await supabase.from("companies").update({ accounting_provider: provider || null }).eq("id", companyId);
+    const { error } = await supabase.from("companies").update({ accounting_provider: providerKey || null }).eq("id", companyId);
     setSaving(false);
-    toast(error ? { title: "Fout", description: error.message, variant: "destructive" } : { title: "Boekhoudprovider opgeslagen" });
+    if (!error) {
+      setActiveProvider(providerKey);
+      toast({ title: "Boekhoudprovider opgeslagen" });
+    } else {
+      toast({ title: "Fout", description: error.message, variant: "destructive" });
+    }
   };
 
   const handleSaveCredentials = async () => {
     if (!companyId) return;
     setSaving(true);
     const updates: Record<string, any> = {};
-    if (provider === "eboekhouden") {
+    if (configProvider === "eboekhouden") {
       updates.eboekhouden_ledger_id = form.eboekhouden_ledger_id || null;
       updates.eboekhouden_template_id = form.eboekhouden_template_id || null;
       updates.eboekhouden_debtor_ledger_id = form.eboekhouden_debtor_ledger_id || null;
-    } else if (provider === "moneybird") {
+    } else if (configProvider === "moneybird") {
       updates.moneybird_administration_id = form.moneybird_administration_id || null;
-    } else if (provider === "rompslomp") {
+    } else if (configProvider === "rompslomp") {
       updates.rompslomp_company_name = form.rompslomp_company_name || null;
       updates.rompslomp_company_id = form.rompslomp_company_id || null;
       updates.rompslomp_tenant_id = form.rompslomp_tenant_id || null;
@@ -413,9 +424,30 @@ const SettingsAccountingTab = () => {
     if (error || data?.error) {
       toast({ title: "Fout", description: (data?.error || error?.message), variant: "destructive" });
     } else {
-      setHasTokens((prev) => ({ ...prev, [provider]: true }));
+      setHasTokens((prev) => ({ ...prev, [configProvider ?? ""]: true }));
       toast({ title: "Token opgeslagen" });
     }
+  };
+
+  const handleSync = async (action: string) => {
+    if (!activeProvider) return;
+    setSyncing(true);
+    const funcMap: Record<string, string> = {
+      exact: "sync-exact",
+      wefact: "sync-wefact",
+    };
+    const funcName = funcMap[activeProvider];
+    if (!funcName) { setSyncing(false); return; }
+    try {
+      const { data, error } = await supabase.functions.invoke(funcName, { body: { action } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const synced = data?.synced ?? data?.created ?? 0;
+      toast({ title: "✓ Synchronisatie voltooid", description: `${synced} verwerkt` });
+    } catch (err: any) {
+      toast({ title: "Sync mislukt", description: err.message, variant: "destructive" });
+    }
+    setSyncing(false);
   };
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
@@ -427,119 +459,135 @@ const SettingsAccountingTab = () => {
     </div>
   );
 
+  const statusBadge = (status: "connected" | "not_connected" | "coming_soon") => {
+    if (status === "connected") return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-success-muted text-success"><CheckCircle className="h-3 w-3" />Gekoppeld</span>;
+    if (status === "coming_soon") return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary"><Clock className="h-3 w-3" />Binnenkort</span>;
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground">Niet gekoppeld</span>;
+  };
+
   return (
-    <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
-      {/* Provider selector */}
+    <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-6">
       <div>
-        <label className={labelClass}>Boekhoudpakket</label>
-        <select value={provider} onChange={(e) => setProvider(e.target.value)} className={inputClass}>
-          <option value="">— Geen koppeling —</option>
-          {PROVIDERS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-        </select>
-        <button onClick={handleSaveProvider} disabled={saving} className="mt-2 px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
-          Provider opslaan
-        </button>
+        <h2 className="text-[15px] font-bold mb-1">Boekhoudkoppeling</h2>
+        <p className="text-[12px] text-muted-foreground">Koppel je boekhoudpakket om facturen en klanten automatisch te synchroniseren.</p>
       </div>
 
-      {/* Sync toggles — only when provider is set */}
-      {provider && (
+      {/* Provider Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {PROVIDERS.map((p) => {
+          const status = getProviderStatus(p.key);
+          const isActive = activeProvider === p.key;
+          const isDisabled = !p.enabled;
+
+          return (
+            <div
+              key={p.key}
+              onClick={() => handleSelectProvider(p.key)}
+              className={`relative border rounded-lg p-4 transition-all cursor-pointer ${
+                isDisabled
+                  ? "opacity-50 cursor-not-allowed border-border bg-muted/30"
+                  : isActive
+                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                    : "border-border hover:border-primary/40 hover:bg-muted/30"
+              }`}
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-md flex items-center justify-center ${isActive ? "bg-primary/10" : "bg-muted"}`}>
+                    <Link2 className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <div>
+                    <h3 className="text-[13px] font-bold">{p.label}</h3>
+                  </div>
+                </div>
+                {statusBadge(status)}
+              </div>
+              <p className="text-[11px] text-muted-foreground">{p.description}</p>
+              {isActive && <div className="absolute top-2 right-2"><Check className="h-3.5 w-3.5 text-primary" /></div>}
+              {!isDisabled && status !== "connected" && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleSelectProvider(p.key); }}
+                  className="mt-3 w-full px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[11px] font-bold hover:bg-primary-hover transition-colors"
+                >
+                  Configureren
+                </button>
+              )}
+              {!isDisabled && status === "connected" && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setConfigProvider(p.key); }}
+                  className="mt-3 w-full px-3 py-1.5 bg-secondary text-secondary-foreground rounded-sm text-[11px] font-bold hover:bg-secondary/80 transition-colors"
+                >
+                  Instellingen
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Sync toggles — only when a provider is active */}
+      {activeProvider && PROVIDERS.find(p => p.key === activeProvider)?.enabled && (
         <div className="border-t border-border pt-5 space-y-3">
           <h3 className="text-[14px] font-bold">Automatische synchronisatie</h3>
           <div className="space-y-3">
             <label className="flex items-center justify-between gap-3">
               <div>
                 <span className="text-[13px] font-medium">Facturen automatisch syncen</span>
-                <p className="text-[11px] text-muted-foreground">Nieuwe facturen worden direct naar {PROVIDERS.find(p => p.key === provider)?.label ?? provider} gestuurd</p>
+                <p className="text-[11px] text-muted-foreground">Nieuwe facturen worden direct naar {PROVIDERS.find(p => p.key === activeProvider)?.label} gestuurd</p>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={syncInvoices}
-                onClick={async () => {
-                  const newVal = !syncInvoices;
-                  setSyncInvoices(newVal);
-                  if (companyId) {
-                    await supabase.from("companies").update({ sync_invoices_to_accounting: newVal }).eq("id", companyId);
-                    toast({ title: newVal ? "Factuur-sync ingeschakeld" : "Factuur-sync uitgeschakeld" });
-                  }
-                }}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${syncInvoices ? 'bg-primary' : 'bg-muted'}`}
-              >
+              <button type="button" role="switch" aria-checked={syncInvoices} onClick={async () => {
+                const newVal = !syncInvoices;
+                setSyncInvoices(newVal);
+                if (companyId) {
+                  await supabase.from("companies").update({ sync_invoices_to_accounting: newVal }).eq("id", companyId);
+                  toast({ title: newVal ? "Factuur-sync ingeschakeld" : "Factuur-sync uitgeschakeld" });
+                }
+              }} className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${syncInvoices ? 'bg-primary' : 'bg-muted'}`}>
                 <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow-lg ring-0 transition-transform ${syncInvoices ? 'translate-x-4' : 'translate-x-0'}`} />
               </button>
             </label>
             <label className="flex items-center justify-between gap-3">
               <div>
                 <span className="text-[13px] font-medium">Offertes automatisch syncen</span>
-                <p className="text-[11px] text-muted-foreground">Nieuwe offertes worden direct naar {PROVIDERS.find(p => p.key === provider)?.label ?? provider} gestuurd</p>
+                <p className="text-[11px] text-muted-foreground">Nieuwe offertes worden direct naar {PROVIDERS.find(p => p.key === activeProvider)?.label} gestuurd</p>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={syncQuotes}
-                onClick={async () => {
-                  const newVal = !syncQuotes;
-                  setSyncQuotes(newVal);
-                  if (companyId) {
-                    await supabase.from("companies").update({ sync_quotes_to_accounting: newVal }).eq("id", companyId);
-                    toast({ title: newVal ? "Offerte-sync ingeschakeld" : "Offerte-sync uitgeschakeld" });
-                  }
-                }}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${syncQuotes ? 'bg-primary' : 'bg-muted'}`}
-              >
+              <button type="button" role="switch" aria-checked={syncQuotes} onClick={async () => {
+                const newVal = !syncQuotes;
+                setSyncQuotes(newVal);
+                if (companyId) {
+                  await supabase.from("companies").update({ sync_quotes_to_accounting: newVal }).eq("id", companyId);
+                  toast({ title: newVal ? "Offerte-sync ingeschakeld" : "Offerte-sync uitgeschakeld" });
+                }
+              }} className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${syncQuotes ? 'bg-primary' : 'bg-muted'}`}>
                 <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow-lg ring-0 transition-transform ${syncQuotes ? 'translate-x-4' : 'translate-x-0'}`} />
               </button>
             </label>
           </div>
-          <p className="text-[11px] text-muted-foreground">Als uitgeschakeld, kun je facturen en offertes handmatig syncen via de sync-knop op de detail-pagina.</p>
-        </div>
-      )}
-
-      {/* Provider-specific fields */}
-      {provider === "eboekhouden" && (
-        <div className="border-t border-border pt-5 space-y-3">
-          <h3 className="text-[14px] font-bold">e-Boekhouden instellingen</h3>
-          <TokenField label="API Token" fieldName="eboekhouden_api_token" hasToken={hasTokens.eboekhouden} saving={saving} onSave={handleSaveToken} />
-          {field("Grootboek-ID", "eboekhouden_ledger_id", "Bijv. 8000")}
-          {field("Template-ID", "eboekhouden_template_id", "Bijv. 1")}
-          {field("Debiteuren Grootboek-ID", "eboekhouden_debtor_ledger_id", "Bijv. 1300")}
-          <button onClick={handleSaveCredentials} disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
-            Instellingen opslaan
-          </button>
-        </div>
-      )}
-
-    {provider === "moneybird" && (
-        <div className="border-t border-border pt-5 space-y-5">
-          <div className="space-y-3">
-            <h3 className="text-[14px] font-bold">Moneybird instellingen</h3>
-            <TokenField label="API Token" fieldName="moneybird_api_token" hasToken={false} saving={saving} onSave={handleSaveToken} />
-            {field("Administratie-ID", "moneybird_administration_id", "Bijv. 123456789")}
-            <button onClick={handleSaveCredentials} disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
-              Instellingen opslaan
+          <div className="flex gap-2 pt-2">
+            <button onClick={() => handleSync("sync-invoices")} disabled={syncing} className="px-3 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center gap-1">
+              {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
+              Nu synchroniseren
             </button>
           </div>
         </div>
       )}
 
-      {provider === "rompslomp" && (
-        <div className="border-t border-border pt-5 space-y-5">
-          <div className="space-y-3">
-            <h3 className="text-[14px] font-bold">Rompslomp instellingen</h3>
-            <TokenField label="API Token" fieldName="rompslomp_api_token" hasToken={false} saving={saving} onSave={handleSaveToken} />
-            {field("Bedrijfsnaam", "rompslomp_company_name")}
-            {field("Bedrijfs-ID", "rompslomp_company_id")}
-            {field("Tenant-ID", "rompslomp_tenant_id")}
-            <button onClick={handleSaveCredentials} disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
-              Instellingen opslaan
+      {/* Provider Configuration Panels */}
+      {configProvider === "exact" && (
+        <div className="border-t border-border pt-5">
+          <h3 className="text-[14px] font-bold mb-3">Exact Online configuratie</h3>
+          <ExactOnlineSection companyId={companyId} saving={saving} />
+          {activeProvider !== "exact" && (
+            <button onClick={() => handleSaveProvider("exact")} disabled={saving} className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
+              Exact Online als actieve provider instellen
             </button>
-          </div>
+          )}
         </div>
       )}
 
-      {provider === "wefact" && (
+      {configProvider === "wefact" && (
         <div className="border-t border-border pt-5 space-y-3">
-          <h3 className="text-[14px] font-bold">WeFact instellingen</h3>
+          <h3 className="text-[14px] font-bold">WeFact configuratie</h3>
           <TokenField label="API Key" fieldName="wefact_api_key" hasToken={hasTokens.wefact} saving={saving} onSave={handleSaveToken} />
           <div className="bg-muted/50 border border-border rounded-lg p-3 text-[12px] text-muted-foreground space-y-1.5">
             <p className="font-semibold text-secondary-foreground">Zo koppel je WeFact:</p>
@@ -550,43 +598,29 @@ const SettingsAccountingTab = () => {
               <li>Kopieer de beveiligingscode en plak deze hierboven</li>
             </ol>
           </div>
-        </div>
-      )}
-
-      {provider === "exact" && (
-        <ExactOnlineSection companyId={companyId} saving={saving} />
-      )}
-
-      {provider === "snelstart" && (
-        <div className="border-t border-border pt-5 space-y-3">
-          <h3 className="text-[14px] font-bold">SnelStart</h3>
-          {snelLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : snelstartConn ? (
-            <div className="space-y-2">
-              <p className="text-[11px] text-success font-bold flex items-center gap-1"><Check className="h-3 w-3" /> SnelStart gekoppeld</p>
-              <div className="flex gap-2">
-                <button onClick={() => testSnelstart.mutateAsync().then((r) => toast({ title: `Verbinding OK — ${r.count} relaties gevonden` })).catch((e) => toast({ title: "Test mislukt", description: e.message, variant: "destructive" }))} disabled={testSnelstart.isPending} className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50">
-                  {testSnelstart.isPending ? "Testen..." : "Verbinding testen"}
-                </button>
-                <button onClick={() => deleteSnelstart.mutateAsync().then(() => toast({ title: "SnelStart ontkoppeld" }))} disabled={deleteSnelstart.isPending} className="px-3 py-2 bg-destructive/10 text-destructive rounded-sm text-[12px] font-medium hover:bg-destructive/20 transition-colors">
-                  Ontkoppelen
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <label className={labelClass}>Client Key</label>
-              <div className="flex gap-2">
-                <input value={snelstartKey} onChange={(e) => setSnelstartKey(e.target.value)} className={inputClass} placeholder="Plak je SnelStart client key" />
-                <button onClick={() => saveSnelstart.mutateAsync({ clientKey: snelstartKey }).then(() => { toast({ title: "SnelStart gekoppeld" }); setSnelstartKey(""); })} disabled={saveSnelstart.isPending || !snelstartKey} className="px-3 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 whitespace-nowrap">
-                  Koppelen
-                </button>
-              </div>
-            </div>
+          {activeProvider !== "wefact" && (
+            <button onClick={() => handleSaveProvider("wefact")} disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
+              WeFact als actieve provider instellen
+            </button>
           )}
         </div>
       )}
+
+      {/* Switch Confirmation Dialog */}
+      <AlertDialog open={!!switchConfirm} onOpenChange={() => setSwitchConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Provider wisselen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Weet je zeker dat je wilt wisselen naar {PROVIDERS.find(p => p.key === switchConfirm)?.label}? De vorige koppeling ({PROVIDERS.find(p => p.key === activeProvider)?.label}) blijft bewaard maar wordt niet meer gebruikt voor synchronisatie.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuleren</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSwitch}>Wisselen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
