@@ -2938,6 +2938,64 @@ export type Database = {
         }
         Relationships: []
       }
+      service_requests: {
+        Row: {
+          admin_notes: string | null
+          company_id: string
+          created_at: string
+          customer_id: string
+          description: string
+          id: string
+          media: string[] | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          company_id: string
+          created_at?: string
+          customer_id: string
+          description: string
+          id?: string
+          media?: string[] | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          company_id?: string
+          created_at?: string
+          customer_id?: string
+          description?: string
+          id?: string
+          media?: string[] | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_requests_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       services: {
         Row: {
           category: string | null
