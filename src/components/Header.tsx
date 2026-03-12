@@ -257,6 +257,17 @@ const Header = () => {
   );
 };
 
+const CompanyNameBadge = () => {
+  const { activeCompany, hasMultipleCompanies } = useCompanySwitcher();
+  if (!hasMultipleCompanies || !activeCompany) return null;
+  return (
+    <span className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted text-muted-foreground text-[11px] font-semibold ml-2 shrink-0">
+      <Building2 className="h-3 w-3" />
+      {activeCompany.company_name}
+    </span>
+  );
+};
+
 interface SearchResult {
   type: "customer" | "workorder";
   id: string;
