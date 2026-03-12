@@ -12,6 +12,7 @@ import WorkOrderDialog from "@/components/WorkOrderDialog";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import AppointmentRequestsWidget from "@/components/AppointmentRequestsWidget";
+import ServiceRequestsWidget from "@/components/ServiceRequestsWidget";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useAutomotiveDashboardStats } from "@/hooks/useAutomotiveDashboard";
