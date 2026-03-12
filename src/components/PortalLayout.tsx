@@ -13,6 +13,7 @@ const PortalLayout = () => {
     { path: "/portal/quotes", label: "Offertes", icon: FileText },
     { path: "/portal/invoices", label: "Facturen", icon: Receipt },
     { path: "/portal/workorders", label: "Werkbonnen", icon: Wrench },
+    { path: "/portal/contracts", label: "Contracten", icon: ScrollText },
     { path: "/portal/assets", label: "Objecten", icon: Building2 },
     { path: "/portal/appointments", label: "Afspraken", icon: CalendarPlus },
   ];
