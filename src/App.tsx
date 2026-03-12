@@ -55,6 +55,7 @@ const PortalQuotesPage = lazy(() => import("@/pages/PortalQuotesPage"));
 const PortalInvoicesPage = lazy(() => import("@/pages/PortalInvoicesPage"));
 const PortalWorkOrdersPage = lazy(() => import("@/pages/PortalWorkOrdersPage"));
 const PortalAssetsPage = lazy(() => import("@/pages/PortalAssetsPage"));
+const PortalContractsPage = lazy(() => import("@/pages/PortalContractsPage"));
 const PortalVehiclesPage = lazy(() => import("@/pages/PortalVehiclesPage"));
 const PortalAppointmentsPage = lazy(() => import("@/pages/PortalAppointmentsPage"));
 const PortalTireStoragePage = lazy(() => import("@/pages/PortalTireStoragePage"));
