@@ -321,7 +321,11 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
       ) : isPending ? (
         <div className="space-y-2">
           <p className="text-[11px] text-warning font-bold flex items-center gap-1">⏳ Wachten op autorisatie...</p>
-          <p className="text-[12px] text-muted-foreground">Rond de autorisatie af in Exact Online. Klik daarna op "Status vernieuwen".</p>
+          {polling ? (
+            <p className="text-[12px] text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Verbinding wordt automatisch gedetecteerd...</p>
+          ) : (
+            <p className="text-[12px] text-muted-foreground">Rond de autorisatie af in Exact Online. Klik daarna op "Status vernieuwen".</p>
+          )}
           <div className="flex gap-2">
             <button onClick={handleRefreshStatus} className="px-3 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors">Status vernieuwen</button>
             <button onClick={handleConnect} disabled={connecting} className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors">{connecting ? "Bezig..." : "Opnieuw starten"}</button>
