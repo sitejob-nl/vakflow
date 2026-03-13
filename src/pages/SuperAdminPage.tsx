@@ -3,12 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { industryConfig, type Industry } from "@/config/industryConfig";
-import { Building2, Users, Pencil, Trash2, Search, Plus, Save, Loader2, Eye, BarChart3, List, ChevronLeft, ChevronRight, Activity, AlertTriangle, CreditCard, Zap } from "lucide-react";
+import { Building2, Users, Pencil, Trash2, Search, Plus, Save, Loader2, Eye, BarChart3, List, ChevronLeft, ChevronRight, Activity, AlertTriangle, CreditCard, Zap, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -35,34 +37,72 @@ interface CompanyStats {
 
 const PAGE_SIZE = 25;
 
-const ALL_FEATURES = [
-  { slug: "dashboard", label: "Dashboard" },
-  { slug: "planning", label: "Planning" },
-  { slug: "customers", label: "Klanten" },
-  { slug: "workorders", label: "Werkbonnen" },
-  { slug: "invoices", label: "Facturatie" },
-  { slug: "quotes", label: "Offertes" },
-  { slug: "reports", label: "Rapportages" },
-  { slug: "email", label: "E-mail" },
-  { slug: "whatsapp", label: "WhatsApp" },
-  { slug: "communication", label: "Logboek" },
-  { slug: "reminders", label: "Reminders" },
-  { slug: "assets", label: "Objecten" },
-  { slug: "contracts", label: "Contracten" },
-  { slug: "schedule", label: "Rooster" },
-  { slug: "audits", label: "Audits" },
-  { slug: "vehicles", label: "Voertuigen" },
-  { slug: "trade", label: "Inruil" },
-  { slug: "vehicle_sales", label: "Voertuigverkoop" },
-  { slug: "projects", label: "Projecten" },
-  { slug: "marketing", label: "Marketing" },
-  { slug: "custom_domain", label: "Custom Domein" },
-  { slug: "api", label: "API" },
-  { slug: "leads", label: "Leads" },
-  { slug: "hexon", label: "Hexon DV" },
-  { slug: "voip", label: "Telefonie (Voys)" },
-  { slug: "ai_agent", label: "AI Agent" },
+const FEATURE_GROUPS = [
+  {
+    label: "Kern",
+    description: "Basisfunctionaliteit voor elk bedrijf",
+    features: [
+      { slug: "dashboard", label: "Dashboard" },
+      { slug: "planning", label: "Planning" },
+      { slug: "customers", label: "Klanten" },
+      { slug: "workorders", label: "Werkbonnen" },
+      { slug: "invoices", label: "Facturatie" },
+      { slug: "quotes", label: "Offertes" },
+      { slug: "reports", label: "Rapportages" },
+      { slug: "api", label: "API Toegang" },
+    ],
+  },
+  {
+    label: "Communicatie",
+    description: "Berichten, mail en automatisering",
+    features: [
+      { slug: "email", label: "E-mail" },
+      { slug: "whatsapp", label: "WhatsApp" },
+      { slug: "communication", label: "Communicatielogboek" },
+      { slug: "reminders", label: "Herinneringen" },
+      { slug: "marketing", label: "Marketing" },
+    ],
+  },
+  {
+    label: "Modules",
+    description: "Branche-onafhankelijke modules",
+    features: [
+      { slug: "assets", label: "Objecten / Assets" },
+      { slug: "contracts", label: "Contracten" },
+      { slug: "projects", label: "Projecten" },
+      { slug: "leads", label: "Leads / Pipeline" },
+      { slug: "schedule", label: "Rooster / Planning" },
+    ],
+  },
+  {
+    label: "Automotive",
+    description: "Specifiek voor AutoFlow klanten",
+    features: [
+      { slug: "vehicles", label: "Voertuigen" },
+      { slug: "trade", label: "Inruil" },
+      { slug: "vehicle_sales", label: "Voertuig Pipeline" },
+      { slug: "hexon", label: "Hexon DV" },
+      { slug: "voip", label: "VoIP / Calltracking" },
+      { slug: "ai_agent", label: "AI Agent" },
+    ],
+  },
+  {
+    label: "Cleaning",
+    description: "Specifiek voor CleanFlow klanten",
+    features: [
+      { slug: "audits", label: "Kwaliteitsaudits" },
+    ],
+  },
+  {
+    label: "Overig",
+    description: "Extra platform features",
+    features: [
+      { slug: "custom_domain", label: "Custom Domein" },
+    ],
+  },
 ];
+
+const ALL_FEATURE_SLUGS = FEATURE_GROUPS.flatMap(g => g.features.map(f => f.slug));
 
 const INDUSTRIES: { value: string; label: string }[] = [
   { value: "technical", label: "Technisch" },
@@ -90,7 +130,7 @@ const emptyForm = {
   name: "", slug: "", kvk_number: "", btw_number: "", address: "",
   postal_code: "", city: "", phone: "", iban: "", smtp_email: "",
   max_users: 2,
-  enabled_features: ALL_FEATURES.map(f => f.slug),
+  enabled_features: ALL_FEATURE_SLUGS,
   subscription_plan: "starter",
   subscription_status: "trial",
   trial_ends_at: "",
@@ -174,7 +214,7 @@ const SuperAdminPage = () => {
       btw_number: c.btw_number || "", address: c.address || "", postal_code: c.postal_code || "",
       city: c.city || "", phone: c.phone || "", iban: c.iban || "", smtp_email: c.smtp_email || "",
       max_users: (c as any).max_users ?? 2,
-      enabled_features: (c as any).enabled_features ?? ALL_FEATURES.map(f => f.slug),
+      enabled_features: (c as any).enabled_features ?? ALL_FEATURE_SLUGS,
       subscription_plan: (c as any).subscription_plan || "starter",
       subscription_status: (c as any).subscription_status || "trial",
       trial_ends_at: (c as any).trial_ends_at ? new Date((c as any).trial_ends_at).toISOString().split("T")[0] : "",
@@ -551,24 +591,67 @@ const SuperAdminPage = () => {
 
             {/* Modules */}
             <div className="col-span-2 border-t pt-3 mt-1">
-              <Label className="mb-2 block">Beschikbare modules</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {ALL_FEATURES.map(feat => (
-                  <label key={feat.slug} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={form.enabled_features.includes(feat.slug)}
-                      onCheckedChange={(checked) => {
-                        setForm(f => ({
-                          ...f,
-                          enabled_features: checked
-                            ? [...f.enabled_features, feat.slug]
-                            : f.enabled_features.filter(s => s !== feat.slug),
-                        }));
-                      }}
-                    />
-                    {feat.label}
-                  </label>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <Label className="block">Beschikbare modules</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const defaults = industryConfig[form.industry as Industry]?.modules ?? ALL_FEATURE_SLUGS;
+                    setForm(f => ({ ...f, enabled_features: [...defaults] }));
+                  }}
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1" /> Reset naar standaard
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {FEATURE_GROUPS.map(group => {
+                  const groupSlugs = group.features.map(f => f.slug);
+                  const allOn = groupSlugs.every(s => form.enabled_features.includes(s));
+                  const toggleGroup = (on: boolean) => {
+                    setForm(f => ({
+                      ...f,
+                      enabled_features: on
+                        ? [...new Set([...f.enabled_features, ...groupSlugs])]
+                        : f.enabled_features.filter(s => !groupSlugs.includes(s)),
+                    }));
+                  };
+                  return (
+                    <Card key={group.label} className="border-border">
+                      <CardHeader className="py-2.5 px-3.5 flex-row items-center justify-between space-y-0">
+                        <div>
+                          <CardTitle className="text-xs font-semibold">{group.label}</CardTitle>
+                          <CardDescription className="text-[11px]">{group.description}</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-muted-foreground">{allOn ? "Alles uit" : "Alles aan"}</span>
+                          <Switch checked={allOn} onCheckedChange={toggleGroup} />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="px-3.5 pb-3 pt-0">
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {group.features.map(feat => (
+                            <label key={feat.slug} className="flex items-center gap-2 text-sm cursor-pointer py-0.5">
+                              <Checkbox
+                                checked={form.enabled_features.includes(feat.slug)}
+                                onCheckedChange={(checked) => {
+                                  setForm(f => ({
+                                    ...f,
+                                    enabled_features: checked
+                                      ? [...f.enabled_features, feat.slug]
+                                      : f.enabled_features.filter(s => s !== feat.slug),
+                                  }));
+                                }}
+                              />
+                              <span className="text-xs">{feat.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
 
