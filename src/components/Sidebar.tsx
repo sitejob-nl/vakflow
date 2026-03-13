@@ -91,7 +91,7 @@ const Sidebar = () => {
 
   const industryModules = config.modules;
 
-  const sections = buildSections(labels, industry)
+  const sections = buildSections(labels, industry, subcategory ?? null)
     .map((section) => ({
       ...section,
       items: section.items.filter((item) =>
