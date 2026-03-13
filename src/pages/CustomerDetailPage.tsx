@@ -9,14 +9,15 @@ import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import AddressDialog from "@/components/AddressDialog";
 import WhatsAppChat from "@/components/WhatsAppChat";
 import CustomerEmailTab from "@/components/CustomerEmailTab";
-import { Loader2, Trash2, MapPin, Plus, MessageSquare, Globe, Eye, EyeOff } from "lucide-react";
+import { Loader2, Trash2, MapPin, Plus, MessageSquare, Globe, Eye, EyeOff, PhoneIncoming, PhoneOutgoing, PhoneMissed, Phone, ChevronDown, ChevronUp } from "lucide-react";
 import ClickToDialButton from "@/components/shared/ClickToDialButton";
 import { useState, useMemo, useEffect } from "react";
 import CustomerDialog from "@/components/CustomerDialog";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { nl } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -56,7 +57,8 @@ const CustomerDetailPage = () => {
   const { data: allInvoices } = useInvoices();
   const deleteCustomer = useDeleteCustomer();
   const { data: addresses } = useAddresses(params.customerId);
-  const { companyId } = useAuth();
+  const { companyId, enabledFeatures } = useAuth();
+  const hasVoip = enabledFeatures.includes("voip");
   const { data: commLogs } = useCommunicationLogs(params.customerId, companyId);
   const deleteAddress = useDeleteAddress();
   const [editOpen, setEditOpen] = useState(false);
@@ -69,6 +71,22 @@ const CustomerDetailPage = () => {
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalActive, setPortalActive] = useState<boolean | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
+
+  // Customer call records (must be before early returns)
+  const { data: customerCalls } = useQuery({
+    queryKey: ["customer-calls", params.customerId],
+    enabled: hasVoip && !!params.customerId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("call_records")
+        .select("*")
+        .eq("customer_id", params.customerId!)
+        .order("started_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   // Check if portal account exists for this customer
   useEffect(() => {
@@ -112,6 +130,21 @@ const CustomerDetailPage = () => {
     [allInvoices, params.customerId]
   );
 
+  const callStats = useMemo(() => {
+    if (!customerCalls) return { total: 0, answered: 0, missed: 0, totalDuration: 0 };
+    const answered = customerCalls.filter(c => c.status === "answered" || (c.ended_at && c.answered_at)).length;
+    const missed = customerCalls.filter(c => c.status === "missed" || (c.ended_at && !c.answered_at)).length;
+    const totalDuration = customerCalls.reduce((sum, c) => sum + (c.duration_seconds ?? 0), 0);
+    return { total: customerCalls.length, answered, missed: missed || customerCalls.length - answered, totalDuration };
+  }, [customerCalls]);
+
+  const formatCallDuration = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h > 0) return `${h}u ${m}m`;
+    return `${m}m`;
+  };
+
   if (isLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
@@ -144,9 +177,15 @@ const CustomerDetailPage = () => {
     }
   };
 
-  const tabLabels = isBusinessCustomer
-    ? [labels.workOrders, "Facturen", "E-mail", "WhatsApp", "Communicatie", "Panden"]
-    : [labels.workOrders, "Facturen", "E-mail", "WhatsApp", "Communicatie"];
+  const tabLabels = [
+    labels.workOrders,
+    "Facturen",
+    "E-mail",
+    "WhatsApp",
+    "Communicatie",
+    ...(hasVoip ? ["Gesprekken"] : []),
+    ...(isBusinessCustomer ? ["Panden"] : []),
+  ];
 
   const tabContent = [
     // Werkbonnen
@@ -276,6 +315,113 @@ const CustomerDetailPage = () => {
         </div>
       </div>
     ),
+    // Gesprekken (only in array if hasVoip, matched by tabLabels)
+    ...(hasVoip ? [() => (
+      <div>
+        {/* Mini stats */}
+        <div className="px-4 md:px-5 py-3 md:py-4 border-b border-border">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[14px] md:text-[15px] font-bold flex items-center gap-1.5">
+              <Phone className="h-4 w-4" /> Gesprekken
+            </h3>
+            <ClickToDialButton phoneNumber={customer.phone} customerId={customer.id} variant="button" />
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: "Totaal", value: callStats.total },
+              { label: "Beantwoord", value: callStats.answered },
+              { label: "Gemist", value: callStats.missed },
+              { label: "Gesprekstijd", value: formatCallDuration(callStats.totalDuration) },
+            ].map((s) => (
+              <div key={s.label} className="bg-background rounded-md p-2 text-center">
+                <div className="text-[10px] text-t3 font-semibold uppercase tracking-wide">{s.label}</div>
+                <div className="text-[16px] md:text-[18px] font-extrabold font-mono">{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Timeline */}
+        {!customerCalls?.length ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground text-sm mb-3">Nog geen gesprekken met deze klant.</p>
+            <ClickToDialButton phoneNumber={customer.phone} customerId={customer.id} variant="button" />
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {customerCalls.map((call) => {
+              const isMissed = call.status === "missed" || (call.ended_at && !call.answered_at);
+              const isInbound = call.direction === "inbound";
+              const CallIcon = isMissed ? PhoneMissed : isInbound ? PhoneIncoming : PhoneOutgoing;
+              const iconColor = isMissed ? "text-destructive bg-destructive-muted" : isInbound ? "text-accent bg-accent-muted" : "text-primary bg-primary-muted";
+              const statusLabel: Record<string, string> = { ringing: "Rinkelt", answered: "Beantwoord", missed: "Gemist", ended: "Beëindigd" };
+              const statusStyle: Record<string, string> = { ringing: "bg-warning-muted text-warning", answered: "bg-success-muted text-success", missed: "bg-destructive-muted text-destructive", ended: "bg-muted text-muted-foreground" };
+              const displayStatus = isMissed ? "missed" : (call.status ?? "ended");
+              const isExpanded = expandedCallId === call.id;
+              const actionItems = call.ai_action_items as any[] | null;
+
+              return (
+                <div key={call.id} className="px-4 md:px-5 py-3 md:py-4 hover:bg-bg-hover transition-colors">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${iconColor}`}>
+                      <CallIcon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[13px] font-bold">
+                          {call.started_at ? format(new Date(call.started_at), "dd MMM yyyy, HH:mm", { locale: nl }) : "—"}
+                        </span>
+                        <span className={`inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold ${statusStyle[displayStatus] ?? statusStyle.ended}`}>
+                          {statusLabel[displayStatus] ?? displayStatus}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-[11px] text-t3">
+                        {call.duration_seconds != null && call.duration_seconds > 0 && (
+                          <span className="font-mono">{formatCallDuration(call.duration_seconds)}</span>
+                        )}
+                        {call.answered_by_name && (
+                          <span>Opgenomen door: <span className="font-semibold text-foreground">{call.answered_by_name}</span></span>
+                        )}
+                        {call.from_number && (
+                          <span className="font-mono">{call.from_number}</span>
+                        )}
+                      </div>
+
+                      {/* Action item tags */}
+                      {actionItems && Array.isArray(actionItems) && actionItems.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {actionItems.map((item, idx) => (
+                            <span key={idx} className="inline-flex px-2 py-[2px] rounded-full text-[10px] font-bold bg-primary-muted text-primary">
+                              {typeof item === "string" ? item : (item as any)?.text ?? JSON.stringify(item)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* AI summary expandable */}
+                      {call.ai_summary && (
+                        <button
+                          onClick={() => setExpandedCallId(isExpanded ? null : call.id)}
+                          className="mt-2 flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+                        >
+                          {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                          AI Samenvatting
+                        </button>
+                      )}
+                      {isExpanded && call.ai_summary && (
+                        <div className="mt-1.5 p-2.5 bg-background rounded-md text-[12px] text-secondary-foreground leading-relaxed">
+                          {call.ai_summary}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    )] : []),
     // Panden
     () => (
       <div>
