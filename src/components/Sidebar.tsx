@@ -55,6 +55,7 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
       { id: "email" as Page, icon: Mail, label: "E-mail", adminOnly: true },
       { id: "whatsapp" as Page, icon: MessageSquare, label: "WhatsApp", adminOnly: true },
       { id: "calltracking" as Page, icon: Phone, label: "Calltracking", adminOnly: true, requiredFeature: "voip" },
+      { id: "aiconversations" as Page, icon: Bot, label: "AI Conversaties", adminOnly: true, requiredFeature: "ai_agent" },
       { id: "communication" as Page, icon: MessageSquare, label: "Logboek", adminOnly: true },
       { id: "reminders" as Page, icon: Bell, label: "Reminders", adminOnly: true },
     ],

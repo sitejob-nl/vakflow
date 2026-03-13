@@ -146,6 +146,7 @@ const App = () => (
                       <Route path="leads" element={<AdminRoute><LeadsPage /></AdminRoute>} />
                       <Route path="boekhouding" element={<AdminRoute><AccountingAdminPage /></AdminRoute>} />
                       <Route path="calltracking" element={<AdminRoute><CalltrackingPage /></AdminRoute>} />
+                      <Route path="ai-conversations" element={<AdminRoute><AiConversationsPage /></AdminRoute>} />
                       <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
                       <Route path="superadmin" element={<SuperAdminRoute><SuperAdminPage /></SuperAdminRoute>} />
                     </Route>
