@@ -169,7 +169,7 @@ const DashboardPage = () => {
               <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{salesStats.stockCount}</div>
               <div className="text-[10px] md:text-[11.5px] mt-1 font-semibold text-t3">{salesStats.onlineCount} online</div>
             </div>
-            <div onClick={() => navigate("tradeVehicles")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+            <div onClick={() => navigate("trade")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
               <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
                 <Car className="h-3 w-3" /> Verkocht deze maand
               </div>
