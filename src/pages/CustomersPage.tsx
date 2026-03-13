@@ -3,6 +3,7 @@ import { useNavigation } from "@/hooks/useNavigation";
 import { useState, useRef, useMemo } from "react";
 import { useCustomers, useDeleteCustomer, usePaginatedCustomers } from "@/hooks/useCustomers";
 import { Loader2, Search, RefreshCw, MapPin, Upload, ChevronLeft, ChevronRight, Filter, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import ClickToDialButton from "@/components/shared/ClickToDialButton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import CustomerDialog from "@/components/CustomerDialog";
@@ -349,6 +350,7 @@ const CustomersPage = () => {
                     Locatie<SortIcon col="city" />
                   </th>
                   <th className="text-left px-5 py-2.5 text-[10.5px] font-bold uppercase tracking-wider text-t3 border-b border-border">Dienst</th>
+                  <th className="text-left px-5 py-2.5 text-[10.5px] font-bold uppercase tracking-wider text-t3 border-b border-border">Telefoon</th>
                   <th className="text-left px-5 py-2.5 text-[10.5px] font-bold uppercase tracking-wider text-t3 border-b border-border cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("interval_months")}>
                     Interval<SortIcon col="interval_months" />
                   </th>
@@ -382,6 +384,12 @@ const CustomersPage = () => {
                       ) : (
                         <button onClick={(e) => { e.stopPropagation(); navigate("custDetail", { customerId: c.id }); }} className="text-[11px] text-primary hover:underline font-bold">Stel in</button>
                       )}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="flex items-center gap-1 text-[12px] font-mono">
+                        {c.phone || "—"}
+                        <ClickToDialButton phoneNumber={c.phone} customerId={c.id} variant="icon" />
+                      </span>
                     </td>
                     <td className="px-5 py-3 text-[12px] font-mono">{c.interval_months} mnd</td>
                     <td className="px-5 py-3">

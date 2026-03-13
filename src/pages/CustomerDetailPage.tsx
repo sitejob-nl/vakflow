@@ -10,6 +10,7 @@ import AddressDialog from "@/components/AddressDialog";
 import WhatsAppChat from "@/components/WhatsAppChat";
 import CustomerEmailTab from "@/components/CustomerEmailTab";
 import { Loader2, Trash2, MapPin, Plus, MessageSquare, Globe, Eye, EyeOff } from "lucide-react";
+import ClickToDialButton from "@/components/shared/ClickToDialButton";
 import { useState, useMemo, useEffect } from "react";
 import CustomerDialog from "@/components/CustomerDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -392,7 +393,6 @@ const CustomerDetailPage = () => {
             <div className="px-4 py-3">
               {[
                 ["Contact", customer.contact_person || "—"],
-                ["Telefoon", customer.phone || "—"],
                 ["E-mail", customer.email || "—"],
                 ["Adres", [customer.address, customer.postal_code, customer.city].filter(Boolean).join(", ") || "—"],
                 ["Interval", `${customer.interval_months} maanden`],
@@ -403,6 +403,13 @@ const CustomerDetailPage = () => {
                   <span className="font-semibold text-right max-w-[55%] truncate">{v}</span>
                 </div>
               ))}
+              <div className="flex justify-between items-center py-1.5 md:py-2 border-b border-border text-[12px] md:text-[13px]">
+                <span className="text-t3 font-medium">Telefoon</span>
+                <span className="font-semibold flex items-center gap-1">
+                  {customer.phone || "—"}
+                  <ClickToDialButton phoneNumber={customer.phone} customerId={customer.id} variant="icon" />
+                </span>
+              </div>
               <div className="flex justify-between py-1.5 md:py-2 text-[12px] md:text-[13px]">
                 <span className="text-t3 font-medium">WhatsApp opt-in</span>
                 <span className={`font-semibold ${customer.whatsapp_optin ? "text-accent" : "text-t3"}`}>

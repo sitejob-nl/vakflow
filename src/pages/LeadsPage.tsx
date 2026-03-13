@@ -11,6 +11,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Plus, Search, Trash2, Pencil, User, Mail, Phone, Building2, Loader2, GripVertical } from "lucide-react";
+import ClickToDialButton from "@/components/shared/ClickToDialButton";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -240,6 +241,7 @@ const LeadsPage = () => {
                                   {lead.phone && (
                                     <span className="flex items-center gap-0.5">
                                       <Phone className="h-3 w-3" /> {lead.phone}
+                                      <ClickToDialButton phoneNumber={lead.phone} variant="icon" />
                                     </span>
                                   )}
                                 </div>

@@ -12,6 +12,7 @@ import {
   Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Play, Pause, Link2, ListTodo, Loader2, Search, ArrowRight,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import ClickToDialButton from "@/components/shared/ClickToDialButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -624,6 +625,13 @@ const CalltrackingPage = () => {
                     <ListTodo className="h-4 w-4 mr-1" />
                     Maak taak
                   </Button>
+                  {selected.status === "missed" && selected.from_number && (
+                    <ClickToDialButton
+                      phoneNumber={selected.from_number}
+                      customerId={selected.customer_id || undefined}
+                      variant="button"
+                    />
+                  )}
                 </div>
               </div>
             </>
