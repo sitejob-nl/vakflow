@@ -84,6 +84,75 @@ export type Database = {
           },
         ]
       }
+      ai_agent_config: {
+        Row: {
+          business_hours: Json | null
+          company_id: string
+          created_at: string | null
+          enabled: boolean | null
+          escalation_action: string | null
+          escalation_users: string[] | null
+          greeting_text: string | null
+          id: string
+          intake_questions: Json | null
+          language: string | null
+          max_turns: number | null
+          routing_rules: Json | null
+          system_prompt: string | null
+          updated_at: string | null
+          voice_id: string | null
+        }
+        Insert: {
+          business_hours?: Json | null
+          company_id: string
+          created_at?: string | null
+          enabled?: boolean | null
+          escalation_action?: string | null
+          escalation_users?: string[] | null
+          greeting_text?: string | null
+          id?: string
+          intake_questions?: Json | null
+          language?: string | null
+          max_turns?: number | null
+          routing_rules?: Json | null
+          system_prompt?: string | null
+          updated_at?: string | null
+          voice_id?: string | null
+        }
+        Update: {
+          business_hours?: Json | null
+          company_id?: string
+          created_at?: string | null
+          enabled?: boolean | null
+          escalation_action?: string | null
+          escalation_users?: string[] | null
+          greeting_text?: string | null
+          id?: string
+          intake_questions?: Json | null
+          language?: string | null
+          max_turns?: number | null
+          routing_rules?: Json | null
+          system_prompt?: string | null
+          updated_at?: string | null
+          voice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agent_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_keys: {
         Row: {
           company_id: string
@@ -747,9 +816,101 @@ export type Database = {
           },
         ]
       }
+      call_records: {
+        Row: {
+          ai_action_items: Json | null
+          ai_summary: string | null
+          answered_at: string | null
+          company_id: string
+          created_at: string | null
+          customer_id: string | null
+          direction: string
+          duration_seconds: number | null
+          ended_at: string | null
+          from_number: string | null
+          handled_by: string | null
+          id: string
+          metadata: Json | null
+          recording_url: string | null
+          started_at: string | null
+          status: string | null
+          to_number: string | null
+          transcription: string | null
+          voys_call_id: string | null
+          voys_summary: string | null
+        }
+        Insert: {
+          ai_action_items?: Json | null
+          ai_summary?: string | null
+          answered_at?: string | null
+          company_id: string
+          created_at?: string | null
+          customer_id?: string | null
+          direction?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          from_number?: string | null
+          handled_by?: string | null
+          id?: string
+          metadata?: Json | null
+          recording_url?: string | null
+          started_at?: string | null
+          status?: string | null
+          to_number?: string | null
+          transcription?: string | null
+          voys_call_id?: string | null
+          voys_summary?: string | null
+        }
+        Update: {
+          ai_action_items?: Json | null
+          ai_summary?: string | null
+          answered_at?: string | null
+          company_id?: string
+          created_at?: string | null
+          customer_id?: string | null
+          direction?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          from_number?: string | null
+          handled_by?: string | null
+          id?: string
+          metadata?: Json | null
+          recording_url?: string | null
+          started_at?: string | null
+          status?: string | null
+          to_number?: string | null
+          transcription?: string | null
+          voys_call_id?: string | null
+          voys_summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_records_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_records_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_records_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communication_logs: {
         Row: {
           body: string | null
+          call_record_id: string | null
           channel: string
           company_id: string
           created_at: string
@@ -770,6 +931,7 @@ export type Database = {
         }
         Insert: {
           body?: string | null
+          call_record_id?: string | null
           channel: string
           company_id: string
           created_at?: string
@@ -790,6 +952,7 @@ export type Database = {
         }
         Update: {
           body?: string | null
+          call_record_id?: string | null
           channel?: string
           company_id?: string
           created_at?: string
@@ -809,6 +972,13 @@ export type Database = {
           work_order_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "communication_logs_call_record_id_fkey"
+            columns: ["call_record_id"]
+            isOneToOne: false
+            referencedRelation: "call_records"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "communication_logs_company_id_fkey"
             columns: ["company_id"]
@@ -1544,6 +1714,136 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hexon_config: {
+        Row: {
+          api_key: string | null
+          api_url: string
+          auto_publish: boolean | null
+          company_id: string
+          created_at: string | null
+          default_site_codes: string[] | null
+          id: string
+          last_sync_at: string | null
+          photo_overlay_code: string | null
+          publication: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_key?: string | null
+          api_url?: string
+          auto_publish?: boolean | null
+          company_id: string
+          created_at?: string | null
+          default_site_codes?: string[] | null
+          id?: string
+          last_sync_at?: string | null
+          photo_overlay_code?: string | null
+          publication?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_key?: string | null
+          api_url?: string
+          auto_publish?: boolean | null
+          company_id?: string
+          created_at?: string | null
+          default_site_codes?: string[] | null
+          id?: string
+          last_sync_at?: string | null
+          photo_overlay_code?: string | null
+          publication?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hexon_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hexon_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hexon_listings: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          deeplink_url: string | null
+          errors: Json | null
+          id: string
+          last_synced_at: string | null
+          site_code: string
+          status: string | null
+          status_message: string | null
+          stocknumber: string
+          trade_vehicle_id: string
+          updated_at: string | null
+          warnings: Json | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          deeplink_url?: string | null
+          errors?: Json | null
+          id?: string
+          last_synced_at?: string | null
+          site_code: string
+          status?: string | null
+          status_message?: string | null
+          stocknumber: string
+          trade_vehicle_id: string
+          updated_at?: string | null
+          warnings?: Json | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          deeplink_url?: string | null
+          errors?: Json | null
+          id?: string
+          last_synced_at?: string | null
+          site_code?: string
+          status?: string | null
+          status_message?: string | null
+          stocknumber?: string
+          trade_vehicle_id?: string
+          updated_at?: string | null
+          warnings?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hexon_listings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hexon_listings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hexon_listings_trade_vehicle_id_fkey"
+            columns: ["trade_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "trade_vehicles"
             referencedColumns: ["id"]
           },
         ]
@@ -3656,89 +3956,140 @@ export type Database = {
       }
       trade_vehicles: {
         Row: {
+          accessories: Json | null
           actual_sell_price: number | null
           appraisal_date: string | null
           appraised_by: string | null
+          bpm_amount: number | null
           brand: string | null
           color: string | null
           company_id: string
           condition_score: number | null
           created_at: string
           damage_checklist: Json
+          delivery_date: string | null
+          delivery_package_id: string | null
+          description_highlights: string[] | null
+          description_nl: string | null
           estimated_repair_cost: number
           fuel_type: string | null
           general_notes: string | null
+          hexon_stocknumber: string | null
           id: string
           license_plate: string | null
           mileage: number | null
           model: string | null
+          nap_weblabel_status: string | null
+          photo_count: number | null
+          price_export: number | null
+          price_trade: number | null
           purchase_price: number
           purchased_from_customer_id: string | null
+          rdw_data: Json | null
           sold_at: string | null
           sold_to_customer_id: string | null
+          source: string | null
           status: string
+          supplier_name: string | null
           target_sell_price: number
           transmission: string | null
+          transport_date: string | null
           updated_at: string
+          video_url: string | null
           vin: string | null
+          warranty_months: number | null
           work_order_id: string | null
           year: number | null
         }
         Insert: {
+          accessories?: Json | null
           actual_sell_price?: number | null
           appraisal_date?: string | null
           appraised_by?: string | null
+          bpm_amount?: number | null
           brand?: string | null
           color?: string | null
           company_id: string
           condition_score?: number | null
           created_at?: string
           damage_checklist?: Json
+          delivery_date?: string | null
+          delivery_package_id?: string | null
+          description_highlights?: string[] | null
+          description_nl?: string | null
           estimated_repair_cost?: number
           fuel_type?: string | null
           general_notes?: string | null
+          hexon_stocknumber?: string | null
           id?: string
           license_plate?: string | null
           mileage?: number | null
           model?: string | null
+          nap_weblabel_status?: string | null
+          photo_count?: number | null
+          price_export?: number | null
+          price_trade?: number | null
           purchase_price?: number
           purchased_from_customer_id?: string | null
+          rdw_data?: Json | null
           sold_at?: string | null
           sold_to_customer_id?: string | null
+          source?: string | null
           status?: string
+          supplier_name?: string | null
           target_sell_price?: number
           transmission?: string | null
+          transport_date?: string | null
           updated_at?: string
+          video_url?: string | null
           vin?: string | null
+          warranty_months?: number | null
           work_order_id?: string | null
           year?: number | null
         }
         Update: {
+          accessories?: Json | null
           actual_sell_price?: number | null
           appraisal_date?: string | null
           appraised_by?: string | null
+          bpm_amount?: number | null
           brand?: string | null
           color?: string | null
           company_id?: string
           condition_score?: number | null
           created_at?: string
           damage_checklist?: Json
+          delivery_date?: string | null
+          delivery_package_id?: string | null
+          description_highlights?: string[] | null
+          description_nl?: string | null
           estimated_repair_cost?: number
           fuel_type?: string | null
           general_notes?: string | null
+          hexon_stocknumber?: string | null
           id?: string
           license_plate?: string | null
           mileage?: number | null
           model?: string | null
+          nap_weblabel_status?: string | null
+          photo_count?: number | null
+          price_export?: number | null
+          price_trade?: number | null
           purchase_price?: number
           purchased_from_customer_id?: string | null
+          rdw_data?: Json | null
           sold_at?: string | null
           sold_to_customer_id?: string | null
+          source?: string | null
           status?: string
+          supplier_name?: string | null
           target_sell_price?: number
           transmission?: string | null
+          transport_date?: string | null
           updated_at?: string
+          video_url?: string | null
           vin?: string | null
+          warranty_months?: number | null
           work_order_id?: string | null
           year?: number | null
         }
@@ -4034,6 +4385,7 @@ export type Database = {
           rdw_data: Json | null
           registration_date: string | null
           status: string
+          trade_vehicle_id: string | null
           updated_at: string
           vehicle_mass: number | null
           vin: string | null
@@ -4056,6 +4408,7 @@ export type Database = {
           rdw_data?: Json | null
           registration_date?: string | null
           status?: string
+          trade_vehicle_id?: string | null
           updated_at?: string
           vehicle_mass?: number | null
           vin?: string | null
@@ -4078,6 +4431,7 @@ export type Database = {
           rdw_data?: Json | null
           registration_date?: string | null
           status?: string
+          trade_vehicle_id?: string | null
           updated_at?: string
           vehicle_mass?: number | null
           vin?: string | null
@@ -4102,6 +4456,85 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_trade_vehicle_id_fkey"
+            columns: ["trade_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "trade_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voys_config: {
+        Row: {
+          ai_fallback: boolean | null
+          api_base_url: string | null
+          api_token: string | null
+          client_uuid: string | null
+          company_id: string
+          created_at: string | null
+          enrich_summary: boolean | null
+          fallback_delay_seconds: number | null
+          fetch_summary: boolean | null
+          id: string
+          phone_numbers: string[] | null
+          record_calls: boolean | null
+          status: string | null
+          transcribe: boolean | null
+          updated_at: string | null
+          webhook_secret: string | null
+        }
+        Insert: {
+          ai_fallback?: boolean | null
+          api_base_url?: string | null
+          api_token?: string | null
+          client_uuid?: string | null
+          company_id: string
+          created_at?: string | null
+          enrich_summary?: boolean | null
+          fallback_delay_seconds?: number | null
+          fetch_summary?: boolean | null
+          id?: string
+          phone_numbers?: string[] | null
+          record_calls?: boolean | null
+          status?: string | null
+          transcribe?: boolean | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+        }
+        Update: {
+          ai_fallback?: boolean | null
+          api_base_url?: string | null
+          api_token?: string | null
+          client_uuid?: string | null
+          company_id?: string
+          created_at?: string | null
+          enrich_summary?: boolean | null
+          fallback_delay_seconds?: number | null
+          fetch_summary?: boolean | null
+          id?: string
+          phone_numbers?: string[] | null
+          record_calls?: boolean | null
+          status?: string | null
+          transcribe?: boolean | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voys_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voys_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -4838,7 +5271,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "monteur" | "super_admin"
+      app_role: "admin" | "monteur" | "super_admin" | "verkoop"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4966,7 +5399,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "monteur", "super_admin"],
+      app_role: ["admin", "monteur", "super_admin", "verkoop"],
     },
   },
 } as const
