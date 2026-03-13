@@ -24,7 +24,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const buildSections = (labels: { workOrders: string; assets: string; vehicles: string }, industry: string): { label: string; items: { id: Page; icon: any; label: string; adminOnly: boolean; requiredFeature?: string }[] }[] => [
+const buildSections = (labels: { workOrders: string; assets: string; vehicles: string }, industry: string, subcategory: string | null): { label: string; items: { id: Page; icon: any; label: string; adminOnly: boolean; requiredFeature?: string }[] }[] => [
   {
     label: "Overzicht",
     items: [
@@ -34,12 +34,12 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
   {
     label: "Operatie",
     items: [
-      { id: "planning" as Page, icon: Calendar, label: industry === "automotive" ? "Werkplaatsplanning" : "Planning", adminOnly: false },
+      { id: "planning" as Page, icon: Calendar, label: industry === "automotive" ? (subcategory === "dealer" ? "Planning" : "Werkplaatsplanning") : "Planning", adminOnly: false },
       { id: "customers" as Page, icon: Users, label: "Klanten", adminOnly: true },
-      { id: "projects" as Page, icon: FolderKanban, label: "Projecten", adminOnly: true },
+      { id: "projects" as Page, icon: FolderKanban, label: "Projecten", adminOnly: true, requiredFeature: "projects" },
       { id: "workorders" as Page, icon: FileText, label: labels.workOrders, adminOnly: false },
-      { id: "schedule" as Page, icon: CalendarCheck, label: "Te plannen", adminOnly: false },
-      { id: "contracts" as Page, icon: RefreshCw, label: "Contracten", adminOnly: true },
+      { id: "schedule" as Page, icon: CalendarCheck, label: "Te plannen", adminOnly: false, requiredFeature: "schedule" },
+      { id: "contracts" as Page, icon: RefreshCw, label: "Contracten", adminOnly: true, requiredFeature: "contracts" },
     ],
   },
   {
@@ -59,12 +59,13 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
   {
     label: "Beheer",
     items: [
-      { id: "assets" as Page, icon: Box, label: labels.assets, adminOnly: true },
+      { id: "assets" as Page, icon: Box, label: labels.assets, adminOnly: true, requiredFeature: "assets" },
       ...(industry === "cleaning" ? [{ id: "audits" as Page, icon: ClipboardCheck, label: "Kwaliteit", adminOnly: true }] : []),
-      { id: "vehicles" as Page, icon: Car, label: labels.vehicles, adminOnly: true },
+      { id: "vehicles" as Page, icon: Car, label: labels.vehicles, adminOnly: true, requiredFeature: "vehicles" },
       ...(industry === "automotive" ? [{ id: "trade" as Page, icon: Repeat, label: "Voertuig Pipeline", adminOnly: true, requiredFeature: "vehicle_sales" }] : []),
+      ...(industry === "automotive" ? [{ id: "hexon" as Page, icon: Globe, label: "Hexon DV", adminOnly: true, requiredFeature: "hexon" }] : []),
       { id: "marketing" as Page, icon: Megaphone, label: "Marketing", adminOnly: true },
-      { id: "leads" as Page, icon: UserPlus, label: "Leads", adminOnly: true },
+      { id: "leads" as Page, icon: UserPlus, label: "Leads", adminOnly: true, requiredFeature: "leads" },
     ],
   },
 ];
