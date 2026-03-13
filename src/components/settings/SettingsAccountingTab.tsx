@@ -862,7 +862,7 @@ const SettingsAccountingTab = () => {
       ).eq("id", companyId).single() as { data: any };
       if (data) {
         setActiveProvider(data.accounting_provider ?? "");
-        setHasTokens({ eboekhouden: !!data.has_eboekhouden_token, wefact: !!data.has_wefact_key });
+        setHasTokens({ eboekhouden: !!data.has_eboekhouden_token, wefact: !!data.has_wefact_key, moneybird: !!data.moneybird_administration_id });
         setSyncInvoices(data.sync_invoices_to_accounting ?? true);
         setSyncQuotes(data.sync_quotes_to_accounting ?? false);
         setForm({
