@@ -53,6 +53,42 @@ const HexonDot = ({ listings }: { listings: any[] }) => {
   return <span className="h-2 w-2 rounded-full bg-gray-400 inline-block" />;
 };
 
+const PortalStatusBadges = ({ listings }: { listings: any[] }) => {
+  if (!listings || listings.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {listings.map(l => {
+        const dotColor = l.status === "online" || l.status === "published" ? "bg-emerald-500"
+          : l.status === "error" ? "bg-destructive"
+          : l.status === "pending" || l.status === "processing" ? "bg-amber-500"
+          : "bg-gray-400";
+        const hasWarning = l.notifications?.length > 0 || l.warnings;
+        return (
+          <Tooltip key={l.id}>
+            <TooltipTrigger asChild>
+              {l.deeplink_url ? (
+                <a href={l.deeplink_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 rounded px-1.5 py-0.5 hover:bg-muted transition-colors" onClick={e => e.stopPropagation()}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${dotColor} inline-block`} />
+                  {l.portal_name || l.site_code}
+                  {hasWarning && <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />}
+                  {l.status === "error" && <AlertTriangle className="h-2.5 w-2.5 text-destructive" />}
+                </a>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 rounded px-1.5 py-0.5">
+                  <span className={`h-1.5 w-1.5 rounded-full ${dotColor} inline-block`} />
+                  {l.portal_name || l.site_code}
+                  {hasWarning && <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />}
+                </span>
+              )}
+            </TooltipTrigger>
+            <TooltipContent><p>{l.status_message || l.status || "Onbekend"}</p></TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+};
+
 const VehiclePhoto = () => {
   return (
     <div className="h-full w-full bg-muted flex items-center justify-center">
