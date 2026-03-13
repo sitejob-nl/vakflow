@@ -7,14 +7,16 @@ import { useWhatsAppTemplates } from "@/hooks/useWhatsAppTemplates";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
   Send, Loader2, CheckCheck, Check, Clock, AlertCircle,
-  Image as ImageIcon, FileText, Mic, Smile, XCircle, ChevronDown
+  Image as ImageIcon, FileText, Mic, Smile, XCircle, ChevronDown, Bot, ArrowRight, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -25,6 +27,8 @@ interface WhatsAppChatProps {
   customerId: string;
   customerPhone?: string | null;
   customerName?: string;
+  aiActive?: boolean;
+  aiConversationId?: string | null;
 }
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "🙏", "👏", "🎉", "🙌"];
@@ -44,8 +48,9 @@ const StatusIcon = ({ status }: { status: string | null }) => {
   }
 };
 
-export default function WhatsAppChat({ customerId, customerPhone, customerName }: WhatsAppChatProps) {
+export default function WhatsAppChat({ customerId, customerPhone, customerName, aiActive, aiConversationId }: WhatsAppChatProps) {
   const { companyId } = useAuth();
+  const navigate = useNavigate();
   const { data: messages, isLoading } = useWhatsAppMessages(customerId, companyId);
   const { data: waStatus } = useWhatsAppStatus();
   const { data: templates } = useWhatsAppTemplates(!!waStatus?.connected);
@@ -59,6 +64,7 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
   const [templateVars, setTemplateVars] = useState<string[]>([]);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
+  const [aiDismissed, setAiDismissed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -108,7 +114,7 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [sortedMessages.length]);
 
-  // Track which wamids have already been marked as read to prevent infinite loops
+  // Track which wamids have already been marked as read
   const markedReadRef = useRef(new Set<string>());
 
   // Mark incoming as read on view
@@ -123,14 +129,12 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
         body: { action: "mark_read", message_id: m.wamid },
       });
     });
-    // Single invalidation after all mark_read calls
     queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
   }, [sortedMessages, queryClient]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Max 16MB (Meta limit)
     if (file.size > 16 * 1024 * 1024) {
       toast.error("Bestand is te groot (max 16 MB)");
       return;
@@ -141,7 +145,6 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
     } else {
       setPendingPreview(null);
     }
-    // Reset file input so same file can be selected again
     e.target.value = "";
   };
 
@@ -151,10 +154,27 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
     setPendingPreview(null);
   };
 
+  // Hand off AI conversation
+  const handleAiHandOff = async () => {
+    if (!aiConversationId) return;
+    await supabase
+      .from("ai_conversations")
+      .update({ status: "handed_off" })
+      .eq("id", aiConversationId);
+    queryClient.invalidateQueries({ queryKey: ["active-ai-conversations"] });
+    setAiDismissed(true);
+    toast.success("AI agent is uitgeschakeld voor dit gesprek. U neemt het over.");
+  };
+
   const handleSend = async () => {
     if (!customerPhone) {
       toast.error("Geen telefoonnummer bekend");
       return;
+    }
+
+    // If AI is active, automatically hand off when user sends a message
+    if (aiActive && !aiDismissed && aiConversationId) {
+      await handleAiHandOff();
     }
 
     setSending(true);
@@ -185,7 +205,6 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
           preview: previewText,
         });
       } else if (pendingFile) {
-        // Upload file to storage, then send via link
         const ext = pendingFile.name.split(".").pop() || "bin";
         const fileType = pendingFile.type.startsWith("image/") ? "image"
           : pendingFile.type.startsWith("video/") ? "video"
@@ -198,7 +217,6 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
           .upload(storagePath, pendingFile, { contentType: pendingFile.type });
         if (uploadError) throw new Error(`Upload mislukt: ${uploadError.message}`);
 
-        // Create a signed URL valid for 1 hour (Meta downloads immediately)
         const { data: signedData, error: signError } = await supabase.storage
           .from("whatsapp-media")
           .createSignedUrl(storagePath, 3600);
@@ -241,6 +259,18 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
     }
   };
 
+  // Check if a message is likely sent by AI (outgoing, no explicit user sender)
+  const isAiMessage = (msg: typeof sortedMessages[0]) => {
+    if (msg.direction !== "outgoing") return false;
+    // Messages sent by AI typically have no sent_by field or metadata indicating user
+    const meta = msg.metadata as Record<string, any> | null;
+    if (meta?.sent_by_user) return false;
+    if (meta?.sent_by === "ai" || meta?.ai_generated) return true;
+    // Heuristic: if there's no user attribution and it's outgoing, could be AI
+    // We check for a specific marker; if none exists, we don't show AI label
+    return false;
+  };
+
   const MediaRenderer = ({ msg }: { msg: typeof sortedMessages[0] }) => {
     const storageUrl = msg.metadata?.storage_url;
     const signedUrl = useSignedUrl("whatsapp-media", storageUrl as string | undefined);
@@ -251,23 +281,11 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
       case "sticker":
         return (
           <a href={signedUrl} target="_blank" rel="noopener noreferrer">
-            <img
-              src={signedUrl}
-              alt={msg.content || "Media"}
-              className="rounded-md max-w-[220px] max-h-[160px] object-cover"
-              loading="lazy"
-            />
+            <img src={signedUrl} alt={msg.content || "Media"} className="rounded-md max-w-[220px] max-h-[160px] object-cover" loading="lazy" />
           </a>
         );
       case "video":
-        return (
-          <video
-            src={signedUrl}
-            controls
-            preload="metadata"
-            className="rounded-md max-w-[240px] max-h-[180px]"
-          />
-        );
+        return <video src={signedUrl} controls preload="metadata" className="rounded-md max-w-[240px] max-h-[180px]" />;
       case "audio":
         return (
           <div className="flex items-center gap-1.5">
@@ -277,12 +295,7 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
         );
       case "document":
         return (
-          <a
-            href={signedUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-background/50 text-[11px] hover:bg-background transition-colors"
-          >
+          <a href={signedUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-background/50 text-[11px] hover:bg-background transition-colors">
             <FileText className="h-3.5 w-3.5 shrink-0" />
             {msg.metadata?.document?.filename || "Document"}
           </a>
@@ -313,6 +326,34 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
 
   return (
     <div className="flex flex-col h-[500px] md:h-[600px]">
+      {/* AI Agent Banner */}
+      {aiActive && !aiDismissed && (
+        <div className="px-3 py-2 bg-purple-50 dark:bg-purple-950/30 border-b border-purple-200 dark:border-purple-800 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Bot className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
+            <span className="text-xs text-purple-800 dark:text-purple-200 font-medium">AI agent is actief voor dit gesprek</span>
+          </div>
+          <div className="flex gap-1.5 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 text-[10px] px-2 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+              onClick={handleAiHandOff}
+            >
+              <ArrowRight className="h-3 w-3 mr-1" />Neem over
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 text-[10px] px-2 text-purple-600 dark:text-purple-400"
+              onClick={() => navigate("/ai-conversations")}
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />Bekijk
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 bg-background/50 rounded-t-lg">
         {isLoading ? (
@@ -332,6 +373,7 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
               const showDate = !prevMsg || (
                 new Date(msg.created_at ?? 0).toDateString() !== new Date(prevMsg.created_at ?? 0).toDateString()
               );
+              const aiMsg = isAiMessage(msg);
 
               return (
                 <div key={msg.id}>
@@ -346,20 +388,26 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
                     <div
                       className={`max-w-[80%] md:max-w-[70%] rounded-xl px-3 py-2 ${
                         isOutgoing
-                          ? "bg-primary text-primary-foreground rounded-br-sm"
+                          ? aiMsg
+                            ? "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 rounded-br-sm"
+                            : "bg-primary text-primary-foreground rounded-br-sm"
                           : "bg-card border border-border text-foreground rounded-bl-sm"
                       }`}
                     >
+                      {aiMsg && (
+                        <div className="flex items-center gap-1 mb-1">
+                          <Bot className="h-3 w-3" />
+                          <span className="text-[9px] font-bold opacity-70">AI</span>
+                        </div>
+                      )}
                       <MediaRenderer msg={msg} />
                       {msg.content && (
-                        <p className={`text-[12.5px] md:text-[13px] whitespace-pre-wrap break-words ${
-                          isOutgoing ? "" : ""
-                        }`}>
+                        <p className="text-[12.5px] md:text-[13px] whitespace-pre-wrap break-words">
                           {msg.content}
                         </p>
                       )}
                       <div className={`flex items-center gap-1 mt-0.5 ${isOutgoing ? "justify-end" : ""}`}>
-                        <span className={`text-[9px] ${isOutgoing ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                        <span className={`text-[9px] ${isOutgoing ? (aiMsg ? "text-purple-600/60 dark:text-purple-300/60" : "text-primary-foreground/60") : "text-muted-foreground"}`}>
                           {msg.created_at ? format(new Date(msg.created_at), "HH:mm") : ""}
                         </span>
                         {isOutgoing && <StatusIcon status={msg.status} />}
@@ -398,7 +446,6 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName }
 
         {mode === "text" ? (
           <div className="space-y-2">
-            {/* Pending file preview */}
             {pendingFile && (
               <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
                 {pendingPreview ? (
