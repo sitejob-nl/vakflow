@@ -792,6 +792,323 @@ const MoneybirdSection = ({ companyId, hasToken, activeProvider, onConnected, on
   );
 };
 
+/* ═══════════════════════════════════════════
+   e-Boekhouden Configuration Section
+   ═══════════════════════════════════════════ */
+interface EBoekhoudenSectionProps {
+  companyId: string | null;
+  hasToken: boolean;
+  activeProvider: string;
+  onConnected: () => void;
+  onDisconnected: () => void;
+  onSetActive: () => void;
+}
+
+interface EBoekhoudenOption {
+  id: number;
+  description: string;
+  code?: string;
+}
+
+const EBOEKHOUDEN_ACTIONS = [
+  { action: "sync-all-contacts", label: "Contacten synchroniseren", icon: "👥" },
+  { action: "pull-contacts", label: "Contacten ophalen", icon: "⬇️" },
+  { action: "sync-all-invoices", label: "Facturen synchroniseren", icon: "📄" },
+  { action: "pull-invoices", label: "Facturen ophalen", icon: "⬇️" },
+  { action: "pull-invoice-status", label: "Betalingsstatus ophalen", icon: "💰" },
+] as const;
+
+const EBoekhoudenSection = ({ companyId, hasToken, activeProvider, onConnected, onDisconnected, onSetActive }: EBoekhoudenSectionProps) => {
+  const { toast } = useToast();
+  const [apiKey, setApiKey] = useState("");
+  const [step, setStep] = useState<"token" | "config">("token");
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [runningAction, setRunningAction] = useState<string | null>(null);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  // Config step state
+  const [templates, setTemplates] = useState<EBoekhoudenOption[]>([]);
+  const [ledgers, setLedgers] = useState<EBoekhoudenOption[]>([]);
+  const [debtorLedgers, setDebtorLedgers] = useState<EBoekhoudenOption[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<number | "">("");
+  const [selectedLedger, setSelectedLedger] = useState<number | "">("");
+  const [selectedDebtorLedger, setSelectedDebtorLedger] = useState<number | "">("");
+  const [loadingConfig, setLoadingConfig] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+
+  const handleTestConnection = async () => {
+    if (!companyId || !apiKey.trim()) return;
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      // Save token first
+      const { error: updateErr } = await supabase.from("companies").update({
+        eboekhouden_api_token: apiKey.trim(),
+        accounting_provider: "eboekhouden",
+      }).eq("id", companyId);
+      if (updateErr) throw updateErr;
+
+      // Test connection
+      const { data, error } = await supabase.functions.invoke("sync-invoice-eboekhouden", {
+        body: { action: "test" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({ title: "✓ Verbinding succesvol", description: "Nu de configuratie instellen." });
+
+      // Fetch config options
+      setLoadingConfig(true);
+      const [templatesRes, ledgersRes, debtorLedgersRes] = await Promise.all([
+        supabase.functions.invoke("sync-invoice-eboekhouden", { body: { action: "templates" } }),
+        supabase.functions.invoke("sync-invoice-eboekhouden", { body: { action: "ledgers" } }),
+        supabase.functions.invoke("sync-invoice-eboekhouden", { body: { action: "debtor-ledgers" } }),
+      ]);
+
+      if (templatesRes.data?.templates) setTemplates(templatesRes.data.templates);
+      if (ledgersRes.data?.ledgers) setLedgers(ledgersRes.data.ledgers);
+      if (debtorLedgersRes.data?.ledgers) setDebtorLedgers(debtorLedgersRes.data.ledgers);
+      setLoadingConfig(false);
+      setStep("config");
+    } catch (err: any) {
+      // Reset on failure
+      await supabase.from("companies").update({
+        eboekhouden_api_token: null,
+        accounting_provider: null,
+      }).eq("id", companyId);
+      setConnectError(err.message || "Verbinding mislukt");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleSaveConfig = async () => {
+    if (!companyId) return;
+    if (!selectedTemplate || !selectedLedger) {
+      toast({ title: "Vereiste velden", description: "Selecteer een factuursjabloon en grootboekrekening.", variant: "destructive" });
+      return;
+    }
+    setSavingConfig(true);
+    const { error } = await supabase.from("companies").update({
+      eboekhouden_template_id: selectedTemplate,
+      eboekhouden_ledger_id: selectedLedger,
+      eboekhouden_debtor_ledger_id: selectedDebtorLedger || null,
+    }).eq("id", companyId);
+    setSavingConfig(false);
+    if (error) {
+      toast({ title: "Fout", description: error.message, variant: "destructive" });
+    } else {
+      setApiKey("");
+      setStep("token");
+      onConnected();
+      toast({ title: "✓ e-Boekhouden gekoppeld", description: "Configuratie opgeslagen." });
+    }
+  };
+
+  const handleAction = async (action: string, label: string) => {
+    if (!companyId) return;
+    setRunningAction(action);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-invoice-eboekhouden", { body: { action } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const synced = data?.synced ?? data?.created ?? data?.imported ?? 0;
+      const skipped = data?.skipped ?? 0;
+      const errors = data?.errors?.length ?? 0;
+      const parts = [`${synced} verwerkt`];
+      if (skipped) parts.push(`${skipped} overgeslagen`);
+      if (errors) parts.push(`${errors} fouten`);
+      toast({ title: `✓ ${label}`, description: parts.join(", ") });
+    } catch (err: any) {
+      toast({ title: `${label} mislukt`, description: err.message, variant: "destructive" });
+    } finally {
+      setRunningAction(null);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!companyId) return;
+    setDisconnecting(true);
+    await supabase.from("companies").update({
+      eboekhouden_api_token: null,
+      eboekhouden_template_id: null,
+      eboekhouden_ledger_id: null,
+      eboekhouden_debtor_ledger_id: null,
+      accounting_provider: null,
+    }).eq("id", companyId);
+    setDisconnecting(false);
+    setDisconnectOpen(false);
+    onDisconnected();
+    toast({ title: "e-Boekhouden ontkoppeld", description: "Bestaande synchronisaties blijven bewaard." });
+  };
+
+  return (
+    <div className="border-t border-border pt-5 space-y-4">
+      <h3 className="text-[14px] font-bold">e-Boekhouden configuratie</h3>
+
+      {hasToken ? (
+        <>
+          <p className="text-[11px] text-success font-bold flex items-center gap-1">
+            <Check className="h-3 w-3" /> e-Boekhouden gekoppeld
+          </p>
+
+          {/* Action buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {EBOEKHOUDEN_ACTIONS.map(({ action, label, icon }) => (
+              <button
+                key={action}
+                onClick={() => handleAction(action, label)}
+                disabled={!!runningAction}
+                className="px-3 py-2.5 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50 flex items-center gap-2 text-left"
+              >
+                {runningAction === action ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                ) : (
+                  <span className="text-sm shrink-0">{icon}</span>
+                )}
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Disconnect */}
+          <div className="pt-2">
+            <button
+              onClick={() => setDisconnectOpen(true)}
+              className="px-3 py-2 bg-destructive/10 text-destructive rounded-sm text-[12px] font-medium hover:bg-destructive/20 transition-colors"
+            >
+              Ontkoppelen
+            </button>
+          </div>
+
+          {activeProvider !== "eboekhouden" && (
+            <button onClick={onSetActive} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors">
+              e-Boekhouden als actieve provider instellen
+            </button>
+          )}
+
+          <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>e-Boekhouden ontkoppelen?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  De API token en configuratie worden verwijderd. Bestaande e-Boekhouden-ID's op klanten en facturen blijven bewaard.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDisconnect} disabled={disconnecting}>
+                  {disconnecting ? "Ontkoppelen..." : "Ontkoppelen"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      ) : step === "config" ? (
+        <div className="space-y-3">
+          {loadingConfig ? (
+            <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Configuratie ophalen...
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className={labelClass}>Factuursjabloon *</label>
+                <select
+                  value={selectedTemplate}
+                  onChange={(e) => setSelectedTemplate(Number(e.target.value))}
+                  className={inputClass}
+                >
+                  <option value="">— Selecteer sjabloon —</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.description}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Omzet-grootboekrekening *</label>
+                <select
+                  value={selectedLedger}
+                  onChange={(e) => setSelectedLedger(Number(e.target.value))}
+                  className={inputClass}
+                >
+                  <option value="">— Selecteer grootboekrekening —</option>
+                  {ledgers.map((l) => (
+                    <option key={l.id} value={l.id}>{l.code ? `${l.code} — ` : ""}{l.description}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Debiteurenrekening (optioneel)</label>
+                <select
+                  value={selectedDebtorLedger}
+                  onChange={(e) => setSelectedDebtorLedger(e.target.value ? Number(e.target.value) : "")}
+                  className={inputClass}
+                >
+                  <option value="">— Geen —</option>
+                  {debtorLedgers.map((l) => (
+                    <option key={l.id} value={l.id}>{l.code ? `${l.code} — ` : ""}{l.description}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveConfig}
+                  disabled={savingConfig || !selectedTemplate || !selectedLedger}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center gap-1"
+                >
+                  {savingConfig && <Loader2 className="h-3 w-3 animate-spin" />}
+                  Koppelen
+                </button>
+                <button
+                  onClick={() => { setStep("token"); }}
+                  className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors"
+                >
+                  Terug
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="space-y-2">
+            <label className={labelClass}>API Token</label>
+            <div className="flex gap-2">
+              <input
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className={inputClass}
+                placeholder="Plak hier je e-Boekhouden API token"
+              />
+              <button
+                onClick={handleTestConnection}
+                disabled={connecting || !apiKey.trim()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 whitespace-nowrap flex items-center gap-1"
+              >
+                {connecting && <Loader2 className="h-3 w-3 animate-spin" />}
+                Verbinding testen
+              </button>
+            </div>
+            {connectError && <p className="text-[11px] text-destructive">{connectError}</p>}
+          </div>
+          <div className="bg-muted/50 border border-border rounded-lg p-3 text-[12px] text-muted-foreground space-y-1.5">
+            <p className="font-semibold text-secondary-foreground">Zo koppel je e-Boekhouden:</p>
+            <ol className="list-decimal list-inside space-y-0.5">
+              <li>Ga in e-Boekhouden naar <span className="font-medium">Beheer → Instellingen → API/Koppeling</span></li>
+              <li>Kopieer je API token</li>
+              <li>Plak de token hierboven en klik op "Verbinding testen"</li>
+              <li>Stel de factuursjabloon en grootboekrekening in</li>
+            </ol>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const TokenField = ({ label, fieldName, hasToken, saving, onSave }: { label: string; fieldName: string; hasToken: boolean; saving: boolean; onSave: (field: string, value: string) => void }) => {
   const [val, setVal] = useState("");
   return (
