@@ -53,9 +53,7 @@ const HexonDot = ({ listings }: { listings: any[] }) => {
   return <span className="h-2 w-2 rounded-full bg-gray-400 inline-block" />;
 };
 
-const VehiclePhoto = ({ vehicleId, companyId }: { vehicleId: string; companyId: string }) => {
-  const { data: url } = useSignedUrl("trade-vehicle-photos", `${companyId}/${vehicleId}/`);
-  // We can't easily get the first photo with signed URL for a folder, show placeholder
+const VehiclePhoto = () => {
   return (
     <div className="h-full w-full bg-muted flex items-center justify-center">
       <ImageIcon className="h-4 w-4 text-muted-foreground" />
