@@ -5,7 +5,8 @@ import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth 
 
 export type DateRange = "today" | "week" | "month" | "custom";
 export type DirectionFilter = "all" | "inbound" | "outbound";
-export type StatusFilter = "all" | "answered" | "missed" | "voicemail" | "ai_handled";
+export type StatusFilter = "all" | "ringing" | "answered" | "missed" | "ended" | "transferred" | "voicemail" | "ai_handled";
+export type EndReasonFilter = "all" | "completed" | "busy" | "no-answer" | "failed" | "cancelled" | "abandon";
 
 export const useCallRecords = (
   dateRange: DateRange,
@@ -13,11 +14,12 @@ export const useCallRecords = (
   status: StatusFilter,
   customFrom?: Date,
   customTo?: Date,
+  endReason?: EndReasonFilter,
 ) => {
   const { companyId } = useAuth();
 
   return useQuery({
-    queryKey: ["call-records", companyId, dateRange, direction, status, customFrom?.toISOString(), customTo?.toISOString()],
+    queryKey: ["call-records", companyId, dateRange, direction, status, endReason, customFrom?.toISOString(), customTo?.toISOString()],
     queryFn: async () => {
       const now = new Date();
       let from: Date;
@@ -52,6 +54,7 @@ export const useCallRecords = (
       if (companyId) q = q.eq("company_id", companyId);
       if (direction !== "all") q = q.eq("direction", direction);
       if (status !== "all") q = q.eq("status", status);
+      if (endReason && endReason !== "all") q = q.eq("end_reason", endReason);
 
       const { data, error } = await q;
       if (error) throw error;
@@ -70,7 +73,7 @@ export const useCallStats = () => {
     queryFn: async () => {
       let q = supabase
         .from("call_records")
-        .select("status, duration_seconds")
+        .select("status, duration_seconds, was_transferred")
         .gte("started_at", startOfDay(now).toISOString())
         .lte("started_at", endOfDay(now).toISOString());
 
@@ -82,6 +85,7 @@ export const useCallStats = () => {
       const records = data ?? [];
       const answered = records.filter((r) => r.status === "answered");
       const missed = records.filter((r) => r.status === "missed");
+      const transferred = records.filter((r) => r.was_transferred === true);
       const avgDuration =
         answered.length > 0
           ? Math.round(answered.reduce((s, r) => s + (r.duration_seconds ?? 0), 0) / answered.length)
@@ -91,6 +95,7 @@ export const useCallStats = () => {
         total: records.length,
         answered: answered.length,
         missed: missed.length,
+        transferred: transferred.length,
         avgDuration,
       };
     },
