@@ -3,6 +3,7 @@ import { useNavigation } from "@/hooks/useNavigation";
 import { useState, useRef, useMemo } from "react";
 import { useCustomers, useDeleteCustomer, usePaginatedCustomers } from "@/hooks/useCustomers";
 import { Loader2, Search, RefreshCw, MapPin, Upload, ChevronLeft, ChevronRight, Filter, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import ClickToDialButton from "@/components/shared/ClickToDialButton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import CustomerDialog from "@/components/CustomerDialog";
