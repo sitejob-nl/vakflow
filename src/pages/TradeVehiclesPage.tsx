@@ -19,7 +19,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Plus, Search, Loader2, RefreshCw, LayoutGrid, TableIcon, Car, TrendingUp, DollarSign, ImageIcon,
+  Plus, Search, Loader2, RefreshCw, LayoutGrid, TableIcon, Car, TrendingUp, DollarSign, ImageIcon, AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
