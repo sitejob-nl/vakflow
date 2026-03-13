@@ -353,8 +353,196 @@ const ExactOnlineSection = ({ companyId, saving: parentSaving }: { companyId: st
 };
 
 /* ═══════════════════════════════════════════
-   Token Field
+   WeFact Configuration Section
    ═══════════════════════════════════════════ */
+interface WeFactSectionProps {
+  companyId: string | null;
+  hasToken: boolean;
+  activeProvider: string;
+  onConnected: () => void;
+  onDisconnected: () => void;
+  onSetActive: () => void;
+}
+
+const WEFACT_ACTIONS = [
+  { action: "sync-contacts", label: "Contacten synchroniseren", icon: "👥" },
+  { action: "sync-products", label: "Producten synchroniseren", icon: "📦" },
+  { action: "pull-products", label: "Producten ophalen uit WeFact", icon: "⬇️" },
+  { action: "sync-invoices", label: "Facturen synchroniseren", icon: "📄" },
+  { action: "pull-invoice-status", label: "Betalingsstatus ophalen", icon: "💰" },
+] as const;
+
+const WeFactSection = ({ companyId, hasToken, activeProvider, onConnected, onDisconnected, onSetActive }: WeFactSectionProps) => {
+  const { toast } = useToast();
+  const [apiKey, setApiKey] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [runningAction, setRunningAction] = useState<string | null>(null);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const handleConnect = async () => {
+    if (!companyId || !apiKey.trim()) return;
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-wefact", {
+        body: { action: "test", token: apiKey.trim() },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.success) throw new Error("API key niet geldig");
+      // Save to companies
+      const { error: updateErr } = await supabase.from("companies").update({
+        wefact_api_key: apiKey.trim(),
+        accounting_provider: "wefact",
+      }).eq("id", companyId);
+      if (updateErr) throw updateErr;
+      setApiKey("");
+      onConnected();
+      toast({ title: "✓ WeFact gekoppeld", description: "API key is geverifieerd en opgeslagen." });
+    } catch (err: any) {
+      setConnectError(err.message || "Koppeling mislukt");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleAction = async (action: string, label: string) => {
+    if (!companyId) return;
+    setRunningAction(action);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-wefact", { body: { action } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const synced = data?.synced ?? data?.created ?? data?.imported ?? 0;
+      const skipped = data?.skipped ?? 0;
+      const errors = data?.errors?.length ?? 0;
+      const parts = [`${synced} verwerkt`];
+      if (skipped) parts.push(`${skipped} overgeslagen`);
+      if (errors) parts.push(`${errors} fouten`);
+      toast({ title: `✓ ${label}`, description: parts.join(", ") });
+    } catch (err: any) {
+      toast({ title: `${label} mislukt`, description: err.message, variant: "destructive" });
+    } finally {
+      setRunningAction(null);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!companyId) return;
+    setDisconnecting(true);
+    await supabase.from("companies").update({
+      wefact_api_key: null,
+      accounting_provider: null,
+    }).eq("id", companyId);
+    setDisconnecting(false);
+    setDisconnectOpen(false);
+    onDisconnected();
+    toast({ title: "WeFact ontkoppeld", description: "Bestaande synchronisaties blijven bewaard." });
+  };
+
+  return (
+    <div className="border-t border-border pt-5 space-y-4">
+      <h3 className="text-[14px] font-bold">WeFact configuratie</h3>
+
+      {hasToken ? (
+        <>
+          <p className="text-[11px] text-success font-bold flex items-center gap-1">
+            <Check className="h-3 w-3" /> WeFact gekoppeld
+          </p>
+
+          {/* Action buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {WEFACT_ACTIONS.map(({ action, label, icon }) => (
+              <button
+                key={action}
+                onClick={() => handleAction(action, label)}
+                disabled={!!runningAction}
+                className="px-3 py-2.5 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50 flex items-center gap-2 text-left"
+              >
+                {runningAction === action ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                ) : (
+                  <span className="text-sm shrink-0">{icon}</span>
+                )}
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Disconnect */}
+          <div className="pt-2">
+            <button
+              onClick={() => setDisconnectOpen(true)}
+              className="px-3 py-2 bg-destructive/10 text-destructive rounded-sm text-[12px] font-medium hover:bg-destructive/20 transition-colors"
+            >
+              Ontkoppelen
+            </button>
+          </div>
+
+          {activeProvider !== "wefact" && (
+            <button onClick={onSetActive} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors">
+              WeFact als actieve provider instellen
+            </button>
+          )}
+
+          <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>WeFact ontkoppelen?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  De API key wordt verwijderd. Bestaande WeFact-ID's op klanten en facturen blijven bewaard zodat je later opnieuw kunt koppelen.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDisconnect} disabled={disconnecting}>
+                  {disconnecting ? "Ontkoppelen..." : "Ontkoppelen"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      ) : (
+        <>
+          <div className="space-y-2">
+            <label className={labelClass}>API Key</label>
+            <div className="flex gap-2">
+              <input
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className={inputClass}
+                placeholder="Plak hier je WeFact API key"
+              />
+              <button
+                onClick={handleConnect}
+                disabled={connecting || !apiKey.trim()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 whitespace-nowrap flex items-center gap-1"
+              >
+                {connecting && <Loader2 className="h-3 w-3 animate-spin" />}
+                Koppelen
+              </button>
+            </div>
+            {connectError && (
+              <p className="text-[11px] text-destructive">{connectError}</p>
+            )}
+          </div>
+          <div className="bg-muted/50 border border-border rounded-lg p-3 text-[12px] text-muted-foreground space-y-1.5">
+            <p className="font-semibold text-secondary-foreground">Zo koppel je WeFact:</p>
+            <ol className="list-decimal list-inside space-y-0.5">
+              <li>Ga in WeFact naar <span className="font-medium">Instellingen → API</span></li>
+              <li>Schakel de API in</li>
+              <li>Voeg bij IP-whitelist toe: <code className="bg-muted px-1 rounded font-mono">0.0.0.0/0</code></li>
+              <li>Kopieer de beveiligingscode en plak deze hierboven</li>
+            </ol>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const TokenField = ({ label, fieldName, hasToken, saving, onSave }: { label: string; fieldName: string; hasToken: boolean; saving: boolean; onSave: (field: string, value: string) => void }) => {
   const [val, setVal] = useState("");
   return (

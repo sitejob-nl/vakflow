@@ -19,8 +19,17 @@ import type { KvkCompanyData } from "@/hooks/useKvkLookup";
 const CustomerCreatePage = () => {
   const { toast } = useToast();
   const { navigate } = useNavigation();
+  const { companyId } = useAuth();
   const { data: services } = useServices();
   const createCustomer = useCreateCustomer();
+  const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!companyId) return;
+    (supabase.from("companies_safe" as any).select("accounting_provider").eq("id", companyId).single() as unknown as Promise<{ data: any }>).then(({ data }) => {
+      setAccountingProvider(data?.accounting_provider ?? null);
+    });
+  }, [companyId]);
 
   const [form, setForm] = useState({
     name: "",
