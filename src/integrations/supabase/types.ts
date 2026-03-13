@@ -2789,6 +2789,72 @@ export type Database = {
           },
         ]
       }
+      meta_marketing_config: {
+        Row: {
+          ad_account_id: string | null
+          ad_account_name: string | null
+          company_id: string
+          created_at: string | null
+          granted_scopes: string | null
+          id: string
+          instagram_id: string | null
+          instagram_username: string | null
+          is_connected: boolean | null
+          page_id: string | null
+          page_name: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          webhook_secret: string | null
+        }
+        Insert: {
+          ad_account_id?: string | null
+          ad_account_name?: string | null
+          company_id: string
+          created_at?: string | null
+          granted_scopes?: string | null
+          id?: string
+          instagram_id?: string | null
+          instagram_username?: string | null
+          is_connected?: boolean | null
+          page_id?: string | null
+          page_name?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+        }
+        Update: {
+          ad_account_id?: string | null
+          ad_account_name?: string | null
+          company_id?: string
+          created_at?: string | null
+          granted_scopes?: string | null
+          id?: string
+          instagram_id?: string | null
+          instagram_username?: string | null
+          is_connected?: boolean | null
+          page_id?: string | null
+          page_name?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_marketing_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_marketing_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_page_posts: {
         Row: {
           comments: number | null
