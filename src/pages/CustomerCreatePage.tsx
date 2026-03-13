@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,8 +19,17 @@ import type { KvkCompanyData } from "@/hooks/useKvkLookup";
 const CustomerCreatePage = () => {
   const { toast } = useToast();
   const { navigate } = useNavigation();
+  const { companyId } = useAuth();
   const { data: services } = useServices();
   const createCustomer = useCreateCustomer();
+  const [accountingProvider, setAccountingProvider] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!companyId) return;
+    (supabase.from("companies_safe" as any).select("accounting_provider").eq("id", companyId).single() as unknown as Promise<{ data: any }>).then(({ data }) => {
+      setAccountingProvider(data?.accounting_provider ?? null);
+    });
+  }, [companyId]);
 
   const [form, setForm] = useState({
     name: "",
@@ -82,6 +92,12 @@ const CustomerCreatePage = () => {
     try {
       const newCustomer = await createCustomer.mutateAsync(payload);
       toast({ title: "Klant aangemaakt" });
+      // Auto-sync to WeFact if connected
+      if (accountingProvider === "wefact") {
+        supabase.functions.invoke("sync-wefact", {
+          body: { action: "sync-customer", customer_id: newCustomer.id },
+        }).catch(() => {}); // fire-and-forget
+      }
       navigate("custDetail", { customerId: newCustomer.id });
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
