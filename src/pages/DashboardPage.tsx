@@ -88,6 +88,11 @@ const DashboardPage = () => {
   const [apptDialogOpen, setApptDialogOpen] = useState(false);
   const [woDialogOpen, setWoDialogOpen] = useState(false);
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [quickDialNumber, setQuickDialNumber] = useState("");
+
+  const hasVoip = enabledFeatures.includes("voip");
+  const { activeCalls, ringingCalls, answeredCalls } = useLiveCalls();
+  const clickToDial = useClickToDial();
 
   const { containerRef, pullDistance, refreshing } = usePullToRefresh({
     onRefresh: () => queryClient.invalidateQueries() as Promise<unknown>,
