@@ -1293,6 +1293,7 @@ const SettingsAccountingTab = () => {
       wefact: "sync-wefact",
       moneybird: "sync-moneybird",
       eboekhouden: "sync-invoice-eboekhouden",
+      rompslomp: "sync-rompslomp",
     };
     const funcName = funcMap[activeProvider];
     if (!funcName) { setSyncing(false); return; }
