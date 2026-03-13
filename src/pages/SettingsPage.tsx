@@ -26,12 +26,13 @@ import { SETTINGS_INPUT_CLASS, SETTINGS_LABEL_CLASS } from "@/components/setting
 const SettingsAssetFieldsTab = lazy(() => import("@/components/settings/SettingsAssetFieldsTab"));
 const SettingsLeadsTab = lazy(() => import("@/components/settings/SettingsLeadsTab"));
 const SettingsApiKeysTab = lazy(() => import("@/components/settings/SettingsApiKeysTab"));
+const SettingsHexonTab = lazy(() => import("@/components/settings/SettingsHexonTab"));
 
 const BASE_TABS: string[] = [
   "Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen",
   "Objectvelden", "Sjablonen", "Werkplaats", "Boekhouding", "E-mail", "WhatsApp",
   "E-mail Templates", "Automatiseringen", "APK-herinneringen", "Teamleden",
-  "Koppelingen", "Meta", "Leads", "API Keys",
+  "Koppelingen", "Meta", "Leads", "API Keys", "Hexon DV",
 ];
 
 const TAB_FEATURE_MAP: Record<string, string> = {
@@ -44,13 +45,14 @@ const TAB_FEATURE_MAP: Record<string, string> = {
   "Objectvelden": "assets",
   "Leads": "leads",
   "API Keys": "api",
+  "Hexon DV": "hexon",
 };
 
 // Tabs that require admin role — monteurs only see what's NOT in this list
 const ADMIN_ONLY_TABS = new Set([
   "Bedrijfsgegevens", "Diensten", "Materialen", "Objectvelden", "Sjablonen",
   "Werkplaats", "Boekhouding", "E-mail", "WhatsApp", "E-mail Templates",
-  "Automatiseringen", "APK-herinneringen", "Teamleden", "Koppelingen", "Meta", "Leads", "API Keys",
+  "Automatiseringen", "APK-herinneringen", "Teamleden", "Koppelingen", "Meta", "Leads", "API Keys", "Hexon DV",
 ]);
 
 const TabFallback = () => (
@@ -121,6 +123,8 @@ const SettingsPage = () => {
         return <SettingsLeadsTab />;
       case "API Keys":
         return <SettingsApiKeysTab />;
+      case "Hexon DV":
+        return <SettingsHexonTab />;
       default:
         return null;
     }
