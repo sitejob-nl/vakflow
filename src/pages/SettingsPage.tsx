@@ -45,6 +45,7 @@ const TAB_FEATURE_MAP: Record<string, string> = {
   "Objectvelden": "assets",
   "Leads": "leads",
   "API Keys": "api",
+  "Hexon DV": "hexon",
 };
 
 // Tabs that require admin role — monteurs only see what's NOT in this list
