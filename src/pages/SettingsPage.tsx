@@ -123,6 +123,8 @@ const SettingsPage = () => {
         return <SettingsLeadsTab />;
       case "API Keys":
         return <SettingsApiKeysTab />;
+      case "Hexon DV":
+        return <SettingsHexonTab />;
       default:
         return null;
     }
