@@ -175,20 +175,38 @@ const SettingsWhatsAppTab = () => {
   };
 
   const handleRegister = async () => {
-    if (!companyId || !apiKey || !phoneNumberId) return;
+    if (!companyId) return;
     setRegistering(true);
     try {
+      const webhookUrl = `https://sigzpqwnavfxtvbyqvzj.supabase.co/functions/v1/whatsapp-config`;
       const { data, error } = await supabase.functions.invoke("whatsapp-register", {
-        body: { company_id: companyId, api_key: apiKey, phone_number_id: phoneNumberId },
+        body: { name: `Vakflow-${companyId.substring(0, 8)}`, webhook_url: webhookUrl },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast({ title: "WhatsApp gekoppeld!" });
-      window.location.reload();
+      setTenantId(data.tenant_id);
+      setRegisterStep("pending");
+      toast({ title: data.existing ? "Bestaande koppeling gevonden" : "Tenant geregistreerd", description: "Wacht op configuratie van SiteJob Connect..." });
+      // Poll for completion
+      pollForConnection();
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
     }
     setRegistering(false);
+  };
+
+  const pollForConnection = () => {
+    const interval = setInterval(async () => {
+      const { data } = await supabase.functions.invoke("whatsapp-send", { body: { action: "status" } });
+      if (data?.connected) {
+        clearInterval(interval);
+        setRegisterStep("done");
+        toast({ title: "WhatsApp gekoppeld!" });
+        queryClient.invalidateQueries({ queryKey: ["whatsapp-config-status"] });
+      }
+    }, 5000);
+    // Stop polling after 5 minutes
+    setTimeout(() => clearInterval(interval), 300_000);
   };
 
   const handleDisconnect = async () => {
