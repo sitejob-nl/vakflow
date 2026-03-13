@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Eye, EyeOff, Copy, Check, Wifi, X } from "lucide-react";
+import { Loader2, Eye, EyeOff, Copy, Check, Wifi, X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SETTINGS_INPUT_CLASS as inputClass, SETTINGS_LABEL_CLASS as labelClass } from "./shared";
 
 const SUPABASE_URL = "https://sigzpqwnavfxtvbyqvzj.supabase.co";
@@ -23,6 +24,8 @@ interface VoysForm {
   enrich_summary: boolean;
   ai_fallback: boolean;
   fallback_delay_seconds: number;
+  click_to_dial_enabled: boolean;
+  voipgrid_api_url: string;
 }
 
 const DEFAULT: VoysForm = {
@@ -36,7 +39,18 @@ const DEFAULT: VoysForm = {
   enrich_summary: true,
   ai_fallback: false,
   fallback_delay_seconds: 20,
+  click_to_dial_enabled: false,
+  voipgrid_api_url: "https://partner.voipgrid.nl",
 };
+
+const VOYS_EVENTS = [
+  { event: "created", description: "Gesprek gestart, call record aangemaakt" },
+  { event: "ringing", description: "Telefoon rinkelt" },
+  { event: "in-progress", description: "Gesprek beantwoord, opgenomen door wordt vastgelegd" },
+  { event: "ended", description: "Gesprek beëindigd, transcriptie + samenvatting worden opgehaald" },
+  { event: "warm-transfer", description: "Gesprek warm doorgeschakeld" },
+  { event: "cold-transfer", description: "Gesprek koud doorgeschakeld" },
+];
 
 const SettingsVoysTab = () => {
   const { companyId } = useAuth();
@@ -44,12 +58,15 @@ const SettingsVoysTab = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [showToken, setShowToken] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedUniversal, setCopiedUniversal] = useState(false);
+  const [copiedTenant, setCopiedTenant] = useState(false);
   const [form, setForm] = useState<VoysForm>(DEFAULT);
   const [phoneInput, setPhoneInput] = useState("");
 
-  const webhookUrl = `${SUPABASE_URL}/functions/v1/voys-webhook`;
+  const webhookUrlUniversal = `${SUPABASE_URL}/functions/v1/voys-webhook`;
+  const webhookUrlTenant = `${SUPABASE_URL}/functions/v1/voys-webhook?company_id=${companyId || ""}`;
 
   useEffect(() => {
     if (!companyId) return;
@@ -72,6 +89,8 @@ const SettingsVoysTab = () => {
           enrich_summary: data.enrich_summary ?? true,
           ai_fallback: data.ai_fallback ?? false,
           fallback_delay_seconds: data.fallback_delay_seconds ?? 20,
+          click_to_dial_enabled: data.click_to_dial_enabled ?? false,
+          voipgrid_api_url: data.voipgrid_api_url || "https://partner.voipgrid.nl",
         });
       }
       setLoading(false);
@@ -92,6 +111,8 @@ const SettingsVoysTab = () => {
       enrich_summary: form.enrich_summary,
       ai_fallback: form.ai_fallback,
       fallback_delay_seconds: form.fallback_delay_seconds,
+      click_to_dial_enabled: form.click_to_dial_enabled,
+      voipgrid_api_url: form.voipgrid_api_url || "https://partner.voipgrid.nl",
       updated_at: new Date().toISOString(),
     };
 
@@ -116,22 +137,58 @@ const SettingsVoysTab = () => {
 
   const handleTest = async () => {
     setTesting(true);
+    setTestResult(null);
+    const errors: string[] = [];
+
+    // Test 1: Check required fields
+    if (!form.client_uuid || !form.api_token) {
+      setTestResult({ ok: false, message: "Client UUID en API Token zijn verplicht" });
+      setTesting(false);
+      return;
+    }
+
+    // Test 2: Test transcription API reachability
     try {
-      const { data, error } = await supabase.functions.invoke("voys-webhook" as any, {
+      const res = await supabase.functions.invoke("voys-webhook" as any, {
         body: { action: "test-connection" },
       });
-      if (error) throw error;
-      const newStatus = data?.success ? "active" : "error";
-      setForm(prev => ({ ...prev, status: newStatus }));
-      if (form.id) {
-        await supabase.from("voys_config" as any).update({ status: newStatus }).eq("id", form.id);
+      if (res.error) {
+        errors.push(`Webhook test: ${res.error.message}`);
+      } else if (!res.data?.success) {
+        errors.push(res.data?.error || "Webhook test mislukt");
       }
-      toast(data?.success
-        ? { title: "Verbinding succesvol" }
-        : { title: "Verbinding mislukt", description: data?.error || "Geen antwoord van Voys API", variant: "destructive" });
     } catch (err: any) {
-      setForm(prev => ({ ...prev, status: "error" }));
-      toast({ title: "Test mislukt", description: err.message, variant: "destructive" });
+      errors.push(`Webhook: ${err.message}`);
+    }
+
+    // Test 3: Test Holodeck transcription API
+    try {
+      const transcriptionUrl = `https://holodeck.voys.nl/transcription-storage/clients/${form.client_uuid}/calls/test/transcriptions`;
+      const transcriptionRes = await fetch(transcriptionUrl, {
+        headers: { Authorization: `Bearer ${form.api_token}` },
+      });
+      // 401 = token works but no call found, 404 = endpoint exists
+      if (transcriptionRes.status === 401 || transcriptionRes.status === 404 || transcriptionRes.ok) {
+        // OK — API is reachable
+      } else {
+        errors.push(`Transcriptie API: HTTP ${transcriptionRes.status}`);
+      }
+    } catch (err: any) {
+      errors.push(`Transcriptie API niet bereikbaar: ${err.message}`);
+    }
+
+    const newStatus = errors.length === 0 ? "active" : "error";
+    setForm(prev => ({ ...prev, status: newStatus }));
+    if (form.id) {
+      await supabase.from("voys_config" as any).update({ status: newStatus }).eq("id", form.id);
+    }
+
+    if (errors.length === 0) {
+      setTestResult({ ok: true, message: "Verbinding OK — Webhook en Transcriptie API bereikbaar" });
+      toast({ title: "Verbinding succesvol" });
+    } else {
+      setTestResult({ ok: false, message: `Verbinding mislukt: ${errors.join("; ")}` });
+      toast({ title: "Verbinding mislukt", description: errors.join("; "), variant: "destructive" });
     }
     setTesting(false);
   };
@@ -148,10 +205,10 @@ const SettingsVoysTab = () => {
     setForm(prev => ({ ...prev, phone_numbers: prev.phone_numbers.filter((_, i) => i !== idx) }));
   };
 
-  const copyWebhookUrl = () => {
-    navigator.clipboard.writeText(webhookUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyUrl = (url: string, setter: (v: boolean) => void) => {
+    navigator.clipboard.writeText(url);
+    setter(true);
+    setTimeout(() => setter(false), 2000);
   };
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
@@ -199,10 +256,17 @@ const SettingsVoysTab = () => {
             </div>
             <p className="text-[11px] text-muted-foreground mt-1">Bearer token uit je persoonlijke instellingen in Voys. Je gebruiker moet admin zijn.</p>
           </div>
-          <Button size="sm" variant="outline" onClick={handleTest} disabled={testing || !form.client_uuid || !form.api_token}>
-            {testing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Wifi className="h-4 w-4 mr-1" />}
-            Test verbinding
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button size="sm" variant="outline" onClick={handleTest} disabled={testing || !form.client_uuid || !form.api_token}>
+              {testing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Wifi className="h-4 w-4 mr-1" />}
+              Test verbinding
+            </Button>
+            {testResult && (
+              <span className={`text-[12px] font-medium ${testResult.ok ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
+                {testResult.message}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -289,16 +353,94 @@ const SettingsVoysTab = () => {
         </div>
       </div>
 
+      {/* Klik-en-Bel */}
+      <div className="border-t border-border pt-5">
+        <h3 className="text-[14px] font-bold mb-3">Klik-en-Bel</h3>
+        <div className="space-y-4">
+          <ToggleRow
+            label="Klik-en-bel inschakelen"
+            description="Bel klanten direct vanuit het platform. Je telefoon gaat eerst over, daarna wordt de klant gebeld."
+            checked={form.click_to_dial_enabled}
+            onChange={v => setForm(prev => ({ ...prev, click_to_dial_enabled: v }))}
+          />
+          {form.click_to_dial_enabled && (
+            <div>
+              <label className={labelClass}>VoIPGRID API URL</label>
+              <input
+                value={form.voipgrid_api_url}
+                onChange={e => setForm(prev => ({ ...prev, voipgrid_api_url: e.target.value }))}
+                className={inputClass}
+                placeholder="https://partner.voipgrid.nl"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">Standaard hoef je dit niet aan te passen.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Webhook */}
       <div className="border-t border-border pt-5">
         <h3 className="text-[14px] font-bold mb-3">Webhook</h3>
-        <p className="text-[11px] text-muted-foreground mb-2">Configureer deze URL als webhook in je Voys/VoIPGRID instellingen</p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 bg-muted rounded-md px-3 py-2 text-[12px] font-mono break-all">{webhookUrl}</code>
-          <Button size="sm" variant="outline" onClick={copyWebhookUrl}>
-            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          </Button>
+        <p className="text-[11px] text-muted-foreground mb-3">
+          Configureer één van deze URLs als 'Gespreksnotificatie URL' in je Voys portaal onder Beheer → Gespreksnotificaties. De tenant-specifieke URL wordt aanbevolen als je meerdere bedrijven hebt.
+        </p>
+        <div className="space-y-3">
+          <div>
+            <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Universeel</label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-muted rounded-md px-3 py-2 text-[12px] font-mono break-all">{webhookUrlUniversal}</code>
+              <Button size="sm" variant="outline" onClick={() => copyUrl(webhookUrlUniversal, setCopiedUniversal)}>
+                {copiedUniversal ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-muted-foreground mb-1 block">
+              Tenant-specifiek <Badge variant="secondary" className="text-[9px] ml-1">Aanbevolen</Badge>
+            </label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-muted rounded-md px-3 py-2 text-[12px] font-mono break-all">{webhookUrlTenant}</code>
+              <Button size="sm" variant="outline" onClick={() => copyUrl(webhookUrlTenant, setCopiedTenant)}>
+                {copiedTenant ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* Voys Events */}
+      <div className="border-t border-border pt-5">
+        <h3 className="text-[14px] font-bold mb-3">Voys Events</h3>
+        <p className="text-[11px] text-muted-foreground mb-3">Overzicht van de webhook events die automatisch worden verwerkt</p>
+        <div className="border border-border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-[11px] font-bold w-[140px]">Event</TableHead>
+                <TableHead className="text-[11px] font-bold">Wat er gebeurt</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {VOYS_EVENTS.map((e) => (
+                <TableRow key={e.event}>
+                  <TableCell className="font-mono text-[12px]">{e.event}</TableCell>
+                  <TableCell className="text-[12px] text-muted-foreground">{e.description}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-3">
+          Meer info over gespreksnotificaties op{" "}
+          <a
+            href="https://wiki.voys.nl"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline inline-flex items-center gap-0.5"
+          >
+            wiki.voys.nl <ExternalLink className="h-3 w-3" />
+          </a>
+        </p>
       </div>
 
       <button
