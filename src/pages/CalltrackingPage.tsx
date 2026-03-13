@@ -625,6 +625,13 @@ const CalltrackingPage = () => {
                     <ListTodo className="h-4 w-4 mr-1" />
                     Maak taak
                   </Button>
+                  {selected.status === "missed" && selected.from_number && (
+                    <ClickToDialButton
+                      phoneNumber={selected.from_number}
+                      customerId={selected.customer_id || undefined}
+                      variant="button"
+                    />
+                  )}
                 </div>
               </div>
             </>
