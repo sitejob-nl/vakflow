@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Plus, GripVertical, Bot } from "lucide-react";
+import { Loader2, X, Plus, GripVertical, Bot, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
