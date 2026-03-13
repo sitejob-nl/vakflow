@@ -1852,44 +1852,77 @@ export type Database = {
         Row: {
           api_key: string | null
           api_url: string
+          auth_method: string | null
           auto_publish: boolean | null
+          bearer_token: string | null
           company_id: string
           created_at: string | null
+          default_currency: string | null
           default_site_codes: string[] | null
+          endpoint: string | null
+          event_subscription_id: string | null
+          hmac_key: string | null
           id: string
+          incl_vat: boolean | null
           last_sync_at: string | null
+          password: string | null
           photo_overlay_code: string | null
           publication: string | null
           status: string | null
           updated_at: string | null
+          username: string | null
+          vat_pct: number | null
+          webhook_url: string | null
         }
         Insert: {
           api_key?: string | null
           api_url?: string
+          auth_method?: string | null
           auto_publish?: boolean | null
+          bearer_token?: string | null
           company_id: string
           created_at?: string | null
+          default_currency?: string | null
           default_site_codes?: string[] | null
+          endpoint?: string | null
+          event_subscription_id?: string | null
+          hmac_key?: string | null
           id?: string
+          incl_vat?: boolean | null
           last_sync_at?: string | null
+          password?: string | null
           photo_overlay_code?: string | null
           publication?: string | null
           status?: string | null
           updated_at?: string | null
+          username?: string | null
+          vat_pct?: number | null
+          webhook_url?: string | null
         }
         Update: {
           api_key?: string | null
           api_url?: string
+          auth_method?: string | null
           auto_publish?: boolean | null
+          bearer_token?: string | null
           company_id?: string
           created_at?: string | null
+          default_currency?: string | null
           default_site_codes?: string[] | null
+          endpoint?: string | null
+          event_subscription_id?: string | null
+          hmac_key?: string | null
           id?: string
+          incl_vat?: boolean | null
           last_sync_at?: string | null
+          password?: string | null
           photo_overlay_code?: string | null
           publication?: string | null
           status?: string | null
           updated_at?: string | null
+          username?: string | null
+          vat_pct?: number | null
+          webhook_url?: string | null
         }
         Relationships: [
           {
@@ -1910,12 +1943,15 @@ export type Database = {
       }
       hexon_listings: {
         Row: {
+          ad_key: string | null
           company_id: string
           created_at: string | null
           deeplink_url: string | null
           errors: Json | null
           id: string
           last_synced_at: string | null
+          notifications: Json | null
+          portal_name: string | null
           site_code: string
           status: string | null
           status_message: string | null
@@ -1925,12 +1961,15 @@ export type Database = {
           warnings: Json | null
         }
         Insert: {
+          ad_key?: string | null
           company_id: string
           created_at?: string | null
           deeplink_url?: string | null
           errors?: Json | null
           id?: string
           last_synced_at?: string | null
+          notifications?: Json | null
+          portal_name?: string | null
           site_code: string
           status?: string | null
           status_message?: string | null
@@ -1940,12 +1979,15 @@ export type Database = {
           warnings?: Json | null
         }
         Update: {
+          ad_key?: string | null
           company_id?: string
           created_at?: string | null
           deeplink_url?: string | null
           errors?: Json | null
           id?: string
           last_synced_at?: string | null
+          notifications?: Json | null
+          portal_name?: string | null
           site_code?: string
           status?: string | null
           status_message?: string | null
