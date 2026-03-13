@@ -130,6 +130,21 @@ const CustomerDetailPage = () => {
     [allInvoices, params.customerId]
   );
 
+  const callStats = useMemo(() => {
+    if (!customerCalls) return { total: 0, answered: 0, missed: 0, totalDuration: 0 };
+    const answered = customerCalls.filter(c => c.status === "answered" || (c.ended_at && c.answered_at)).length;
+    const missed = customerCalls.filter(c => c.status === "missed" || (c.ended_at && !c.answered_at)).length;
+    const totalDuration = customerCalls.reduce((sum, c) => sum + (c.duration_seconds ?? 0), 0);
+    return { total: customerCalls.length, answered, missed: missed || customerCalls.length - answered, totalDuration };
+  }, [customerCalls]);
+
+  const formatCallDuration = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h > 0) return `${h}u ${m}m`;
+    return `${m}m`;
+  };
+
   if (isLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
@@ -160,21 +175,6 @@ const CustomerDetailPage = () => {
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
     }
-  };
-
-  const callStats = useMemo(() => {
-    if (!customerCalls) return { total: 0, answered: 0, missed: 0, totalDuration: 0 };
-    const answered = customerCalls.filter(c => c.status === "answered" || (c.ended_at && c.answered_at)).length;
-    const missed = customerCalls.filter(c => c.status === "missed" || (c.ended_at && !c.answered_at)).length;
-    const totalDuration = customerCalls.reduce((sum, c) => sum + (c.duration_seconds ?? 0), 0);
-    return { total: customerCalls.length, answered, missed: missed || customerCalls.length - answered, totalDuration };
-  }, [customerCalls]);
-
-  const formatCallDuration = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    if (h > 0) return `${h}u ${m}m`;
-    return `${m}m`;
   };
 
   const tabLabels = [
