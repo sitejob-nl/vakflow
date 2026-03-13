@@ -114,8 +114,8 @@ const SettingsWhatsAppTab = () => {
 
   // Registration state
   const [registering, setRegistering] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [phoneNumberId, setPhoneNumberId] = useState("");
+  const [registerStep, setRegisterStep] = useState<"idle" | "pending" | "done">("idle");
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
   // Profile edit
   const [editProfile, setEditProfile] = useState(false);
