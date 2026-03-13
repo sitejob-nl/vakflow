@@ -258,22 +258,47 @@ const SettingsWhatsAppTab = () => {
   if (!connected) {
     return (
       <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-5">
-        <h3 className="text-[14px] font-bold">WhatsApp koppelen</h3>
+        <h3 className="text-[14px] font-bold">WhatsApp koppelen via SiteJob Connect</h3>
         <p className="text-[12px] text-destructive font-bold flex items-center gap-1"><X className="h-3.5 w-3.5" /> Niet verbonden</p>
-        <div className="space-y-2">
-          <div>
-            <label className={labelClass}>WhatsApp API Key</label>
-            <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} className={inputClass} placeholder="Permanent access token" />
+
+        {registerStep === "idle" && (
+          <div className="space-y-3">
+            <p className="text-[12px] text-muted-foreground">
+              Klik op de knop hieronder om een WhatsApp Business koppeling aan te maken via SiteJob Connect. Na registratie wordt je WhatsApp-nummer automatisch geconfigureerd.
+            </p>
+            <button onClick={handleRegister} disabled={registering}
+              className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center gap-2">
+              {registering ? <><Loader2 className="h-4 w-4 animate-spin" /> Registreren...</> : <><MessageSquare className="h-4 w-4" /> WhatsApp koppelen</>}
+            </button>
           </div>
-          <div>
-            <label className={labelClass}>Phone Number ID</label>
-            <input value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} className={inputClass} placeholder="Bijv. 123456789012345" />
+        )}
+
+        {registerStep === "pending" && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 p-4 bg-warning/5 border border-warning/20 rounded-lg">
+              <Loader2 className="h-5 w-5 animate-spin text-warning shrink-0" />
+              <div>
+                <p className="text-[13px] font-bold text-foreground">Wachten op SiteJob Connect configuratie...</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Je tenant is geregistreerd{tenantId ? ` (${tenantId.substring(0, 8)}...)` : ""}. SiteJob Connect zal automatisch je WhatsApp-nummer koppelen. Dit kan een paar minuten duren.
+                </p>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              De pagina wordt automatisch bijgewerkt zodra de koppeling compleet is.
+            </p>
           </div>
-          <button onClick={handleRegister} disabled={registering || !apiKey || !phoneNumberId}
-            className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
-            {registering ? "Koppelen..." : "WhatsApp koppelen"}
-          </button>
-        </div>
+        )}
+
+        {registerStep === "done" && (
+          <div className="flex items-center gap-3 p-4 bg-success/5 border border-success/20 rounded-lg">
+            <Check className="h-5 w-5 text-success shrink-0" />
+            <div>
+              <p className="text-[13px] font-bold text-foreground">WhatsApp is gekoppeld!</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Ververs de pagina om het volledige dashboard te zien.</p>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
