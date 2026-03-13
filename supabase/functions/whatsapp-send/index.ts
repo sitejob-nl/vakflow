@@ -52,7 +52,9 @@ function buildMetaBody(body: Record<string, unknown>, normalizedTo: string): Rec
       break;
     case "audio":
       metaBody.type = "audio";
-      metaBody.audio = body.media_id ? { id: body.media_id } : { link: body.link };
+      metaBody.audio = body.media_id
+        ? { id: body.media_id, ...(body.voice ? { voice: true } : {}) }
+        : { link: body.link, ...(body.voice ? { voice: true } : {}) };
       break;
     case "document":
       metaBody.type = "document";
