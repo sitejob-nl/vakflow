@@ -203,6 +203,38 @@ const DashboardPage = () => {
             </div>
           </div>
 
+          {/* Hexon Portaal KPIs */}
+          {hasHexon && hexonListings.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 mb-5 md:mb-6">
+              <div onClick={() => navigate("trade")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+                <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                  <Globe className="h-3 w-3" /> Online op portalen
+                </div>
+                <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter text-emerald-600">
+                  {hexonListings.filter(l => l.status === "online" || l.status === "published").length}
+                </div>
+              </div>
+              <div onClick={() => navigate("trade")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+                <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                  <Monitor className="h-3 w-3" /> Pending
+                </div>
+                <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">
+                  {hexonListings.filter(l => l.status === "pending" || l.status === "processing").length}
+                </div>
+              </div>
+              {hexonListings.some(l => l.status === "error") && (
+                <div onClick={() => navigate("trade")} className="bg-card border border-destructive/50 rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:shadow-card-hover transition-all">
+                  <div className="text-[10px] md:text-[11.5px] text-destructive font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" /> Geweigerd/Fout
+                  </div>
+                  <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter text-destructive">
+                    {hexonListings.filter(l => l.status === "error").length}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Communicatie rij */}
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 mb-5 md:mb-6">
             {/* Live gesprekken kaart */}
