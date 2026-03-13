@@ -131,10 +131,38 @@ const SettingsWhatsAppTab = () => {
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
   const [tplName, setTplName] = useState("");
   const [tplCategory, setTplCategory] = useState("UTILITY");
+  const [tplLanguage, setTplLanguage] = useState("nl");
+  const [tplParamFormat, setTplParamFormat] = useState<"positional" | "named">("positional");
   const [tplBody, setTplBody] = useState("");
+  const [tplHeaderFormat, setTplHeaderFormat] = useState<"NONE" | "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT" | "LOCATION">("NONE");
   const [tplHeader, setTplHeader] = useState("");
   const [tplFooter, setTplFooter] = useState("");
-  const [tplButtons, setTplButtons] = useState<{ type: string; text: string; url?: string; phone_number?: string }[]>([]);
+  const [tplButtons, setTplButtons] = useState<{ type: string; text: string; url?: string; phone_number?: string; example?: string }[]>([]);
+  const [tplBodyExamples, setTplBodyExamples] = useState<Record<string, string>>({});
+  const [tplHeaderExamples, setTplHeaderExamples] = useState<Record<string, string>>({});
+
+  // Library browser
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryTemplates, setLibraryTemplates] = useState<any[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryTopic, setLibraryTopic] = useState("");
+
+  // Template detail
+  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
+
+  // Helper: extract parameters from text
+  const extractParams = (text: string, format: "positional" | "named") => {
+    if (format === "named") {
+      const matches = text.match(/\{\{([a-z_]+)\}\}/g) || [];
+      return [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, "")))];
+    }
+    const matches = text.match(/\{\{(\d+)\}\}/g) || [];
+    return [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, "")))].sort((a, b) => Number(a) - Number(b));
+  };
+
+  const bodyParams = extractParams(tplBody, tplParamFormat);
+  const headerParams = tplHeaderFormat === "TEXT" ? extractParams(tplHeader, tplParamFormat) : [];
 
   // Disconnect
   const [showDisconnect, setShowDisconnect] = useState(false);
@@ -190,7 +218,6 @@ const SettingsWhatsAppTab = () => {
       setTenantId(data.tenant_id);
       setRegisterStep("pending");
       toast({ title: data.existing ? "Bestaande koppeling gevonden" : "Tenant geregistreerd", description: "Wacht op configuratie van SiteJob Connect..." });
-      // Poll for completion
       pollForConnection();
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
@@ -208,7 +235,6 @@ const SettingsWhatsAppTab = () => {
         queryClient.invalidateQueries({ queryKey: ["whatsapp-config-status"] });
       }
     }, 5000);
-    // Stop polling after 5 minutes
     setTimeout(() => clearInterval(interval), 300_000);
   };
 
@@ -237,33 +263,196 @@ const SettingsWhatsAppTab = () => {
     }
   };
 
+  const buildComponents = () => {
+    const components: any[] = [];
+
+    // Header
+    if (tplHeaderFormat === "TEXT" && tplHeader) {
+      const headerComp: any = { type: "HEADER", format: "TEXT", text: tplHeader };
+      if (headerParams.length > 0) {
+        if (tplParamFormat === "named") {
+          headerComp.example = {
+            header_text_named_params: headerParams.map(p => ({
+              param_name: p,
+              example: tplHeaderExamples[p] || p,
+            })),
+          };
+        } else {
+          headerComp.example = {
+            header_text: headerParams.map(p => tplHeaderExamples[p] || `voorbeeld_${p}`),
+          };
+        }
+      }
+      components.push(headerComp);
+    } else if (tplHeaderFormat === "LOCATION") {
+      components.push({ type: "HEADER", format: "LOCATION" });
+    } else if (["IMAGE", "VIDEO", "DOCUMENT"].includes(tplHeaderFormat)) {
+      // Media headers need a handle from Resumable Upload API - placeholder
+      components.push({ type: "HEADER", format: tplHeaderFormat });
+    }
+
+    // Body
+    const bodyComp: any = { type: "BODY", text: tplBody };
+    if (bodyParams.length > 0) {
+      if (tplParamFormat === "named") {
+        bodyComp.example = {
+          body_text_named_params: bodyParams.map(p => ({
+            param_name: p,
+            example: tplBodyExamples[p] || p,
+          })),
+        };
+      } else {
+        bodyComp.example = {
+          body_text: [bodyParams.map(p => tplBodyExamples[p] || `voorbeeld_${p}`)],
+        };
+      }
+    }
+    components.push(bodyComp);
+
+    // Footer
+    if (tplFooter) {
+      components.push({ type: "FOOTER", text: tplFooter });
+    }
+
+    // Buttons
+    if (tplButtons.length > 0) {
+      components.push({
+        type: "BUTTONS",
+        buttons: tplButtons.map(btn => {
+          const b: any = { type: btn.type, text: btn.text };
+          if (btn.type === "URL" && btn.url) {
+            b.url = btn.url;
+            if (btn.url.includes("{{")) {
+              b.example = [btn.example || "https://example.com"];
+            }
+          }
+          if (btn.type === "PHONE_NUMBER" && btn.phone_number) b.phone_number = btn.phone_number;
+          if (btn.type === "COPY_CODE") b.example = btn.example || "CODE123";
+          return b;
+        }),
+      });
+    }
+
+    return components;
+  };
+
   const handleCreateTemplate = async () => {
     if (!tplName || !tplBody) return;
     try {
-      const components: any[] = [];
-      if (tplHeader) components.push({ type: "HEADER", format: "TEXT", text: tplHeader });
-      components.push({ type: "BODY", text: tplBody });
-      if (tplFooter) components.push({ type: "FOOTER", text: tplFooter });
-      if (tplButtons.length > 0) {
-        components.push({ type: "BUTTONS", buttons: tplButtons });
-      }
-
+      const components = buildComponents();
       await createTemplate.mutateAsync({
         name: tplName.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
         category: tplCategory,
-        language: "nl",
+        language: tplLanguage,
+        parameter_format: tplParamFormat,
         components,
       });
       toast({ title: "Template aangemaakt" });
-      setShowCreateTemplate(false);
-      setTplName("");
-      setTplBody("");
-      setTplHeader("");
-      setTplFooter("");
-      setTplButtons([]);
+      resetTemplateForm();
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
     }
+  };
+
+  const resetTemplateForm = () => {
+    setShowCreateTemplate(false);
+    setTplName("");
+    setTplBody("");
+    setTplHeader("");
+    setTplFooter("");
+    setTplButtons([]);
+    setTplHeaderFormat("NONE");
+    setTplBodyExamples({});
+    setTplHeaderExamples({});
+    setTplParamFormat("positional");
+    setTplLanguage("nl");
+  };
+
+  const handleBrowseLibrary = async () => {
+    setLibraryLoading(true);
+    try {
+      const body: any = { action: "library", limit: 25 };
+      if (librarySearch) body.search = librarySearch;
+      if (libraryTopic) body.topic = libraryTopic;
+      const { data, error } = await supabase.functions.invoke("whatsapp-templates", { body });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setLibraryTemplates(data.templates || []);
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+    setLibraryLoading(false);
+  };
+
+  const handleCreateFromLibrary = async (libTpl: any) => {
+    try {
+      const payload: any = {
+        name: libTpl.name + "_custom",
+        category: libTpl.category || "UTILITY",
+        language: libTpl.language || "en_US",
+        library_template_name: libTpl.name,
+      };
+      if (libTpl.buttons?.length) {
+        const btnInputs = libTpl.buttons
+          .filter((b: any) => b.type === "URL" || b.type === "PHONE_NUMBER")
+          .map((b: any) => {
+            if (b.type === "URL") return { type: "URL", url: { base_url: b.url || "https://example.com" } };
+            if (b.type === "PHONE_NUMBER") return { type: "PHONE_NUMBER", phone_number: b.phone_number || "+31000000000" };
+            return null;
+          })
+          .filter(Boolean);
+        if (btnInputs.length > 0) payload.library_template_button_inputs = JSON.stringify(btnInputs);
+      }
+      await createTemplate.mutateAsync(payload);
+      toast({ title: "Template aangemaakt vanuit bibliotheek" });
+      setShowLibrary(false);
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const renderComponentsSummary = (components: any[]) => {
+    if (!components?.length) return null;
+    return (
+      <div className="space-y-1.5 mt-2 text-[12px]">
+        {components.map((c: any, i: number) => {
+          if (c.type === "HEADER") {
+            return (
+              <div key={i}>
+                <span className="text-muted-foreground font-medium">Header ({c.format}):</span>{" "}
+                {c.format === "TEXT" ? <span>{c.text}</span> : <span className="italic text-muted-foreground">{c.format?.toLowerCase()}</span>}
+              </div>
+            );
+          }
+          if (c.type === "BODY") {
+            return (
+              <div key={i}>
+                <span className="text-muted-foreground font-medium">Body:</span>{" "}
+                <span className="whitespace-pre-wrap">{c.text?.substring(0, 200)}{c.text?.length > 200 ? "..." : ""}</span>
+              </div>
+            );
+          }
+          if (c.type === "FOOTER") {
+            return <div key={i}><span className="text-muted-foreground font-medium">Footer:</span> {c.text}</div>;
+          }
+          if (c.type === "BUTTONS") {
+            return (
+              <div key={i}>
+                <span className="text-muted-foreground font-medium">Knoppen:</span>{" "}
+                {c.buttons?.map((b: any, j: number) => (
+                  <span key={j} className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 bg-secondary rounded text-[11px]">
+                    {b.type === "URL" && <Globe className="h-2.5 w-2.5" />}
+                    {b.type === "PHONE_NUMBER" && <Phone className="h-2.5 w-2.5" />}
+                    {b.text}
+                  </span>
+                ))}
+              </div>
+            );
+          }
+          return null;
+        })}
+      </div>
+    );
   };
 
   if (statusLoading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
@@ -513,18 +702,79 @@ const SettingsWhatsAppTab = () => {
         <div className="flex items-center justify-between mb-3">
           <SectionHeader id="templates" title={`Berichttemplates${templates ? ` (${templates.length})` : ""}`} icon={MessageSquare} />
           {expandedSections.templates && (
-            <button onClick={() => setShowCreateTemplate(!showCreateTemplate)}
-              className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[11px] font-bold hover:bg-primary-hover transition-colors flex items-center gap-1">
-              <Plus className="h-3 w-3" /> Nieuw
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setShowLibrary(!showLibrary); setShowCreateTemplate(false); }}
+                className="px-3 py-1.5 bg-secondary text-secondary-foreground rounded-sm text-[11px] font-bold hover:bg-secondary/80 transition-colors flex items-center gap-1">
+                <Globe className="h-3 w-3" /> Bibliotheek
+              </button>
+              <button onClick={() => { setShowCreateTemplate(!showCreateTemplate); setShowLibrary(false); }}
+                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[11px] font-bold hover:bg-primary-hover transition-colors flex items-center gap-1">
+                <Plus className="h-3 w-3" /> Nieuw
+              </button>
+            </div>
           )}
         </div>
         {expandedSections.templates && (
           <>
+            {/* Library browser */}
+            {showLibrary && (
+              <div className="bg-background border border-border rounded-sm p-4 mb-3 space-y-3">
+                <h4 className="text-[13px] font-bold">Template Bibliotheek</h4>
+                <p className="text-[11px] text-muted-foreground">Doorzoek de Meta Template Library en maak snel een template aan.</p>
+                <div className="flex gap-2">
+                  <input value={librarySearch} onChange={e => setLibrarySearch(e.target.value)} className={`${inputClass} flex-1`} placeholder="Zoeken..." />
+                  <select value={libraryTopic} onChange={e => setLibraryTopic(e.target.value)} className={`${inputClass} w-40`}>
+                    <option value="">Alle topics</option>
+                    <option value="ACCOUNT_UPDATE">Account update</option>
+                    <option value="CUSTOMER_FEEDBACK">Feedback</option>
+                    <option value="ORDER_MANAGEMENT">Orderbeheer</option>
+                    <option value="PAYMENTS">Betalingen</option>
+                  </select>
+                  <button onClick={handleBrowseLibrary} disabled={libraryLoading}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover disabled:opacity-50">
+                    {libraryLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Zoeken"}
+                  </button>
+                </div>
+                {libraryTemplates.length > 0 && (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {libraryTemplates.map((lt: any) => (
+                      <div key={lt.id || lt.name} className="border border-border rounded-sm p-3 bg-card">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-[13px] font-medium">{lt.name}</span>
+                            <span className="text-[10px] text-muted-foreground ml-2">{lt.category} · {lt.language}</span>
+                            {lt.topic && <span className="text-[10px] text-muted-foreground ml-2">· {lt.topic}</span>}
+                          </div>
+                          <button onClick={() => handleCreateFromLibrary(lt)}
+                            className="px-3 py-1 bg-primary text-primary-foreground rounded-sm text-[11px] font-bold hover:bg-primary-hover">
+                            Gebruiken
+                          </button>
+                        </div>
+                        {lt.body && <p className="text-[12px] text-muted-foreground mt-1 whitespace-pre-wrap">{lt.body.substring(0, 150)}{lt.body.length > 150 ? "..." : ""}</p>}
+                        {lt.buttons?.length > 0 && (
+                          <div className="flex gap-1 mt-1.5">
+                            {lt.buttons.map((b: any, j: number) => (
+                              <span key={j} className="px-1.5 py-0.5 bg-secondary rounded text-[10px]">{b.text}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {libraryTemplates.length === 0 && !libraryLoading && (
+                  <p className="text-[12px] text-muted-foreground">Gebruik de zoekbalk om templates te vinden.</p>
+                )}
+              </div>
+            )}
+
             {/* Create form */}
             {showCreateTemplate && (
-              <div className="bg-background border border-border rounded-sm p-4 mb-3 space-y-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="bg-background border border-border rounded-sm p-4 mb-3 space-y-3">
+                <h4 className="text-[13px] font-bold">Nieuwe template aanmaken</h4>
+
+                {/* Name, Category, Language, Param format */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div>
                     <label className={labelClass}>Naam</label>
                     <input value={tplName} onChange={e => setTplName(e.target.value)} className={inputClass} placeholder="mijn_template" />
@@ -537,69 +787,158 @@ const SettingsWhatsAppTab = () => {
                       <option value="AUTHENTICATION">Authentication</option>
                     </select>
                   </div>
+                  <div>
+                    <label className={labelClass}>Taal</label>
+                    <select value={tplLanguage} onChange={e => setTplLanguage(e.target.value)} className={inputClass}>
+                      <option value="nl">Nederlands</option>
+                      <option value="en_US">English (US)</option>
+                      <option value="en">English</option>
+                      <option value="de">Deutsch</option>
+                      <option value="fr">Français</option>
+                      <option value="es">Español</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Parametervorm</label>
+                    <select value={tplParamFormat} onChange={e => setTplParamFormat(e.target.value as any)} className={inputClass}>
+                      <option value="positional">Positioneel ({"{{1}}"}, {"{{2}}"})</option>
+                      <option value="named">Named ({"{{naam}}"})</option>
+                    </select>
+                  </div>
                 </div>
+
+                {/* Header */}
                 <div>
                   <label className={labelClass}>Header (optioneel)</label>
-                  <input value={tplHeader} onChange={e => setTplHeader(e.target.value)} className={inputClass} placeholder="Koptekst — bijv. Hallo {{1}}!" />
+                  <select value={tplHeaderFormat} onChange={e => setTplHeaderFormat(e.target.value as any)} className={`${inputClass} mb-1.5`}>
+                    <option value="NONE">Geen header</option>
+                    <option value="TEXT">Tekst</option>
+                    <option value="IMAGE">Afbeelding</option>
+                    <option value="VIDEO">Video</option>
+                    <option value="DOCUMENT">Document (PDF)</option>
+                    <option value="LOCATION">Locatie</option>
+                  </select>
+                  {tplHeaderFormat === "TEXT" && (
+                    <>
+                      <input value={tplHeader} onChange={e => setTplHeader(e.target.value)} className={inputClass}
+                        placeholder={tplParamFormat === "named" ? "Bijv. Hallo {{klant_naam}}!" : "Bijv. Hallo {{1}}!"} maxLength={60} />
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Max 60 tekens. Ondersteunt 1 parameter.</p>
+                    </>
+                  )}
+                  {["IMAGE", "VIDEO", "DOCUMENT"].includes(tplHeaderFormat) && (
+                    <p className="text-[10px] text-muted-foreground">Media wordt bij het verzenden meegegeven via de Resumable Upload API.</p>
+                  )}
+                  {tplHeaderFormat === "LOCATION" && (
+                    <p className="text-[10px] text-muted-foreground">Locatie wordt bij het verzenden meegegeven (latitude, longitude, naam, adres).</p>
+                  )}
                 </div>
+
+                {/* Body */}
                 <div>
-                  <label className={labelClass}>Berichttekst</label>
+                  <label className={labelClass}>Berichttekst *</label>
                   <textarea value={tplBody} onChange={e => setTplBody(e.target.value)} className={`${inputClass} min-h-[80px]`}
-                    placeholder="Hallo {{1}}, uw afspraak is bevestigd voor {{2}}." />
-                  <p className="text-[10px] text-muted-foreground mt-1">Gebruik {"{{1}}"}, {"{{2}}"} etc. voor variabelen. Taal: Nederlands (nl).</p>
+                    placeholder={tplParamFormat === "named" ? "Hallo {{klant_naam}}, uw afspraak is bevestigd voor {{datum}}." : "Hallo {{1}}, uw afspraak is bevestigd voor {{2}}."} maxLength={1024} />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Max 1024 tekens. Gebruik {tplParamFormat === "named" ? "{{naam}}" : "{{1}}, {{2}}"} voor variabelen.
+                  </p>
                 </div>
+
+                {/* Parameter examples */}
+                {(bodyParams.length > 0 || headerParams.length > 0) && (
+                  <div className="bg-card border border-border rounded-sm p-3 space-y-2">
+                    <label className={labelClass}>Voorbeeldwaarden (verplicht bij parameters)</label>
+                    {headerParams.map(p => (
+                      <div key={`h-${p}`} className="flex items-center gap-2">
+                        <span className="text-[11px] text-muted-foreground w-28 shrink-0">Header {`{{${p}}}`}:</span>
+                        <input value={tplHeaderExamples[p] || ""} onChange={e => setTplHeaderExamples(prev => ({ ...prev, [p]: e.target.value }))}
+                          className={inputClass} placeholder={`Voorbeeld voor ${p}`} />
+                      </div>
+                    ))}
+                    {bodyParams.map(p => (
+                      <div key={`b-${p}`} className="flex items-center gap-2">
+                        <span className="text-[11px] text-muted-foreground w-28 shrink-0">Body {`{{${p}}}`}:</span>
+                        <input value={tplBodyExamples[p] || ""} onChange={e => setTplBodyExamples(prev => ({ ...prev, [p]: e.target.value }))}
+                          className={inputClass} placeholder={`Voorbeeld voor ${p}`} />
+                      </div>
+                    ))}
+                    <p className="text-[10px] text-muted-foreground">Meta vereist voorbeeldwaarden voor review. Types: TEXT, DATE, AMOUNT, PHONE NUMBER, EMAIL, NUMBER, ADDRESS.</p>
+                  </div>
+                )}
+
+                {/* Footer */}
                 <div>
                   <label className={labelClass}>Footer (optioneel)</label>
-                  <input value={tplFooter} onChange={e => setTplFooter(e.target.value)} className={inputClass} placeholder="Voettekst" />
+                  <input value={tplFooter} onChange={e => setTplFooter(e.target.value)} className={inputClass} placeholder="Voettekst (max 60 tekens)" maxLength={60} />
                 </div>
+
                 {/* Buttons */}
                 <div>
-                  <label className={labelClass}>Knoppen (optioneel)</label>
+                  <label className={labelClass}>Knoppen (optioneel, max 10)</label>
                   {tplButtons.map((btn, i) => (
-                    <div key={i} className="flex items-center gap-2 mb-1.5">
+                    <div key={i} className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <select value={btn.type} onChange={e => {
                         const next = [...tplButtons]; next[i] = { ...btn, type: e.target.value }; setTplButtons(next);
-                      }} className={`${inputClass} w-28 shrink-0`}>
+                      }} className={`${inputClass} w-32 shrink-0`}>
                         <option value="QUICK_REPLY">Snel antwoord</option>
                         <option value="URL">URL</option>
                         <option value="PHONE_NUMBER">Telefoon</option>
+                        <option value="COPY_CODE">Kopieercode</option>
+                        <option value="VOICE_CALL">Bellen (VoIP)</option>
                       </select>
                       <input value={btn.text} onChange={e => {
                         const next = [...tplButtons]; next[i] = { ...btn, text: e.target.value }; setTplButtons(next);
-                      }} className={inputClass} placeholder="Knoptekst" maxLength={25} />
+                      }} className={`${inputClass} flex-1`} placeholder="Knoptekst (max 25)" maxLength={25} />
                       {btn.type === "URL" && (
-                        <input value={btn.url || ""} onChange={e => {
-                          const next = [...tplButtons]; next[i] = { ...btn, url: e.target.value }; setTplButtons(next);
-                        }} className={inputClass} placeholder="https://..." />
+                        <>
+                          <input value={btn.url || ""} onChange={e => {
+                            const next = [...tplButtons]; next[i] = { ...btn, url: e.target.value }; setTplButtons(next);
+                          }} className={`${inputClass} flex-1`} placeholder="https://example.com/{{1}}" />
+                          {btn.url?.includes("{{") && (
+                            <input value={btn.example || ""} onChange={e => {
+                              const next = [...tplButtons]; next[i] = { ...btn, example: e.target.value }; setTplButtons(next);
+                            }} className={`${inputClass} w-40`} placeholder="URL voorbeeld suffix" />
+                          )}
+                        </>
                       )}
                       {btn.type === "PHONE_NUMBER" && (
                         <input value={btn.phone_number || ""} onChange={e => {
                           const next = [...tplButtons]; next[i] = { ...btn, phone_number: e.target.value }; setTplButtons(next);
-                        }} className={inputClass} placeholder="+31612345678" />
+                        }} className={`${inputClass} w-40`} placeholder="+31612345678" />
+                      )}
+                      {btn.type === "COPY_CODE" && (
+                        <input value={btn.example || ""} onChange={e => {
+                          const next = [...tplButtons]; next[i] = { ...btn, example: e.target.value }; setTplButtons(next);
+                        }} className={`${inputClass} w-32`} placeholder="CODE123" maxLength={15} />
                       )}
                       <button onClick={() => setTplButtons(tplButtons.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80 shrink-0">
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   ))}
-                  {tplButtons.length < 3 && (
+                  {tplButtons.length < 10 && (
                     <button onClick={() => setTplButtons([...tplButtons, { type: "QUICK_REPLY", text: "" }])}
                       className="px-3 py-1.5 bg-secondary text-secondary-foreground rounded-sm text-[11px] font-medium hover:bg-secondary/80 flex items-center gap-1">
                       <Plus className="h-3 w-3" /> Knop toevoegen
                     </button>
                   )}
+                  {tplButtons.length >= 4 && (
+                    <p className="text-[10px] text-muted-foreground mt-1">⚠️ Templates met 4+ knoppen worden op desktop anders weergegeven.</p>
+                  )}
                 </div>
+
                 <div className="flex gap-2">
                   <button onClick={handleCreateTemplate} disabled={createTemplate.isPending || !tplName || !tplBody}
                     className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
                     {createTemplate.isPending ? "Aanmaken..." : "Aanmaken"}
                   </button>
-                  <button onClick={() => { setShowCreateTemplate(false); setTplButtons([]); setTplHeader(""); setTplFooter(""); }} className="px-4 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium">
+                  <button onClick={resetTemplateForm} className="px-4 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium">
                     Annuleren
                   </button>
                 </div>
               </div>
             )}
+
+            {/* Template list */}
             {templatesLoading ? (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             ) : !templates || templates.length === 0 ? (
@@ -607,23 +946,50 @@ const SettingsWhatsAppTab = () => {
             ) : (
               <div className="space-y-1.5">
                 {templates.map((t) => (
-                  <div key={t.name} className="flex items-center justify-between p-2.5 border border-border rounded-sm bg-background group">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <div className="min-w-0">
-                        <span className="text-[13px] font-medium block truncate">{t.name}</span>
-                        <span className="text-[10px] text-muted-foreground">{t.category} · {t.language}</span>
+                  <div key={t.id || t.name} className="border border-border rounded-sm bg-background">
+                    <div className="flex items-center justify-between p-2.5 group cursor-pointer"
+                      onClick={() => setExpandedTemplate(expandedTemplate === t.name ? null : t.name)}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-[13px] font-medium block truncate">{t.name}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {t.category} · {t.language}
+                            {t.parameter_format && t.parameter_format !== "POSITIONAL" && ` · ${t.parameter_format.toLowerCase()}`}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                          t.status === "APPROVED" ? "bg-success/10 text-success" :
+                          t.status === "REJECTED" ? "bg-destructive/10 text-destructive" :
+                          t.status === "PAUSED" ? "bg-warning/10 text-warning" :
+                          t.status === "PENDING" ? "bg-warning/10 text-warning" :
+                          "bg-secondary text-secondary-foreground"
+                        }`}>
+                          {t.status}
+                        </span>
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteTemplate(t.name); }}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-all">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                        {expandedTemplate === t.name ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${t.status === "APPROVED" ? "bg-success/10 text-success" : t.status === "REJECTED" ? "bg-destructive/10 text-destructive" : "bg-secondary text-secondary-foreground"}`}>
-                        {t.status}
-                      </span>
-                      <button onClick={() => handleDeleteTemplate(t.name)}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-all">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    {/* Expanded detail */}
+                    {expandedTemplate === t.name && (
+                      <div className="px-3 pb-3 border-t border-border pt-2">
+                        {t.quality_score && (
+                          <p className="text-[11px] text-muted-foreground mb-1">
+                            Kwaliteit: <span className="font-medium">{t.quality_score.score}</span>
+                          </p>
+                        )}
+                        {renderComponentsSummary(t.components)}
+                        {(!t.components || t.components.length === 0) && (
+                          <p className="text-[12px] text-muted-foreground italic">Geen componentdetails beschikbaar.</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
