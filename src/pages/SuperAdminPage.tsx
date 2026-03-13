@@ -130,7 +130,7 @@ const emptyForm = {
   name: "", slug: "", kvk_number: "", btw_number: "", address: "",
   postal_code: "", city: "", phone: "", iban: "", smtp_email: "",
   max_users: 2,
-  enabled_features: ALL_FEATURES.map(f => f.slug),
+  enabled_features: ALL_FEATURE_SLUGS,
   subscription_plan: "starter",
   subscription_status: "trial",
   trial_ends_at: "",
