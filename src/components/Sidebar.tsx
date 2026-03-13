@@ -62,7 +62,7 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
       { id: "assets" as Page, icon: Box, label: labels.assets, adminOnly: true },
       ...(industry === "cleaning" ? [{ id: "audits" as Page, icon: ClipboardCheck, label: "Kwaliteit", adminOnly: true }] : []),
       { id: "vehicles" as Page, icon: Car, label: labels.vehicles, adminOnly: true },
-      ...(industry === "automotive" ? [{ id: "trade" as Page, icon: Repeat, label: "Inruil & Verkoop", adminOnly: true }] : []),
+      ...(industry === "automotive" ? [{ id: "trade" as Page, icon: Repeat, label: "Voertuig Pipeline", adminOnly: true, requiredFeature: "vehicle_sales" }] : []),
       { id: "marketing" as Page, icon: Megaphone, label: "Marketing", adminOnly: true },
       { id: "leads" as Page, icon: UserPlus, label: "Leads", adminOnly: true },
     ],
