@@ -417,6 +417,7 @@ const TradeVehiclesPage = () => {
                   <TableHead className="cursor-pointer" onClick={() => handleSort("status")}>Status</TableHead>
                   <TableHead>Bron</TableHead>
                   <TableHead className="w-[40px]">Hexon</TableHead>
+                  <TableHead>Portaalstatus</TableHead>
                   <TableHead className="cursor-pointer" onClick={() => handleSort("created_at")}>Aangemaakt</TableHead>
                 </TableRow>
               </TableHeader>
