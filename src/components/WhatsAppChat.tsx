@@ -126,7 +126,7 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName, 
     unread.forEach((m) => {
       markedReadRef.current.add(m.wamid!);
       supabase.functions.invoke("whatsapp-send", {
-        body: { action: "mark_read", message_id: m.wamid },
+        body: { action: "mark_read", message_id: m.wamid, typing_indicator: true },
       });
     });
     queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });

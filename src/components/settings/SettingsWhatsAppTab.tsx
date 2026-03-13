@@ -93,6 +93,27 @@ const VERTICALS = [
   "NONPROFIT", "PROF_SERVICES", "RETAIL", "TRAVEL", "RESTAURANT",
 ];
 
+/* ── Display Name Hook ── */
+function useDisplayNameStatus(enabled: boolean) {
+  return useQuery({
+    queryKey: ["whatsapp-display-name-status"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("whatsapp-send", { body: { action: "display_name_status" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as {
+        verified_name: string | null;
+        name_status: string | null;
+        new_display_name: string | null;
+        new_name_status: string | null;
+      };
+    },
+    enabled,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
 /* ================================================================ */
 const SettingsWhatsAppTab = () => {
   const { companyId } = useAuth();
@@ -104,6 +125,7 @@ const SettingsWhatsAppTab = () => {
   const { data: profile, isLoading: profileLoading } = useWhatsAppProfile(connected);
   const { data: templates, isLoading: templatesLoading } = useWhatsAppTemplates(connected);
   const { data: quality, isLoading: qualityLoading } = usePhoneQuality(connected);
+  const { data: displayNameInfo } = useDisplayNameStatus(connected);
   const [statsDays, setStatsDays] = useState(7);
   const { data: stats } = useMessageStats(connected, statsDays);
   const updateProfile = useUpdateWhatsAppProfile();
@@ -163,6 +185,11 @@ const SettingsWhatsAppTab = () => {
 
   const bodyParams = extractParams(tplBody, tplParamFormat);
   const headerParams = tplHeaderFormat === "TEXT" ? extractParams(tplHeader, tplParamFormat) : [];
+
+  // Display name
+  const [editDisplayName, setEditDisplayName] = useState(false);
+  const [newDisplayName, setNewDisplayName] = useState("");
+  const [updatingDisplayName, setUpdatingDisplayName] = useState(false);
 
   // Disconnect
   const [showDisconnect, setShowDisconnect] = useState(false);
@@ -251,6 +278,26 @@ const SettingsWhatsAppTab = () => {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
     }
     setDisconnecting(false);
+  };
+
+  const handleUpdateDisplayName = async () => {
+    if (!newDisplayName.trim()) return;
+    setUpdatingDisplayName(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-send", {
+        body: { action: "update_display_name", new_display_name: newDisplayName.trim() },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Display name bijgewerkt", description: "De nieuwe naam wordt geverifieerd door Meta." });
+      setEditDisplayName(false);
+      setNewDisplayName("");
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-display-name-status"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-phone-quality"] });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+    setUpdatingDisplayName(false);
   };
 
   const handleDeleteTemplate = async (name: string) => {
@@ -551,6 +598,58 @@ const SettingsWhatsAppTab = () => {
             <div><span className="text-muted-foreground">Kwaliteit:</span> <QualityBadge rating={quality.quality_rating} /></div>
           </div>
         )}
+
+        {/* Display Name Management */}
+        <div className="mt-3 pt-3 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div className="text-[12px]">
+              <span className="text-muted-foreground">Display naam:</span>{" "}
+              <span className="font-medium">{displayNameInfo?.verified_name || quality?.verified_name || "—"}</span>
+              {displayNameInfo?.name_status && (
+                <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  displayNameInfo.name_status === "APPROVED" ? "bg-success/10 text-success" :
+                  displayNameInfo.name_status === "DECLINED" ? "bg-destructive/10 text-destructive" :
+                  "bg-warning/10 text-warning"
+                }`}>
+                  {displayNameInfo.name_status}
+                </span>
+              )}
+              {displayNameInfo?.new_display_name && (
+                <span className="block text-[11px] text-muted-foreground mt-0.5">
+                  Nieuwe naam in review: <span className="font-medium">{displayNameInfo.new_display_name}</span>
+                  {displayNameInfo.new_name_status && (
+                    <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                      displayNameInfo.new_name_status === "APPROVED" ? "bg-success/10 text-success" :
+                      displayNameInfo.new_name_status === "PENDING_REVIEW" ? "bg-warning/10 text-warning" :
+                      "bg-destructive/10 text-destructive"
+                    }`}>
+                      {displayNameInfo.new_name_status}
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
+            {!editDisplayName && (
+              <button onClick={() => { setNewDisplayName(displayNameInfo?.verified_name || quality?.verified_name || ""); setEditDisplayName(true); }}
+                className="px-3 py-1.5 bg-secondary text-secondary-foreground rounded-sm text-[11px] font-medium hover:bg-secondary/80 transition-colors">
+                Wijzigen
+              </button>
+            )}
+          </div>
+          {editDisplayName && (
+            <div className="flex items-center gap-2 mt-2">
+              <input value={newDisplayName} onChange={e => setNewDisplayName(e.target.value)}
+                className={inputClass + " flex-1"} placeholder="Nieuwe display naam" maxLength={512} />
+              <button onClick={handleUpdateDisplayName} disabled={updatingDisplayName || !newDisplayName.trim()}
+                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-sm text-[11px] font-bold hover:bg-primary-hover disabled:opacity-50">
+                {updatingDisplayName ? "Opslaan..." : "Opslaan"}
+              </button>
+              <button onClick={() => setEditDisplayName(false)} className="px-3 py-1.5 bg-secondary text-secondary-foreground rounded-sm text-[11px] font-medium">
+                Annuleren
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Disconnect dialog */}
