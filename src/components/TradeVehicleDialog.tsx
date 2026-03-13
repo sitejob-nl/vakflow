@@ -178,11 +178,9 @@ export const TradeVehicleDialog = ({ open, onOpenChange, vehicle, onSave }: Prop
                 <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="intake">Intake</SelectItem>
-                    <SelectItem value="in_opknapbeurt">In opknapbeurt</SelectItem>
-                    <SelectItem value="te_koop">Te koop</SelectItem>
-                    <SelectItem value="verkocht">Verkocht</SelectItem>
-                    <SelectItem value="afgekeurd">Afgekeurd</SelectItem>
+                    {PIPELINE_STATUSES.map(s => (
+                      <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
