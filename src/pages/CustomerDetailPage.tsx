@@ -162,30 +162,15 @@ const CustomerDetailPage = () => {
     }
   };
 
-  // Customer call records
-  const { data: customerCalls } = useQuery({
-    queryKey: ["customer-calls", params.customerId],
-    enabled: hasVoip && !!params.customerId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("call_records")
-        .select("*")
-        .eq("customer_id", params.customerId!)
-        .order("started_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
   const callStats = useMemo(() => {
     if (!customerCalls) return { total: 0, answered: 0, missed: 0, totalDuration: 0 };
-    const answered = customerCalls.filter(c => c.status === "answered" || c.ended_at).length;
-    const missed = customerCalls.filter(c => c.status === "missed" || (c.status === "ringing" && c.ended_at && !c.answered_at)).length;
+    const answered = customerCalls.filter(c => c.status === "answered" || (c.ended_at && c.answered_at)).length;
+    const missed = customerCalls.filter(c => c.status === "missed" || (c.ended_at && !c.answered_at)).length;
     const totalDuration = customerCalls.reduce((sum, c) => sum + (c.duration_seconds ?? 0), 0);
     return { total: customerCalls.length, answered, missed: missed || customerCalls.length - answered, totalDuration };
   }, [customerCalls]);
 
-  const formatDuration = (seconds: number) => {
+  const formatCallDuration = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     if (h > 0) return `${h}u ${m}m`;
