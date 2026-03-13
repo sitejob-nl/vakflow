@@ -82,6 +82,13 @@ function buildMetaBody(body: Record<string, unknown>, normalizedTo: string): Rec
       metaBody.type = "interactive";
       metaBody.interactive = body.interactive;
       break;
+    case "address":
+      metaBody.type = "address_message";
+      metaBody.address_message = body.address_message || {
+        country: body.country || "NL",
+        values: body.values || {},
+      };
+      break;
     default:
       throw new Error(`Onbekend berichttype: ${type}`);
   }
