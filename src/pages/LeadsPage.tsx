@@ -241,6 +241,7 @@ const LeadsPage = () => {
                                   {lead.phone && (
                                     <span className="flex items-center gap-0.5">
                                       <Phone className="h-3 w-3" /> {lead.phone}
+                                      <ClickToDialButton phoneNumber={lead.phone} variant="icon" />
                                     </span>
                                   )}
                                 </div>

@@ -385,6 +385,12 @@ const CustomersPage = () => {
                         <button onClick={(e) => { e.stopPropagation(); navigate("custDetail", { customerId: c.id }); }} className="text-[11px] text-primary hover:underline font-bold">Stel in</button>
                       )}
                     </td>
+                    <td className="px-5 py-3">
+                      <span className="flex items-center gap-1 text-[12px] font-mono">
+                        {c.phone || "—"}
+                        <ClickToDialButton phoneNumber={c.phone} customerId={c.id} variant="icon" />
+                      </span>
+                    </td>
                     <td className="px-5 py-3 text-[12px] font-mono">{c.interval_months} mnd</td>
                     <td className="px-5 py-3">
                       {c.whatsapp_optin ? (
