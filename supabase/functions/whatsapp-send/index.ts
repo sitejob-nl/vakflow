@@ -103,7 +103,7 @@ function contentSummary(body: Record<string, unknown>): string {
     case "template": return (body.preview as string) || `Template: ${(body.template as any)?.name}`;
     case "image": return body.caption ? `📷 ${body.caption}` : "📷 Afbeelding";
     case "video": return body.caption ? `🎥 ${body.caption}` : "🎥 Video";
-    case "audio": return "🎵 Audio";
+    case "audio": return body.voice ? "🎤 Spraakbericht" : "🎵 Audio";
     case "document": return `📄 ${body.filename || "Document"}`;
     case "sticker": return "🏷️ Sticker";
     case "location": return `📍 ${body.name || "Locatie"}`;
