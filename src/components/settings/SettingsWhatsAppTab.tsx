@@ -240,16 +240,27 @@ const SettingsWhatsAppTab = () => {
   const handleCreateTemplate = async () => {
     if (!tplName || !tplBody) return;
     try {
+      const components: any[] = [];
+      if (tplHeader) components.push({ type: "HEADER", format: "TEXT", text: tplHeader });
+      components.push({ type: "BODY", text: tplBody });
+      if (tplFooter) components.push({ type: "FOOTER", text: tplFooter });
+      if (tplButtons.length > 0) {
+        components.push({ type: "BUTTONS", buttons: tplButtons });
+      }
+
       await createTemplate.mutateAsync({
         name: tplName.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
         category: tplCategory,
         language: "nl",
-        components: [{ type: "BODY", text: tplBody }],
+        components,
       });
       toast({ title: "Template aangemaakt" });
       setShowCreateTemplate(false);
       setTplName("");
       setTplBody("");
+      setTplHeader("");
+      setTplFooter("");
+      setTplButtons([]);
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
     }
