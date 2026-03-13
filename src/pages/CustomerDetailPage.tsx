@@ -57,7 +57,8 @@ const CustomerDetailPage = () => {
   const { data: allInvoices } = useInvoices();
   const deleteCustomer = useDeleteCustomer();
   const { data: addresses } = useAddresses(params.customerId);
-  const { companyId } = useAuth();
+  const { companyId, enabledFeatures } = useAuth();
+  const hasVoip = enabledFeatures.includes("voip");
   const { data: commLogs } = useCommunicationLogs(params.customerId, companyId);
   const deleteAddress = useDeleteAddress();
   const [editOpen, setEditOpen] = useState(false);
