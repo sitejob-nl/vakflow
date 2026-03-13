@@ -890,6 +890,7 @@ const SettingsAccountingTab = () => {
     if (key === "exact") return exactConnected ? "connected" : "not_connected";
     if (key === "wefact") return hasTokens.wefact ? "connected" : "not_connected";
     if (key === "moneybird") return hasTokens.moneybird ? "connected" : "not_connected";
+    if (key === "eboekhouden") return hasTokens.eboekhouden ? "connected" : "not_connected";
     return "not_connected";
   };
 
