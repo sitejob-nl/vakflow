@@ -34,6 +34,7 @@ const MarketingPage = () => {
   const messengerConvos = useMetaConversations("messenger");
   const instagramConvos = useMetaConversations("instagram");
   const { postsQuery, fetchPosts, publishPost } = useMetaPagePosts();
+  const { configQuery: marketingConfig, campaignsQuery, insightsQuery } = useMetaMarketing();
 
   const [convertDialog, setConvertDialog] = useState<{ open: boolean; leadId: string; data: any }>({ open: false, leadId: "", data: {} });
   const [convertForm, setConvertForm] = useState({ name: "", email: "", phone: "" });
