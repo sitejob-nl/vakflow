@@ -52,7 +52,9 @@ function buildMetaBody(body: Record<string, unknown>, normalizedTo: string): Rec
       break;
     case "audio":
       metaBody.type = "audio";
-      metaBody.audio = body.media_id ? { id: body.media_id } : { link: body.link };
+      metaBody.audio = body.media_id
+        ? { id: body.media_id, ...(body.voice ? { voice: true } : {}) }
+        : { link: body.link, ...(body.voice ? { voice: true } : {}) };
       break;
     case "document":
       metaBody.type = "document";
@@ -80,6 +82,13 @@ function buildMetaBody(body: Record<string, unknown>, normalizedTo: string): Rec
       metaBody.type = "interactive";
       metaBody.interactive = body.interactive;
       break;
+    case "address":
+      metaBody.type = "address_message";
+      metaBody.address_message = body.address_message || {
+        country: body.country || "NL",
+        values: body.values || {},
+      };
+      break;
     default:
       throw new Error(`Onbekend berichttype: ${type}`);
   }
@@ -94,13 +103,14 @@ function contentSummary(body: Record<string, unknown>): string {
     case "template": return (body.preview as string) || `Template: ${(body.template as any)?.name}`;
     case "image": return body.caption ? `📷 ${body.caption}` : "📷 Afbeelding";
     case "video": return body.caption ? `🎥 ${body.caption}` : "🎥 Video";
-    case "audio": return "🎵 Audio";
+    case "audio": return body.voice ? "🎤 Spraakbericht" : "🎵 Audio";
     case "document": return `📄 ${body.filename || "Document"}`;
     case "sticker": return "🏷️ Sticker";
     case "location": return `📍 ${body.name || "Locatie"}`;
     case "contacts": return "👤 Contact";
     case "reaction": return `${body.emoji || "👍"}`;
     case "interactive": return "💬 Interactief bericht";
+    case "address": return "📬 Adresverzoek";
     default: return t;
   }
 }
