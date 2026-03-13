@@ -1,10 +1,12 @@
-// meta-marketing-webhook — Ontvangt doorgestuurde Meta webhooks van SiteJob Connect
-// Verificatie via X-Webhook-Secret header
+// meta-marketing-webhook — Legacy endpoint, kept for backward compatibility
+// New webhook traffic should go to connect-meta-webhook instead.
+// Uses locally stored tokens (push-model) instead of fetching from Connect.
 
 import { jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient } from "../_shared/supabase.ts";
 import { logEdgeFunctionError } from "../_shared/error-logger.ts";
-import { getMetaMarketingToken } from "../_shared/meta-marketing-connect.ts";
+
+const GRAPH_BASE = "https://graph.facebook.com/v21.0";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return optionsResponse();
@@ -13,7 +15,6 @@ Deno.serve(async (req) => {
   if (req.method === "GET") {
     const url = new URL(req.url);
     const mode = url.searchParams.get("hub.mode");
-    const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
     if (mode === "subscribe" && challenge) {
       console.log("meta-marketing-webhook: verification challenge accepted");
@@ -23,7 +24,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const webhookSecret = req.headers.get("x-webhook-secret");
+    const webhookSecret = req.headers.get("x-webhook-secret") || req.headers.get("x-sitejob-signature") || "";
     if (!webhookSecret) {
       return jsonRes({ error: "Missing webhook secret" }, 401);
     }
@@ -31,7 +32,6 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const admin = createAdminClient();
 
-    // Determine page_id or ad_account_id from webhook payload
     const entries = body.entry || [];
     if (!entries.length) {
       return jsonRes({ ok: true, skipped: "no_entries" });
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     // Find the tenant config via webhook_secret
     const { data: config } = await admin
       .from("meta_marketing_config")
-      .select("id, company_id, tenant_id, webhook_secret")
+      .select("id, company_id, tenant_id, webhook_secret, user_access_token")
       .eq("webhook_secret", webhookSecret)
       .maybeSingle();
 
@@ -58,15 +58,14 @@ Deno.serve(async (req) => {
         const value = change.value || {};
 
         if (field === "leadgen") {
-          // Lead Ads webhook — fetch lead data and store
           try {
-            const token = await getMetaMarketingToken({
-              tenant_id: config.tenant_id!,
-              webhook_secret: config.webhook_secret!,
-            });
+            if (!config.user_access_token) {
+              console.error("meta-marketing-webhook: no stored token for lead fetch");
+              continue;
+            }
 
             const leadRes = await fetch(
-              `https://graph.facebook.com/v25.0/${value.leadgen_id}?access_token=${token.user_access_token}`
+              `${GRAPH_BASE}/${value.leadgen_id}?access_token=${config.user_access_token}`
             );
 
             if (leadRes.ok) {
@@ -94,10 +93,8 @@ Deno.serve(async (req) => {
           }
         } else if (field === "feed") {
           console.log("meta-marketing-webhook: feed event for company:", config.company_id);
-          // Feed events can be processed later
         } else if (field === "messages") {
           console.log("meta-marketing-webhook: message event for company:", config.company_id);
-          // Message events can be processed later
         }
       }
     }
