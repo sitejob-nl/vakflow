@@ -29,6 +29,7 @@ export type Page =
   | "projDetail"
   | "leads"
   | "calltracking"
+  | "aiconversations"
   | "accounting"
   | "hexon"
   | "superadmin";
