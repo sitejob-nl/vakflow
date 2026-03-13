@@ -816,6 +816,7 @@ const EBOEKHOUDEN_ACTIONS = [
   { action: "sync-all-invoices", label: "Facturen synchroniseren", icon: "📄" },
   { action: "pull-invoices", label: "Facturen ophalen", icon: "⬇️" },
   { action: "pull-invoice-status", label: "Betalingsstatus ophalen", icon: "💰" },
+  { action: "sync-quote", label: "Offertes synchroniseren", icon: "📋" },
 ] as const;
 
 const EBoekhoudenSection = ({ companyId, hasToken, activeProvider, onConnected, onDisconnected, onSetActive }: EBoekhoudenSectionProps) => {
