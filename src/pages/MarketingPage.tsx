@@ -11,8 +11,9 @@ import { useMetaLeads } from "@/hooks/useMetaLeads";
 import { useMetaConversations } from "@/hooks/useMetaConversations";
 import { useMetaConfig } from "@/hooks/useMetaConfig";
 import { useMetaPagePosts } from "@/hooks/useMetaPagePosts";
+import { useMetaMarketing } from "@/hooks/useMetaMarketing";
 import { toast } from "@/hooks/use-toast";
-import { Users, MessageSquare, Instagram, FileText, RefreshCw, UserPlus, Send, ThumbsUp, MessageCircle, Share2, Plus } from "lucide-react";
+import { Users, MessageSquare, Instagram, FileText, RefreshCw, UserPlus, Send, ThumbsUp, MessageCircle, Share2, Plus, Megaphone, TrendingUp, Eye, MousePointer, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
@@ -33,6 +34,7 @@ const MarketingPage = () => {
   const messengerConvos = useMetaConversations("messenger");
   const instagramConvos = useMetaConversations("instagram");
   const { postsQuery, fetchPosts, publishPost } = useMetaPagePosts();
+  const { configQuery: marketingConfig, campaignsQuery, insightsQuery } = useMetaMarketing();
 
   const [convertDialog, setConvertDialog] = useState<{ open: boolean; leadId: string; data: any }>({ open: false, leadId: "", data: {} });
   const [convertForm, setConvertForm] = useState({ name: "", email: "", phone: "" });
@@ -152,10 +154,90 @@ const MarketingPage = () => {
       <Tabs defaultValue="leads">
         <TabsList>
           <TabsTrigger value="leads" className="gap-1.5"><Users className="w-4 h-4" /> Leads</TabsTrigger>
+          <TabsTrigger value="ads" className="gap-1.5"><Megaphone className="w-4 h-4" /> Advertenties</TabsTrigger>
           <TabsTrigger value="messenger" className="gap-1.5"><MessageSquare className="w-4 h-4" /> Messenger</TabsTrigger>
           <TabsTrigger value="instagram" className="gap-1.5"><Instagram className="w-4 h-4" /> Instagram</TabsTrigger>
           <TabsTrigger value="page" className="gap-1.5"><FileText className="w-4 h-4" /> Pagina</TabsTrigger>
         </TabsList>
+
+        {/* ADS TAB */}
+        <TabsContent value="ads">
+          <div className="space-y-4">
+            {/* Insights overview */}
+            {insightsQuery.data && (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {[
+                  { label: "Impressies", value: insightsQuery.data.impressions || "0", icon: Eye },
+                  { label: "Klikken", value: insightsQuery.data.clicks || "0", icon: MousePointer },
+                  { label: "Bereik", value: insightsQuery.data.reach || "0", icon: TrendingUp },
+                  { label: "Uitgaven", value: `€${Number(insightsQuery.data.spend || 0).toFixed(2)}`, icon: DollarSign },
+                  { label: "CTR", value: `${Number(insightsQuery.data.ctr || 0).toFixed(2)}%`, icon: TrendingUp },
+                ].map((stat) => (
+                  <Card key={stat.label}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                        <stat.icon className="w-3.5 h-3.5" />
+                        <span className="text-[11px]">{stat.label}</span>
+                      </div>
+                      <p className="text-lg font-bold">{stat.value}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Campaigns table */}
+            <Card>
+              <CardHeader className="flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Campagnes</CardTitle>
+                  <CardDescription>Overzicht van je Meta Ads campagnes (laatste 30 dagen)</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => campaignsQuery.refetch()} disabled={campaignsQuery.isRefetching}>
+                  <RefreshCw className={`w-4 h-4 mr-1 ${campaignsQuery.isRefetching ? "animate-spin" : ""}`} /> Vernieuwen
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {!marketingConfig.data?.connected ? (
+                  <p className="text-muted-foreground text-sm py-8 text-center">
+                    Koppel je Meta Ads account via Instellingen → Meta om campagnes te zien.
+                  </p>
+                ) : !campaignsQuery.data?.length ? (
+                  <p className="text-muted-foreground text-sm py-8 text-center">
+                    Geen campagnes gevonden in dit ad account.
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Campagne</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Doel</TableHead>
+                        <TableHead className="text-right">Dagbudget</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {campaignsQuery.data.map((campaign: any) => (
+                        <TableRow key={campaign.id}>
+                          <TableCell className="font-medium text-sm">{campaign.name}</TableCell>
+                          <TableCell>
+                            <Badge variant={campaign.status === "ACTIVE" ? "default" : "secondary"}>
+                              {campaign.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{campaign.objective || "—"}</TableCell>
+                          <TableCell className="text-right text-sm">
+                            {campaign.daily_budget ? `€${(Number(campaign.daily_budget) / 100).toFixed(2)}` : "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
         {/* LEADS TAB */}
         <TabsContent value="leads">

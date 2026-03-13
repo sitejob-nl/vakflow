@@ -1,126 +1,50 @@
 
 
-# Meta Marketing via SiteJob Connect — Implementatieplan
+# Apply uploaded edge function improvements
 
-## Huidige situatie
+The uploaded files contain improvements to 4 edge functions. Here's a summary of the changes from the patch file:
 
-Het project heeft al een **directe Meta/Facebook integratie** met eigen OAuth flow (`meta-oauth-url`, `meta-oauth-callback`), eigen token opslag in `meta_config` (columns: `page_access_token`, `user_access_token`, `page_id`, etc.), en een `meta-webhook` die direct Meta's HMAC-verificatie doet.
+## 1. `exact-webhook/index.ts` — Add invoice payment status processing
 
-De opdracht is om over te stappen naar **SiteJob Connect** als centraal token-management platform, net zoals Exact Online dat al doet. Dit betekent:
+Currently just logs and acknowledges webhooks. The update adds:
+- `getExactToken` helper to fetch access tokens from SiteJob Connect
+- `logEdgeFunctionError` import for error logging
+- Query `tenant_id` and `division` from `exact_config`
+- When a `SalesInvoices` webhook arrives, fetch the invoice from Exact to check if `Status === 50` (paid), and if so update the local invoice to `betaald`
 
-- OAuth flow verloopt via Connect (popup naar `connect.sitejob.nl`)
-- Tokens worden opgehaald via Connect's token endpoint (niet meer lokaal opgeslagen)
-- Webhooks worden doorgestuurd door Connect (met `X-Webhook-Secret` verificatie)
-- Config wordt gepusht door Connect na succesvolle koppeling
+## 2. `moneybird-webhook/index.ts` — Add URL-based webhook secret verification
 
-## Wat wordt gebouwd
+Currently validates only by `administration_id` match. The update adds:
+- Parse `?secret=` from the webhook URL
+- Reject requests without a secret parameter (401)
+- Verify the secret matches `company.moneybird_webhook_secret` (403 if mismatch)
+- Select `moneybird_webhook_secret` in the company query
 
-### 1. Database: `meta_marketing_config` tabel
+## 3. `sync-exact/index.ts` — Invoice sync improvements
 
-Nieuwe tabel naast bestaande `meta_config` (die blijft voor de legacy Messenger/Pages integratie):
+Three fixes:
+- **Fiscal year filter**: Only sync invoices from current year (`gte("issued_at", fiscalYearStart)`) to avoid closed-period errors
+- **VAT-exclusive pricing**: Convert `unit_price` (incl. BTW) to `NetPrice` (excl. BTW) using `vat_percentage` before pushing to Exact
+- **Error logging**: Log individual invoice sync failures via `logEdgeFunctionError`
+- Add `logEdgeFunctionError` import
 
-```sql
-CREATE TABLE public.meta_marketing_config (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE UNIQUE,
-  tenant_id text,
-  webhook_secret text,  -- encrypted opslaan
-  ad_account_id text,
-  ad_account_name text,
-  page_id text,
-  page_name text,
-  instagram_id text,
-  instagram_username text,
-  granted_scopes text,
-  is_connected boolean DEFAULT false,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-```
+Both the batch `sync-invoices` and single `push-invoice` cases get the VAT fix.
 
-RLS: admin-only per company, service role full access.
+## 4. `sync-moneybird/index.ts` — Secure webhook registration
 
-### 2. Edge Function: `meta-marketing-register` 
+Currently registers webhooks without a secret. The update:
+- Generates a random 32-byte hex secret
+- Appends `?secret={secret}` to the webhook callback URL
+- Stores the secret in `companies.moneybird_webhook_secret` after successful registration
 
-Registreert tenant bij SiteJob Connect (idempotent). Volgt exact het patroon van `exact-register`:
-- Authenticeer user, haal companyId
-- POST naar `meta-marketing-register-tenant` met `X-API-Key: CONNECT_API_KEY`
-- Sla `tenant_id` + `webhook_secret` op in `meta_marketing_config`
+## Files to modify
 
-### 3. Edge Function: `meta-marketing-config`
+| File | Change |
+|---|---|
+| `supabase/functions/exact-webhook/index.ts` | Replace with uploaded `index_36.ts` |
+| `supabase/functions/moneybird-webhook/index.ts` | Replace with uploaded `index_37.ts` |
+| `supabase/functions/sync-exact/index.ts` | Apply VAT fix, fiscal year filter, error logging |
+| `supabase/functions/sync-moneybird/index.ts` | Secure webhook registration with secret |
 
-Ontvangt config push van SiteJob Connect na OAuth:
-- `verify_jwt = false` in config.toml
-- Verificatie via `X-Webhook-Secret` header
-- Slaat `ad_account_id`, `page_id`, `instagram_id`, etc. op
-- Handelt `action: "disconnect"` af
-
-### 4. Edge Function: `meta-marketing-webhook`
-
-Ontvangt doorgestuurde Meta webhooks van Connect:
-- `verify_jwt = false`
-- Verificatie via `X-Webhook-Secret` header (lookup op tenant_id)
-- Verwerkt `leadgen`, `feed`, `messages` events
-- Slaat leads op in bestaande `meta_leads` tabel
-
-### 5. Shared module: `_shared/meta-marketing-connect.ts`
-
-Token-ophaal helper (zoals `exact-connect.ts`):
-
-```typescript
-export async function getMetaMarketingToken(config: { tenant_id: string; webhook_secret: string }) {
-  const res = await fetch(".../meta-marketing-token", {
-    method: "POST",
-    body: JSON.stringify({ tenant_id: config.tenant_id, secret: config.webhook_secret }),
-  });
-  // Returns user_access_token, page_access_token, ad_account_id, etc.
-}
-```
-
-### 6. Edge Function: `meta-marketing-api`
-
-Proxy voor Meta Graph API calls met verse tokens:
-- Actions: `campaigns`, `adsets`, `ads`, `insights`, `page-posts`, `publish-post`, `instagram-media`, `instagram-insights`, `status`
-- Haalt token op via `getMetaMarketingToken()` bij elke call
-- Voert Graph API call uit en retourneert resultaat
-
-### 7. UI: MetaSettingsTab uitbreiden
-
-Het bestaande `MetaSettingsTab.tsx` wordt uitgebreid met een "Meta Marketing (Ads)" sectie:
-- "Koppel via SiteJob Connect" knop opent popup naar `connect.sitejob.nl/meta-marketing-setup?tenant_id=...`
-- PostMessage listener voor `meta-marketing-connected` event
-- Status weergave: connected/disconnected, ad account naam, page naam
-- Ontkoppel knop
-
-### 8. UI: MarketingPage uitbreiden met Ads tab
-
-Nieuwe tab "Advertenties" met:
-- Campagne overzicht (naam, status, budget)
-- Ad account insights (impressions, clicks, spend, CPC, CTR) voor laatste 30 dagen
-- Instagram media overzicht
-
-### 9. Hook: `useMetaMarketing`
-
-React hook voor:
-- Config status ophalen
-- Tenant registreren
-- Token/status queries
-- Graph API calls via `meta-marketing-api`
-
-## Bestaande code
-
-De bestaande directe Meta integratie (`meta-api`, `meta-oauth-url`, `meta-oauth-callback`, `meta-webhook`) blijft intact. De nieuwe SiteJob Connect integratie is een parallelle, betere flow die de token-management outsourcet.
-
-## Volgorde van implementatie
-
-1. Database migratie (`meta_marketing_config`)
-2. Shared module `meta-marketing-connect.ts`
-3. Edge functions: `meta-marketing-register`, `meta-marketing-config`, `meta-marketing-webhook`, `meta-marketing-api`
-4. Config.toml updates
-5. Frontend hook `useMetaMarketing`
-6. UI: Settings tab + Marketing page uitbreiding
-
-## Secrets
-
-`CONNECT_API_KEY` is al geconfigureerd als Supabase secret. Geen nieuwe secrets nodig.
+All 4 functions will be redeployed. No database changes needed (`moneybird_webhook_secret` column already exists).
 

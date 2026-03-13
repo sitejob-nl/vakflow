@@ -2376,45 +2376,207 @@ export type Database = {
           },
         ]
       }
+      meta_ad_campaigns: {
+        Row: {
+          campaign_id: string
+          company_id: string
+          created_at: string | null
+          daily_budget: number | null
+          id: string
+          lifetime_budget: number | null
+          metadata: Json | null
+          name: string | null
+          objective: string | null
+          start_time: string | null
+          status: string | null
+          stop_time: string | null
+          synced_at: string | null
+        }
+        Insert: {
+          campaign_id: string
+          company_id: string
+          created_at?: string | null
+          daily_budget?: number | null
+          id?: string
+          lifetime_budget?: number | null
+          metadata?: Json | null
+          name?: string | null
+          objective?: string | null
+          start_time?: string | null
+          status?: string | null
+          stop_time?: string | null
+          synced_at?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          company_id?: string
+          created_at?: string | null
+          daily_budget?: number | null
+          id?: string
+          lifetime_budget?: number | null
+          metadata?: Json | null
+          name?: string | null
+          objective?: string | null
+          start_time?: string | null
+          status?: string | null
+          stop_time?: string | null
+          synced_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_ad_campaigns_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_ad_campaigns_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_ad_insights: {
+        Row: {
+          actions: Json | null
+          campaign_id: string
+          clicks: number | null
+          company_id: string
+          conversions: number | null
+          cost_per_conversion: number | null
+          cpc: number | null
+          cpm: number | null
+          ctr: number | null
+          date_start: string
+          date_stop: string
+          id: string
+          impressions: number | null
+          metadata: Json | null
+          reach: number | null
+          spend: number | null
+          synced_at: string | null
+        }
+        Insert: {
+          actions?: Json | null
+          campaign_id: string
+          clicks?: number | null
+          company_id: string
+          conversions?: number | null
+          cost_per_conversion?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          ctr?: number | null
+          date_start: string
+          date_stop: string
+          id?: string
+          impressions?: number | null
+          metadata?: Json | null
+          reach?: number | null
+          spend?: number | null
+          synced_at?: string | null
+        }
+        Update: {
+          actions?: Json | null
+          campaign_id?: string
+          clicks?: number | null
+          company_id?: string
+          conversions?: number | null
+          cost_per_conversion?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          ctr?: number | null
+          date_start?: string
+          date_stop?: string
+          id?: string
+          impressions?: number | null
+          metadata?: Json | null
+          reach?: number | null
+          spend?: number | null
+          synced_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_ad_insights_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_ad_insights_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_config: {
         Row: {
+          ad_account_id: string | null
+          ad_account_name: string | null
           app_id: string | null
           app_secret: string | null
+          business_id: string | null
           company_id: string
+          connect_tenant_id: string | null
+          connect_webhook_secret: string | null
           created_at: string
+          granted_scopes: string | null
           id: string
           instagram_account_id: string | null
+          instagram_username: string | null
           page_access_token: string | null
           page_id: string | null
           page_name: string | null
+          token_expires_at: string | null
           updated_at: string
           user_access_token: string | null
           webhook_verify_token: string | null
         }
         Insert: {
+          ad_account_id?: string | null
+          ad_account_name?: string | null
           app_id?: string | null
           app_secret?: string | null
+          business_id?: string | null
           company_id: string
+          connect_tenant_id?: string | null
+          connect_webhook_secret?: string | null
           created_at?: string
+          granted_scopes?: string | null
           id?: string
           instagram_account_id?: string | null
+          instagram_username?: string | null
           page_access_token?: string | null
           page_id?: string | null
           page_name?: string | null
+          token_expires_at?: string | null
           updated_at?: string
           user_access_token?: string | null
           webhook_verify_token?: string | null
         }
         Update: {
+          ad_account_id?: string | null
+          ad_account_name?: string | null
           app_id?: string | null
           app_secret?: string | null
+          business_id?: string | null
           company_id?: string
+          connect_tenant_id?: string | null
+          connect_webhook_secret?: string | null
           created_at?: string
+          granted_scopes?: string | null
           id?: string
           instagram_account_id?: string | null
+          instagram_username?: string | null
           page_access_token?: string | null
           page_id?: string | null
           page_name?: string | null
+          token_expires_at?: string | null
           updated_at?: string
           user_access_token?: string | null
           webhook_verify_token?: string | null
@@ -2500,6 +2662,72 @@ export type Database = {
           },
         ]
       }
+      meta_instagram_posts: {
+        Row: {
+          caption: string | null
+          comments_count: number | null
+          company_id: string
+          engagement: number | null
+          id: string
+          impressions: number | null
+          like_count: number | null
+          media_id: string
+          media_type: string | null
+          metadata: Json | null
+          permalink: string | null
+          reach: number | null
+          synced_at: string | null
+          timestamp: string | null
+        }
+        Insert: {
+          caption?: string | null
+          comments_count?: number | null
+          company_id: string
+          engagement?: number | null
+          id?: string
+          impressions?: number | null
+          like_count?: number | null
+          media_id: string
+          media_type?: string | null
+          metadata?: Json | null
+          permalink?: string | null
+          reach?: number | null
+          synced_at?: string | null
+          timestamp?: string | null
+        }
+        Update: {
+          caption?: string | null
+          comments_count?: number | null
+          company_id?: string
+          engagement?: number | null
+          id?: string
+          impressions?: number | null
+          like_count?: number | null
+          media_id?: string
+          media_type?: string | null
+          metadata?: Json | null
+          permalink?: string | null
+          reach?: number | null
+          synced_at?: string | null
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_instagram_posts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_instagram_posts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_leads: {
         Row: {
           company_id: string
@@ -2557,6 +2785,72 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_marketing_config: {
+        Row: {
+          ad_account_id: string | null
+          ad_account_name: string | null
+          company_id: string
+          created_at: string | null
+          granted_scopes: string | null
+          id: string
+          instagram_id: string | null
+          instagram_username: string | null
+          is_connected: boolean | null
+          page_id: string | null
+          page_name: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          webhook_secret: string | null
+        }
+        Insert: {
+          ad_account_id?: string | null
+          ad_account_name?: string | null
+          company_id: string
+          created_at?: string | null
+          granted_scopes?: string | null
+          id?: string
+          instagram_id?: string | null
+          instagram_username?: string | null
+          is_connected?: boolean | null
+          page_id?: string | null
+          page_name?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+        }
+        Update: {
+          ad_account_id?: string | null
+          ad_account_name?: string | null
+          company_id?: string
+          created_at?: string | null
+          granted_scopes?: string | null
+          id?: string
+          instagram_id?: string | null
+          instagram_username?: string | null
+          is_connected?: boolean | null
+          page_id?: string | null
+          page_name?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_marketing_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_marketing_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies_safe"
             referencedColumns: ["id"]
           },
         ]
