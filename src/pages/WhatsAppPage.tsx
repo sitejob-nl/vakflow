@@ -3,18 +3,21 @@ import { useWhatsAppMessages } from "@/hooks/useWhatsAppMessages";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useWhatsAppStatus } from "@/hooks/useWhatsAppStatus";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
-  MessageSquare, Search, Loader2, XCircle, CheckCheck, ArrowLeft, User,
+  MessageSquare, Search, Loader2, XCircle, CheckCheck, ArrowLeft, User, Bot,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import WhatsAppChat from "@/components/WhatsAppChat";
 import ComposeWhatsAppDialog from "@/components/ComposeWhatsAppDialog";
 
 const WhatsAppPage = () => {
-  const { companyId } = useAuth();
+  const { companyId, enabledFeatures } = useAuth();
   const { data: waMessages, isLoading } = useWhatsAppMessages(undefined, companyId);
   const { data: customers } = useCustomers();
   const { data: waStatus } = useWhatsAppStatus();
@@ -22,6 +25,39 @@ const WhatsAppPage = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [composeOpen, setComposeOpen] = useState(false);
+
+  const hasAiAgent = enabledFeatures.includes("ai_agent");
+
+  // Fetch active AI conversations for this company
+  const { data: activeAiConvos } = useQuery({
+    queryKey: ["active-ai-conversations", companyId],
+    enabled: !!companyId && hasAiAgent,
+    refetchInterval: 10_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("ai_conversations")
+        .select("id, phone_number, customer_id, status")
+        .eq("company_id", companyId!)
+        .eq("status", "active");
+      return data ?? [];
+    },
+  });
+
+  // Build a set of customer IDs with active AI conversations
+  const aiActiveCustomerIds = useMemo(() => {
+    if (!activeAiConvos || !hasAiAgent) return new Set<string>();
+    const ids = new Set<string>();
+    for (const conv of activeAiConvos) {
+      if (conv.customer_id) ids.add(conv.customer_id);
+    }
+    return ids;
+  }, [activeAiConvos, hasAiAgent]);
+
+  // Also match by phone number for conversations without customer_id
+  const aiActivePhones = useMemo(() => {
+    if (!activeAiConvos || !hasAiAgent) return new Set<string>();
+    return new Set(activeAiConvos.map(c => c.phone_number?.replace(/[^0-9]/g, "")));
+  }, [activeAiConvos, hasAiAgent]);
 
   // Build conversations grouped by customer
   const conversations = useMemo(() => {
@@ -58,7 +94,6 @@ const WhatsAppPage = () => {
           status: msg.status,
         });
       } else {
-        // Count unread
         if ((msg.direction === "incoming" || msg.direction === "inbound") && msg.status !== "read") {
           existing.unread += 1;
         }
@@ -80,6 +115,31 @@ const WhatsAppPage = () => {
 
   const selectedCustomer = customers?.find((c) => c.id === selectedCustomerId);
   const selectedConvo = conversations.find((c) => c.customerId === selectedCustomerId);
+
+  // Check if the selected customer has an active AI conversation
+  const selectedHasAi = useMemo(() => {
+    if (!hasAiAgent || !selectedCustomerId) return false;
+    if (aiActiveCustomerIds.has(selectedCustomerId)) return true;
+    const phone = selectedCustomer?.phone?.replace(/[^0-9]/g, "");
+    return phone ? aiActivePhones.has(phone) : false;
+  }, [hasAiAgent, selectedCustomerId, aiActiveCustomerIds, aiActivePhones, selectedCustomer]);
+
+  // Find the AI conversation ID for the selected customer
+  const selectedAiConvoId = useMemo(() => {
+    if (!selectedHasAi || !activeAiConvos) return null;
+    const match = activeAiConvos.find(c =>
+      c.customer_id === selectedCustomerId ||
+      c.phone_number?.replace(/[^0-9]/g, "") === selectedCustomer?.phone?.replace(/[^0-9]/g, "")
+    );
+    return match?.id ?? null;
+  }, [selectedHasAi, activeAiConvos, selectedCustomerId, selectedCustomer]);
+
+  const isAiActiveForCustomer = (customerId: string, phone: string | null) => {
+    if (!hasAiAgent) return false;
+    if (aiActiveCustomerIds.has(customerId)) return true;
+    const cleanPhone = phone?.replace(/[^0-9]/g, "");
+    return cleanPhone ? aiActivePhones.has(cleanPhone) : false;
+  };
 
   if (!waStatus?.connected) {
     return (
@@ -111,9 +171,8 @@ const WhatsAppPage = () => {
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-0 bg-card border border-border rounded-lg shadow-card overflow-hidden min-h-[600px]">
-        {/* Contact list - hidden on mobile when chat selected */}
+        {/* Contact list */}
         <div className={`border-r border-border flex flex-col ${selectedCustomerId ? "hidden lg:flex" : "flex"}`}>
-          {/* Search */}
           <div className="p-3 border-b border-border">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -126,7 +185,6 @@ const WhatsAppPage = () => {
             </div>
           </div>
 
-          {/* Conversation list */}
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
               <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
@@ -143,6 +201,7 @@ const WhatsAppPage = () => {
                   const timeStr = isToday
                     ? format(lastDate, "HH:mm")
                     : format(lastDate, "dd MMM", { locale: nl });
+                  const hasAi = isAiActiveForCustomer(convo.customerId, convo.customerPhone);
 
                   return (
                     <button
@@ -157,7 +216,17 @@ const WhatsAppPage = () => {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-[13px] font-bold truncate">{convo.customerName}</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[13px] font-bold truncate">{convo.customerName}</span>
+                            {hasAi && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Bot className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+                                </TooltipTrigger>
+                                <TooltipContent side="right" className="text-xs">AI agent actief</TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
                           <span className="text-[10px] text-muted-foreground font-mono shrink-0 ml-2">{timeStr}</span>
                         </div>
                         <div className="flex items-center justify-between mt-0.5">
@@ -212,6 +281,8 @@ const WhatsAppPage = () => {
                   customerId={selectedCustomerId}
                   customerPhone={selectedCustomer.phone}
                   customerName={selectedCustomer.name}
+                  aiActive={selectedHasAi}
+                  aiConversationId={selectedAiConvoId}
                 />
               </div>
             </>
