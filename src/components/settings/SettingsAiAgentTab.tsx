@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useToast } from "@/hooks/use-toast";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
-import { Loader2, X, Plus, GripVertical, Bot, Eye, EyeOff } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, X, Plus, GripVertical, Bot, Eye, EyeOff, MessageSquare, Send, FlaskConical, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SETTINGS_INPUT_CLASS as inputClass, SETTINGS_LABEL_CLASS as labelClass } from "./shared";
 
@@ -88,8 +92,37 @@ const DEFAULT: AgentForm = {
   voice_id: "",
 };
 
+// Industry-specific example conversations
+const EXAMPLE_CONVERSATIONS: Record<string, { role: "customer" | "ai"; text: string }[]> = {
+  automotive: [
+    { role: "customer", text: "Hallo, ik wil graag een APK laten doen." },
+    { role: "ai", text: "Wat is het kenteken van uw voertuig?" },
+    { role: "customer", text: "AB-123-CD" },
+    { role: "ai", text: "Wat is de klacht of het probleem?" },
+    { role: "customer", text: "Geen klachten, alleen APK." },
+    { role: "ai", text: "Hoe urgent is het?" },
+  ],
+  technical: [
+    { role: "customer", text: "Hallo, mijn CV-ketel doet het niet meer." },
+    { role: "ai", text: "Wat is uw adres?" },
+    { role: "customer", text: "Keizersgracht 42, Amsterdam" },
+    { role: "ai", text: "Hoe urgent is het probleem?" },
+    { role: "customer", text: "Best dringend, we hebben geen warm water." },
+    { role: "ai", text: "Ik begrijp de urgentie. Wat is uw naam?" },
+  ],
+  cleaning: [
+    { role: "customer", text: "Ik wil graag een offerte voor schoonmaak." },
+    { role: "ai", text: "Wat is de locatie van het pand?" },
+    { role: "customer", text: "Herengracht 100, Amsterdam" },
+    { role: "ai", text: "Hoeveel vierkante meter betreft het?" },
+    { role: "customer", text: "Ongeveer 200m²" },
+    { role: "ai", text: "Hoe vaak wilt u de schoonmaak laten uitvoeren?" },
+  ],
+};
+
 const SettingsAiAgentTab = () => {
   const { companyId } = useAuth();
+  const { industry } = useIndustryConfig();
   const { toast } = useToast();
   const { data: teamMembers } = useTeamMembers();
   const [loading, setLoading] = useState(true);
@@ -98,6 +131,35 @@ const SettingsAiAgentTab = () => {
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
+  const [testOpen, setTestOpen] = useState(false);
+
+  // Stats query
+  const { data: stats } = useQuery({
+    queryKey: ["ai-agent-stats", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+      const { data } = await supabase
+        .from("ai_conversations")
+        .select("status, current_step")
+        .eq("company_id", companyId!)
+        .gte("created_at", thirtyDaysAgo);
+      const all = data ?? [];
+      const total = all.length;
+      const completed = all.filter(c => c.status === "completed").length;
+      const escalated = all.filter(c => c.status === "escalated").length;
+      const completedSteps = all.filter(c => c.status === "completed" && c.current_step);
+      const avgSteps = completedSteps.length
+        ? Math.round(completedSteps.reduce((s, c) => s + (c.current_step ?? 0), 0) / completedSteps.length * 10) / 10
+        : 0;
+      return {
+        total,
+        completedPct: total ? Math.round(completed / total * 100) : 0,
+        escalatedPct: total ? Math.round(escalated / total * 100) : 0,
+        avgSteps,
+      };
+    },
+  });
 
   useEffect(() => {
     if (!companyId) return;
@@ -208,253 +270,426 @@ const SettingsAiAgentTab = () => {
       : [...prev.escalation_users, userId],
   }));
 
+  // Live preview messages
+  const previewMessages = useMemo(() => {
+    const msgs: { role: "customer" | "ai"; text: string }[] = [];
+    const greeting = form.greeting_text || "Goedemiddag! Ik help u graag verder.";
+    msgs.push({ role: "ai", text: greeting });
+
+    const examples = EXAMPLE_CONVERSATIONS[industry] || EXAMPLE_CONVERSATIONS.technical;
+    // Interleave with actual intake questions
+    const questions = form.intake_questions.filter(q => q.trim());
+    for (let i = 0; i < Math.min(questions.length, 3); i++) {
+      if (examples[i * 2]) msgs.push(examples[i * 2]); // customer message
+      msgs.push({ role: "ai", text: questions[i] });
+    }
+    if (examples.length > questions.length * 2) {
+      msgs.push(examples[Math.min(questions.length * 2, examples.length - 1)]);
+    }
+
+    return msgs;
+  }, [form.greeting_text, form.intake_questions, industry]);
+
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <div className="bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-6">
-      {/* Algemeen */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${form.enabled ? "bg-emerald-500/15" : "bg-muted"}`}>
-              <Bot className={`h-5 w-5 ${form.enabled ? "text-emerald-600" : "text-muted-foreground"}`} />
-            </div>
-            <div>
-              <h3 className="text-[14px] font-bold">AI Agent</h3>
-              <p className="text-[11px] text-muted-foreground">{form.enabled ? "Actief — beantwoordt gesprekken automatisch" : "Inactief"}</p>
-            </div>
-          </div>
-          <Switch checked={form.enabled} onCheckedChange={v => setForm(prev => ({ ...prev, enabled: v }))} />
-        </div>
-
-        <div className="space-y-3">
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Settings */}
+        <div className="lg:col-span-2 bg-card border border-border rounded-lg shadow-card p-5 md:p-6 space-y-6">
+          {/* Algemeen */}
           <div>
-            <label className={labelClass}>Taal</label>
-            <Select value={form.language} onValueChange={v => setForm(prev => ({ ...prev, language: v }))}>
-              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="nl">Nederlands</SelectItem>
-                <SelectItem value="en">Engels</SelectItem>
-                <SelectItem value="de">Duits</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className={labelClass}>Begroetingstekst</label>
-            <Textarea
-              value={form.greeting_text}
-              onChange={e => setForm(prev => ({ ...prev, greeting_text: e.target.value }))}
-              placeholder="Goedemiddag, [bedrijfsnaam]. Ik help u graag verder."
-              rows={2}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Intake vragen */}
-      <div className="border-t border-border pt-5">
-        <h3 className="text-[14px] font-bold mb-3">Intake vragen</h3>
-        <div className="space-y-2">
-          {form.intake_questions.map((q, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <button
-                type="button"
-                className="cursor-grab text-muted-foreground hover:text-foreground flex flex-col"
-                onClick={() => moveQuestion(i, -1)}
-                title="Omhoog"
-              >
-                <GripVertical className="h-4 w-4" />
-              </button>
-              <input
-                value={q}
-                onChange={e => updateQuestion(i, e.target.value)}
-                className={`${inputClass} flex-1`}
-                placeholder="Stel een vraag..."
-              />
-              <button onClick={() => removeQuestion(i)} className="text-muted-foreground hover:text-destructive">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
-        </div>
-        <Button size="sm" variant="outline" onClick={addQuestion} className="mt-2 gap-1">
-          <Plus className="h-3.5 w-3.5" /> Vraag toevoegen
-        </Button>
-      </div>
-
-      {/* Routing */}
-      <div className="border-t border-border pt-5">
-        <h3 className="text-[14px] font-bold mb-3">Routing</h3>
-        <div className="space-y-3">
-          {form.routing_rules.map((rule, i) => (
-            <RoutingRuleRow key={i} rule={rule} onChange={patch => updateRule(i, patch)} onRemove={() => removeRule(i)} />
-          ))}
-        </div>
-        <Button size="sm" variant="outline" onClick={addRule} className="mt-2 gap-1">
-          <Plus className="h-3.5 w-3.5" /> Regel toevoegen
-        </Button>
-      </div>
-
-      {/* Openingstijden */}
-      <div className="border-t border-border pt-5">
-        <h3 className="text-[14px] font-bold mb-3">Openingstijden</h3>
-        <div className="space-y-2">
-          {DAYS.map(d => {
-            const day = form.business_hours[d.key] || { open: false, from: "09:00", to: "17:00" };
-            return (
-              <div key={d.key} className="flex items-center gap-3 text-sm">
-                <div className="w-[80px] font-medium text-[13px]">{d.label}</div>
-                <Switch checked={day.open} onCheckedChange={v => updateDay(d.key, { open: v })} />
-                {day.open ? (
-                  <>
-                    <input
-                      type="time"
-                      value={day.from}
-                      onChange={e => updateDay(d.key, { from: e.target.value })}
-                      className={`${inputClass} w-[110px] text-xs`}
-                    />
-                    <span className="text-muted-foreground text-xs">—</span>
-                    <input
-                      type="time"
-                      value={day.to}
-                      onChange={e => updateDay(d.key, { to: e.target.value })}
-                      className={`${inputClass} w-[110px] text-xs`}
-                    />
-                  </>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Gesloten</span>
-                )}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${form.enabled ? "bg-emerald-500/15" : "bg-muted"}`}>
+                  <Bot className={`h-5 w-5 ${form.enabled ? "text-emerald-600" : "text-muted-foreground"}`} />
+                </div>
+                <div>
+                  <h3 className="text-[14px] font-bold">AI Agent</h3>
+                  <p className="text-[11px] text-muted-foreground">{form.enabled ? "Actief — beantwoordt gesprekken automatisch" : "Inactief"}</p>
+                </div>
               </div>
-            );
-          })}
-        </div>
-        <div className="flex items-center justify-between mt-3">
-          <div>
-            <p className="text-[13px] font-medium">AI mag ook buiten openingstijden antwoorden</p>
-          </div>
-          <Switch checked={form.outside_hours} onCheckedChange={v => setForm(prev => ({ ...prev, outside_hours: v }))} />
-        </div>
-      </div>
+              <Switch checked={form.enabled} onCheckedChange={v => setForm(prev => ({ ...prev, enabled: v }))} />
+            </div>
 
-      {/* Escalatie */}
-      <div className="border-t border-border pt-5">
-        <h3 className="text-[14px] font-bold mb-3">Escalatie</h3>
-        <div className="space-y-3">
-          <div>
-            <label className={labelClass}>Actie bij escalatie</label>
-            <Select value={form.escalation_action} onValueChange={v => setForm(prev => ({ ...prev, escalation_action: v }))}>
-              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="notify">Stuur notificatie</SelectItem>
-                <SelectItem value="transfer">Verbind door</SelectItem>
-                <SelectItem value="voicemail">Voicemail</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-3">
+              <div>
+                <label className={labelClass}>Taal</label>
+                <Select value={form.language} onValueChange={v => setForm(prev => ({ ...prev, language: v }))}>
+                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nl">Nederlands</SelectItem>
+                    <SelectItem value="en">Engels</SelectItem>
+                    <SelectItem value="de">Duits</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className={labelClass}>Begroetingstekst</label>
+                <Textarea
+                  value={form.greeting_text}
+                  onChange={e => setForm(prev => ({ ...prev, greeting_text: e.target.value }))}
+                  placeholder="Goedemiddag, [bedrijfsnaam]. Ik help u graag verder."
+                  rows={2}
+                />
+              </div>
+            </div>
           </div>
-          <div>
-            <label className={labelClass}>Escalatie-gebruikers</label>
-            <div className="grid grid-cols-2 gap-1.5 mt-1">
-              {(teamMembers || []).map((m: any) => (
-                <label key={m.id} className="flex items-center gap-2 text-[13px] cursor-pointer p-1.5 rounded hover:bg-muted/50">
-                  <Checkbox
-                    checked={form.escalation_users.includes(m.id)}
-                    onCheckedChange={() => toggleUser(m.id)}
-                  />
-                  <span>{m.full_name || m.email}</span>
-                </label>
+
+          {/* Intake vragen */}
+          <div className="border-t border-border pt-5">
+            <h3 className="text-[14px] font-bold mb-3">Intake vragen</h3>
+            <div className="space-y-2">
+              {form.intake_questions.map((q, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <button type="button" className="cursor-grab text-muted-foreground hover:text-foreground flex flex-col" onClick={() => moveQuestion(i, -1)} title="Omhoog">
+                    <GripVertical className="h-4 w-4" />
+                  </button>
+                  <input value={q} onChange={e => updateQuestion(i, e.target.value)} className={`${inputClass} flex-1`} placeholder="Stel een vraag..." />
+                  <button onClick={() => removeQuestion(i)} className="text-muted-foreground hover:text-destructive"><X className="h-4 w-4" /></button>
+                </div>
               ))}
-              {(!teamMembers || teamMembers.length === 0) && (
-                <p className="text-xs text-muted-foreground col-span-2">Geen teamleden gevonden</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={addQuestion} className="mt-2 gap-1">
+              <Plus className="h-3.5 w-3.5" /> Vraag toevoegen
+            </Button>
+          </div>
+
+          {/* Routing */}
+          <div className="border-t border-border pt-5">
+            <h3 className="text-[14px] font-bold mb-3">Routing</h3>
+            <div className="space-y-3">
+              {form.routing_rules.map((rule, i) => (
+                <RoutingRuleRow key={i} rule={rule} onChange={patch => updateRule(i, patch)} onRemove={() => removeRule(i)} />
+              ))}
+            </div>
+            <Button size="sm" variant="outline" onClick={addRule} className="mt-2 gap-1">
+              <Plus className="h-3.5 w-3.5" /> Regel toevoegen
+            </Button>
+          </div>
+
+          {/* Openingstijden */}
+          <div className="border-t border-border pt-5">
+            <h3 className="text-[14px] font-bold mb-3">Openingstijden</h3>
+            <div className="space-y-2">
+              {DAYS.map(d => {
+                const day = form.business_hours[d.key] || { open: false, from: "09:00", to: "17:00" };
+                return (
+                  <div key={d.key} className="flex items-center gap-3 text-sm">
+                    <div className="w-[80px] font-medium text-[13px]">{d.label}</div>
+                    <Switch checked={day.open} onCheckedChange={v => updateDay(d.key, { open: v })} />
+                    {day.open ? (
+                      <>
+                        <input type="time" value={day.from} onChange={e => updateDay(d.key, { from: e.target.value })} className={`${inputClass} w-[110px] text-xs`} />
+                        <span className="text-muted-foreground text-xs">—</span>
+                        <input type="time" value={day.to} onChange={e => updateDay(d.key, { to: e.target.value })} className={`${inputClass} w-[110px] text-xs`} />
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Gesloten</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between mt-3">
+              <p className="text-[13px] font-medium">AI mag ook buiten openingstijden antwoorden</p>
+              <Switch checked={form.outside_hours} onCheckedChange={v => setForm(prev => ({ ...prev, outside_hours: v }))} />
+            </div>
+          </div>
+
+          {/* Escalatie */}
+          <div className="border-t border-border pt-5">
+            <h3 className="text-[14px] font-bold mb-3">Escalatie</h3>
+            <div className="space-y-3">
+              <div>
+                <label className={labelClass}>Actie bij escalatie</label>
+                <Select value={form.escalation_action} onValueChange={v => setForm(prev => ({ ...prev, escalation_action: v }))}>
+                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="notify">Stuur notificatie</SelectItem>
+                    <SelectItem value="transfer">Verbind door</SelectItem>
+                    <SelectItem value="voicemail">Voicemail</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className={labelClass}>Escalatie-gebruikers</label>
+                <div className="grid grid-cols-2 gap-1.5 mt-1">
+                  {(teamMembers || []).map((m: any) => (
+                    <label key={m.id} className="flex items-center gap-2 text-[13px] cursor-pointer p-1.5 rounded hover:bg-muted/50">
+                      <Checkbox checked={form.escalation_users.includes(m.id)} onCheckedChange={() => toggleUser(m.id)} />
+                      <span>{m.full_name || m.email}</span>
+                    </label>
+                  ))}
+                  {(!teamMembers || teamMembers.length === 0) && (
+                    <p className="text-xs text-muted-foreground col-span-2">Geen teamleden gevonden</p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Max gespreksbeurten</label>
+                <input type="number" min={1} max={50} value={form.max_turns} onChange={e => setForm(prev => ({ ...prev, max_turns: parseInt(e.target.value) || 10 }))} className={`${inputClass} max-w-[100px]`} />
+              </div>
+            </div>
+          </div>
+
+          {/* Voice */}
+          <div className="border-t border-border pt-5">
+            <h3 className="text-[14px] font-bold mb-3">Voice</h3>
+            <div>
+              <label className={labelClass}>Voice ID</label>
+              <input value={form.voice_id} onChange={e => setForm(prev => ({ ...prev, voice_id: e.target.value }))} className={inputClass} placeholder="ElevenLabs of TTS voice ID" />
+              <p className="text-[11px] text-muted-foreground mt-1">ElevenLabs of TTS voice ID voor telefonische gesprekken</p>
+            </div>
+          </div>
+
+          {/* Anthropic API Key */}
+          <div className="border-t border-border pt-5">
+            <h3 className="text-[14px] font-bold mb-3">Anthropic API Key</h3>
+            <p className="text-[11px] text-muted-foreground mb-3">Nodig voor AI-verrijking van gesprekken (Voys) en andere AI-functies. Verkrijgbaar via console.anthropic.com.</p>
+            <div className="space-y-3">
+              <div className="relative">
+                <input type={showApiKey ? "text" : "password"} value={apiKey} onChange={e => setApiKey(e.target.value)} className={`${inputClass} pr-10`} placeholder="sk-ant-..." />
+                <button type="button" onClick={() => setShowApiKey(!showApiKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <Button size="sm" variant="outline" disabled={savingKey || !apiKey.trim()} onClick={async () => {
+                setSavingKey(true);
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const res = await fetch(`${SUPABASE_URL}/functions/v1/save-smtp-credentials`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+                    body: JSON.stringify({ anthropic_api_key: apiKey }),
+                  });
+                  const json = await res.json();
+                  if (!res.ok) throw new Error(json.error || "Opslaan mislukt");
+                  setApiKey("••••••••");
+                  toast({ title: "API key opgeslagen" });
+                } catch (err: any) {
+                  toast({ title: "Fout", description: err.message, variant: "destructive" });
+                }
+                setSavingKey(false);
+              }}>
+                {savingKey ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                API Key opslaan
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button onClick={handleSave} disabled={saving} className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
+              {saving ? "Opslaan..." : "Opslaan"}
+            </button>
+            <Button variant="outline" onClick={() => setTestOpen(true)} className="gap-2">
+              <FlaskConical className="h-4 w-4" /> Test conversatie
+            </Button>
+          </div>
+        </div>
+
+        {/* Right: Live Preview */}
+        <div className="space-y-4">
+          <div className="bg-card border border-border rounded-lg shadow-card overflow-hidden">
+            <div className="bg-emerald-600 dark:bg-emerald-700 px-4 py-3 flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-white" />
+              <span className="text-white text-sm font-medium">Live preview</span>
+            </div>
+            <div className="p-3 space-y-2 bg-muted/30 min-h-[300px] max-h-[500px] overflow-y-auto">
+              {previewMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === "ai" ? "justify-end" : "justify-start"}`}>
+                  <div className={`rounded-lg px-3 py-2 max-w-[85%] text-xs leading-relaxed shadow-sm ${
+                    msg.role === "ai"
+                      ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100"
+                      : "bg-background border text-foreground"
+                  }`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+              {form.routing_rules.length > 0 && (
+                <div className="text-center pt-2">
+                  <Badge variant="outline" className="text-[10px]">
+                    Route → {form.routing_rules[0].department}
+                  </Badge>
+                </div>
               )}
             </div>
           </div>
-          <div>
-            <label className={labelClass}>Max gespreksbeurten</label>
-            <input
-              type="number"
-              min={1}
-              max={50}
-              value={form.max_turns}
-              onChange={e => setForm(prev => ({ ...prev, max_turns: parseInt(e.target.value) || 10 }))}
-              className={`${inputClass} max-w-[100px]`}
-            />
-          </div>
+
+          {/* Stats */}
+          {stats && stats.total > 0 && (
+            <div className="bg-card border border-border rounded-lg shadow-card p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <span className="text-[13px] font-bold">Laatste 30 dagen</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center">
+                  <p className="text-xl font-bold">{stats.total}</p>
+                  <p className="text-[10px] text-muted-foreground">Conversaties</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold">{stats.completedPct}%</p>
+                  <p className="text-[10px] text-muted-foreground">Afgerond</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold text-destructive">{stats.escalatedPct}%</p>
+                  <p className="text-[10px] text-muted-foreground">Geëscaleerd</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold">{stats.avgSteps}</p>
+                  <p className="text-[10px] text-muted-foreground">Gem. stappen</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Voice */}
-      <div className="border-t border-border pt-5">
-        <h3 className="text-[14px] font-bold mb-3">Voice</h3>
-        <div>
-          <label className={labelClass}>Voice ID</label>
-          <input
-            value={form.voice_id}
-            onChange={e => setForm(prev => ({ ...prev, voice_id: e.target.value }))}
-            className={inputClass}
-            placeholder="ElevenLabs of TTS voice ID"
-          />
-          <p className="text-[11px] text-muted-foreground mt-1">ElevenLabs of TTS voice ID voor telefonische gesprekken</p>
-        </div>
-      </div>
-
-      {/* Anthropic API Key */}
-      <div className="border-t border-border pt-5">
-        <h3 className="text-[14px] font-bold mb-3">Anthropic API Key</h3>
-        <p className="text-[11px] text-muted-foreground mb-3">Nodig voor AI-verrijking van gesprekken (Voys) en andere AI-functies. Verkrijgbaar via console.anthropic.com.</p>
-        <div className="space-y-3">
-          <div className="relative">
-            <input
-              type={showApiKey ? "text" : "password"}
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              className={`${inputClass} pr-10`}
-              placeholder="sk-ant-..."
-            />
-            <button
-              type="button"
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={savingKey || !apiKey.trim()}
-            onClick={async () => {
-              setSavingKey(true);
-              try {
-                const { data: { session } } = await supabase.auth.getSession();
-                const res = await fetch(`${SUPABASE_URL}/functions/v1/save-smtp-credentials`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
-                  body: JSON.stringify({ anthropic_api_key: apiKey }),
-                });
-                const json = await res.json();
-                if (!res.ok) throw new Error(json.error || "Opslaan mislukt");
-                setApiKey("••••••••");
-                toast({ title: "API key opgeslagen" });
-              } catch (err: any) {
-                toast({ title: "Fout", description: err.message, variant: "destructive" });
-              }
-              setSavingKey(false);
-            }}
-          >
-            {savingKey ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-            API Key opslaan
-          </Button>
-        </div>
-      </div>
-
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        className="px-5 py-2.5 bg-primary text-primary-foreground rounded-sm text-[13px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
-      >
-        {saving ? "Opslaan..." : "Opslaan"}
-      </button>
+      {/* Test Conversation Dialog */}
+      <TestConversationDialog
+        open={testOpen}
+        onOpenChange={setTestOpen}
+        companyId={companyId}
+        form={form}
+      />
     </div>
+  );
+};
+
+/* ---- Test Conversation Dialog ---- */
+const TestConversationDialog = ({
+  open,
+  onOpenChange,
+  companyId,
+  form,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  companyId: string | null;
+  form: AgentForm;
+}) => {
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      // Reset on open, show greeting
+      setMessages(form.greeting_text
+        ? [{ role: "assistant", content: form.greeting_text }]
+        : [{ role: "assistant", content: "Goedemiddag! Ik help u graag verder." }]
+      );
+      setInput("");
+    }
+  }, [open, form.greeting_text]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!input.trim() || loading || !companyId) return;
+    const userMsg = input.trim();
+    setInput("");
+    const newMsgs = [...messages, { role: "user" as const, content: userMsg }];
+    setMessages(newMsgs);
+    setLoading(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Niet ingelogd");
+
+      // Build a system prompt from the config for the test
+      const systemPrompt = [
+        `Je bent een AI-assistent voor een bedrijf. Taal: ${form.language === "nl" ? "Nederlands" : form.language === "de" ? "Duits" : "Engels"}.`,
+        `Begroeting: "${form.greeting_text || "Goedemiddag! Ik help u graag verder."}"`,
+        `Stel de volgende intake-vragen één voor één: ${form.intake_questions.filter(q => q.trim()).join(", ")}`,
+        `Routing regels: ${form.routing_rules.map(r => `${r.department} bij keywords: ${r.keywords.join(", ")}`).join("; ")}`,
+        `Max ${form.max_turns} beurten. Wees kort en vriendelijk.`,
+        `Dit is een TEST conversatie. Maak GEEN echte afspraken of leads aan.`,
+      ].join("\n");
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-intake`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          complaint: userMsg,
+          _test_chat: true,
+          _system_prompt: systemPrompt,
+          _chat_history: newMsgs,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "AI niet beschikbaar");
+      }
+
+      const data = await res.json();
+      // The ai-intake returns analysis; for test chat we show a simulated response
+      const aiResponse = data.summary || data.suggested_action || "Ik heb uw bericht ontvangen. Kunt u meer details geven?";
+      setMessages(prev => [...prev, { role: "assistant", content: aiResponse }]);
+    } catch (err: any) {
+      setMessages(prev => [...prev, { role: "assistant", content: `⚠️ ${err.message}` }]);
+    }
+
+    setLoading(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FlaskConical className="h-5 w-5" /> Test conversatie
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+          ⚠️ Dit is een test. Er worden geen leads of afspraken aangemaakt.
+        </div>
+
+        <div ref={scrollRef} className="space-y-2 max-h-[350px] overflow-y-auto border rounded-md p-3 bg-muted/30">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === "assistant" ? "justify-end" : "justify-start"}`}>
+              <div className={`rounded-lg px-3 py-2 max-w-[80%] text-xs leading-relaxed ${
+                m.role === "assistant"
+                  ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100"
+                  : "bg-background border text-foreground"
+              }`}>
+                {m.content}
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div className="flex justify-end">
+              <div className="bg-emerald-100 dark:bg-emerald-900/40 rounded-lg px-3 py-2">
+                <Loader2 className="h-3 w-3 animate-spin text-emerald-600" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <form onSubmit={e => { e.preventDefault(); sendMessage(); }} className="flex gap-2">
+          <Input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Typ als klant..."
+            className="text-sm"
+            disabled={loading}
+          />
+          <Button type="submit" size="icon" disabled={loading || !input.trim()}>
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 };
 
@@ -509,13 +744,7 @@ const RoutingRuleRow = ({ rule, onChange, onRemove }: {
         ))}
       </div>
       <div className="flex gap-2">
-        <Input
-          value={kwInput}
-          onChange={e => setKwInput(e.target.value)}
-          placeholder="Keyword..."
-          className="text-xs h-8"
-          onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addKeyword())}
-        />
+        <Input value={kwInput} onChange={e => setKwInput(e.target.value)} placeholder="Keyword..." className="text-xs h-8" onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addKeyword())} />
         <Button size="sm" variant="outline" onClick={addKeyword} className="h-8 px-2" disabled={!kwInput.trim()}>+</Button>
       </div>
     </div>
