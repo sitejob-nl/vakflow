@@ -972,6 +972,7 @@ const SettingsAccountingTab = () => {
     const funcMap: Record<string, string> = {
       exact: "sync-exact",
       wefact: "sync-wefact",
+      moneybird: "sync-moneybird",
     };
     const funcName = funcMap[activeProvider];
     if (!funcName) { setSyncing(false); return; }
