@@ -543,6 +543,255 @@ const WeFactSection = ({ companyId, hasToken, activeProvider, onConnected, onDis
   );
 };
 
+/* ═══════════════════════════════════════════
+   Moneybird Configuration Section
+   ═══════════════════════════════════════════ */
+interface MoneybirdSectionProps {
+  companyId: string | null;
+  hasToken: boolean;
+  activeProvider: string;
+  onConnected: () => void;
+  onDisconnected: () => void;
+  onSetActive: () => void;
+}
+
+const MONEYBIRD_ACTIONS = [
+  { action: "sync-contacts", label: "Contacten synchroniseren", icon: "👥" },
+  { action: "pull-contacts", label: "Contacten ophalen", icon: "⬇️" },
+  { action: "sync-products", label: "Producten synchroniseren", icon: "📦" },
+  { action: "sync-invoices", label: "Facturen synchroniseren", icon: "📄" },
+  { action: "sync-quotes", label: "Offertes synchroniseren", icon: "📋" },
+  { action: "pull-invoice-status", label: "Betalingsstatus ophalen", icon: "💰" },
+] as const;
+
+interface MoneybirdAdministration {
+  id: string;
+  name: string;
+}
+
+const MoneybirdSection = ({ companyId, hasToken, activeProvider, onConnected, onDisconnected, onSetActive }: MoneybirdSectionProps) => {
+  const { toast } = useToast();
+  const [apiKey, setApiKey] = useState("");
+  const [step, setStep] = useState<"token" | "select">("token");
+  const [administrations, setAdministrations] = useState<MoneybirdAdministration[]>([]);
+  const [selectedAdmin, setSelectedAdmin] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [runningAction, setRunningAction] = useState<string | null>(null);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const handleFetchAdministrations = async () => {
+    if (!apiKey.trim()) return;
+    setFetching(true);
+    setConnectError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", {
+        body: { action: "auto-detect", token: apiKey.trim() },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.administrations?.length) throw new Error("Geen administraties gevonden");
+      setAdministrations(data.administrations);
+      setSelectedAdmin(data.administrations[0].id);
+      setStep("select");
+    } catch (err: any) {
+      setConnectError(err.message || "Ophalen mislukt");
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  const handleConnect = async () => {
+    if (!companyId || !selectedAdmin) return;
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      const { error: updateErr } = await supabase.from("companies").update({
+        moneybird_api_token: apiKey.trim(),
+        moneybird_administration_id: selectedAdmin,
+        accounting_provider: "moneybird",
+      }).eq("id", companyId);
+      if (updateErr) throw updateErr;
+      setApiKey("");
+      setStep("token");
+      setAdministrations([]);
+      onConnected();
+      toast({ title: "✓ Moneybird gekoppeld", description: `Administratie: ${administrations.find(a => a.id === selectedAdmin)?.name ?? selectedAdmin}` });
+    } catch (err: any) {
+      setConnectError(err.message || "Koppeling mislukt");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleAction = async (action: string, label: string) => {
+    if (!companyId) return;
+    setRunningAction(action);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-moneybird", { body: { action } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const synced = data?.synced ?? data?.created ?? data?.imported ?? 0;
+      const skipped = data?.skipped ?? 0;
+      const errors = data?.errors?.length ?? 0;
+      const parts = [`${synced} verwerkt`];
+      if (skipped) parts.push(`${skipped} overgeslagen`);
+      if (errors) parts.push(`${errors} fouten`);
+      toast({ title: `✓ ${label}`, description: parts.join(", ") });
+    } catch (err: any) {
+      toast({ title: `${label} mislukt`, description: err.message, variant: "destructive" });
+    } finally {
+      setRunningAction(null);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!companyId) return;
+    setDisconnecting(true);
+    await supabase.from("companies").update({
+      moneybird_api_token: null,
+      moneybird_administration_id: null,
+      accounting_provider: null,
+    }).eq("id", companyId);
+    setDisconnecting(false);
+    setDisconnectOpen(false);
+    onDisconnected();
+    toast({ title: "Moneybird ontkoppeld", description: "Bestaande synchronisaties blijven bewaard." });
+  };
+
+  return (
+    <div className="border-t border-border pt-5 space-y-4">
+      <h3 className="text-[14px] font-bold">Moneybird configuratie</h3>
+
+      {hasToken ? (
+        <>
+          <p className="text-[11px] text-success font-bold flex items-center gap-1">
+            <Check className="h-3 w-3" /> Moneybird gekoppeld
+          </p>
+
+          {/* Action buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {MONEYBIRD_ACTIONS.map(({ action, label, icon }) => (
+              <button
+                key={action}
+                onClick={() => handleAction(action, label)}
+                disabled={!!runningAction}
+                className="px-3 py-2.5 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50 flex items-center gap-2 text-left"
+              >
+                {runningAction === action ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                ) : (
+                  <span className="text-sm shrink-0">{icon}</span>
+                )}
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Disconnect */}
+          <div className="pt-2">
+            <button
+              onClick={() => setDisconnectOpen(true)}
+              className="px-3 py-2 bg-destructive/10 text-destructive rounded-sm text-[12px] font-medium hover:bg-destructive/20 transition-colors"
+            >
+              Ontkoppelen
+            </button>
+          </div>
+
+          {activeProvider !== "moneybird" && (
+            <button onClick={onSetActive} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors">
+              Moneybird als actieve provider instellen
+            </button>
+          )}
+
+          <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Moneybird ontkoppelen?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  De API token en administratie-ID worden verwijderd. Bestaande Moneybird-ID's op klanten en facturen blijven bewaard.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDisconnect} disabled={disconnecting}>
+                  {disconnecting ? "Ontkoppelen..." : "Ontkoppelen"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      ) : step === "select" ? (
+        <div className="space-y-3">
+          <div>
+            <label className={labelClass}>Administratie</label>
+            <select
+              value={selectedAdmin}
+              onChange={(e) => setSelectedAdmin(e.target.value)}
+              className={inputClass}
+            >
+              {administrations.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleConnect}
+              disabled={connecting || !selectedAdmin}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center gap-1"
+            >
+              {connecting && <Loader2 className="h-3 w-3 animate-spin" />}
+              Koppelen
+            </button>
+            <button
+              onClick={() => { setStep("token"); setAdministrations([]); }}
+              className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors"
+            >
+              Terug
+            </button>
+          </div>
+          {connectError && <p className="text-[11px] text-destructive">{connectError}</p>}
+        </div>
+      ) : (
+        <>
+          <div className="space-y-2">
+            <label className={labelClass}>Personal Access Token</label>
+            <div className="flex gap-2">
+              <input
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className={inputClass}
+                placeholder="Plak hier je Moneybird token"
+              />
+              <button
+                onClick={handleFetchAdministrations}
+                disabled={fetching || !apiKey.trim()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 whitespace-nowrap flex items-center gap-1"
+              >
+                {fetching && <Loader2 className="h-3 w-3 animate-spin" />}
+                Administraties ophalen
+              </button>
+            </div>
+            {connectError && <p className="text-[11px] text-destructive">{connectError}</p>}
+          </div>
+          <div className="bg-muted/50 border border-border rounded-lg p-3 text-[12px] text-muted-foreground space-y-1.5">
+            <p className="font-semibold text-secondary-foreground">Zo koppel je Moneybird:</p>
+            <ol className="list-decimal list-inside space-y-0.5">
+              <li>Ga naar <span className="font-medium">moneybird.com → Instellingen → Ontwikkelaars</span></li>
+              <li>Maak een nieuwe Personal Access Token aan</li>
+              <li>Kopieer de token en plak deze hierboven</li>
+              <li>Kies de juiste administratie en klik op "Koppelen"</li>
+            </ol>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const TokenField = ({ label, fieldName, hasToken, saving, onSave }: { label: string; fieldName: string; hasToken: boolean; saving: boolean; onSave: (field: string, value: string) => void }) => {
   const [val, setVal] = useState("");
   return (
@@ -573,7 +822,7 @@ const PROVIDERS: ProviderDef[] = [
   { key: "exact", label: "Exact Online", description: "Volledige boekhouding met OAuth-koppeling", enabled: true },
   { key: "wefact", label: "WeFact", description: "Factuur- en debiteurenbeheer via API", enabled: true },
   { key: "eboekhouden", label: "e-Boekhouden", description: "Online boekhoudpakket", enabled: false },
-  { key: "moneybird", label: "Moneybird", description: "Boekhouden voor ondernemers", enabled: false },
+  { key: "moneybird", label: "Moneybird", description: "Boekhouden voor ondernemers", enabled: true },
   { key: "rompslomp", label: "Rompslomp", description: "Eenvoudige boekhouding", enabled: false },
   { key: "snelstart", label: "SnelStart", description: "Boekhoudpakket voor het MKB", enabled: false },
 ];
@@ -613,7 +862,7 @@ const SettingsAccountingTab = () => {
       ).eq("id", companyId).single() as { data: any };
       if (data) {
         setActiveProvider(data.accounting_provider ?? "");
-        setHasTokens({ eboekhouden: !!data.has_eboekhouden_token, wefact: !!data.has_wefact_key });
+        setHasTokens({ eboekhouden: !!data.has_eboekhouden_token, wefact: !!data.has_wefact_key, moneybird: !!data.moneybird_administration_id });
         setSyncInvoices(data.sync_invoices_to_accounting ?? true);
         setSyncQuotes(data.sync_quotes_to_accounting ?? false);
         setForm({
@@ -640,6 +889,7 @@ const SettingsAccountingTab = () => {
     if (!def?.enabled) return "coming_soon";
     if (key === "exact") return exactConnected ? "connected" : "not_connected";
     if (key === "wefact") return hasTokens.wefact ? "connected" : "not_connected";
+    if (key === "moneybird") return hasTokens.moneybird ? "connected" : "not_connected";
     return "not_connected";
   };
 
@@ -722,6 +972,7 @@ const SettingsAccountingTab = () => {
     const funcMap: Record<string, string> = {
       exact: "sync-exact",
       wefact: "sync-wefact",
+      moneybird: "sync-moneybird",
     };
     const funcName = funcMap[activeProvider];
     if (!funcName) { setSyncing(false); return; }
@@ -886,6 +1137,23 @@ const SettingsAccountingTab = () => {
             if (activeProvider === "wefact") setActiveProvider("");
           }}
           onSetActive={() => handleSaveProvider("wefact")}
+        />
+      )}
+
+      {configProvider === "moneybird" && (
+        <MoneybirdSection
+          companyId={companyId}
+          hasToken={hasTokens.moneybird}
+          activeProvider={activeProvider}
+          onConnected={() => {
+            setHasTokens((prev) => ({ ...prev, moneybird: true }));
+            setActiveProvider("moneybird");
+          }}
+          onDisconnected={() => {
+            setHasTokens((prev) => ({ ...prev, moneybird: false }));
+            if (activeProvider === "moneybird") setActiveProvider("");
+          }}
+          onSetActive={() => handleSaveProvider("moneybird")}
         />
       )}
 
