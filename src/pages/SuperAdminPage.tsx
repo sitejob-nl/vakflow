@@ -214,7 +214,7 @@ const SuperAdminPage = () => {
       btw_number: c.btw_number || "", address: c.address || "", postal_code: c.postal_code || "",
       city: c.city || "", phone: c.phone || "", iban: c.iban || "", smtp_email: c.smtp_email || "",
       max_users: (c as any).max_users ?? 2,
-      enabled_features: (c as any).enabled_features ?? ALL_FEATURES.map(f => f.slug),
+      enabled_features: (c as any).enabled_features ?? ALL_FEATURE_SLUGS,
       subscription_plan: (c as any).subscription_plan || "starter",
       subscription_status: (c as any).subscription_status || "trial",
       trial_ends_at: (c as any).trial_ends_at ? new Date((c as any).trial_ends_at).toISOString().split("T")[0] : "",
