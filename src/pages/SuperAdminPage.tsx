@@ -591,24 +591,67 @@ const SuperAdminPage = () => {
 
             {/* Modules */}
             <div className="col-span-2 border-t pt-3 mt-1">
-              <Label className="mb-2 block">Beschikbare modules</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {ALL_FEATURES.map(feat => (
-                  <label key={feat.slug} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={form.enabled_features.includes(feat.slug)}
-                      onCheckedChange={(checked) => {
-                        setForm(f => ({
-                          ...f,
-                          enabled_features: checked
-                            ? [...f.enabled_features, feat.slug]
-                            : f.enabled_features.filter(s => s !== feat.slug),
-                        }));
-                      }}
-                    />
-                    {feat.label}
-                  </label>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <Label className="block">Beschikbare modules</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const defaults = industryConfig[form.industry as Industry]?.modules ?? ALL_FEATURE_SLUGS;
+                    setForm(f => ({ ...f, enabled_features: [...defaults] }));
+                  }}
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1" /> Reset naar standaard
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {FEATURE_GROUPS.map(group => {
+                  const groupSlugs = group.features.map(f => f.slug);
+                  const allOn = groupSlugs.every(s => form.enabled_features.includes(s));
+                  const toggleGroup = (on: boolean) => {
+                    setForm(f => ({
+                      ...f,
+                      enabled_features: on
+                        ? [...new Set([...f.enabled_features, ...groupSlugs])]
+                        : f.enabled_features.filter(s => !groupSlugs.includes(s)),
+                    }));
+                  };
+                  return (
+                    <Card key={group.label} className="border-border">
+                      <CardHeader className="py-2.5 px-3.5 flex-row items-center justify-between space-y-0">
+                        <div>
+                          <CardTitle className="text-xs font-semibold">{group.label}</CardTitle>
+                          <CardDescription className="text-[11px]">{group.description}</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-muted-foreground">{allOn ? "Alles uit" : "Alles aan"}</span>
+                          <Switch checked={allOn} onCheckedChange={toggleGroup} />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="px-3.5 pb-3 pt-0">
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {group.features.map(feat => (
+                            <label key={feat.slug} className="flex items-center gap-2 text-sm cursor-pointer py-0.5">
+                              <Checkbox
+                                checked={form.enabled_features.includes(feat.slug)}
+                                onCheckedChange={(checked) => {
+                                  setForm(f => ({
+                                    ...f,
+                                    enabled_features: checked
+                                      ? [...f.enabled_features, feat.slug]
+                                      : f.enabled_features.filter(s => s !== feat.slug),
+                                  }));
+                                }}
+                              />
+                              <span className="text-xs">{feat.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
 
