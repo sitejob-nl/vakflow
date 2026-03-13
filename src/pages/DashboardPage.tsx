@@ -5,7 +5,7 @@ import MaintenancePlannerWidget from "@/components/MaintenancePlannerWidget";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { format, differenceInDays } from "date-fns";
 import { nl } from "date-fns/locale";
-import { Loader2, CalendarPlus, FileText, Receipt, Car, AlertTriangle, Wrench, Building2, Truck, Sparkles, ClipboardCheck } from "lucide-react";
+import { Loader2, CalendarPlus, FileText, Receipt, Car, AlertTriangle, Wrench, Building2, Truck, Sparkles, ClipboardCheck, Phone, PhoneMissed, Users, Globe, TrendingUp, Clock, Package } from "lucide-react";
 import { useState } from "react";
 import AppointmentDialog from "@/components/AppointmentDialog";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
