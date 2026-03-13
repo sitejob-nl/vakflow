@@ -187,12 +187,21 @@ Deno.serve(async (req) => {
     // === MARK AS READ ===
     if (body.action === "mark_read") {
       if (!config) return jsonRes({ error: "WhatsApp niet gekoppeld" }, 400);
+      const markReadBody: Record<string, unknown> = {
+        messaging_product: "whatsapp",
+        status: "read",
+        message_id: body.message_id,
+      };
+      // Optionally include typing indicator (new Graph API feature)
+      if (body.typing_indicator) {
+        markReadBody.typing_indicator = { type: body.typing_indicator_type || "text" };
+      }
       const res = await fetch(
         `https://graph.facebook.com/v25.0/${config.phone_number_id}/messages`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${config.access_token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ messaging_product: "whatsapp", status: "read", message_id: body.message_id }),
+          body: JSON.stringify(markReadBody),
         }
       );
       const result = await res.json();
