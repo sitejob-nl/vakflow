@@ -57,7 +57,7 @@ const ALL_TABS: TabDef[] = [
   { id: "koppelingen", label: "Koppelingen", section: "general", adminOnly: true },
   { id: "leads", label: "Leads", section: "general", adminOnly: true, requiredFeature: "leads" },
   { id: "api", label: "API Keys", section: "general", adminOnly: true, requiredFeature: "api" },
-  { id: "meta", label: "Meta", section: "general", adminOnly: true, requiredFeature: "marketing" },
+  { id: "meta", label: "Meta", section: "integrations", adminOnly: true, requiredFeature: "marketing" },
   { id: "email-templates", label: "E-mail Templates", section: "general", adminOnly: true },
   // Integraties
   { id: "email", label: "E-mail", section: "integrations", requiredFeature: "email" },
