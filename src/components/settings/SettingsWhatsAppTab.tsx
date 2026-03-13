@@ -186,6 +186,11 @@ const SettingsWhatsAppTab = () => {
   const bodyParams = extractParams(tplBody, tplParamFormat);
   const headerParams = tplHeaderFormat === "TEXT" ? extractParams(tplHeader, tplParamFormat) : [];
 
+  // Display name
+  const [editDisplayName, setEditDisplayName] = useState(false);
+  const [newDisplayName, setNewDisplayName] = useState("");
+  const [updatingDisplayName, setUpdatingDisplayName] = useState(false);
+
   // Disconnect
   const [showDisconnect, setShowDisconnect] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
