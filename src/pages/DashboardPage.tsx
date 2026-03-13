@@ -3,9 +3,10 @@ import { useTodayAppointments, useDashboardStats, useReminders, useRecentWorkOrd
 import TodoWidget from "@/components/TodoWidget";
 import MaintenancePlannerWidget from "@/components/MaintenancePlannerWidget";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, startOfDay } from "date-fns";
 import { nl } from "date-fns/locale";
-import { Loader2, CalendarPlus, FileText, Receipt, Car, AlertTriangle, Wrench, Building2, Truck, Sparkles, ClipboardCheck, Phone, PhoneMissed, Users, Globe, TrendingUp, Clock, Package } from "lucide-react";
+import { Loader2, CalendarPlus, FileText, Receipt, Car, AlertTriangle, Wrench, Building2, Truck, Sparkles, ClipboardCheck, Phone, PhoneMissed, Users, Globe, TrendingUp, Clock, Package, Bot } from "lucide-react";
+import { useAiConversations } from "@/hooks/useAiConversations";
 import { useState } from "react";
 import AppointmentDialog from "@/components/AppointmentDialog";
 import WorkOrderDialog from "@/components/WorkOrderDialog";
@@ -454,6 +455,9 @@ const DashboardPage = () => {
       <AppointmentRequestsWidget />
       <ServiceRequestsWidget />
 
+      {/* AI Agent Widget */}
+      {enabledFeatures.includes("ai_agent") && <AiAgentWidget navigate={navigate} />}
+
 
       <div className="flex gap-2 mb-5 flex-wrap">
         <button onClick={() => setApptDialogOpen(true)} className="flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-lg text-[12px] font-bold text-secondary-foreground hover:border-primary hover:text-primary transition-all shadow-card">
@@ -616,5 +620,76 @@ const DashboardPage = () => {
     </div>
   );
 };
+
+function AiAgentWidget({ navigate }: { navigate: (page: string) => void }) {
+  const { conversations, isLoading } = useAiConversations();
+  const today = startOfDay(new Date()).toISOString();
+
+  const active = conversations.filter((c) => c.status === "active");
+  const completedToday = conversations.filter((c) => c.status === "completed" && (c.updated_at ?? "") >= today);
+  const escalatedToday = conversations.filter((c) => c.status === "escalated" && (c.updated_at ?? "") >= today);
+  const lastEscalation = escalatedToday[0];
+
+  return (
+    <div className="bg-card border border-border rounded-lg shadow-card mb-5 overflow-hidden">
+      <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between border-b border-border">
+        <h3 className="text-[14px] md:text-[15px] font-bold flex items-center gap-2">
+          <Bot className="h-4 w-4" /> AI Agent
+          {active.length > 0 && (
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+            </span>
+          )}
+        </h3>
+        <button onClick={() => navigate("ai-conversations")} className="text-[11px] text-primary font-bold hover:underline">
+          Alle conversaties →
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+      ) : (
+        <div className="p-4 md:p-5 space-y-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="text-center">
+              <div className="text-[22px] font-extrabold font-mono tracking-tighter">{active.length}</div>
+              <div className="text-[10px] text-t3 font-semibold uppercase tracking-wide">Actief</div>
+            </div>
+            <div className="text-center">
+              <div className="text-[22px] font-extrabold font-mono tracking-tighter">{completedToday.length}</div>
+              <div className="text-[10px] text-t3 font-semibold uppercase tracking-wide">Afgerond</div>
+            </div>
+            <div className="text-center">
+              <div className={`text-[22px] font-extrabold font-mono tracking-tighter ${escalatedToday.length > 0 ? "text-destructive" : ""}`}>
+                {escalatedToday.length}
+              </div>
+              <div className="text-[10px] text-t3 font-semibold uppercase tracking-wide">Geëscaleerd</div>
+            </div>
+          </div>
+
+          {lastEscalation && (
+            <div className="bg-destructive/5 border border-destructive/20 rounded-md px-3 py-2">
+              <div className="text-[11px] font-bold text-destructive mb-0.5">Laatste escalatie</div>
+              <div className="text-[12px] font-mono">{lastEscalation.phone_number}</div>
+              {lastEscalation.escalation_reason && (
+                <div className="text-[11px] text-t3 mt-0.5 truncate">{lastEscalation.escalation_reason}</div>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-1 border-t border-border">
+            <button onClick={() => navigate("ai-conversations")} className="text-[11px] text-primary font-bold hover:underline">
+              Bekijk alle conversaties
+            </button>
+            <button onClick={() => navigate("settings")} className="text-[11px] text-muted-foreground font-bold hover:underline">
+              Instellingen
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default DashboardPage;
