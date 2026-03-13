@@ -153,6 +153,109 @@ export type Database = {
           },
         ]
       }
+      ai_conversations: {
+        Row: {
+          call_record_id: string | null
+          collected_data: Json | null
+          company_id: string
+          created_at: string | null
+          current_step: number | null
+          customer_id: string | null
+          escalation_reason: string | null
+          expires_at: string | null
+          id: string
+          lead_id: string | null
+          messages: Json | null
+          phone_number: string
+          routed_to: string | null
+          status: string
+          trigger_type: string
+          updated_at: string | null
+          work_order_id: string | null
+        }
+        Insert: {
+          call_record_id?: string | null
+          collected_data?: Json | null
+          company_id: string
+          created_at?: string | null
+          current_step?: number | null
+          customer_id?: string | null
+          escalation_reason?: string | null
+          expires_at?: string | null
+          id?: string
+          lead_id?: string | null
+          messages?: Json | null
+          phone_number: string
+          routed_to?: string | null
+          status?: string
+          trigger_type?: string
+          updated_at?: string | null
+          work_order_id?: string | null
+        }
+        Update: {
+          call_record_id?: string | null
+          collected_data?: Json | null
+          company_id?: string
+          created_at?: string | null
+          current_step?: number | null
+          customer_id?: string | null
+          escalation_reason?: string | null
+          expires_at?: string | null
+          id?: string
+          lead_id?: string | null
+          messages?: Json | null
+          phone_number?: string
+          routed_to?: string | null
+          status?: string
+          trigger_type?: string
+          updated_at?: string | null
+          work_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversations_call_record_id_fkey"
+            columns: ["call_record_id"]
+            isOneToOne: false
+            referencedRelation: "call_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_conversations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_conversations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_conversations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_conversations_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_keys: {
         Row: {
           company_id: string
