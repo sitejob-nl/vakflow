@@ -237,7 +237,44 @@ Deno.serve(async (req) => {
       });
     }
 
-    // === TYPING INDICATOR ===
+    // === UPDATE DISPLAY NAME ===
+    if (body.action === "update_display_name") {
+      if (!config?.phone_number_id) return jsonRes({ error: "Niet gekoppeld" }, 400);
+      if (!body.new_display_name) return jsonRes({ error: "new_display_name is verplicht" }, 400);
+      const res = await fetch(
+        `https://graph.facebook.com/v25.0/${config.phone_number_id}?new_display_name=${encodeURIComponent(body.new_display_name)}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${config.access_token}` },
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("Update display name error:", JSON.stringify(data));
+        return jsonRes({ error: data.error?.message || "Display name bijwerken mislukt" }, res.status);
+      }
+      return jsonRes({ ok: true, ...data });
+    }
+
+    // === GET DISPLAY NAME STATUS ===
+    if (body.action === "display_name_status") {
+      if (!config?.phone_number_id) return jsonRes({ error: "Niet gekoppeld" }, 400);
+      const res = await fetch(
+        `https://graph.facebook.com/v25.0/${config.phone_number_id}?fields=verified_name,name_status,new_display_name,new_name_status`,
+        { headers: { Authorization: `Bearer ${config.access_token}` } }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("Display name status error:", JSON.stringify(data));
+        return jsonRes({ error: data.error?.message || "Status ophalen mislukt" }, res.status);
+      }
+      return jsonRes({
+        verified_name: data.verified_name || null,
+        name_status: data.name_status || null,
+        new_display_name: data.new_display_name || null,
+        new_name_status: data.new_name_status || null,
+      });
+    }
     if (body.action === "typing") {
       if (!config) return jsonRes({ error: "WhatsApp niet gekoppeld" }, 400);
       const normalizedTo = normalizePhone(body.to);
