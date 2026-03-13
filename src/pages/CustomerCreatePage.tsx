@@ -93,6 +93,11 @@ const CustomerCreatePage = () => {
       const newCustomer = await createCustomer.mutateAsync(payload);
       toast({ title: "Klant aangemaakt" });
       // Auto-sync to WeFact if connected
+      if (accountingProvider === "exact") {
+        supabase.functions.invoke("sync-exact", {
+          body: { action: "sync-customer", customer_id: newCustomer.id },
+        }).catch(() => {}); // fire-and-forget
+      }
       if (accountingProvider === "wefact") {
         supabase.functions.invoke("sync-wefact", {
           body: { action: "sync-customer", customer_id: newCustomer.id },
