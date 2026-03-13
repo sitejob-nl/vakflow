@@ -1014,6 +1014,7 @@ export type Database = {
           accounting_provider: string | null
           address: string | null
           admin_notes: string | null
+          anthropic_api_key: string | null
           asset_field_config: Json | null
           billing_email: string | null
           brand_color: string | null
@@ -1073,6 +1074,7 @@ export type Database = {
           accounting_provider?: string | null
           address?: string | null
           admin_notes?: string | null
+          anthropic_api_key?: string | null
           asset_field_config?: Json | null
           billing_email?: string | null
           brand_color?: string | null
@@ -1132,6 +1134,7 @@ export type Database = {
           accounting_provider?: string | null
           address?: string | null
           admin_notes?: string | null
+          anthropic_api_key?: string | null
           asset_field_config?: Json | null
           billing_email?: string | null
           brand_color?: string | null
