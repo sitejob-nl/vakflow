@@ -11,36 +11,30 @@ const industryModules: Record<string, string[]> = {
   technical: [
     "dashboard", "planning", "customers", "workorders", "invoices",
     "quotes", "reports", "email", "whatsapp", "communication",
-    "reminders", "assets", "marketing", "contracts",
+    "reminders", "assets", "marketing", "contracts", "projects", "leads", "accounting", "api",
   ],
   cleaning: [
     "dashboard", "planning", "customers", "workorders", "invoices",
     "quotes", "reports", "email", "whatsapp", "communication",
-    "reminders", "assets", "marketing", "contracts", "schedule", "audits",
+    "reminders", "assets", "marketing", "contracts", "schedule", "audits", "projects", "leads", "accounting", "api",
   ],
   automotive: [
     "dashboard", "planning", "customers", "workorders", "invoices",
     "quotes", "reports", "email", "whatsapp", "communication",
-    "reminders", "vehicles", "marketing", "contracts", "trade",
+    "reminders", "vehicles", "marketing", "contracts", "trade", "projects", "leads", "accounting", "api",
+    "vehicle_sales", "hexon", "voip", "ai_agent",
   ],
   pest: [
     "dashboard", "planning", "customers", "workorders", "invoices",
     "quotes", "reports", "email", "whatsapp", "communication",
-    "reminders", "assets", "marketing", "contracts",
+    "reminders", "assets", "marketing", "contracts", "projects", "leads", "accounting", "api",
   ],
   landscaping: [
     "dashboard", "planning", "customers", "workorders", "invoices",
     "quotes", "reports", "email", "whatsapp", "communication",
-    "reminders", "assets", "marketing", "contracts",
+    "reminders", "assets", "marketing", "contracts", "projects", "leads", "accounting", "api",
   ],
 };
-
-const allModules = [
-  "dashboard", "planning", "customers", "workorders", "invoices",
-  "quotes", "reports", "email", "whatsapp", "communication",
-  "reminders", "assets", "marketing", "contracts", "schedule",
-  "audits", "vehicles", "trade",
-];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -48,7 +42,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, password, full_name, company_name, kvk_number, industry, subcategory } = await req.json();
+    const {
+      email, password, full_name, company_name, kvk_number,
+      industry, subcategory, accounting_provider, workshop_bays,
+    } = await req.json();
 
     if (!email || !password || !company_name || !full_name) {
       return new Response(
@@ -90,7 +87,13 @@ Deno.serve(async (req) => {
 
     // Determine enabled features based on industry
     const safeIndustry = industry && industryModules[industry] ? industry : "technical";
-    const enabledFeatures = industryModules[safeIndustry] ?? allModules;
+    const enabledFeatures = industryModules[safeIndustry] ?? industryModules.technical;
+
+    // Sanitize accounting provider
+    const validProviders = ["exact", "moneybird", "eboekhouden", "snelstart", "rompslomp", "wefact"];
+    const safeAccountingProvider = accounting_provider && validProviders.includes(accounting_provider)
+      ? accounting_provider
+      : null;
 
     // 1. Create the company with trial
     const trialEnd = new Date();
@@ -108,6 +111,7 @@ Deno.serve(async (req) => {
         subscription_status: "trial",
         subscription_plan: "starter",
         trial_ends_at: trialEnd.toISOString(),
+        accounting_provider: safeAccountingProvider,
       })
       .select("id")
       .single();
@@ -151,6 +155,18 @@ Deno.serve(async (req) => {
       company_id: company.id,
       role: "admin",
     });
+
+    // 5. Create workshop bays if provided (automotive)
+    if (Array.isArray(workshop_bays) && workshop_bays.length > 0) {
+      const bayRows = workshop_bays.slice(0, 20).map((b: { name?: string; description?: string }, i: number) => ({
+        company_id: company.id,
+        name: (b.name || `Brug ${i + 1}`).slice(0, 50),
+        description: (b.description || "").slice(0, 200),
+      }));
+      await adminClient.from("workshop_bays").insert(bayRows).throwOnError().catch((err: unknown) => {
+        console.error("Workshop bays creation failed (non-fatal):", err);
+      });
+    }
 
     return new Response(
       JSON.stringify({ success: true, company_id: company.id, user_id: userId }),
