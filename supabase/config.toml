@@ -107,3 +107,15 @@ verify_jwt = false
 
 [functions.kvk-lookup]
 verify_jwt = false
+
+[functions.voys-webhook]
+verify_jwt = false
+
+[functions.hexon-sync]
+verify_jwt = false
+
+[functions.hexon-webhook]
+verify_jwt = false
+
+[functions.hexon-portal-leads]
+verify_jwt = false
