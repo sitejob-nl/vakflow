@@ -14,6 +14,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SETTINGS_INPUT_CLASS as inputClass, SETTINGS_LABEL_CLASS as labelClass } from "./shared";
 
+const SUPABASE_URL = "https://sigzpqwnavfxtvbyqvzj.supabase.co";
+
 const DAYS = [
   { key: "ma", label: "Maandag" },
   { key: "di", label: "Dinsdag" },
