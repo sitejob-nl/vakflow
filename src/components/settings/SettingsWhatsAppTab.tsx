@@ -125,6 +125,7 @@ const SettingsWhatsAppTab = () => {
   const { data: profile, isLoading: profileLoading } = useWhatsAppProfile(connected);
   const { data: templates, isLoading: templatesLoading } = useWhatsAppTemplates(connected);
   const { data: quality, isLoading: qualityLoading } = usePhoneQuality(connected);
+  const { data: displayNameInfo } = useDisplayNameStatus(connected);
   const [statsDays, setStatsDays] = useState(7);
   const { data: stats } = useMessageStats(connected, statsDays);
   const updateProfile = useUpdateWhatsAppProfile();
