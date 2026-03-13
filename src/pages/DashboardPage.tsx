@@ -157,7 +157,142 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* Cleaning KPIs */}
+      {/* Automotive Sales & Communication KPIs */}
+      {showSalesWidgets && salesStats && (
+        <>
+          {/* Verkoop rij */}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 mb-5 md:mb-6">
+            <div onClick={() => navigate("tradeVehicles")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+              <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                <Package className="h-3 w-3" /> Voorraad
+              </div>
+              <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{salesStats.stockCount}</div>
+              <div className="text-[10px] md:text-[11.5px] mt-1 font-semibold text-t3">{salesStats.onlineCount} online</div>
+            </div>
+            <div onClick={() => navigate("tradeVehicles")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+              <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                <Car className="h-3 w-3" /> Verkocht deze maand
+              </div>
+              <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{salesStats.soldCount}</div>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card">
+              <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                <TrendingUp className="h-3 w-3" /> Gem. marge
+              </div>
+              <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">
+                {salesStats.avgMargin >= 1000 ? `€${(salesStats.avgMargin / 1000).toFixed(1)}k` : `€${Math.round(salesStats.avgMargin)}`}
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card">
+              <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Gem. doorlooptijd
+              </div>
+              <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{salesStats.avgLeadTime}</div>
+              <div className="text-[10px] md:text-[11.5px] mt-1 font-semibold text-t3">dagen</div>
+            </div>
+          </div>
+
+          {/* Communicatie rij */}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 mb-5 md:mb-6">
+            <div onClick={() => navigate("calltracking")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+              <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                <Phone className="h-3 w-3" /> Gesprekken vandaag
+              </div>
+              <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{salesStats.callsToday}</div>
+              {salesStats.missedToday > 0 && (
+                <div className="text-[10px] md:text-[11.5px] mt-1 font-semibold text-destructive">{salesStats.missedToday} gemist</div>
+              )}
+            </div>
+            <div onClick={() => navigate("leads")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+              <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                <Users className="h-3 w-3" /> Openstaande leads
+              </div>
+              <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{salesStats.openLeads}</div>
+            </div>
+            <div onClick={() => navigate("leads")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+              <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                <Globe className="h-3 w-3" /> Portaalleads deze week
+              </div>
+              <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{salesStats.portalLeadsCount}</div>
+            </div>
+          </div>
+
+          {/* Hexon Status + Recente gemiste oproepen */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 mb-5 md:mb-6">
+            {/* Hexon Status */}
+            {Object.keys(salesStats.hexonByPortal).length > 0 && (
+              <div className="bg-card border border-border rounded-lg shadow-card overflow-hidden">
+                <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between border-b border-border">
+                  <h3 className="text-[14px] md:text-[15px] font-bold">Hexon Status</h3>
+                  {salesStats.totalHexonErrors > 0 && (
+                    <span className="inline-flex px-2.5 py-[3px] rounded-full text-[11px] font-bold bg-destructive-muted text-destructive">
+                      {salesStats.totalHexonErrors} errors
+                    </span>
+                  )}
+                </div>
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-background">
+                      {["Portaal", "Online", "Pending", "Error"].map(h => (
+                        <th key={h} className="text-left px-4 md:px-5 py-2 text-[10.5px] font-bold uppercase tracking-wider text-t3 border-b border-border">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(salesStats.hexonByPortal).map(([code, counts]) => (
+                      <tr key={code} className="border-b border-border last:border-0">
+                        <td className="px-4 md:px-5 py-2.5 text-[13px] font-bold capitalize">{code.replace(/_/g, " ")}</td>
+                        <td className="px-4 md:px-5 py-2.5 text-[13px] font-mono">{counts.online}</td>
+                        <td className="px-4 md:px-5 py-2.5 text-[13px] font-mono">{counts.pending}</td>
+                        <td className="px-4 md:px-5 py-2.5 text-[13px] font-mono">
+                          {counts.error > 0 ? (
+                            <span className="text-destructive font-bold">{counts.error}</span>
+                          ) : counts.error}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Recente gemiste oproepen */}
+            {salesStats.recentMissed.length > 0 && (
+              <div className="bg-card border border-border rounded-lg shadow-card overflow-hidden">
+                <div className="px-4 md:px-5 py-3 md:py-4 flex items-center justify-between border-b border-border">
+                  <h3 className="text-[14px] md:text-[15px] font-bold flex items-center gap-1.5">
+                    <PhoneMissed className="h-4 w-4 text-destructive" /> Gemiste oproepen
+                  </h3>
+                  <button onClick={() => navigate("calltracking")} className="text-[11px] text-primary font-bold hover:underline">Alle →</button>
+                </div>
+                <div className="divide-y divide-border">
+                  {salesStats.recentMissed.map((call) => (
+                    <div
+                      key={call.id}
+                      onClick={() => navigate("calltracking")}
+                      className="px-4 md:px-5 py-2.5 flex items-center gap-3 hover:bg-bg-hover transition-colors cursor-pointer"
+                    >
+                      <div className="w-7 h-7 rounded-full bg-destructive-muted flex items-center justify-center flex-shrink-0">
+                        <PhoneMissed className="h-3.5 w-3.5 text-destructive" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-bold truncate">{call.customers?.name ?? call.from_number ?? "Onbekend"}</div>
+                        {call.customers?.name && call.from_number && (
+                          <div className="text-[11px] text-t3 font-mono">{call.from_number}</div>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-t3 font-mono flex-shrink-0">
+                        {call.started_at ? format(new Date(call.started_at), "HH:mm") : "—"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
       {isCleaning && cleaningStats && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 mb-5 md:mb-6">
           <div onClick={() => navigate("assets")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
