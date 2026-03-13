@@ -821,67 +821,91 @@ export type Database = {
           ai_action_items: Json | null
           ai_summary: string | null
           answered_at: string | null
+          answered_by_account_number: number | null
+          answered_by_name: string | null
+          caller_name: string | null
           company_id: string
           created_at: string | null
           customer_id: string | null
+          destination_number: string | null
           direction: string
           duration_seconds: number | null
+          end_reason: string | null
           ended_at: string | null
           from_number: string | null
           handled_by: string | null
           id: string
+          merged_call_id: string | null
           metadata: Json | null
           recording_url: string | null
           started_at: string | null
           status: string | null
           to_number: string | null
           transcription: string | null
+          transferred_to: string | null
           voys_call_id: string | null
           voys_summary: string | null
+          was_transferred: boolean | null
         }
         Insert: {
           ai_action_items?: Json | null
           ai_summary?: string | null
           answered_at?: string | null
+          answered_by_account_number?: number | null
+          answered_by_name?: string | null
+          caller_name?: string | null
           company_id: string
           created_at?: string | null
           customer_id?: string | null
+          destination_number?: string | null
           direction?: string
           duration_seconds?: number | null
+          end_reason?: string | null
           ended_at?: string | null
           from_number?: string | null
           handled_by?: string | null
           id?: string
+          merged_call_id?: string | null
           metadata?: Json | null
           recording_url?: string | null
           started_at?: string | null
           status?: string | null
           to_number?: string | null
           transcription?: string | null
+          transferred_to?: string | null
           voys_call_id?: string | null
           voys_summary?: string | null
+          was_transferred?: boolean | null
         }
         Update: {
           ai_action_items?: Json | null
           ai_summary?: string | null
           answered_at?: string | null
+          answered_by_account_number?: number | null
+          answered_by_name?: string | null
+          caller_name?: string | null
           company_id?: string
           created_at?: string | null
           customer_id?: string | null
+          destination_number?: string | null
           direction?: string
           duration_seconds?: number | null
+          end_reason?: string | null
           ended_at?: string | null
           from_number?: string | null
           handled_by?: string | null
           id?: string
+          merged_call_id?: string | null
           metadata?: Json | null
           recording_url?: string | null
           started_at?: string | null
           status?: string | null
           to_number?: string | null
           transcription?: string | null
+          transferred_to?: string | null
           voys_call_id?: string | null
           voys_summary?: string | null
+          was_transferred?: boolean | null
         }
         Relationships: [
           {
@@ -4475,9 +4499,11 @@ export type Database = {
           ai_fallback: boolean | null
           api_base_url: string | null
           api_token: string | null
+          click_to_dial_enabled: boolean | null
           client_uuid: string | null
           company_id: string
           created_at: string | null
+          destination_number: string | null
           enrich_summary: boolean | null
           fallback_delay_seconds: number | null
           fetch_summary: boolean | null
@@ -4487,15 +4513,18 @@ export type Database = {
           status: string | null
           transcribe: boolean | null
           updated_at: string | null
+          voipgrid_api_url: string | null
           webhook_secret: string | null
         }
         Insert: {
           ai_fallback?: boolean | null
           api_base_url?: string | null
           api_token?: string | null
+          click_to_dial_enabled?: boolean | null
           client_uuid?: string | null
           company_id: string
           created_at?: string | null
+          destination_number?: string | null
           enrich_summary?: boolean | null
           fallback_delay_seconds?: number | null
           fetch_summary?: boolean | null
@@ -4505,15 +4534,18 @@ export type Database = {
           status?: string | null
           transcribe?: boolean | null
           updated_at?: string | null
+          voipgrid_api_url?: string | null
           webhook_secret?: string | null
         }
         Update: {
           ai_fallback?: boolean | null
           api_base_url?: string | null
           api_token?: string | null
+          click_to_dial_enabled?: boolean | null
           client_uuid?: string | null
           company_id?: string
           created_at?: string | null
+          destination_number?: string | null
           enrich_summary?: boolean | null
           fallback_delay_seconds?: number | null
           fetch_summary?: boolean | null
@@ -4523,6 +4555,7 @@ export type Database = {
           status?: string | null
           transcribe?: boolean | null
           updated_at?: string | null
+          voipgrid_api_url?: string | null
           webhook_secret?: string | null
         }
         Relationships: [

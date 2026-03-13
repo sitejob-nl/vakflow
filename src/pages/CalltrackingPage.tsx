@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useCallRecords, useCallStats, type DateRange, type DirectionFilter, type StatusFilter } from "@/hooks/useCallRecords";
+import { useCallRecords, useCallStats, type DateRange, type DirectionFilter, type StatusFilter, type EndReasonFilter } from "@/hooks/useCallRecords";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos, useCreateTodo } from "@/hooks/useTodos";
@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
-  Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Play, Pause, Link2, ListTodo, Loader2, Search,
+  Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Play, Pause, Link2, ListTodo, Loader2, Search, ArrowRight,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 
 // Helpers
 const fmtDuration = (sec: number | null) => {
@@ -42,11 +43,46 @@ const fmtDuration = (sec: number | null) => {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 };
 
-const statusConfig: Record<string, { label: string; className: string }> = {
-  answered: { label: "Beantwoord", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
-  missed: { label: "Gemist", className: "bg-destructive/15 text-destructive border-destructive/30" },
-  voicemail: { label: "Voicemail", className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" },
-  ai_handled: { label: "AI afgehandeld", className: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30" },
+const getStatusBadge = (status: string | null, endReason: string | null) => {
+  if (status === "ringing") {
+    return { label: "Rinkelt", className: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30 animate-pulse" };
+  }
+  if (status === "transferred") {
+    return { label: "Doorgeschakeld", className: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30" };
+  }
+  if (status === "voicemail") {
+    return { label: "Voicemail", className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" };
+  }
+  if (status === "ai_handled") {
+    return { label: "AI afgehandeld", className: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30" };
+  }
+  if (status === "answered") {
+    return { label: "Beantwoord", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" };
+  }
+  // missed / ended — differentiate by end_reason
+  if (endReason === "busy") {
+    return { label: "Bezet", className: "bg-destructive/15 text-destructive border-destructive/30" };
+  }
+  if (endReason === "cancelled") {
+    return { label: "Opgehangen", className: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30" };
+  }
+  if (endReason === "abandon") {
+    return { label: "Wachtrij verlaten", className: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30" };
+  }
+  if (endReason === "failed") {
+    return { label: "Mislukt", className: "bg-destructive/15 text-destructive border-destructive/30" };
+  }
+  // default missed
+  return { label: "Gemist", className: "bg-destructive/15 text-destructive border-destructive/30" };
+};
+
+const END_REASON_NL: Record<string, string> = {
+  completed: "Afgerond",
+  busy: "Bezet",
+  "no-answer": "Niet opgenomen",
+  failed: "Mislukt",
+  cancelled: "Opgehangen",
+  abandon: "Wachtrij verlaten",
 };
 
 type CallRecord = {
@@ -66,6 +102,14 @@ type CallRecord = {
   metadata: any;
   company_id: string;
   customers: { name: string } | null;
+  caller_name: string | null;
+  destination_number: string | null;
+  answered_by_name: string | null;
+  answered_by_account_number: number | null;
+  end_reason: string | null;
+  was_transferred: boolean | null;
+  transferred_to: string | null;
+  merged_call_id: string | null;
 };
 
 const CalltrackingPage = () => {
@@ -77,6 +121,7 @@ const CalltrackingPage = () => {
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [direction, setDirection] = useState<DirectionFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [endReasonFilter, setEndReasonFilter] = useState<EndReasonFilter>("all");
   const [customFrom, setCustomFrom] = useState<Date>();
   const [customTo, setCustomTo] = useState<Date>();
   const [search, setSearch] = useState("");
@@ -90,7 +135,7 @@ const CalltrackingPage = () => {
   const [linkBusy, setLinkBusy] = useState(false);
 
   // Data
-  const { data: records = [], isLoading } = useCallRecords(dateRange, direction, statusFilter, customFrom, customTo);
+  const { data: records = [], isLoading } = useCallRecords(dateRange, direction, statusFilter, customFrom, customTo, endReasonFilter);
   const { data: stats } = useCallStats();
   const { data: customers } = useCustomers();
   const createTodo = useCreateTodo();
@@ -101,6 +146,7 @@ const CalltrackingPage = () => {
     const q = search.toLowerCase();
     return records.filter((r: any) =>
       r.customers?.name?.toLowerCase().includes(q) ||
+      r.caller_name?.toLowerCase().includes(q) ||
       r.from_number?.includes(q) ||
       r.to_number?.includes(q) ||
       r.ai_summary?.toLowerCase().includes(q)
@@ -130,7 +176,7 @@ const CalltrackingPage = () => {
     const summary = record.ai_summary || record.voys_summary || "Terugbellen";
     try {
       await createTodo.mutateAsync({
-        title: `Terugbellen: ${record.customers?.name || record.from_number || "Onbekend"}`,
+        title: `Terugbellen: ${record.customers?.name || record.caller_name || record.from_number || "Onbekend"}`,
         description: summary,
         customer_id: record.customer_id || undefined,
       } as any);
@@ -162,7 +208,7 @@ const CalltrackingPage = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-5 pb-4 px-5">
             <p className="text-xs font-medium text-muted-foreground">Totaal (vandaag)</p>
@@ -179,6 +225,14 @@ const CalltrackingPage = () => {
           <CardContent className="pt-5 pb-4 px-5">
             <p className="text-xs font-medium text-destructive">Gemist</p>
             <p className="text-2xl font-bold mt-1 text-destructive">{stats?.missed ?? 0}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5 pb-4 px-5">
+            <p className="text-xs font-medium text-purple-600 dark:text-purple-400 flex items-center gap-1">
+              <ArrowRight className="h-3 w-3" /> Doorgeschakeld
+            </p>
+            <p className="text-2xl font-bold mt-1 text-purple-700 dark:text-purple-400">{stats?.transferred ?? 0}</p>
           </CardContent>
         </Card>
         <Card>
@@ -240,10 +294,26 @@ const CalltrackingPage = () => {
           <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Alle statussen</SelectItem>
+            <SelectItem value="ringing">Rinkelt</SelectItem>
             <SelectItem value="answered">Beantwoord</SelectItem>
             <SelectItem value="missed">Gemist</SelectItem>
+            <SelectItem value="ended">Beëindigd</SelectItem>
+            <SelectItem value="transferred">Doorgeschakeld</SelectItem>
             <SelectItem value="voicemail">Voicemail</SelectItem>
             <SelectItem value="ai_handled">AI afgehandeld</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={endReasonFilter} onValueChange={(v) => setEndReasonFilter(v as EndReasonFilter)}>
+          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle redenen</SelectItem>
+            <SelectItem value="completed">Afgerond</SelectItem>
+            <SelectItem value="busy">Bezet</SelectItem>
+            <SelectItem value="no-answer">Niet opgenomen</SelectItem>
+            <SelectItem value="failed">Mislukt</SelectItem>
+            <SelectItem value="cancelled">Opgehangen</SelectItem>
+            <SelectItem value="abandon">Wachtrij verlaten</SelectItem>
           </SelectContent>
         </Select>
 
@@ -272,7 +342,8 @@ const CalltrackingPage = () => {
                 <TableHead className="w-[50px]">Richting</TableHead>
                 <TableHead>Nummer</TableHead>
                 <TableHead>Klant</TableHead>
-                <TableHead className="w-[120px]">Status</TableHead>
+                <TableHead className="w-[140px]">Status</TableHead>
+                <TableHead>Opgenomen door</TableHead>
                 <TableHead className="w-[80px]">Duur</TableHead>
                 <TableHead>Samenvatting</TableHead>
                 <TableHead>Actiepunten</TableHead>
@@ -281,15 +352,16 @@ const CalltrackingPage = () => {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                     Geen gesprekken gevonden
                   </TableCell>
                 </TableRow>
               ) : (
                 filtered.map((r: any) => {
-                  const cfg = statusConfig[r.status] ?? statusConfig.missed;
+                  const badge = getStatusBadge(r.status, r.end_reason);
                   const summary = getSummary(r);
                   const items = actionItems(r);
+                  const number = getNumber(r);
                   return (
                     <TableRow
                       key={r.id}
@@ -308,7 +380,16 @@ const CalltrackingPage = () => {
                           <PhoneOutgoing className="h-4 w-4 text-blue-600" />
                         )}
                       </TableCell>
-                      <TableCell className="font-mono text-sm">{getNumber(r) || "—"}</TableCell>
+                      <TableCell>
+                        {r.caller_name ? (
+                          <div>
+                            <span className="text-sm font-medium">{r.caller_name}</span>
+                            {number && <p className="text-xs text-muted-foreground font-mono">{number}</p>}
+                          </div>
+                        ) : (
+                          <span className="font-mono text-sm">{number || "—"}</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {r.customers?.name ? (
                           <span className="text-sm font-medium">{r.customers.name}</span>
@@ -328,9 +409,21 @@ const CalltrackingPage = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={cfg.className}>
-                          {cfg.label}
+                        <Badge variant="outline" className={badge.className}>
+                          {badge.label}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {r.was_transferred && r.transferred_to ? (
+                          <span className="flex items-center gap-1 text-purple-700 dark:text-purple-400">
+                            <ArrowRight className="h-3 w-3" />
+                            {r.transferred_to}
+                          </span>
+                        ) : r.answered_by_name ? (
+                          <span>{r.answered_by_name}</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         {fmtDuration(r.duration_seconds)}
@@ -383,6 +476,48 @@ const CalltrackingPage = () => {
               </SheetHeader>
 
               <div className="space-y-6 mt-6">
+                {/* Gespreksdetails */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Gespreksdetails</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground text-xs">Beller</p>
+                      <p className="font-medium">
+                        {selected.caller_name || "Onbekend"}
+                      </p>
+                      {selected.from_number && (
+                        <p className="text-xs text-muted-foreground font-mono">{selected.from_number}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Bestemming</p>
+                      <p className="font-medium font-mono">{selected.destination_number || selected.to_number || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Opgenomen door</p>
+                      <p className="font-medium">{selected.answered_by_name || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Duur</p>
+                      <p className="font-medium">{fmtDuration(selected.duration_seconds)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Reden beëindiging</p>
+                      <p className="font-medium">{selected.end_reason ? (END_REASON_NL[selected.end_reason] || selected.end_reason) : "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Doorgeschakeld</p>
+                      <p className="font-medium">
+                        {selected.was_transferred
+                          ? `Ja → ${selected.transferred_to || "onbekend"}`
+                          : "Nee"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
                 {/* Meta */}
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
@@ -404,21 +539,13 @@ const CalltrackingPage = () => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground text-xs">Nummer</p>
-                    <p className="font-medium font-mono">{getNumber(selected) || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs">Duur</p>
-                    <p className="font-medium">{fmtDuration(selected.duration_seconds)}</p>
-                  </div>
-                  <div>
                     <p className="text-muted-foreground text-xs">Klant</p>
                     <p className="font-medium">{selected.customers?.name || "Onbekend"}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs">Status</p>
-                    <Badge variant="outline" className={statusConfig[selected.status ?? "missed"]?.className}>
-                      {statusConfig[selected.status ?? "missed"]?.label ?? selected.status}
+                    <Badge variant="outline" className={getStatusBadge(selected.status, selected.end_reason).className}>
+                      {getStatusBadge(selected.status, selected.end_reason).label}
                     </Badge>
                   </div>
                 </div>
