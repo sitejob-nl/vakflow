@@ -32,7 +32,7 @@ const BASE_TABS: string[] = [
   "Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen",
   "Objectvelden", "Sjablonen", "Werkplaats", "Boekhouding", "E-mail", "WhatsApp",
   "E-mail Templates", "Automatiseringen", "APK-herinneringen", "Teamleden",
-  "Koppelingen", "Meta", "Leads", "API Keys",
+  "Koppelingen", "Meta", "Leads", "API Keys", "Hexon DV",
 ];
 
 const TAB_FEATURE_MAP: Record<string, string> = {
