@@ -1495,6 +1495,23 @@ const SettingsAccountingTab = () => {
         />
       )}
 
+      {configProvider === "rompslomp" && (
+        <RompslompSection
+          companyId={companyId}
+          hasToken={hasTokens.rompslomp}
+          activeProvider={activeProvider}
+          onConnected={() => {
+            setHasTokens((prev) => ({ ...prev, rompslomp: true }));
+            setActiveProvider("rompslomp");
+          }}
+          onDisconnected={() => {
+            setHasTokens((prev) => ({ ...prev, rompslomp: false }));
+            if (activeProvider === "rompslomp") setActiveProvider("");
+          }}
+          onSetActive={() => handleSaveProvider("rompslomp")}
+        />
+      )}
+
       {/* Switch Confirmation Dialog */}
       <AlertDialog open={!!switchConfirm} onOpenChange={() => setSwitchConfirm(null)}>
         <AlertDialogContent>
