@@ -27,6 +27,7 @@ const SettingsAssetFieldsTab = lazy(() => import("@/components/settings/Settings
 const SettingsLeadsTab = lazy(() => import("@/components/settings/SettingsLeadsTab"));
 const SettingsApiKeysTab = lazy(() => import("@/components/settings/SettingsApiKeysTab"));
 const SettingsHexonTab = lazy(() => import("@/components/settings/SettingsHexonTab"));
+const SettingsVoysTab = lazy(() => import("@/components/settings/SettingsVoysTab"));
 
 const BASE_TABS: string[] = [
   "Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen",
