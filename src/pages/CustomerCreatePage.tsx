@@ -103,6 +103,11 @@ const CustomerCreatePage = () => {
           body: { action: "sync-customer", customer_id: newCustomer.id },
         }).catch(() => {}); // fire-and-forget
       }
+      if (accountingProvider === "eboekhouden") {
+        supabase.functions.invoke("sync-invoice-eboekhouden", {
+          body: { action: "sync-customer", customer_id: newCustomer.id },
+        }).catch(() => {}); // fire-and-forget
+      }
       navigate("custDetail", { customerId: newCustomer.id });
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });

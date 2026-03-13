@@ -4832,6 +4832,10 @@ export type Database = {
       is_portal_user: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       switch_company: { Args: { target_company_id: string }; Returns: Json }
+      verify_record_ownership: {
+        Args: { p_company_id: string; p_record_id: string; p_table: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "monteur" | "super_admin"
