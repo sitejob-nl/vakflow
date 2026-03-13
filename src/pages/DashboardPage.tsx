@@ -67,7 +67,9 @@ const DashboardPage = () => {
   const { navigate } = useNavigation();
   const queryClient = useQueryClient();
   const { labels, industry } = useIndustryConfig();
+  const { enabledFeatures } = useAuth();
   const isAutomotive = industry === "automotive";
+  const showSalesWidgets = isAutomotive || enabledFeatures.includes("vehicle_sales");
   const isCleaning = industry === "cleaning";
   const { data: todayAppts, isLoading: loadingAppts } = useTodayAppointments();
   const { data: stats, isLoading: loadingStats } = useDashboardStats();
@@ -78,6 +80,7 @@ const DashboardPage = () => {
   const { data: recentActivity } = useRecentActivity();
   const { data: autoStats } = useAutomotiveDashboardStats();
   const { data: cleaningStats } = useCleaningDashboardStats();
+  const { data: salesStats } = useAutomotiveSalesDashboard();
 
   const [apptDialogOpen, setApptDialogOpen] = useState(false);
   const [woDialogOpen, setWoDialogOpen] = useState(false);
