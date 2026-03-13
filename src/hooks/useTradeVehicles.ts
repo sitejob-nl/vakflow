@@ -15,11 +15,14 @@ export interface HexonListing {
   trade_vehicle_id: string;
   site_code: string;
   stocknumber: string;
+  ad_key: string | null;
+  portal_name: string | null;
   status: string | null;
   status_message: string | null;
   deeplink_url: string | null;
   errors: any;
   warnings: any;
+  notifications: any[] | null;
   last_synced_at: string | null;
 }
 
