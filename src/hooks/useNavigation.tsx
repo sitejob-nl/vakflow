@@ -28,6 +28,7 @@ export type Page =
   | "projects"
   | "projDetail"
   | "leads"
+  | "calltracking"
   | "accounting"
   | "superadmin";
 
