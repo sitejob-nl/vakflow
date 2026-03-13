@@ -1,50 +1,88 @@
 
 
-# Apply uploaded edge function improvements
+# Hexon Frontend Updates — Implementation Plan
 
-The uploaded files contain improvements to 4 edge functions. Here's a summary of the changes from the patch file:
+The uploaded file contains 3 prompts for updating the Hexon integration frontend. The backend (edge functions, database columns) is already deployed. This plan covers all three prompts.
 
-## 1. `exact-webhook/index.ts` — Add invoice payment status processing
+---
 
-Currently just logs and acknowledges webhooks. The update adds:
-- `getExactToken` helper to fetch access tokens from SiteJob Connect
-- `logEdgeFunctionError` import for error logging
-- Query `tenant_id` and `division` from `exact_config`
-- When a `SalesInvoices` webhook arrives, fetch the invoice from Exact to check if `Status === 50` (paid), and if so update the local invoice to `betaald`
+## Prompt 1: SettingsHexonTab Overhaul
 
-## 2. `moneybird-webhook/index.ts` — Add URL-based webhook secret verification
+**Current state**: The tab has a simple API Key + URL + publication form with hardcoded portal checkboxes.
 
-Currently validates only by `administration_id` match. The update adds:
-- Parse `?secret=` from the webhook URL
-- Reject requests without a secret parameter (401)
-- Verify the secret matches `company.moneybird_webhook_secret` (403 if mismatch)
-- Select `moneybird_webhook_secret` in the company query
+**Changes to `src/components/settings/SettingsHexonTab.tsx`**:
 
-## 3. `sync-exact/index.ts` — Invoice sync improvements
+1. **Replace the `HexonConfig` interface** with new fields: `api_url`, `endpoint`, `publication`, `auth_method` ("basic"|"bearer"), `username`, `password`, `bearer_token`, `default_currency`, `incl_vat`, `vat_pct`, `event_subscription_id`, plus existing `default_site_codes`, `auto_publish`, `photo_overlay_code`.
 
-Three fixes:
-- **Fiscal year filter**: Only sync invoices from current year (`gte("issued_at", fiscalYearStart)`) to avoid closed-period errors
-- **VAT-exclusive pricing**: Convert `unit_price` (incl. BTW) to `NetPrice` (excl. BTW) using `vat_percentage` before pushing to Exact
-- **Error logging**: Log individual invoice sync failures via `logEdgeFunctionError`
-- Add `logEdgeFunctionError` import
+2. **Connection section**: Replace single API Key field with:
+   - API URL (default `https://api.hexon.nl`), with sandbox hint
+   - Endpoint text input (placeholder "spi")
+   - Publication text input (placeholder "demo")
 
-Both the batch `sync-invoices` and single `push-invoice` cases get the VAT fix.
+3. **Authentication section**: Radio group for `auth_method`:
+   - "basic" → username + password (with eye toggle)
+   - "bearer" → bearer_token (with eye toggle)
+   - Remove old `api_key` field
 
-## 4. `sync-moneybird/index.ts` — Secure webhook registration
+4. **Pricing section**: Currency select (EUR/USD/GBP), incl_vat toggle, vat_pct number input (conditional)
 
-Currently registers webhooks without a secret. The update:
-- Generates a random 32-byte hex secret
-- Appends `?secret={secret}` to the webhook callback URL
-- Stores the secret in `companies.moneybird_webhook_secret` after successful registration
+5. **Portals section**: Replace hardcoded `PORTALS` list with:
+   - "Beschikbare portalen ophalen" button → calls `hexon-sync` with `action: "fetch_sites"`
+   - Renders results as checkboxes; pre-selects existing `default_site_codes`
+   - State: `availableSites`, `fetchingSites`
 
-## Files to modify
+6. **Webhook section**: 
+   - Show webhook URL with `?company_id={companyId}` appended
+   - "Webhook registreren" button → calls `hexon-sync` with `action: "setup_webhook"`
+   - Shows green badge if `event_subscription_id` exists
+   - "Opnieuw registreren" option if already registered
 
-| File | Change |
-|---|---|
-| `supabase/functions/exact-webhook/index.ts` | Replace with uploaded `index_36.ts` |
-| `supabase/functions/moneybird-webhook/index.ts` | Replace with uploaded `index_37.ts` |
-| `supabase/functions/sync-exact/index.ts` | Apply VAT fix, fiscal year filter, error logging |
-| `supabase/functions/sync-moneybird/index.ts` | Secure webhook registration with secret |
+7. **Test connection**: Enhanced with per-step results (auth check, sites check) with green/red indicators and specific error messages (401, 404, network)
 
-All 4 functions will be redeployed. No database changes needed (`moneybird_webhook_secret` column already exists).
+8. **Save handler**: Update payload to include all new fields, remove `api_key`
+
+---
+
+## Prompt 2: Hexon Listings Display Updates
+
+**Changes to `src/hooks/useTradeVehicles.ts`**:
+- Update `HexonListing` interface: add `ad_key`, `portal_name`, `notifications` fields
+
+**Changes to `src/pages/TradeVehiclesPage.tsx`**:
+- Update the table view to add a "Portaalstatus" column showing per-listing badges with colored dots, portal names, warning/error icons, and clickable deeplinks
+
+**Changes to `src/components/TradeVehicleDetailSheet.tsx`**:
+- Enhance the existing Hexon tab:
+  - Show `portal_name` alongside `site_code`
+  - Add notifications display (orange warnings)
+  - Per-listing actions: "Status vernieuwen" (`fetch_status`), "Offline halen" (`unpublish`)
+  - Global actions: "Publiceren naar alle portalen", "Alle statussen vernieuwen", "Voertuigdata bijwerken"
+
+**Changes to dashboard** (automotive): Add Hexon KPI cards (online count, denied count, pending count) — only if `enabledFeatures` includes `hexon`.
+
+---
+
+## Prompt 3: Hexon Onboarding Wizard
+
+**New component or inline in `SettingsHexonTab`**: A 4-step wizard shown when `hexon_config.status !== 'active'` (or no config exists):
+
+1. **Step 1 "Welkom"**: Explanation + "Heb je al een Hexon account?" toggle
+2. **Step 2 "Gegevens"**: API URL, endpoint, publication, auth method + credentials, test connection button
+3. **Step 3 "Portalen"**: Auto-fetch sites via `fetch_sites`, show as checkboxes
+4. **Step 4 "Webhook"**: Auto-register webhook, show success/failure
+
+After completion: save config with `status: 'active'`, show normal settings view.
+
+The wizard renders as a full-width card replacing the settings form when no active config exists.
+
+---
+
+## Implementation Order
+
+1. **SettingsHexonTab** — biggest change, restructure the entire form
+2. **Onboarding wizard** — conditional rendering within the same tab
+3. **TradeVehicles listings** — update interface, table column, detail sheet
+4. **Dashboard KPIs** — small addition
+
+All changes are frontend-only; no edge function or database modifications needed.
 
