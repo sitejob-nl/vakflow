@@ -197,11 +197,11 @@ const InvoicesPage = () => {
   const handleBulkSync = async () => {
     if (!accountingProvider) return;
     setBulkSyncing(true);
-    const funcMap: Record<string, string> = { exact: "sync-exact", wefact: "sync-wefact", eboekhouden: "sync-invoice-eboekhouden", moneybird: "sync-moneybird", rompslomp: "sync-rompslomp" };
-    const funcName = funcMap[accountingProvider];
-    if (!funcName) { setBulkSyncing(false); return; }
+    const funcMap: Record<string, { func: string; action: string }> = { exact: { func: "sync-exact", action: "sync-invoices" }, wefact: { func: "sync-wefact", action: "sync-invoices" }, eboekhouden: { func: "sync-invoice-eboekhouden", action: "sync-all-invoices" }, moneybird: { func: "sync-moneybird", action: "sync-invoices" }, rompslomp: { func: "sync-rompslomp", action: "sync-invoices" } };
+    const entry = funcMap[accountingProvider];
+    if (!entry) { setBulkSyncing(false); return; }
     try {
-      const { data, error } = await supabase.functions.invoke(funcName, { body: { action: "sync-invoices" } });
+      const { data, error } = await supabase.functions.invoke(entry.func, { body: { action: entry.action } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       const synced = data?.synced ?? data?.created ?? 0;
