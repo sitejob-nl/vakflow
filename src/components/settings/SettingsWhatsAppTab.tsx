@@ -93,6 +93,27 @@ const VERTICALS = [
   "NONPROFIT", "PROF_SERVICES", "RETAIL", "TRAVEL", "RESTAURANT",
 ];
 
+/* ── Display Name Hook ── */
+function useDisplayNameStatus(enabled: boolean) {
+  return useQuery({
+    queryKey: ["whatsapp-display-name-status"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("whatsapp-send", { body: { action: "display_name_status" } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as {
+        verified_name: string | null;
+        name_status: string | null;
+        new_display_name: string | null;
+        new_name_status: string | null;
+      };
+    },
+    enabled,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
 /* ================================================================ */
 const SettingsWhatsAppTab = () => {
   const { companyId } = useAuth();
