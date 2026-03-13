@@ -131,6 +131,8 @@ const SettingsPage = () => {
         return <SettingsHexonTab />;
       case "Telefonie (Voys)":
         return <SettingsVoysTab />;
+      case "AI Agent":
+        return <SettingsAiAgentTab />;
       default:
         return null;
     }
