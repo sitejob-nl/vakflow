@@ -12,6 +12,8 @@ export interface IndustryLabels {
   vehicles: string;
   bay: string;
   bays: string;
+  tradeVehicle: string;
+  tradeVehicles: string;
 }
 
 export interface SubcategoryConfig {
@@ -43,6 +45,8 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
       vehicles: "Voertuigen",
       bay: "Brug",
       bays: "Bruggen",
+      tradeVehicle: "Inruil",
+      tradeVehicles: "Inruilen",
     },
     subcategories: {
       installation: {
@@ -82,7 +86,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing", "contracts", "projects", "leads", "accounting",
+      "reminders", "assets", "marketing", "contracts", "projects", "leads", "accounting", "api",
     ],
   },
   cleaning: {
@@ -100,6 +104,8 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
       vehicles: "Voertuigen",
       bay: "Brug",
       bays: "Bruggen",
+      tradeVehicle: "Inruil",
+      tradeVehicles: "Inruilen",
     },
     subcategories: {
       general: {
@@ -118,7 +124,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing", "contracts", "schedule", "audits", "projects", "leads", "accounting",
+      "reminders", "assets", "marketing", "contracts", "schedule", "audits", "projects", "leads", "accounting", "api",
     ],
   },
   automotive: {
@@ -136,6 +142,8 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
       vehicles: "Voertuigen",
       bay: "Brug",
       bays: "Bruggen",
+      tradeVehicle: "Voertuig",
+      tradeVehicles: "Voertuigen",
     },
     subcategories: {
       garage: {
@@ -158,11 +166,24 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
           workerPlural: "Plaatwerkers",
         },
       },
+      dealer: {
+        label: "Autodealer / handelaar",
+        labels: {
+          worker: "Verkoopmedewerker",
+          workerPlural: "Verkoopmedewerkers",
+          workOrder: "Verkooporder",
+          workOrders: "Verkooporders",
+          appointment: "Afspraak",
+          tradeVehicle: "Occasion",
+          tradeVehicles: "Occasions",
+        },
+      },
     },
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "vehicles", "marketing", "contracts", "trade", "projects", "leads", "accounting",
+      "reminders", "vehicles", "marketing", "contracts", "trade", "projects", "leads", "accounting", "api",
+      "vehicle_sales", "hexon", "voip", "ai_agent",
     ],
   },
   pest: {
@@ -180,6 +201,8 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
       vehicles: "Voertuigen",
       bay: "Brug",
       bays: "Bruggen",
+      tradeVehicle: "Inruil",
+      tradeVehicles: "Inruilen",
     },
     subcategories: {
       general: {
@@ -190,7 +213,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing", "contracts", "projects", "leads", "accounting",
+      "reminders", "assets", "marketing", "contracts", "projects", "leads", "accounting", "api",
     ],
   },
   landscaping: {
@@ -208,6 +231,8 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
       vehicles: "Voertuigen",
       bay: "Brug",
       bays: "Bruggen",
+      tradeVehicle: "Inruil",
+      tradeVehicles: "Inruilen",
     },
     subcategories: {
       gardening: {
@@ -232,7 +257,7 @@ export const industryConfig: Record<Industry, IndustryConfig> = {
     modules: [
       "dashboard", "planning", "customers", "workorders", "invoices",
       "quotes", "reports", "email", "whatsapp", "communication",
-      "reminders", "assets", "marketing", "contracts", "projects", "leads", "accounting",
+      "reminders", "assets", "marketing", "contracts", "projects", "leads", "accounting", "api",
     ],
   },
 };
