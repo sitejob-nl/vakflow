@@ -464,6 +464,7 @@ const TradeVehiclesPage = () => {
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{v.source || "—"}</TableCell>
                       <TableCell><HexonDot listings={vListings} /></TableCell>
+                      <TableCell><PortalStatusBadges listings={vListings} /></TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {format(new Date(v.created_at), "dd MMM yy", { locale: nl })}
                       </TableCell>
