@@ -1140,7 +1140,7 @@ const PROVIDERS: ProviderDef[] = [
   { key: "wefact", label: "WeFact", description: "Factuur- en debiteurenbeheer via API", enabled: true },
   { key: "eboekhouden", label: "e-Boekhouden", description: "Online boekhoudpakket", enabled: true },
   { key: "moneybird", label: "Moneybird", description: "Boekhouden voor ondernemers", enabled: true },
-  { key: "rompslomp", label: "Rompslomp", description: "Eenvoudige boekhouding", enabled: false },
+  { key: "rompslomp", label: "Rompslomp", description: "Eenvoudige boekhouding", enabled: true },
   { key: "snelstart", label: "SnelStart", description: "Boekhoudpakket voor het MKB", enabled: false },
 ];
 
