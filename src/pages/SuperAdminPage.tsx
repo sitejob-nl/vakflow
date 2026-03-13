@@ -53,11 +53,15 @@ const ALL_FEATURES = [
   { slug: "audits", label: "Audits" },
   { slug: "vehicles", label: "Voertuigen" },
   { slug: "trade", label: "Inruil" },
+  { slug: "vehicle_sales", label: "Voertuigverkoop" },
   { slug: "projects", label: "Projecten" },
   { slug: "marketing", label: "Marketing" },
   { slug: "custom_domain", label: "Custom Domein" },
   { slug: "api", label: "API" },
   { slug: "leads", label: "Leads" },
+  { slug: "hexon", label: "Hexon DV" },
+  { slug: "voip", label: "Telefonie (Voys)" },
+  { slug: "ai_agent", label: "AI Agent" },
 ];
 
 const INDUSTRIES: { value: string; label: string }[] = [

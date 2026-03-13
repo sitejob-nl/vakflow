@@ -21,8 +21,12 @@ const ALL_FEATURES = [
   { key: "marketing", label: "Marketing (Meta)" },
   { key: "contracts", label: "Contracten" },
   { key: "vehicles", label: "Voertuigen" },
+  { key: "vehicle_sales", label: "Voertuigverkoop" },
   { key: "leads", label: "Leads" },
   { key: "api", label: "API" },
+  { key: "hexon", label: "Hexon DV" },
+  { key: "voip", label: "Telefonie (Voys)" },
+  { key: "ai_agent", label: "AI Agent" },
 ];
 
 const SettingsPreferencesTab = () => {
