@@ -15,6 +15,7 @@ import AppointmentRequestsWidget from "@/components/AppointmentRequestsWidget";
 import ServiceRequestsWidget from "@/components/ServiceRequestsWidget";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { useAuth } from "@/contexts/AuthContext";
 import { useAutomotiveDashboardStats } from "@/hooks/useAutomotiveDashboard";
 import { useCleaningDashboardStats } from "@/hooks/useCleaningDashboard";
 import { useAutomotiveSalesDashboard } from "@/hooks/useAutomotiveSalesDashboard";
