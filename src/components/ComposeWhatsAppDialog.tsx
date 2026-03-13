@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, MessageSquare } from "lucide-react";
+import { Loader2, MessageSquare, Plus, X } from "lucide-react";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { useWhatsAppTemplates } from "@/hooks/useWhatsAppTemplates";
 import { useCreateCommunicationLog } from "@/hooks/useCommunicationLogs";
@@ -18,12 +18,24 @@ interface Props {
   customerName?: string;
 }
 
+type InteractiveButton = { id: string; title: string };
+type InteractiveCTA = { text: string; url: string };
+
 export default function ComposeWhatsAppDialog({ open, onOpenChange, customerPhone, customerId, customerName }: Props) {
-  const [mode, setMode] = useState<"text" | "template">("text");
+  const [mode, setMode] = useState<"text" | "template" | "interactive">("text");
   const [phone, setPhone] = useState(customerPhone || "");
   const [message, setMessage] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [templateVars, setTemplateVars] = useState<Record<string, string>>({});
+
+  // Interactive message state
+  const [interactiveType, setInteractiveType] = useState<"button" | "list" | "cta_url">("button");
+  const [interactiveHeader, setInteractiveHeader] = useState("");
+  const [interactiveBody, setInteractiveBody] = useState("");
+  const [interactiveFooter, setInteractiveFooter] = useState("");
+  const [replyButtons, setReplyButtons] = useState<InteractiveButton[]>([{ id: "btn_1", title: "" }]);
+  const [ctaButton, setCtaButton] = useState<InteractiveCTA>({ text: "", url: "" });
+  const [listSections, setListSections] = useState([{ title: "", rows: [{ id: "row_1", title: "", description: "" }] }]);
 
   const sendWhatsApp = useWhatsApp();
   const createLog = useCreateCommunicationLog();
@@ -39,7 +51,6 @@ export default function ComposeWhatsAppDialog({ open, onOpenChange, customerPhon
     [approvedTemplates, selectedTemplate]
   );
 
-  // Extract variables from template body — supports both positional {{1}} and named {{first_name}}
   const templateBody = useMemo(() => {
     if (!activeTemplate) return "";
     const bodyComponent = activeTemplate.components?.find((c: any) => c.type === "BODY");
@@ -58,7 +69,6 @@ export default function ComposeWhatsAppDialog({ open, onOpenChange, customerPhon
     return { type: "positional" as const, keys: [] as string[] };
   }, [templateBody]);
 
-  // Live preview with filled variables
   const preview = useMemo(() => {
     let text = templateBody;
     for (const key of templateParams.keys) {
@@ -67,12 +77,54 @@ export default function ComposeWhatsAppDialog({ open, onOpenChange, customerPhon
     return text;
   }, [templateBody, templateVars, templateParams]);
 
+  const buildInteractivePayload = () => {
+    const interactive: Record<string, any> = {
+      body: { text: interactiveBody },
+    };
+    if (interactiveHeader) interactive.header = { type: "text", text: interactiveHeader };
+    if (interactiveFooter) interactive.footer = { text: interactiveFooter };
+
+    if (interactiveType === "button") {
+      interactive.type = "button";
+      interactive.action = {
+        buttons: replyButtons.filter(b => b.title).map(b => ({
+          type: "reply",
+          reply: { id: b.id, title: b.title },
+        })),
+      };
+    } else if (interactiveType === "cta_url") {
+      interactive.type = "cta_url";
+      interactive.action = {
+        name: "cta_url",
+        parameters: { display_text: ctaButton.text, url: ctaButton.url },
+      };
+    } else if (interactiveType === "list") {
+      interactive.type = "list";
+      interactive.action = {
+        button: "Opties",
+        sections: listSections.map(s => ({
+          title: s.title,
+          rows: s.rows.filter(r => r.title).map(r => ({ id: r.id, title: r.title, description: r.description })),
+        })),
+      };
+    }
+    return interactive;
+  };
+
   const handleSend = async () => {
     const targetPhone = phone || customerPhone || "";
     if (!targetPhone) return;
 
     try {
-      if (mode === "text") {
+      if (mode === "interactive") {
+        const interactive = buildInteractivePayload();
+        await sendWhatsApp.mutateAsync({
+          to: targetPhone,
+          type: "interactive",
+          interactive,
+          customer_id: customerId,
+        });
+      } else if (mode === "text") {
         await sendWhatsApp.mutateAsync({
           to: targetPhone,
           message,
@@ -110,8 +162,8 @@ export default function ComposeWhatsAppDialog({ open, onOpenChange, customerPhon
           customer_id: customerId,
           channel: "whatsapp",
           direction: "outbound",
-          subject: mode === "template" ? `Template: ${selectedTemplate}` : null,
-          body: mode === "text" ? message : preview,
+          subject: mode === "template" ? `Template: ${selectedTemplate}` : mode === "interactive" ? "Interactief bericht" : null,
+          body: mode === "text" ? message : mode === "template" ? preview : interactiveBody,
           is_automated: false,
           status: "sent",
           sent_at: new Date().toISOString(),
@@ -119,30 +171,51 @@ export default function ComposeWhatsAppDialog({ open, onOpenChange, customerPhon
       }
 
       // Reset & close
-      setMessage("");
-      setSelectedTemplate("");
-      setTemplateVars({});
+      resetForm();
       onOpenChange(false);
     } catch {
       // Error handled by useWhatsApp hook
     }
   };
 
-  // Reset phone when dialog opens with new customer
+  const resetForm = () => {
+    setMessage("");
+    setSelectedTemplate("");
+    setTemplateVars({});
+    setInteractiveHeader("");
+    setInteractiveBody("");
+    setInteractiveFooter("");
+    setReplyButtons([{ id: "btn_1", title: "" }]);
+    setCtaButton({ text: "", url: "" });
+    setListSections([{ title: "", rows: [{ id: "row_1", title: "", description: "" }] }]);
+  };
+
   const handleOpenChange = (val: boolean) => {
     if (val) {
       setPhone(customerPhone || "");
-      setMessage("");
-      setSelectedTemplate("");
-      setTemplateVars({});
       setMode("text");
+      resetForm();
     }
     onOpenChange(val);
   };
 
+  const canSend = () => {
+    if (!phone) return false;
+    if (mode === "text") return !!message;
+    if (mode === "template") return !!selectedTemplate;
+    if (mode === "interactive") {
+      if (!interactiveBody) return false;
+      if (interactiveType === "button") return replyButtons.some(b => b.title);
+      if (interactiveType === "cta_url") return !!ctaButton.text && !!ctaButton.url;
+      if (interactiveType === "list") return listSections.some(s => s.rows.some(r => r.title));
+      return false;
+    }
+    return false;
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-accent" />
@@ -162,25 +235,20 @@ export default function ComposeWhatsAppDialog({ open, onOpenChange, customerPhon
 
           {/* Mode toggle */}
           <div className="flex gap-1 bg-muted rounded-md p-1">
-            <button
-              onClick={() => setMode("text")}
-              className={`flex-1 text-[12px] font-bold py-1.5 rounded-sm transition-colors ${
-                mode === "text" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
-              }`}
-            >
-              Tekst
-            </button>
-            <button
-              onClick={() => setMode("template")}
-              className={`flex-1 text-[12px] font-bold py-1.5 rounded-sm transition-colors ${
-                mode === "template" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
-              }`}
-            >
-              Template
-            </button>
+            {(["text", "template", "interactive"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`flex-1 text-[12px] font-bold py-1.5 rounded-sm transition-colors ${
+                  mode === m ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                }`}
+              >
+                {m === "text" ? "Tekst" : m === "template" ? "Template" : "Interactief"}
+              </button>
+            ))}
           </div>
 
-          {mode === "text" ? (
+          {mode === "text" && (
             <div className="space-y-2">
               <Label>Bericht</Label>
               <Textarea
@@ -190,7 +258,9 @@ export default function ComposeWhatsAppDialog({ open, onOpenChange, customerPhon
                 rows={4}
               />
             </div>
-          ) : (
+          )}
+
+          {mode === "template" && (
             <div className="space-y-3">
               <div className="space-y-2">
                 <Label>Template</Label>
@@ -238,21 +308,127 @@ export default function ComposeWhatsAppDialog({ open, onOpenChange, customerPhon
               )}
             </div>
           )}
+
+          {mode === "interactive" && (
+            <div className="space-y-3">
+              {/* Interactive type selector */}
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select value={interactiveType} onValueChange={(v) => setInteractiveType(v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="button">Antwoordknoppen (max 3)</SelectItem>
+                    <SelectItem value="list">Lijstmenu</SelectItem>
+                    <SelectItem value="cta_url">CTA-URL knop</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[11px] text-muted-foreground">Header (optioneel)</Label>
+                <Input value={interactiveHeader} onChange={(e) => setInteractiveHeader(e.target.value)} placeholder="Koptekst" />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Berichttekst</Label>
+                <Textarea value={interactiveBody} onChange={(e) => setInteractiveBody(e.target.value)} placeholder="Typ je bericht..." rows={3} />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[11px] text-muted-foreground">Footer (optioneel)</Label>
+                <Input value={interactiveFooter} onChange={(e) => setInteractiveFooter(e.target.value)} placeholder="Voettekst" />
+              </div>
+
+              {/* Reply buttons */}
+              {interactiveType === "button" && (
+                <div className="space-y-2">
+                  <Label className="text-[11px] text-muted-foreground">Knoppen (max 3)</Label>
+                  {replyButtons.map((btn, i) => (
+                    <div key={btn.id} className="flex items-center gap-2">
+                      <Input
+                        value={btn.title}
+                        onChange={(e) => {
+                          const next = [...replyButtons];
+                          next[i] = { ...btn, title: e.target.value };
+                          setReplyButtons(next);
+                        }}
+                        placeholder={`Knop ${i + 1}`}
+                        maxLength={20}
+                      />
+                      {replyButtons.length > 1 && (
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0"
+                          onClick={() => setReplyButtons(replyButtons.filter((_, j) => j !== i))}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  {replyButtons.length < 3 && (
+                    <Button variant="outline" size="sm" className="text-[11px]"
+                      onClick={() => setReplyButtons([...replyButtons, { id: `btn_${replyButtons.length + 1}`, title: "" }])}>
+                      <Plus className="h-3 w-3 mr-1" /> Knop toevoegen
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* CTA URL */}
+              {interactiveType === "cta_url" && (
+                <div className="space-y-2">
+                  <Label className="text-[11px] text-muted-foreground">CTA-knop</Label>
+                  <Input value={ctaButton.text} onChange={(e) => setCtaButton({ ...ctaButton, text: e.target.value })} placeholder="Knoptekst" maxLength={20} />
+                  <Input value={ctaButton.url} onChange={(e) => setCtaButton({ ...ctaButton, url: e.target.value })} placeholder="https://..." />
+                </div>
+              )}
+
+              {/* List menu */}
+              {interactiveType === "list" && (
+                <div className="space-y-2">
+                  <Label className="text-[11px] text-muted-foreground">Lijstopties</Label>
+                  {listSections.map((section, si) => (
+                    <div key={si} className="border border-border rounded-md p-2 space-y-1.5">
+                      <Input value={section.title} onChange={(e) => {
+                        const next = [...listSections];
+                        next[si] = { ...section, title: e.target.value };
+                        setListSections(next);
+                      }} placeholder="Sectietitel" className="text-[12px]" />
+                      {section.rows.map((row, ri) => (
+                        <div key={row.id} className="flex gap-1.5">
+                          <Input value={row.title} onChange={(e) => {
+                            const next = [...listSections];
+                            next[si].rows[ri] = { ...row, title: e.target.value };
+                            setListSections(next);
+                          }} placeholder="Optietitel" className="text-[12px] flex-1" maxLength={24} />
+                          <Input value={row.description} onChange={(e) => {
+                            const next = [...listSections];
+                            next[si].rows[ri] = { ...row, description: e.target.value };
+                            setListSections(next);
+                          }} placeholder="Beschrijving" className="text-[12px] flex-1" maxLength={72} />
+                        </div>
+                      ))}
+                      {section.rows.length < 10 && (
+                        <Button variant="ghost" size="sm" className="text-[10px] h-6"
+                          onClick={() => {
+                            const next = [...listSections];
+                            next[si].rows.push({ id: `row_${Date.now()}`, title: "", description: "" });
+                            setListSections(next);
+                          }}>
+                          <Plus className="h-3 w-3 mr-1" /> Optie
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annuleren
           </Button>
-          <Button
-            onClick={handleSend}
-            disabled={
-              sendWhatsApp.isPending ||
-              !phone ||
-              (mode === "text" && !message) ||
-              (mode === "template" && !selectedTemplate)
-            }
-          >
+          <Button onClick={handleSend} disabled={sendWhatsApp.isPending || !canSend()}>
             {sendWhatsApp.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
             Versturen
           </Button>
