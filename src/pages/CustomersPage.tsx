@@ -350,6 +350,7 @@ const CustomersPage = () => {
                     Locatie<SortIcon col="city" />
                   </th>
                   <th className="text-left px-5 py-2.5 text-[10.5px] font-bold uppercase tracking-wider text-t3 border-b border-border">Dienst</th>
+                  <th className="text-left px-5 py-2.5 text-[10.5px] font-bold uppercase tracking-wider text-t3 border-b border-border">Telefoon</th>
                   <th className="text-left px-5 py-2.5 text-[10.5px] font-bold uppercase tracking-wider text-t3 border-b border-border cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("interval_months")}>
                     Interval<SortIcon col="interval_months" />
                   </th>
