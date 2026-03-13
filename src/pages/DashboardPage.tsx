@@ -455,6 +455,9 @@ const DashboardPage = () => {
       <AppointmentRequestsWidget />
       <ServiceRequestsWidget />
 
+      {/* AI Agent Widget */}
+      {enabledFeatures.includes("ai_agent") && <AiAgentWidget navigate={navigate} />}
+
 
       <div className="flex gap-2 mb-5 flex-wrap">
         <button onClick={() => setApptDialogOpen(true)} className="flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-lg text-[12px] font-bold text-secondary-foreground hover:border-primary hover:text-primary transition-all shadow-card">
