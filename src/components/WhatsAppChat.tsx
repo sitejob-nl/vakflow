@@ -384,9 +384,9 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName, 
                       </span>
                     </div>
                   )}
-                  <div className={`flex ${isOutgoing ? "justify-end" : "justify-start"} mb-0.5`}>
+                  <div className={`flex ${isOutgoing ? "justify-end" : "justify-start"} mb-0.5 group/msg`}>
                     <div
-                      className={`max-w-[80%] md:max-w-[70%] rounded-xl px-3 py-2 ${
+                      className={`relative max-w-[80%] md:max-w-[70%] rounded-xl px-3 py-2 ${
                         isOutgoing
                           ? aiMsg
                             ? "bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 rounded-br-sm"
@@ -406,12 +406,51 @@ export default function WhatsAppChat({ customerId, customerPhone, customerName, 
                           {msg.content}
                         </p>
                       )}
+                      {/* Interactive message rendering */}
+                      {msg.type === "interactive" && msg.metadata?.interactive && (
+                        <div className="mt-1.5 space-y-1">
+                          {(msg.metadata.interactive as any)?.action?.buttons?.map((btn: any, i: number) => (
+                            <div key={i} className="text-[11px] px-2 py-1 rounded bg-background/20 text-center font-medium">
+                              {btn.reply?.title || btn.title || btn.text}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div className={`flex items-center gap-1 mt-0.5 ${isOutgoing ? "justify-end" : ""}`}>
                         <span className={`text-[9px] ${isOutgoing ? (aiMsg ? "text-purple-600/60 dark:text-purple-300/60" : "text-primary-foreground/60") : "text-muted-foreground"}`}>
                           {msg.created_at ? format(new Date(msg.created_at), "HH:mm") : ""}
                         </span>
                         {isOutgoing && <StatusIcon status={msg.status} />}
                       </div>
+                      {/* Emoji reaction button — only for incoming messages */}
+                      {isIncoming && msg.wamid && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="absolute -bottom-2 right-1 opacity-0 group-hover/msg:opacity-100 transition-opacity h-5 w-5 rounded-full bg-card border border-border flex items-center justify-center text-[10px] shadow-sm hover:bg-muted">
+                              <Smile className="h-3 w-3 text-muted-foreground" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-1.5 flex gap-1" side="top" align="end">
+                            {QUICK_EMOJIS.map((emoji) => (
+                              <button
+                                key={emoji}
+                                className="text-base hover:scale-125 transition-transform p-0.5"
+                                onClick={() => {
+                                  sendWhatsApp.mutate({
+                                    to: customerPhone!,
+                                    type: "reaction",
+                                    reaction_message_id: msg.wamid,
+                                    emoji,
+                                    customer_id: customerId,
+                                  });
+                                }}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </PopoverContent>
+                        </Popover>
+                      )}
                     </div>
                   </div>
                 </div>

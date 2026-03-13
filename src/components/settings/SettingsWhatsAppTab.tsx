@@ -132,6 +132,9 @@ const SettingsWhatsAppTab = () => {
   const [tplName, setTplName] = useState("");
   const [tplCategory, setTplCategory] = useState("UTILITY");
   const [tplBody, setTplBody] = useState("");
+  const [tplHeader, setTplHeader] = useState("");
+  const [tplFooter, setTplFooter] = useState("");
+  const [tplButtons, setTplButtons] = useState<{ type: string; text: string; url?: string; phone_number?: string }[]>([]);
 
   // Disconnect
   const [showDisconnect, setShowDisconnect] = useState(false);
@@ -237,16 +240,27 @@ const SettingsWhatsAppTab = () => {
   const handleCreateTemplate = async () => {
     if (!tplName || !tplBody) return;
     try {
+      const components: any[] = [];
+      if (tplHeader) components.push({ type: "HEADER", format: "TEXT", text: tplHeader });
+      components.push({ type: "BODY", text: tplBody });
+      if (tplFooter) components.push({ type: "FOOTER", text: tplFooter });
+      if (tplButtons.length > 0) {
+        components.push({ type: "BUTTONS", buttons: tplButtons });
+      }
+
       await createTemplate.mutateAsync({
         name: tplName.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
         category: tplCategory,
         language: "nl",
-        components: [{ type: "BODY", text: tplBody }],
+        components,
       });
       toast({ title: "Template aangemaakt" });
       setShowCreateTemplate(false);
       setTplName("");
       setTplBody("");
+      setTplHeader("");
+      setTplFooter("");
+      setTplButtons([]);
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
     }
@@ -525,17 +539,62 @@ const SettingsWhatsAppTab = () => {
                   </div>
                 </div>
                 <div>
+                  <label className={labelClass}>Header (optioneel)</label>
+                  <input value={tplHeader} onChange={e => setTplHeader(e.target.value)} className={inputClass} placeholder="Koptekst — bijv. Hallo {{1}}!" />
+                </div>
+                <div>
                   <label className={labelClass}>Berichttekst</label>
                   <textarea value={tplBody} onChange={e => setTplBody(e.target.value)} className={`${inputClass} min-h-[80px]`}
                     placeholder="Hallo {{1}}, uw afspraak is bevestigd voor {{2}}." />
                   <p className="text-[10px] text-muted-foreground mt-1">Gebruik {"{{1}}"}, {"{{2}}"} etc. voor variabelen. Taal: Nederlands (nl).</p>
+                </div>
+                <div>
+                  <label className={labelClass}>Footer (optioneel)</label>
+                  <input value={tplFooter} onChange={e => setTplFooter(e.target.value)} className={inputClass} placeholder="Voettekst" />
+                </div>
+                {/* Buttons */}
+                <div>
+                  <label className={labelClass}>Knoppen (optioneel)</label>
+                  {tplButtons.map((btn, i) => (
+                    <div key={i} className="flex items-center gap-2 mb-1.5">
+                      <select value={btn.type} onChange={e => {
+                        const next = [...tplButtons]; next[i] = { ...btn, type: e.target.value }; setTplButtons(next);
+                      }} className={`${inputClass} w-28 shrink-0`}>
+                        <option value="QUICK_REPLY">Snel antwoord</option>
+                        <option value="URL">URL</option>
+                        <option value="PHONE_NUMBER">Telefoon</option>
+                      </select>
+                      <input value={btn.text} onChange={e => {
+                        const next = [...tplButtons]; next[i] = { ...btn, text: e.target.value }; setTplButtons(next);
+                      }} className={inputClass} placeholder="Knoptekst" maxLength={25} />
+                      {btn.type === "URL" && (
+                        <input value={btn.url || ""} onChange={e => {
+                          const next = [...tplButtons]; next[i] = { ...btn, url: e.target.value }; setTplButtons(next);
+                        }} className={inputClass} placeholder="https://..." />
+                      )}
+                      {btn.type === "PHONE_NUMBER" && (
+                        <input value={btn.phone_number || ""} onChange={e => {
+                          const next = [...tplButtons]; next[i] = { ...btn, phone_number: e.target.value }; setTplButtons(next);
+                        }} className={inputClass} placeholder="+31612345678" />
+                      )}
+                      <button onClick={() => setTplButtons(tplButtons.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80 shrink-0">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {tplButtons.length < 3 && (
+                    <button onClick={() => setTplButtons([...tplButtons, { type: "QUICK_REPLY", text: "" }])}
+                      className="px-3 py-1.5 bg-secondary text-secondary-foreground rounded-sm text-[11px] font-medium hover:bg-secondary/80 flex items-center gap-1">
+                      <Plus className="h-3 w-3" /> Knop toevoegen
+                    </button>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleCreateTemplate} disabled={createTemplate.isPending || !tplName || !tplBody}
                     className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
                     {createTemplate.isPending ? "Aanmaken..." : "Aanmaken"}
                   </button>
-                  <button onClick={() => setShowCreateTemplate(false)} className="px-4 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium">
+                  <button onClick={() => { setShowCreateTemplate(false); setTplButtons([]); setTplHeader(""); setTplFooter(""); }} className="px-4 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium">
                     Annuleren
                   </button>
                 </div>

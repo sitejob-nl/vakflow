@@ -33,38 +33,93 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { trigger_type, customer_id, context: ctx } = await req.json();
-    console.log(`Automation trigger: ${trigger_type} for customer ${customer_id}`);
+    const { trigger_type, customer_id, lead_id, context: ctx } = await req.json();
+    console.log(`Automation trigger: ${trigger_type} for customer ${customer_id || "none"}, lead ${lead_id || "none"}`);
 
-    if (!trigger_type || !customer_id) {
-      return jsonRes({ error: "Missing trigger_type or customer_id" }, 400);
+    if (!trigger_type) {
+      return jsonRes({ error: "Missing trigger_type" }, 400);
     }
 
-    // Fetch customer
-    const { data: customer, error: custErr } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("id", customer_id)
-      .single();
+    // === Lead-based triggers ===
+    const isLeadTrigger = ["lead_created", "lead_status_changed", "lead_inactive"].includes(trigger_type);
 
-    if (custErr || !customer) {
-      console.error("Customer not found:", custErr);
-      return jsonRes({ error: "Customer not found" }, 404);
+    let phone: string | null = null;
+    let companyId: string | null = null;
+    let resolvedCustomerId: string | null = customer_id || null;
+    const fullContext: Record<string, any> = { ...(ctx || {}) };
+
+    if (isLeadTrigger && lead_id) {
+      const { data: lead, error: leadErr } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("id", lead_id)
+        .single();
+
+      if (leadErr || !lead) {
+        console.error("Lead not found:", leadErr);
+        return jsonRes({ error: "Lead not found" }, 404);
+      }
+
+      phone = lead.phone || null;
+      companyId = lead.company_id || null;
+
+      if (!phone) {
+        console.log("Lead has no phone number, skipping");
+        return jsonRes({ skipped: true, reason: "No phone number on lead" });
+      }
+
+      fullContext.lead = {
+        name: lead.name || "",
+        email: lead.email || "",
+        phone: lead.phone || "",
+        source: lead.source || "",
+        status: lead.status || "",
+        company_name: lead.company_name || "",
+        previous_status: ctx?.previous_status || "",
+        days_inactive: ctx?.days_inactive || "",
+        last_activity: ctx?.last_activity || "",
+      };
+
+      // If lead has a linked customer, use that
+      if (lead.customer_id) {
+        resolvedCustomerId = lead.customer_id;
+      }
     }
 
-    if (!customer.phone) {
-      console.log("Customer has no phone number, skipping");
-      return jsonRes({ skipped: true, reason: "No phone number" });
+    // === Customer-based triggers ===
+    if (!isLeadTrigger) {
+      if (!customer_id) {
+        return jsonRes({ error: "Missing customer_id" }, 400);
+      }
+
+      const { data: customer, error: custErr } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("id", customer_id)
+        .single();
+
+      if (custErr || !customer) {
+        console.error("Customer not found:", custErr);
+        return jsonRes({ error: "Customer not found" }, 404);
+      }
+
+      if (!customer.phone) {
+        console.log("Customer has no phone number, skipping");
+        return jsonRes({ skipped: true, reason: "No phone number" });
+      }
+
+      if (!customer.whatsapp_optin) {
+        console.log("Customer has no WhatsApp opt-in, skipping");
+        return jsonRes({ skipped: true, reason: "No WhatsApp opt-in" });
+      }
+
+      phone = customer.phone;
+      companyId = customer.company_id;
+      fullContext.customer = customer;
     }
 
-    if (!customer.whatsapp_optin) {
-      console.log("Customer has no WhatsApp opt-in, skipping");
-      return jsonRes({ skipped: true, reason: "No WhatsApp opt-in" });
-    }
-
-    if (!customer.company_id) {
-      console.error("Customer has no company_id, cannot determine automations");
-      return jsonRes({ error: "Customer has no company_id" }, 400);
+    if (!companyId) {
+      return jsonRes({ error: "company_id kon niet worden bepaald" }, 400);
     }
 
     // Fetch active automations for this trigger type
@@ -73,74 +128,81 @@ Deno.serve(async (req) => {
       .select("*")
       .eq("trigger_type", trigger_type)
       .eq("is_active", true)
-      .eq("company_id", customer.company_id);
+      .eq("company_id", companyId);
 
     if (!automations || automations.length === 0) {
       console.log("No active automations for trigger:", trigger_type);
       return jsonRes({ skipped: true, reason: "No matching automations" });
     }
 
-    // Build full context — start with customer + extra ctx
-    const fullContext: Record<string, any> = { customer, ...(ctx || {}) };
-
     // Enrich with vehicle data for automotive companies
-    try {
-      const { data: company } = await supabase
-        .from("companies")
-        .select("industry")
-        .eq("id", customer.company_id)
-        .single();
+    if (!isLeadTrigger && customer_id) {
+      try {
+        const { data: company } = await supabase
+          .from("companies")
+          .select("industry")
+          .eq("id", companyId)
+          .single();
 
-      if (company?.industry === "automotive") {
-        const { data: vehicles } = await supabase
-          .from("vehicles")
-          .select("license_plate, brand, model, apk_expiry_date")
-          .eq("customer_id", customer_id)
-          .eq("status", "actief")
-          .limit(1);
+        if (company?.industry === "automotive") {
+          const { data: vehicles } = await supabase
+            .from("vehicles")
+            .select("license_plate, brand, model, apk_expiry_date")
+            .eq("customer_id", customer_id)
+            .eq("status", "actief")
+            .limit(1);
 
-        if (vehicles && vehicles.length > 0) {
-          const veh = vehicles[0];
-          const daysUntilApk = veh.apk_expiry_date
-            ? Math.floor((new Date(veh.apk_expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-            : null;
+          if (vehicles && vehicles.length > 0) {
+            const veh = vehicles[0];
+            const daysUntilApk = veh.apk_expiry_date
+              ? Math.floor((new Date(veh.apk_expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+              : null;
 
-          fullContext.vehicle = {
-            kenteken: veh.license_plate || "",
-            merk: veh.brand || "",
-            model: veh.model || "",
-            apk_datum: veh.apk_expiry_date || "",
-            dagen: daysUntilApk != null ? String(daysUntilApk) : "",
-          };
-          // Also expose at top level for simple {{kenteken}} usage
-          fullContext.kenteken = veh.license_plate || "";
-          fullContext.merk = veh.brand || "";
-          fullContext.model = veh.model || "";
-          fullContext.apk_datum = veh.apk_expiry_date || "";
-          fullContext.dagen = daysUntilApk != null ? String(daysUntilApk) : "";
+            fullContext.vehicle = {
+              kenteken: veh.license_plate || "",
+              merk: veh.brand || "",
+              model: veh.model || "",
+              apk_datum: veh.apk_expiry_date || "",
+              dagen: daysUntilApk != null ? String(daysUntilApk) : "",
+            };
+            fullContext.kenteken = veh.license_plate || "";
+            fullContext.merk = veh.brand || "";
+            fullContext.model = veh.model || "";
+            fullContext.apk_datum = veh.apk_expiry_date || "";
+            fullContext.dagen = daysUntilApk != null ? String(daysUntilApk) : "";
+          }
         }
+      } catch (vehErr) {
+        console.error("Vehicle context enrichment failed (non-fatal):", vehErr);
       }
-    } catch (vehErr) {
-      console.error("Vehicle context enrichment failed (non-fatal):", vehErr);
     }
 
     const results: any[] = [];
 
-    // Fetch whatsapp_config for this company to resolve template previews
+    // Fetch whatsapp_config for template preview resolution
     const { data: waConfig } = await supabase
       .from("whatsapp_config")
       .select("access_token, waba_id")
-      .eq("company_id", customer.company_id)
+      .eq("company_id", companyId)
       .single();
 
-    // Cache fetched template bodies to avoid duplicate API calls
     const templateBodyCache: Record<string, string> = {};
 
     for (const automation of automations) {
       try {
         const conditions = automation.conditions || {};
-        if (conditions.customer_type && conditions.customer_type !== customer.type) {
+
+        // Check conditions
+        if (!isLeadTrigger && conditions.customer_type && conditions.customer_type !== fullContext.customer?.type) {
           results.push({ automation: automation.name, skipped: true, reason: "condition_mismatch" });
+          continue;
+        }
+        if (isLeadTrigger && conditions.lead_status && conditions.lead_status !== fullContext.lead?.status) {
+          results.push({ automation: automation.name, skipped: true, reason: "lead_status_mismatch" });
+          continue;
+        }
+        if (isLeadTrigger && conditions.lead_source && conditions.lead_source !== fullContext.lead?.source) {
+          results.push({ automation: automation.name, skipped: true, reason: "lead_source_mismatch" });
           continue;
         }
 
@@ -177,13 +239,11 @@ Deno.serve(async (req) => {
           }
           let bodyText = templateBodyCache[cacheKey] || "";
           if (bodyText) {
-            // Replace positional {{1}}, {{2}} etc. or named {{name}}
             for (const param of parameters) {
               if (param.parameter_name) {
                 bodyText = bodyText.replace(`{{${param.parameter_name}}}`, param.text);
               }
             }
-            // Replace positional params by index
             parameters.forEach((param: any, idx: number) => {
               bodyText = bodyText.replace(`{{${idx + 1}}}`, param.text);
             });
@@ -200,9 +260,9 @@ Deno.serve(async (req) => {
             Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
           },
           body: JSON.stringify({
-            to: customer.phone,
-            customer_id: customer.id,
-            company_id: customer.company_id,
+            to: phone,
+            customer_id: resolvedCustomerId,
+            company_id: companyId,
             type: "template",
             template: {
               name: automation.template_name,
@@ -218,9 +278,9 @@ Deno.serve(async (req) => {
 
         await supabase.from("automation_send_log").insert({
           automation_id: automation.id,
-          customer_id: customer_id,
+          customer_id: resolvedCustomerId || customer_id,
           trigger_type,
-          company_id: customer.company_id || automation.company_id || null,
+          company_id: companyId,
           result: { success: sendResponse.ok, ...sendResult },
         });
 

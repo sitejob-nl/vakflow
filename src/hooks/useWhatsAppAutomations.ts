@@ -23,6 +23,10 @@ export const TRIGGER_TYPES = [
   { value: "invoice_sent", label: "Factuur verzonden" },
   { value: "review_request", label: "Reviewverzoek" },
   { value: "repeat_reminder", label: "Herhaalherinnering" },
+  // Lead automations
+  { value: "lead_created", label: "Nieuwe lead aangemaakt" },
+  { value: "lead_status_changed", label: "Lead status gewijzigd" },
+  { value: "lead_inactive", label: "Lead inactief" },
 ] as const;
 
 export const AVAILABLE_VARIABLES: Record<string, { label: string; path: string }[]> = {
@@ -49,6 +53,28 @@ export const AVAILABLE_VARIABLES: Record<string, { label: string; path: string }
     { label: "Klantnaam", path: "customer.name" },
     { label: "Laatste reiniging", path: "reminder.last_service_date" },
     { label: "Interval (mnd)", path: "reminder.interval_months" },
+  ],
+  lead_created: [
+    { label: "Leadnaam", path: "lead.name" },
+    { label: "E-mail", path: "lead.email" },
+    { label: "Telefoon", path: "lead.phone" },
+    { label: "Bron", path: "lead.source" },
+    { label: "Bedrijfsnaam", path: "lead.company_name" },
+  ],
+  lead_status_changed: [
+    { label: "Leadnaam", path: "lead.name" },
+    { label: "E-mail", path: "lead.email" },
+    { label: "Telefoon", path: "lead.phone" },
+    { label: "Nieuwe status", path: "lead.status" },
+    { label: "Vorige status", path: "lead.previous_status" },
+    { label: "Bron", path: "lead.source" },
+  ],
+  lead_inactive: [
+    { label: "Leadnaam", path: "lead.name" },
+    { label: "E-mail", path: "lead.email" },
+    { label: "Telefoon", path: "lead.phone" },
+    { label: "Dagen inactief", path: "lead.days_inactive" },
+    { label: "Laatste activiteit", path: "lead.last_activity" },
   ],
 };
 
