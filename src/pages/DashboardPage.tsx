@@ -17,6 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
 import { useAutomotiveDashboardStats } from "@/hooks/useAutomotiveDashboard";
 import { useCleaningDashboardStats } from "@/hooks/useCleaningDashboard";
+import { useAutomotiveSalesDashboard } from "@/hooks/useAutomotiveSalesDashboard";
 
 const Badge = ({ children, variant = "primary" }: { children: React.ReactNode; variant?: string }) => {
   const styles: Record<string, string> = {
