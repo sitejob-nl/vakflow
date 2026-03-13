@@ -154,6 +154,7 @@ const MarketingPage = () => {
       <Tabs defaultValue="leads">
         <TabsList>
           <TabsTrigger value="leads" className="gap-1.5"><Users className="w-4 h-4" /> Leads</TabsTrigger>
+          <TabsTrigger value="ads" className="gap-1.5"><Megaphone className="w-4 h-4" /> Advertenties</TabsTrigger>
           <TabsTrigger value="messenger" className="gap-1.5"><MessageSquare className="w-4 h-4" /> Messenger</TabsTrigger>
           <TabsTrigger value="instagram" className="gap-1.5"><Instagram className="w-4 h-4" /> Instagram</TabsTrigger>
           <TabsTrigger value="page" className="gap-1.5"><FileText className="w-4 h-4" /> Pagina</TabsTrigger>
