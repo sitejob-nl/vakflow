@@ -30,6 +30,7 @@ export type Page =
   | "leads"
   | "calltracking"
   | "accounting"
+  | "hexon"
   | "superadmin";
 
 const routeMap: Record<Page, string> = {
