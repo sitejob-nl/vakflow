@@ -97,7 +97,7 @@ const Sidebar = () => {
         (!item.adminOnly || isAdmin) &&
         (industryModules.includes(item.id) || item.requiredFeature) &&
         (enabledFeatures.length === 0 || enabledFeatures.includes(item.id) || item.id === "accounting") &&
-        (!item.requiredFeature || enabledFeatures.includes(item.requiredFeature))
+        (!item.requiredFeature || enabledFeatures.includes(item.requiredFeature) || (item.requiredFeature === "vehicle_sales" && enabledFeatures.includes("trade_vehicles")))
       ),
     }))
     .filter((section) => section.items.length > 0);
