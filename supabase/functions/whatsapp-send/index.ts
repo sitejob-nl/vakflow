@@ -110,6 +110,7 @@ function contentSummary(body: Record<string, unknown>): string {
     case "contacts": return "👤 Contact";
     case "reaction": return `${body.emoji || "👍"}`;
     case "interactive": return "💬 Interactief bericht";
+    case "address": return "📬 Adresverzoek";
     default: return t;
   }
 }
