@@ -131,10 +131,38 @@ const SettingsWhatsAppTab = () => {
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
   const [tplName, setTplName] = useState("");
   const [tplCategory, setTplCategory] = useState("UTILITY");
+  const [tplLanguage, setTplLanguage] = useState("nl");
+  const [tplParamFormat, setTplParamFormat] = useState<"positional" | "named">("positional");
   const [tplBody, setTplBody] = useState("");
+  const [tplHeaderFormat, setTplHeaderFormat] = useState<"NONE" | "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT" | "LOCATION">("NONE");
   const [tplHeader, setTplHeader] = useState("");
   const [tplFooter, setTplFooter] = useState("");
-  const [tplButtons, setTplButtons] = useState<{ type: string; text: string; url?: string; phone_number?: string }[]>([]);
+  const [tplButtons, setTplButtons] = useState<{ type: string; text: string; url?: string; phone_number?: string; example?: string }[]>([]);
+  const [tplBodyExamples, setTplBodyExamples] = useState<Record<string, string>>({});
+  const [tplHeaderExamples, setTplHeaderExamples] = useState<Record<string, string>>({});
+
+  // Library browser
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryTemplates, setLibraryTemplates] = useState<any[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryTopic, setLibraryTopic] = useState("");
+
+  // Template detail
+  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
+
+  // Helper: extract parameters from text
+  const extractParams = (text: string, format: "positional" | "named") => {
+    if (format === "named") {
+      const matches = text.match(/\{\{([a-z_]+)\}\}/g) || [];
+      return [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, "")))];
+    }
+    const matches = text.match(/\{\{(\d+)\}\}/g) || [];
+    return [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, "")))].sort((a, b) => Number(a) - Number(b));
+  };
+
+  const bodyParams = extractParams(tplBody, tplParamFormat);
+  const headerParams = tplHeaderFormat === "TEXT" ? extractParams(tplHeader, tplParamFormat) : [];
 
   // Disconnect
   const [showDisconnect, setShowDisconnect] = useState(false);
@@ -190,7 +218,6 @@ const SettingsWhatsAppTab = () => {
       setTenantId(data.tenant_id);
       setRegisterStep("pending");
       toast({ title: data.existing ? "Bestaande koppeling gevonden" : "Tenant geregistreerd", description: "Wacht op configuratie van SiteJob Connect..." });
-      // Poll for completion
       pollForConnection();
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
@@ -208,7 +235,6 @@ const SettingsWhatsAppTab = () => {
         queryClient.invalidateQueries({ queryKey: ["whatsapp-config-status"] });
       }
     }, 5000);
-    // Stop polling after 5 minutes
     setTimeout(() => clearInterval(interval), 300_000);
   };
 
@@ -237,33 +263,196 @@ const SettingsWhatsAppTab = () => {
     }
   };
 
+  const buildComponents = () => {
+    const components: any[] = [];
+
+    // Header
+    if (tplHeaderFormat === "TEXT" && tplHeader) {
+      const headerComp: any = { type: "HEADER", format: "TEXT", text: tplHeader };
+      if (headerParams.length > 0) {
+        if (tplParamFormat === "named") {
+          headerComp.example = {
+            header_text_named_params: headerParams.map(p => ({
+              param_name: p,
+              example: tplHeaderExamples[p] || p,
+            })),
+          };
+        } else {
+          headerComp.example = {
+            header_text: headerParams.map(p => tplHeaderExamples[p] || `voorbeeld_${p}`),
+          };
+        }
+      }
+      components.push(headerComp);
+    } else if (tplHeaderFormat === "LOCATION") {
+      components.push({ type: "HEADER", format: "LOCATION" });
+    } else if (["IMAGE", "VIDEO", "DOCUMENT"].includes(tplHeaderFormat)) {
+      // Media headers need a handle from Resumable Upload API - placeholder
+      components.push({ type: "HEADER", format: tplHeaderFormat });
+    }
+
+    // Body
+    const bodyComp: any = { type: "BODY", text: tplBody };
+    if (bodyParams.length > 0) {
+      if (tplParamFormat === "named") {
+        bodyComp.example = {
+          body_text_named_params: bodyParams.map(p => ({
+            param_name: p,
+            example: tplBodyExamples[p] || p,
+          })),
+        };
+      } else {
+        bodyComp.example = {
+          body_text: [bodyParams.map(p => tplBodyExamples[p] || `voorbeeld_${p}`)],
+        };
+      }
+    }
+    components.push(bodyComp);
+
+    // Footer
+    if (tplFooter) {
+      components.push({ type: "FOOTER", text: tplFooter });
+    }
+
+    // Buttons
+    if (tplButtons.length > 0) {
+      components.push({
+        type: "BUTTONS",
+        buttons: tplButtons.map(btn => {
+          const b: any = { type: btn.type, text: btn.text };
+          if (btn.type === "URL" && btn.url) {
+            b.url = btn.url;
+            if (btn.url.includes("{{")) {
+              b.example = [btn.example || "https://example.com"];
+            }
+          }
+          if (btn.type === "PHONE_NUMBER" && btn.phone_number) b.phone_number = btn.phone_number;
+          if (btn.type === "COPY_CODE") b.example = btn.example || "CODE123";
+          return b;
+        }),
+      });
+    }
+
+    return components;
+  };
+
   const handleCreateTemplate = async () => {
     if (!tplName || !tplBody) return;
     try {
-      const components: any[] = [];
-      if (tplHeader) components.push({ type: "HEADER", format: "TEXT", text: tplHeader });
-      components.push({ type: "BODY", text: tplBody });
-      if (tplFooter) components.push({ type: "FOOTER", text: tplFooter });
-      if (tplButtons.length > 0) {
-        components.push({ type: "BUTTONS", buttons: tplButtons });
-      }
-
+      const components = buildComponents();
       await createTemplate.mutateAsync({
         name: tplName.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
         category: tplCategory,
-        language: "nl",
+        language: tplLanguage,
+        parameter_format: tplParamFormat,
         components,
       });
       toast({ title: "Template aangemaakt" });
-      setShowCreateTemplate(false);
-      setTplName("");
-      setTplBody("");
-      setTplHeader("");
-      setTplFooter("");
-      setTplButtons([]);
+      resetTemplateForm();
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
     }
+  };
+
+  const resetTemplateForm = () => {
+    setShowCreateTemplate(false);
+    setTplName("");
+    setTplBody("");
+    setTplHeader("");
+    setTplFooter("");
+    setTplButtons([]);
+    setTplHeaderFormat("NONE");
+    setTplBodyExamples({});
+    setTplHeaderExamples({});
+    setTplParamFormat("positional");
+    setTplLanguage("nl");
+  };
+
+  const handleBrowseLibrary = async () => {
+    setLibraryLoading(true);
+    try {
+      const body: any = { action: "library", limit: 25 };
+      if (librarySearch) body.search = librarySearch;
+      if (libraryTopic) body.topic = libraryTopic;
+      const { data, error } = await supabase.functions.invoke("whatsapp-templates", { body });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setLibraryTemplates(data.templates || []);
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+    setLibraryLoading(false);
+  };
+
+  const handleCreateFromLibrary = async (libTpl: any) => {
+    try {
+      const payload: any = {
+        name: libTpl.name + "_custom",
+        category: libTpl.category || "UTILITY",
+        language: libTpl.language || "en_US",
+        library_template_name: libTpl.name,
+      };
+      if (libTpl.buttons?.length) {
+        const btnInputs = libTpl.buttons
+          .filter((b: any) => b.type === "URL" || b.type === "PHONE_NUMBER")
+          .map((b: any) => {
+            if (b.type === "URL") return { type: "URL", url: { base_url: b.url || "https://example.com" } };
+            if (b.type === "PHONE_NUMBER") return { type: "PHONE_NUMBER", phone_number: b.phone_number || "+31000000000" };
+            return null;
+          })
+          .filter(Boolean);
+        if (btnInputs.length > 0) payload.library_template_button_inputs = JSON.stringify(btnInputs);
+      }
+      await createTemplate.mutateAsync(payload);
+      toast({ title: "Template aangemaakt vanuit bibliotheek" });
+      setShowLibrary(false);
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const renderComponentsSummary = (components: any[]) => {
+    if (!components?.length) return null;
+    return (
+      <div className="space-y-1.5 mt-2 text-[12px]">
+        {components.map((c: any, i: number) => {
+          if (c.type === "HEADER") {
+            return (
+              <div key={i}>
+                <span className="text-muted-foreground font-medium">Header ({c.format}):</span>{" "}
+                {c.format === "TEXT" ? <span>{c.text}</span> : <span className="italic text-muted-foreground">{c.format?.toLowerCase()}</span>}
+              </div>
+            );
+          }
+          if (c.type === "BODY") {
+            return (
+              <div key={i}>
+                <span className="text-muted-foreground font-medium">Body:</span>{" "}
+                <span className="whitespace-pre-wrap">{c.text?.substring(0, 200)}{c.text?.length > 200 ? "..." : ""}</span>
+              </div>
+            );
+          }
+          if (c.type === "FOOTER") {
+            return <div key={i}><span className="text-muted-foreground font-medium">Footer:</span> {c.text}</div>;
+          }
+          if (c.type === "BUTTONS") {
+            return (
+              <div key={i}>
+                <span className="text-muted-foreground font-medium">Knoppen:</span>{" "}
+                {c.buttons?.map((b: any, j: number) => (
+                  <span key={j} className="inline-flex items-center gap-1 mr-2 px-1.5 py-0.5 bg-secondary rounded text-[11px]">
+                    {b.type === "URL" && <Globe className="h-2.5 w-2.5" />}
+                    {b.type === "PHONE_NUMBER" && <Phone className="h-2.5 w-2.5" />}
+                    {b.text}
+                  </span>
+                ))}
+              </div>
+            );
+          }
+          return null;
+        })}
+      </div>
+    );
   };
 
   if (statusLoading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
