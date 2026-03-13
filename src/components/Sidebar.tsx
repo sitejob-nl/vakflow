@@ -1,7 +1,7 @@
 import { useNavigation, type Page } from "@/hooks/useNavigation";
 import {
   LayoutGrid, Calendar, Users, FileText, DollarSign,
-  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car, Repeat, CalendarCheck, ClipboardCheck, FolderKanban, UserPlus, BookOpen, Link
+  MessageSquare, Bell, LogOut, Settings, Mail, Building2, BarChart3, Box, Megaphone, RefreshCw, Car, Repeat, CalendarCheck, ClipboardCheck, FolderKanban, UserPlus, BookOpen, Link, Phone
 } from "lucide-react";
 import vakflowLogo from "@/assets/vakflow-logo.svg";
 import CompanySwitcher from "@/components/CompanySwitcher";
@@ -24,7 +24,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const buildSections = (labels: { workOrders: string; assets: string; vehicles: string }, industry: string) => [
+const buildSections = (labels: { workOrders: string; assets: string; vehicles: string }, industry: string): { label: string; items: { id: Page; icon: any; label: string; adminOnly: boolean; requiredFeature?: string }[] }[] => [
   {
     label: "Overzicht",
     items: [
@@ -51,6 +51,7 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
       { id: "reports" as Page, icon: BarChart3, label: "Rapportages", adminOnly: true },
       { id: "email" as Page, icon: Mail, label: "E-mail", adminOnly: true },
       { id: "whatsapp" as Page, icon: MessageSquare, label: "WhatsApp", adminOnly: true },
+      { id: "calltracking" as Page, icon: Phone, label: "Calltracking", adminOnly: true, requiredFeature: "voip" },
       { id: "communication" as Page, icon: MessageSquare, label: "Logboek", adminOnly: true },
       { id: "reminders" as Page, icon: Bell, label: "Reminders", adminOnly: true },
     ],
@@ -94,8 +95,9 @@ const Sidebar = () => {
       ...section,
       items: section.items.filter((item) =>
         (!item.adminOnly || isAdmin) &&
-        industryModules.includes(item.id) &&
-        (enabledFeatures.length === 0 || enabledFeatures.includes(item.id) || item.id === "accounting")
+        (industryModules.includes(item.id) || item.requiredFeature) &&
+        (enabledFeatures.length === 0 || enabledFeatures.includes(item.id) || item.id === "accounting") &&
+        (!item.requiredFeature || enabledFeatures.includes(item.requiredFeature))
       ),
     }))
     .filter((section) => section.items.length > 0);

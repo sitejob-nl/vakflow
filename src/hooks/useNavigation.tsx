@@ -28,6 +28,7 @@ export type Page =
   | "projects"
   | "projDetail"
   | "leads"
+  | "calltracking"
   | "accounting"
   | "superadmin";
 
@@ -58,6 +59,7 @@ const routeMap: Record<Page, string> = {
   projects: "/projects",
   projDetail: "/projects/:id",
   leads: "/leads",
+  calltracking: "/calltracking",
   accounting: "/boekhouding",
   superadmin: "/superadmin",
 };
@@ -89,6 +91,7 @@ const pathToPage: [RegExp, Page][] = [
   [/^\/audits\/?$/, "audits"],
   [/^\/projects\/?$/, "projects"],
   [/^\/leads\/?$/, "leads"],
+  [/^\/calltracking\/?$/, "calltracking"],
   [/^\/boekhouding\/?$/, "accounting"],
   [/^\/superadmin\/?$/, "superadmin"],
   [/^\/$/, "dashboard"],
