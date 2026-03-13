@@ -71,6 +71,22 @@ const CustomerDetailPage = () => {
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalActive, setPortalActive] = useState<boolean | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
+
+  // Customer call records (must be before early returns)
+  const { data: customerCalls } = useQuery({
+    queryKey: ["customer-calls", params.customerId],
+    enabled: hasVoip && !!params.customerId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("call_records")
+        .select("*")
+        .eq("customer_id", params.customerId!)
+        .order("started_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   // Check if portal account exists for this customer
   useEffect(() => {
