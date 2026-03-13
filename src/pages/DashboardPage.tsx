@@ -162,7 +162,7 @@ const DashboardPage = () => {
         <>
           {/* Verkoop rij */}
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 mb-5 md:mb-6">
-            <div onClick={() => navigate("tradeVehicles")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+            <div onClick={() => navigate("trade")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
               <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
                 <Package className="h-3 w-3" /> Voorraad
               </div>
