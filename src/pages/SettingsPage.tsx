@@ -28,6 +28,7 @@ const SettingsLeadsTab = lazy(() => import("@/components/settings/SettingsLeadsT
 const SettingsApiKeysTab = lazy(() => import("@/components/settings/SettingsApiKeysTab"));
 const SettingsHexonTab = lazy(() => import("@/components/settings/SettingsHexonTab"));
 const SettingsVoysTab = lazy(() => import("@/components/settings/SettingsVoysTab"));
+const SettingsAiAgentTab = lazy(() => import("@/components/settings/SettingsAiAgentTab"));
 
 const BASE_TABS: string[] = [
   "Profiel", "Bedrijfsgegevens", "App-voorkeuren", "Diensten", "Materialen",
