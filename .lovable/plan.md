@@ -1,50 +1,53 @@
 
 
-# Apply uploaded edge function improvements
+# Moneybird Koppeling — Implementatieplan
 
-The uploaded files contain improvements to 4 edge functions. Here's a summary of the changes from the patch file:
+## Verificatie
 
-## 1. `exact-webhook/index.ts` — Add invoice payment status processing
+- **InvoicesPage.tsx**: Moneybird zit al volledig in `funcMap` (regel 200) en `getSyncStatus` (regel 29). Geen wijzigingen nodig — bevestigd.
+- **SettingsAccountingTab.tsx**: Moneybird staat op `enabled: false` (regel 576). Geen `MoneybirdSection` component aanwezig. Er is wel een `moneybird_administration_id` save in het generieke form (regel 693).
 
-Currently just logs and acknowledges webhooks. The update adds:
-- `getExactToken` helper to fetch access tokens from SiteJob Connect
-- `logEdgeFunctionError` import for error logging
-- Query `tenant_id` and `division` from `exact_config`
-- When a `SalesInvoices` webhook arrives, fetch the invoice from Exact to check if `Status === 50` (paid), and if so update the local invoice to `betaald`
+## Wijzigingen
 
-## 2. `moneybird-webhook/index.ts` — Add URL-based webhook secret verification
+### 1. `SettingsAccountingTab.tsx`
 
-Currently validates only by `administration_id` match. The update adds:
-- Parse `?secret=` from the webhook URL
-- Reject requests without a secret parameter (401)
-- Verify the secret matches `company.moneybird_webhook_secret` (403 if mismatch)
-- Select `moneybird_webhook_secret` in the company query
+**a) Provider activeren:** `enabled: false` → `enabled: true` voor moneybird in de PROVIDERS array.
 
-## 3. `sync-exact/index.ts` — Invoice sync improvements
+**b) Nieuwe `MoneybirdSection` component** (zelfde patroon als `WeFactSection`):
 
-Three fixes:
-- **Fiscal year filter**: Only sync invoices from current year (`gte("issued_at", fiscalYearStart)`) to avoid closed-period errors
-- **VAT-exclusive pricing**: Convert `unit_price` (incl. BTW) to `NetPrice` (excl. BTW) using `vat_percentage` before pushing to Exact
-- **Error logging**: Log individual invoice sync failures via `logEdgeFunctionError`
-- Add `logEdgeFunctionError` import
+- **Niet gekoppeld — Stap 1:** Token input + "Administraties ophalen" knop → `sync-moneybird { action: "auto-detect", token }` → toont dropdown met beschikbare administraties
+- **Niet gekoppeld — Stap 2:** Administratie selecteren + "Koppelen" → slaat `moneybird_api_token`, `moneybird_administration_id`, `accounting_provider: "moneybird"` op in `companies`
+- **Gekoppeld:** Groene badge + 6 actieknoppen (elk met loading spinner):
+  - Contacten synchroniseren → `sync-contacts`
+  - Contacten ophalen → `pull-contacts`
+  - Producten synchroniseren → `sync-products`
+  - Facturen synchroniseren → `sync-invoices`
+  - Offertes synchroniseren → `sync-quotes`
+  - Betalingsstatus ophalen → `pull-invoice-status`
+- **Ontkoppelen:** AlertDialog → zet `moneybird_api_token: null`, `moneybird_administration_id: null`, `accounting_provider: null`
 
-Both the batch `sync-invoices` and single `push-invoice` cases get the VAT fix.
+**c) Render blok:** Voeg `configProvider === "moneybird"` toe na het wefact-blok (regel 890) met `<MoneybirdSection>`.
 
-## 4. `sync-moneybird/index.ts` — Secure webhook registration
+### 2. `CustomerCreatePage.tsx`
 
-Currently registers webhooks without a secret. The update:
-- Generates a random 32-byte hex secret
-- Appends `?secret={secret}` to the webhook callback URL
-- Stores the secret in `companies.moneybird_webhook_secret` after successful registration
+Na de bestaande WeFact auto-sync (regel 96-100), toevoegen:
 
-## Files to modify
+```typescript
+if (accountingProvider === "moneybird") {
+  supabase.functions.invoke("sync-moneybird", {
+    body: { action: "sync-customer", customer_id: newCustomer.id },
+  }).catch(() => {});
+}
+```
 
-| File | Change |
+### 3. `InvoicesPage.tsx`
+
+Geen wijzigingen — moneybird zit al in funcMap en getSyncStatus.
+
+## Bestanden
+
+| Bestand | Wijziging |
 |---|---|
-| `supabase/functions/exact-webhook/index.ts` | Replace with uploaded `index_36.ts` |
-| `supabase/functions/moneybird-webhook/index.ts` | Replace with uploaded `index_37.ts` |
-| `supabase/functions/sync-exact/index.ts` | Apply VAT fix, fiscal year filter, error logging |
-| `supabase/functions/sync-moneybird/index.ts` | Secure webhook registration with secret |
-
-All 4 functions will be redeployed. No database changes needed (`moneybird_webhook_secret` column already exists).
+| `src/components/settings/SettingsAccountingTab.tsx` | `enabled: true`, nieuwe `MoneybirdSection`, render blok |
+| `src/pages/CustomerCreatePage.tsx` | Auto-sync naar Moneybird |
 
