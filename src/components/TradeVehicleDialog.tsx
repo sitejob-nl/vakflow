@@ -9,8 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CustomerCombobox from "./CustomerCombobox";
 import { useCustomers } from "@/hooks/useCustomers";
-import { DAMAGE_AREAS, type DamageItem, type TradeVehicle } from "@/hooks/useTradeVehicles";
-import { Car, ClipboardCheck, DollarSign } from "lucide-react";
+import { DAMAGE_AREAS, type DamageItem, type TradeVehicle, PIPELINE_STATUSES, STATUS_LABELS } from "@/hooks/useTradeVehicles";
 
 interface Props {
   open: boolean;
