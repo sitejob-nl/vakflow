@@ -45,6 +45,7 @@ const Header = () => {
     projDetail: { title: "Project", sub: "Projectdetails" },
     leads: { title: "Leads", sub: "Leadbeheer" },
     calltracking: { title: "Calltracking", sub: "Telefoonactiviteit" },
+    aiconversations: { title: "AI Conversaties", sub: "AI agent gesprekken" },
     accounting: { title: "Boekhouding", sub: "Boekhoudkoppeling beheren" },
     hexon: { title: "Hexon DV", sub: "Hexon integratie" },
     superadmin: { title: "Super Admin", sub: "Bedrijvenbeheer" },
