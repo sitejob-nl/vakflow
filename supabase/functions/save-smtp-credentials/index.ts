@@ -75,6 +75,11 @@ Deno.serve(async (req) => {
         ? await encrypt(wefact_api_key)
         : null;
     }
+    if (anthropic_api_key !== undefined) {
+      updateData.anthropic_api_key = anthropic_api_key
+        ? await encrypt(anthropic_api_key)
+        : null;
+    }
 
     // Save to companies table
     const { error: updateError } = await supabaseAdmin
