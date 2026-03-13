@@ -50,6 +50,7 @@ const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const ProjectDetailPage = lazy(() => import("@/pages/ProjectDetailPage"));
 const LeadsPage = lazy(() => import("@/pages/LeadsPage"));
 const AccountingAdminPage = lazy(() => import("@/pages/AccountingAdminPage"));
+const CalltrackingPage = lazy(() => import("@/pages/CalltrackingPage"));
 const PortalLoginPage = lazy(() => import("@/pages/PortalLoginPage"));
 const PortalQuotesPage = lazy(() => import("@/pages/PortalQuotesPage"));
 const PortalInvoicesPage = lazy(() => import("@/pages/PortalInvoicesPage"));
