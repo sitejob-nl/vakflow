@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface WhatsAppTemplate {
+  id?: string;
   name: string;
   status: string;
   category: string;
@@ -35,13 +36,36 @@ export function useCreateWhatsAppTemplate() {
       name: string;
       category: string;
       language: string;
-      components: any[];
+      components?: any[];
       parameter_format?: string;
+      library_template_name?: string;
+      library_template_button_inputs?: string;
     }) => {
       const { data, error } = await supabase.functions.invoke("whatsapp-templates", {
         body: { action: "create", ...body },
       });
       if (error) throw new Error("Template aanmaken mislukt");
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-templates"] });
+    },
+  });
+}
+
+export function useEditWhatsAppTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: {
+      template_id: string;
+      components?: any[];
+      category?: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke("whatsapp-templates", {
+        body: { action: "edit", ...body },
+      });
+      if (error) throw new Error("Template bewerken mislukt");
       if (data?.error) throw new Error(data.error);
       return data;
     },
