@@ -821,7 +821,7 @@ interface ProviderDef {
 const PROVIDERS: ProviderDef[] = [
   { key: "exact", label: "Exact Online", description: "Volledige boekhouding met OAuth-koppeling", enabled: true },
   { key: "wefact", label: "WeFact", description: "Factuur- en debiteurenbeheer via API", enabled: true },
-  { key: "eboekhouden", label: "e-Boekhouden", description: "Online boekhoudpakket", enabled: false },
+  { key: "eboekhouden", label: "e-Boekhouden", description: "Online boekhoudpakket", enabled: true },
   { key: "moneybird", label: "Moneybird", description: "Boekhouden voor ondernemers", enabled: true },
   { key: "rompslomp", label: "Rompslomp", description: "Eenvoudige boekhouding", enabled: false },
   { key: "snelstart", label: "SnelStart", description: "Boekhoudpakket voor het MKB", enabled: false },
