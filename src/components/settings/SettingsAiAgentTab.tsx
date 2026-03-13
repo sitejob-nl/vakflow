@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Plus, GripVertical, Bot } from "lucide-react";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { Loader2, X, Plus, GripVertical, Bot, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,8 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SETTINGS_INPUT_CLASS as inputClass, SETTINGS_LABEL_CLASS as labelClass } from "./shared";
+
+const SUPABASE_URL = "https://sigzpqwnavfxtvbyqvzj.supabase.co";
 
 const DAYS = [
   { key: "ma", label: "Maandag" },
@@ -93,6 +95,9 @@ const SettingsAiAgentTab = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<AgentForm>(DEFAULT);
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [savingKey, setSavingKey] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
@@ -389,6 +394,56 @@ const SettingsAiAgentTab = () => {
             placeholder="ElevenLabs of TTS voice ID"
           />
           <p className="text-[11px] text-muted-foreground mt-1">ElevenLabs of TTS voice ID voor telefonische gesprekken</p>
+        </div>
+      </div>
+
+      {/* Anthropic API Key */}
+      <div className="border-t border-border pt-5">
+        <h3 className="text-[14px] font-bold mb-3">Anthropic API Key</h3>
+        <p className="text-[11px] text-muted-foreground mb-3">Nodig voor AI-verrijking van gesprekken (Voys) en andere AI-functies. Verkrijgbaar via console.anthropic.com.</p>
+        <div className="space-y-3">
+          <div className="relative">
+            <input
+              type={showApiKey ? "text" : "password"}
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              className={`${inputClass} pr-10`}
+              placeholder="sk-ant-..."
+            />
+            <button
+              type="button"
+              onClick={() => setShowApiKey(!showApiKey)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={savingKey || !apiKey.trim()}
+            onClick={async () => {
+              setSavingKey(true);
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/save-smtp-credentials`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+                  body: JSON.stringify({ anthropic_api_key: apiKey }),
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || "Opslaan mislukt");
+                setApiKey("••••••••");
+                toast({ title: "API key opgeslagen" });
+              } catch (err: any) {
+                toast({ title: "Fout", description: err.message, variant: "destructive" });
+              }
+              setSavingKey(false);
+            }}
+          >
+            {savingKey ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            API Key opslaan
+          </Button>
         </div>
       </div>
 

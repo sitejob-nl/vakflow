@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
       return jsonRes({ error: "Niet ingelogd" }, 401);
     }
 
-    const { smtp_email, smtp_password, eboekhouden_api_token, smtp_host, smtp_port, rompslomp_api_token, moneybird_api_token, imap_host, imap_port, wefact_api_key } = await req.json();
+    const { smtp_email, smtp_password, eboekhouden_api_token, smtp_host, smtp_port, rompslomp_api_token, moneybird_api_token, imap_host, imap_port, wefact_api_key, anthropic_api_key } = await req.json();
 
     // Verify user
     const supabaseUser = createUserClient(authHeader);
@@ -73,6 +73,11 @@ Deno.serve(async (req) => {
     if (wefact_api_key !== undefined) {
       updateData.wefact_api_key = wefact_api_key
         ? await encrypt(wefact_api_key)
+        : null;
+    }
+    if (anthropic_api_key !== undefined) {
+      updateData.anthropic_api_key = anthropic_api_key
+        ? await encrypt(anthropic_api_key)
         : null;
     }
 
