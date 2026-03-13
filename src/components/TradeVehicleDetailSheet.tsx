@@ -370,6 +370,35 @@ const TradeVehicleDetailSheet = ({ vehicle, onClose, onSave }: Props) => {
 
           {/* ====== HEXON ====== */}
           <TabsContent value="hexon" className="space-y-4 mt-4">
+            {/* Global actions */}
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={handlePublish} disabled={publishing}>
+                {publishing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Globe className="h-4 w-4 mr-1" />}
+                Publiceer naar alle portalen
+              </Button>
+              <Button size="sm" variant="outline" onClick={async () => {
+                setPublishing(true);
+                try {
+                  await supabase.functions.invoke("hexon-sync" as any, { body: { action: "fetch_status", trade_vehicle_id: vehicle.id } });
+                  queryClient.invalidateQueries({ queryKey: ["hexon_listings"] });
+                  toast({ title: "Statussen vernieuwd" });
+                } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
+                setPublishing(false);
+              }} disabled={publishing}>
+                <RefreshCw className="h-4 w-4 mr-1" /> Alle statussen vernieuwen
+              </Button>
+              <Button size="sm" variant="outline" onClick={async () => {
+                setPublishing(true);
+                try {
+                  await supabase.functions.invoke("hexon-sync" as any, { body: { action: "update_vehicle", trade_vehicle_id: vehicle.id } });
+                  toast({ title: "Voertuigdata bijgewerkt bij Hexon" });
+                } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
+                setPublishing(false);
+              }} disabled={publishing}>
+                <RefreshCw className="h-4 w-4 mr-1" /> Voertuigdata bijwerken
+              </Button>
+            </div>
+
             {/* Listings table */}
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Advertenties per portaal</p>
@@ -383,13 +412,14 @@ const TradeVehicleDetailSheet = ({ vehicle, onClose, onSave }: Props) => {
                         <th className="text-left p-2">Portaal</th>
                         <th className="text-left p-2">Status</th>
                         <th className="text-left p-2">Link</th>
-                        <th className="text-left p-2">Fouten</th>
+                        <th className="text-left p-2">Meldingen</th>
+                        <th className="text-left p-2">Acties</th>
                       </tr>
                     </thead>
                     <tbody>
                       {hexonListings.map(l => (
                         <tr key={l.id} className="border-t">
-                          <td className="p-2 font-medium">{l.site_code}</td>
+                          <td className="p-2 font-medium">{l.portal_name || l.site_code}</td>
                           <td className="p-2">{hexonStatusBadge(l.status)}</td>
                           <td className="p-2">
                             {l.deeplink_url ? (
@@ -399,7 +429,16 @@ const TradeVehicleDetailSheet = ({ vehicle, onClose, onSave }: Props) => {
                             ) : "—"}
                           </td>
                           <td className="p-2 text-xs">
-                            {l.errors ? (
+                            {l.notifications && (l.notifications as any[]).length > 0 ? (
+                              <div className="space-y-0.5">
+                                {(l.notifications as any[]).map((n: any, i: number) => (
+                                  <span key={i} className="text-amber-600 flex items-center gap-1">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {typeof n === "string" ? n : n?.message || JSON.stringify(n).slice(0, 60)}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : l.errors ? (
                               <span className="text-destructive flex items-center gap-1">
                                 <AlertTriangle className="h-3 w-3" />
                                 {typeof l.errors === "string" ? l.errors : JSON.stringify(l.errors).slice(0, 60)}
@@ -410,6 +449,28 @@ const TradeVehicleDetailSheet = ({ vehicle, onClose, onSave }: Props) => {
                                 {typeof l.warnings === "string" ? l.warnings : JSON.stringify(l.warnings).slice(0, 60)}
                               </span>
                             ) : "—"}
+                          </td>
+                          <td className="p-2">
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px]" onClick={async () => {
+                                try {
+                                  await supabase.functions.invoke("hexon-sync" as any, { body: { action: "fetch_status", trade_vehicle_id: vehicle.id, listing_id: l.id } });
+                                  queryClient.invalidateQueries({ queryKey: ["hexon_listings"] });
+                                  toast({ title: "Status vernieuwd" });
+                                } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
+                              }}>
+                                <RefreshCw className="h-3 w-3" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-destructive" onClick={async () => {
+                                try {
+                                  await supabase.functions.invoke("hexon-sync" as any, { body: { action: "unpublish", trade_vehicle_id: vehicle.id, listing_id: l.id } });
+                                  queryClient.invalidateQueries({ queryKey: ["hexon_listings"] });
+                                  toast({ title: "Offline gehaald" });
+                                } catch (err: any) { toast({ title: "Fout", description: err.message, variant: "destructive" }); }
+                              }}>
+                                <GlobeLock className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -458,13 +519,9 @@ const TradeVehicleDetailSheet = ({ vehicle, onClose, onSave }: Props) => {
 
             {/* Actions */}
             <div className="flex gap-2 pt-2">
-              <Button size="sm" onClick={handlePublish} disabled={publishing}>
-                {publishing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Globe className="h-4 w-4 mr-1" />}
-                Publiceer
-              </Button>
               <Button size="sm" variant="outline" onClick={handleUnpublish} disabled={publishing}>
                 <GlobeLock className="h-4 w-4 mr-1" />
-                Haal offline
+                Alles offline halen
               </Button>
               <Button size="sm" variant="outline" onClick={saveHexonFields}>
                 Opslaan
