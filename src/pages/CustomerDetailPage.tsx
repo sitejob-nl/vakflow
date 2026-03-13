@@ -10,6 +10,7 @@ import AddressDialog from "@/components/AddressDialog";
 import WhatsAppChat from "@/components/WhatsAppChat";
 import CustomerEmailTab from "@/components/CustomerEmailTab";
 import { Loader2, Trash2, MapPin, Plus, MessageSquare, Globe, Eye, EyeOff } from "lucide-react";
+import ClickToDialButton from "@/components/shared/ClickToDialButton";
 import { useState, useMemo, useEffect } from "react";
 import CustomerDialog from "@/components/CustomerDialog";
 import { useToast } from "@/hooks/use-toast";
