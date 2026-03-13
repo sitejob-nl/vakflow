@@ -1158,6 +1158,23 @@ const SettingsAccountingTab = () => {
         />
       )}
 
+      {configProvider === "eboekhouden" && (
+        <EBoekhoudenSection
+          companyId={companyId}
+          hasToken={hasTokens.eboekhouden}
+          activeProvider={activeProvider}
+          onConnected={() => {
+            setHasTokens((prev) => ({ ...prev, eboekhouden: true }));
+            setActiveProvider("eboekhouden");
+          }}
+          onDisconnected={() => {
+            setHasTokens((prev) => ({ ...prev, eboekhouden: false }));
+            if (activeProvider === "eboekhouden") setActiveProvider("");
+          }}
+          onSetActive={() => handleSaveProvider("eboekhouden")}
+        />
+      )}
+
       {/* Switch Confirmation Dialog */}
       <AlertDialog open={!!switchConfirm} onOpenChange={() => setSwitchConfirm(null)}>
         <AlertDialogContent>
