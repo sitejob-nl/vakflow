@@ -92,6 +92,12 @@ const CustomerCreatePage = () => {
     try {
       const newCustomer = await createCustomer.mutateAsync(payload);
       toast({ title: "Klant aangemaakt" });
+      // Auto-sync to WeFact if connected
+      if (accountingProvider === "wefact") {
+        supabase.functions.invoke("sync-wefact", {
+          body: { action: "sync-customer", customer_id: newCustomer.id },
+        }).catch(() => {}); // fire-and-forget
+      }
       navigate("custDetail", { customerId: newCustomer.id });
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
