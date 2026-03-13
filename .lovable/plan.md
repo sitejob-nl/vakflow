@@ -1,50 +1,53 @@
 
 
-# Apply uploaded edge function improvements
+# Rompslomp Koppeling — Implementatieplan
 
-The uploaded files contain improvements to 4 edge functions. Here's a summary of the changes from the patch file:
+## Verificatie
 
-## 1. `exact-webhook/index.ts` — Add invoice payment status processing
+- **InvoicesPage.tsx**: Rompslomp zit al volledig in alle funcMaps, getSyncStatus, pullFuncMap, en per-factuur sync. Geen wijzigingen nodig.
+- **SettingsAccountingTab.tsx**: Rompslomp staat op `enabled: false`. Geen `RompslompSection` component. Bestaande form fields voor `rompslomp_company_name`, `rompslomp_company_id`, `rompslomp_tenant_id` zijn al aanwezig.
+- **CustomerCreatePage.tsx**: Rompslomp auto-sync ontbreekt (WeFact, Moneybird, e-Boekhouden zijn er al).
 
-Currently just logs and acknowledges webhooks. The update adds:
-- `getExactToken` helper to fetch access tokens from SiteJob Connect
-- `logEdgeFunctionError` import for error logging
-- Query `tenant_id` and `division` from `exact_config`
-- When a `SalesInvoices` webhook arrives, fetch the invoice from Exact to check if `Status === 50` (paid), and if so update the local invoice to `betaald`
+## Wijzigingen
 
-## 2. `moneybird-webhook/index.ts` — Add URL-based webhook secret verification
+### 1. `SettingsAccountingTab.tsx`
 
-Currently validates only by `administration_id` match. The update adds:
-- Parse `?secret=` from the webhook URL
-- Reject requests without a secret parameter (401)
-- Verify the secret matches `company.moneybird_webhook_secret` (403 if mismatch)
-- Select `moneybird_webhook_secret` in the company query
+**a) Provider activeren:** `enabled: false` → `enabled: true` voor rompslomp.
 
-## 3. `sync-exact/index.ts` — Invoice sync improvements
+**b) Nieuwe `RompslompSection` component** (zelfde patroon als MoneybirdSection):
 
-Three fixes:
-- **Fiscal year filter**: Only sync invoices from current year (`gte("issued_at", fiscalYearStart)`) to avoid closed-period errors
-- **VAT-exclusive pricing**: Convert `unit_price` (incl. BTW) to `NetPrice` (excl. BTW) using `vat_percentage` before pushing to Exact
-- **Error logging**: Log individual invoice sync failures via `logEdgeFunctionError`
-- Add `logEdgeFunctionError` import
+- **Stap 1:** Token input + "Bedrijven ophalen" → `sync-rompslomp { action: "auto-detect", token }` → dropdown met bedrijven
+- **Stap 2:** Bedrijf selecteren + "Koppelen" → slaat `rompslomp_api_token`, `rompslomp_company_id`, `rompslomp_company_name`, `accounting_provider: "rompslomp"` op
+- **Gekoppeld:** Groene badge + bedrijfsnaam + 6 actieknoppen:
+  - Contacten synchroniseren → `sync-contacts`
+  - Contacten ophalen → `pull-contacts`
+  - Facturen synchroniseren → `sync-invoices`
+  - Facturen ophalen → `pull-invoices`
+  - Offertes synchroniseren → `sync-quotes`
+  - Betalingsstatus ophalen → `pull-invoice-status`
+- **Ontkoppelen:** AlertDialog → `rompslomp_api_token: null`, `rompslomp_company_id: null`, `rompslomp_company_name: null`, `accounting_provider: null`
 
-Both the batch `sync-invoices` and single `push-invoice` cases get the VAT fix.
+**c) Render blok:** Voeg `configProvider === "rompslomp"` toe naast de andere providers.
 
-## 4. `sync-moneybird/index.ts` — Secure webhook registration
+### 2. `CustomerCreatePage.tsx`
 
-Currently registers webhooks without a secret. The update:
-- Generates a random 32-byte hex secret
-- Appends `?secret={secret}` to the webhook callback URL
-- Stores the secret in `companies.moneybird_webhook_secret` after successful registration
+Na de bestaande e-Boekhouden check, toevoegen:
+```typescript
+if (accountingProvider === "rompslomp") {
+  supabase.functions.invoke("sync-rompslomp", {
+    body: { action: "sync-customer", customer_id: newCustomer.id },
+  }).catch(() => {});
+}
+```
 
-## Files to modify
+### 3. `InvoicesPage.tsx`
 
-| File | Change |
+Geen wijzigingen — Rompslomp zit al in alle funcMaps en getSyncStatus.
+
+## Bestanden
+
+| Bestand | Wijziging |
 |---|---|
-| `supabase/functions/exact-webhook/index.ts` | Replace with uploaded `index_36.ts` |
-| `supabase/functions/moneybird-webhook/index.ts` | Replace with uploaded `index_37.ts` |
-| `supabase/functions/sync-exact/index.ts` | Apply VAT fix, fiscal year filter, error logging |
-| `supabase/functions/sync-moneybird/index.ts` | Secure webhook registration with secret |
-
-All 4 functions will be redeployed. No database changes needed (`moneybird_webhook_secret` column already exists).
+| `src/components/settings/SettingsAccountingTab.tsx` | `enabled: true`, nieuwe `RompslompSection`, render blok |
+| `src/pages/CustomerCreatePage.tsx` | Auto-sync naar Rompslomp |
 
