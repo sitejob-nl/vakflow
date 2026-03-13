@@ -1140,6 +1140,23 @@ const SettingsAccountingTab = () => {
         />
       )}
 
+      {configProvider === "moneybird" && (
+        <MoneybirdSection
+          companyId={companyId}
+          hasToken={hasTokens.moneybird}
+          activeProvider={activeProvider}
+          onConnected={() => {
+            setHasTokens((prev) => ({ ...prev, moneybird: true }));
+            setActiveProvider("moneybird");
+          }}
+          onDisconnected={() => {
+            setHasTokens((prev) => ({ ...prev, moneybird: false }));
+            if (activeProvider === "moneybird") setActiveProvider("");
+          }}
+          onSetActive={() => handleSaveProvider("moneybird")}
+        />
+      )}
+
       {/* Switch Confirmation Dialog */}
       <AlertDialog open={!!switchConfirm} onOpenChange={() => setSwitchConfirm(null)}>
         <AlertDialogContent>
