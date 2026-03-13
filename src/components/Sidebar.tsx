@@ -73,7 +73,7 @@ const buildSections = (labels: { workOrders: string; assets: string; vehicles: s
 const Sidebar = () => {
   const { currentPage, navigate } = useNavigation();
   const { signOut, isAdmin, isSuperAdmin, companyLogoUrl, enabledFeatures } = useAuth();
-  const { labels, industry, config } = useIndustryConfig();
+  const { labels, industry, config, subcategory } = useIndustryConfig();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { data: lowStockCount } = useLowStockCount();
