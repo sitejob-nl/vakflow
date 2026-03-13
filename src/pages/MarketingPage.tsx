@@ -11,8 +11,9 @@ import { useMetaLeads } from "@/hooks/useMetaLeads";
 import { useMetaConversations } from "@/hooks/useMetaConversations";
 import { useMetaConfig } from "@/hooks/useMetaConfig";
 import { useMetaPagePosts } from "@/hooks/useMetaPagePosts";
+import { useMetaMarketing } from "@/hooks/useMetaMarketing";
 import { toast } from "@/hooks/use-toast";
-import { Users, MessageSquare, Instagram, FileText, RefreshCw, UserPlus, Send, ThumbsUp, MessageCircle, Share2, Plus } from "lucide-react";
+import { Users, MessageSquare, Instagram, FileText, RefreshCw, UserPlus, Send, ThumbsUp, MessageCircle, Share2, Plus, Megaphone, TrendingUp, Eye, MousePointer, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {

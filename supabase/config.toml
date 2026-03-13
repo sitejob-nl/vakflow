@@ -119,3 +119,9 @@ verify_jwt = false
 
 [functions.hexon-portal-leads]
 verify_jwt = false
+
+[functions.meta-marketing-config]
+verify_jwt = false
+
+[functions.meta-marketing-webhook]
+verify_jwt = false
