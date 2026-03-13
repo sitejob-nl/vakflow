@@ -21,6 +21,7 @@ export function useMetaMarketing() {
         instagram_id: string | null;
         instagram_username: string | null;
         tenant_id: string | null;
+        connect_url: string | null;
       };
     },
   });
@@ -30,7 +31,7 @@ export function useMetaMarketing() {
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("meta-marketing-register");
       if (error) throw error;
-      return data as { tenant_id: string; existing?: boolean };
+      return data as { tenant_id: string; connect_url?: string; existing?: boolean };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meta-marketing-config"] });

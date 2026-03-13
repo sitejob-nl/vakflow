@@ -2793,49 +2793,64 @@ export type Database = {
         Row: {
           ad_account_id: string | null
           ad_account_name: string | null
+          business_id: string | null
           company_id: string
+          connect_url: string | null
           created_at: string | null
           granted_scopes: string | null
           id: string
           instagram_id: string | null
           instagram_username: string | null
           is_connected: boolean | null
+          page_access_token: string | null
           page_id: string | null
           page_name: string | null
           tenant_id: string | null
+          token_expires_at: string | null
           updated_at: string | null
+          user_access_token: string | null
           webhook_secret: string | null
         }
         Insert: {
           ad_account_id?: string | null
           ad_account_name?: string | null
+          business_id?: string | null
           company_id: string
+          connect_url?: string | null
           created_at?: string | null
           granted_scopes?: string | null
           id?: string
           instagram_id?: string | null
           instagram_username?: string | null
           is_connected?: boolean | null
+          page_access_token?: string | null
           page_id?: string | null
           page_name?: string | null
           tenant_id?: string | null
+          token_expires_at?: string | null
           updated_at?: string | null
+          user_access_token?: string | null
           webhook_secret?: string | null
         }
         Update: {
           ad_account_id?: string | null
           ad_account_name?: string | null
+          business_id?: string | null
           company_id?: string
+          connect_url?: string | null
           created_at?: string | null
           granted_scopes?: string | null
           id?: string
           instagram_id?: string | null
           instagram_username?: string | null
           is_connected?: boolean | null
+          page_access_token?: string | null
           page_id?: string | null
           page_name?: string | null
           tenant_id?: string | null
+          token_expires_at?: string | null
           updated_at?: string | null
+          user_access_token?: string | null
           webhook_secret?: string | null
         }
         Relationships: [

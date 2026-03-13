@@ -1,4 +1,4 @@
-// meta-marketing-register — Registreer een Meta Marketing tenant via SiteJob Connect
+// meta-marketing-register — Registreer een Meta Marketing tenant via SiteJob Connect (push-model)
 
 import { jsonRes, optionsResponse } from "../_shared/cors.ts";
 import { createAdminClient, authenticateRequest, AuthError } from "../_shared/supabase.ts";
@@ -13,12 +13,16 @@ Deno.serve(async (req) => {
     // Check existing config
     const { data: existing } = await admin
       .from("meta_marketing_config")
-      .select("id, tenant_id, is_connected")
+      .select("id, tenant_id, is_connected, connect_url")
       .eq("company_id", companyId)
       .maybeSingle();
 
     if (existing?.tenant_id && existing.is_connected) {
-      return jsonRes({ tenant_id: existing.tenant_id, existing: true });
+      return jsonRes({
+        tenant_id: existing.tenant_id,
+        connect_url: existing.connect_url,
+        existing: true,
+      });
     }
 
     // Delete inactive config to re-register
@@ -32,7 +36,7 @@ Deno.serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const webhookUrl = `${supabaseUrl}/functions/v1/meta-marketing-webhook`;
+    const webhookUrl = `${supabaseUrl}/functions/v1/connect-meta-webhook`;
 
     const registerRes = await fetch(
       "https://xeshjkznwdrxjjhbpisn.supabase.co/functions/v1/meta-marketing-register-tenant",
@@ -50,9 +54,14 @@ Deno.serve(async (req) => {
     }
 
     const registerData = await registerRes.json();
-    const { tenant_id, webhook_secret } = registerData;
 
-    if (!tenant_id) {
+    // New response format: { success, tenant: { id, webhook_secret, connect_url, ... } }
+    const tenant = registerData.tenant || registerData;
+    const tenantId = tenant.id || tenant.tenant_id;
+    const webhookSecret = tenant.webhook_secret;
+    const connectUrl = tenant.connect_url || null;
+
+    if (!tenantId) {
       return jsonRes({ error: "Geen tenant_id ontvangen van Connect" }, 500);
     }
 
@@ -61,8 +70,9 @@ Deno.serve(async (req) => {
       .from("meta_marketing_config")
       .insert({
         company_id: companyId,
-        tenant_id,
-        webhook_secret: webhook_secret || null,
+        tenant_id: tenantId,
+        webhook_secret: webhookSecret || null,
+        connect_url: connectUrl,
         is_connected: false,
       });
 
@@ -72,7 +82,7 @@ Deno.serve(async (req) => {
     }
 
     console.log("Meta Marketing tenant registered for company:", companyId);
-    return jsonRes({ tenant_id });
+    return jsonRes({ tenant_id: tenantId, connect_url: connectUrl });
   } catch (err: any) {
     if (err instanceof AuthError) return jsonRes({ error: err.message }, err.status);
     console.error("meta-marketing-register error:", err);
