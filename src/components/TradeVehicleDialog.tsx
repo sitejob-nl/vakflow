@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CustomerCombobox from "./CustomerCombobox";
 import { useCustomers } from "@/hooks/useCustomers";
-import { DAMAGE_AREAS, type DamageItem, type TradeVehicle } from "@/hooks/useTradeVehicles";
+import { DAMAGE_AREAS, type DamageItem, type TradeVehicle, PIPELINE_STATUSES, STATUS_LABELS } from "@/hooks/useTradeVehicles";
 import { Car, ClipboardCheck, DollarSign } from "lucide-react";
 
 interface Props {
@@ -179,11 +179,9 @@ export const TradeVehicleDialog = ({ open, onOpenChange, vehicle, onSave }: Prop
                 <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="intake">Intake</SelectItem>
-                    <SelectItem value="in_opknapbeurt">In opknapbeurt</SelectItem>
-                    <SelectItem value="te_koop">Te koop</SelectItem>
-                    <SelectItem value="verkocht">Verkocht</SelectItem>
-                    <SelectItem value="afgekeurd">Afgekeurd</SelectItem>
+                    {PIPELINE_STATUSES.map(s => (
+                      <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
