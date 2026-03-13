@@ -280,6 +280,26 @@ const SettingsWhatsAppTab = () => {
     setDisconnecting(false);
   };
 
+  const handleUpdateDisplayName = async () => {
+    if (!newDisplayName.trim()) return;
+    setUpdatingDisplayName(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-send", {
+        body: { action: "update_display_name", new_display_name: newDisplayName.trim() },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Display name bijgewerkt", description: "De nieuwe naam wordt geverifieerd door Meta." });
+      setEditDisplayName(false);
+      setNewDisplayName("");
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-display-name-status"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-phone-quality"] });
+    } catch (err: any) {
+      toast({ title: "Fout", description: err.message, variant: "destructive" });
+    }
+    setUpdatingDisplayName(false);
+  };
+
   const handleDeleteTemplate = async (name: string) => {
     if (!confirm(`Template "${name}" verwijderen?`)) return;
     try {
