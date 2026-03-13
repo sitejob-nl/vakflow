@@ -127,6 +127,8 @@ const SettingsPage = () => {
         return <SettingsApiKeysTab />;
       case "Hexon DV":
         return <SettingsHexonTab />;
+      case "Telefonie (Voys)":
+        return <SettingsVoysTab />;
       default:
         return null;
     }
