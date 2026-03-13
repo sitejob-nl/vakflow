@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMetaConfig } from "@/hooks/useMetaConfig";
 import { useMetaMarketing } from "@/hooks/useMetaMarketing";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,7 @@ const MetaSettingsTab = ({ inputClass, labelClass }: Props) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const popupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const connected = statusQuery.data?.connected ?? false;
   const pageName = configQuery.data?.page_name || configQuery.data?.page_id || null;
@@ -28,18 +29,12 @@ const MetaSettingsTab = ({ inputClass, labelClass }: Props) => {
   const marketingPageName = marketingConfig.data?.page_name || null;
   const marketingInstagram = marketingConfig.data?.instagram_username || null;
 
-  // Listen for postMessage from SiteJob Connect popup
-  const handlePostMessage = useCallback((e: MessageEvent) => {
-    if (e.data?.type === "meta-marketing-connected") {
-      toast({ title: "Meta Marketing gekoppeld!" });
-      marketingConfig.refetch();
-    }
-  }, [toast, marketingConfig]);
-
+  // Cleanup popup timer on unmount
   useEffect(() => {
-    window.addEventListener("message", handlePostMessage);
-    return () => window.removeEventListener("message", handlePostMessage);
-  }, [handlePostMessage]);
+    return () => {
+      if (popupTimerRef.current) clearInterval(popupTimerRef.current);
+    };
+  }, []);
 
   const handleConnect = async () => {
     setIsConnecting(true);
@@ -77,14 +72,26 @@ const MetaSettingsTab = ({ inputClass, labelClass }: Props) => {
     setIsRegistering(true);
     try {
       const result = await registerTenant.mutateAsync();
-      const tenantId = result.tenant_id;
+      const connectUrl = result.connect_url;
 
-      // Open SiteJob Connect setup popup
-      window.open(
-        `https://connect.sitejob.nl/meta-marketing-setup?tenant_id=${tenantId}`,
-        "meta-marketing-setup",
-        "width=600,height=700"
-      );
+      if (!connectUrl) {
+        toast({ title: "Fout", description: "Geen connect URL ontvangen", variant: "destructive" });
+        return;
+      }
+
+      // Open SiteJob Connect OAuth popup
+      const popup = window.open(connectUrl, "meta-marketing-setup", "width=600,height=700");
+
+      // Poll for popup close, then refresh config
+      if (popupTimerRef.current) clearInterval(popupTimerRef.current);
+      popupTimerRef.current = setInterval(() => {
+        if (popup?.closed) {
+          if (popupTimerRef.current) clearInterval(popupTimerRef.current);
+          popupTimerRef.current = null;
+          // Refresh config after popup closes — credentials are pushed via webhook
+          marketingConfig.refetch();
+        }
+      }, 1000);
     } catch (err: any) {
       toast({ title: "Fout", description: err.message, variant: "destructive" });
     } finally {
