@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CustomerCombobox from "./CustomerCombobox";
 import { useCustomers } from "@/hooks/useCustomers";
 import { DAMAGE_AREAS, type DamageItem, type TradeVehicle, PIPELINE_STATUSES, STATUS_LABELS } from "@/hooks/useTradeVehicles";
+import { Car, ClipboardCheck, DollarSign } from "lucide-react";
 
 interface Props {
   open: boolean;
