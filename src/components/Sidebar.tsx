@@ -9,6 +9,9 @@ import { useLowStockCount } from "@/hooks/useMaterials";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccountingProvider } from "@/hooks/useAccountingProvider";
 import { useIndustryConfig } from "@/hooks/useIndustryConfig";
+import { useLiveCalls } from "@/hooks/useLiveCalls";
+import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent,
@@ -77,6 +80,23 @@ const Sidebar = () => {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { data: lowStockCount } = useLowStockCount();
+  const { activeCalls, ringingCalls, answeredCalls, latestRinging } = useLiveCalls();
+  const prevActiveCalls = useRef(0);
+
+  // Toast on new ringing call
+  useEffect(() => {
+    if (activeCalls > 0 && prevActiveCalls.current === 0 && latestRinging && currentPage !== "calltracking") {
+      const caller = latestRinging.caller_name || latestRinging.from_number || "Onbekend";
+      toast(`Inkomend gesprek van ${caller}`, {
+        action: {
+          label: "Bekijken",
+          onClick: () => navigate("calltracking"),
+        },
+        duration: 6000,
+      });
+    }
+    prevActiveCalls.current = activeCalls;
+  }, [activeCalls, latestRinging, currentPage, navigate]);
 
   const handleNav = (page: Page) => {
     navigate(page);
@@ -102,6 +122,19 @@ const Sidebar = () => {
       ),
     }))
     .filter((section) => section.items.length > 0);
+
+  // Determine badge for calltracking
+  const liveCallBadge = activeCalls > 0 ? (
+    <span
+      className={`ml-auto inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full text-[10px] font-bold text-white ${
+        ringingCalls > 0
+          ? "bg-destructive animate-pulse"
+          : "bg-emerald-500 animate-pulse"
+      }`}
+    >
+      {activeCalls}
+    </span>
+  ) : null;
 
   return (
     <ShadcnSidebar collapsible="icon">
@@ -137,6 +170,10 @@ const Sidebar = () => {
                     >
                       <item.icon className="!w-[18px] !h-[18px] flex-shrink-0" strokeWidth={1.8} />
                       <span>{item.label}</span>
+                      {item.id === "calltracking" && !collapsed && liveCallBadge}
+                      {item.id === "calltracking" && collapsed && activeCalls > 0 && (
+                        <span className={`absolute top-1 right-1 h-2.5 w-2.5 rounded-full ${ringingCalls > 0 ? "bg-destructive" : "bg-emerald-500"} animate-pulse`} />
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
