@@ -37,34 +37,72 @@ interface CompanyStats {
 
 const PAGE_SIZE = 25;
 
-const ALL_FEATURES = [
-  { slug: "dashboard", label: "Dashboard" },
-  { slug: "planning", label: "Planning" },
-  { slug: "customers", label: "Klanten" },
-  { slug: "workorders", label: "Werkbonnen" },
-  { slug: "invoices", label: "Facturatie" },
-  { slug: "quotes", label: "Offertes" },
-  { slug: "reports", label: "Rapportages" },
-  { slug: "email", label: "E-mail" },
-  { slug: "whatsapp", label: "WhatsApp" },
-  { slug: "communication", label: "Logboek" },
-  { slug: "reminders", label: "Reminders" },
-  { slug: "assets", label: "Objecten" },
-  { slug: "contracts", label: "Contracten" },
-  { slug: "schedule", label: "Rooster" },
-  { slug: "audits", label: "Audits" },
-  { slug: "vehicles", label: "Voertuigen" },
-  { slug: "trade", label: "Inruil" },
-  { slug: "vehicle_sales", label: "Voertuigverkoop" },
-  { slug: "projects", label: "Projecten" },
-  { slug: "marketing", label: "Marketing" },
-  { slug: "custom_domain", label: "Custom Domein" },
-  { slug: "api", label: "API" },
-  { slug: "leads", label: "Leads" },
-  { slug: "hexon", label: "Hexon DV" },
-  { slug: "voip", label: "Telefonie (Voys)" },
-  { slug: "ai_agent", label: "AI Agent" },
+const FEATURE_GROUPS = [
+  {
+    label: "Kern",
+    description: "Basisfunctionaliteit voor elk bedrijf",
+    features: [
+      { slug: "dashboard", label: "Dashboard" },
+      { slug: "planning", label: "Planning" },
+      { slug: "customers", label: "Klanten" },
+      { slug: "workorders", label: "Werkbonnen" },
+      { slug: "invoices", label: "Facturatie" },
+      { slug: "quotes", label: "Offertes" },
+      { slug: "reports", label: "Rapportages" },
+      { slug: "api", label: "API Toegang" },
+    ],
+  },
+  {
+    label: "Communicatie",
+    description: "Berichten, mail en automatisering",
+    features: [
+      { slug: "email", label: "E-mail" },
+      { slug: "whatsapp", label: "WhatsApp" },
+      { slug: "communication", label: "Communicatielogboek" },
+      { slug: "reminders", label: "Herinneringen" },
+      { slug: "marketing", label: "Marketing" },
+    ],
+  },
+  {
+    label: "Modules",
+    description: "Branche-onafhankelijke modules",
+    features: [
+      { slug: "assets", label: "Objecten / Assets" },
+      { slug: "contracts", label: "Contracten" },
+      { slug: "projects", label: "Projecten" },
+      { slug: "leads", label: "Leads / Pipeline" },
+      { slug: "schedule", label: "Rooster / Planning" },
+    ],
+  },
+  {
+    label: "Automotive",
+    description: "Specifiek voor AutoFlow klanten",
+    features: [
+      { slug: "vehicles", label: "Voertuigen" },
+      { slug: "trade", label: "Inruil" },
+      { slug: "vehicle_sales", label: "Voertuig Pipeline" },
+      { slug: "hexon", label: "Hexon DV" },
+      { slug: "voip", label: "VoIP / Calltracking" },
+      { slug: "ai_agent", label: "AI Agent" },
+    ],
+  },
+  {
+    label: "Cleaning",
+    description: "Specifiek voor CleanFlow klanten",
+    features: [
+      { slug: "audits", label: "Kwaliteitsaudits" },
+    ],
+  },
+  {
+    label: "Overig",
+    description: "Extra platform features",
+    features: [
+      { slug: "custom_domain", label: "Custom Domein" },
+    ],
+  },
 ];
+
+const ALL_FEATURE_SLUGS = FEATURE_GROUPS.flatMap(g => g.features.map(f => f.slug));
 
 const INDUSTRIES: { value: string; label: string }[] = [
   { value: "technical", label: "Technisch" },
