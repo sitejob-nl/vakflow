@@ -59,6 +59,7 @@ const routeMap: Record<Page, string> = {
   projects: "/projects",
   projDetail: "/projects/:id",
   leads: "/leads",
+  calltracking: "/calltracking",
   accounting: "/boekhouding",
   superadmin: "/superadmin",
 };
