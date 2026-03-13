@@ -685,24 +685,20 @@ const SettingsAccountingTab = () => {
       )}
 
       {configProvider === "wefact" && (
-        <div className="border-t border-border pt-5 space-y-3">
-          <h3 className="text-[14px] font-bold">WeFact configuratie</h3>
-          <TokenField label="API Key" fieldName="wefact_api_key" hasToken={hasTokens.wefact} saving={saving} onSave={handleSaveToken} />
-          <div className="bg-muted/50 border border-border rounded-lg p-3 text-[12px] text-muted-foreground space-y-1.5">
-            <p className="font-semibold text-secondary-foreground">Zo koppel je WeFact:</p>
-            <ol className="list-decimal list-inside space-y-0.5">
-              <li>Ga in WeFact naar <span className="font-medium">Instellingen → API</span></li>
-              <li>Schakel de API in</li>
-              <li>Voeg bij IP-whitelist toe: <code className="bg-muted px-1 rounded font-mono">0.0.0.0/0</code></li>
-              <li>Kopieer de beveiligingscode en plak deze hierboven</li>
-            </ol>
-          </div>
-          {activeProvider !== "wefact" && (
-            <button onClick={() => handleSaveProvider("wefact")} disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50">
-              WeFact als actieve provider instellen
-            </button>
-          )}
-        </div>
+        <WeFactSection
+          companyId={companyId}
+          hasToken={hasTokens.wefact}
+          activeProvider={activeProvider}
+          onConnected={() => {
+            setHasTokens((prev) => ({ ...prev, wefact: true }));
+            setActiveProvider("wefact");
+          }}
+          onDisconnected={() => {
+            setHasTokens((prev) => ({ ...prev, wefact: false }));
+            if (activeProvider === "wefact") setActiveProvider("");
+          }}
+          onSetActive={() => handleSaveProvider("wefact")}
+        />
       )}
 
       {/* Switch Confirmation Dialog */}
