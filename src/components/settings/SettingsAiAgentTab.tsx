@@ -397,6 +397,56 @@ const SettingsAiAgentTab = () => {
         </div>
       </div>
 
+      {/* Anthropic API Key */}
+      <div className="border-t border-border pt-5">
+        <h3 className="text-[14px] font-bold mb-3">Anthropic API Key</h3>
+        <p className="text-[11px] text-muted-foreground mb-3">Nodig voor AI-verrijking van gesprekken (Voys) en andere AI-functies. Verkrijgbaar via console.anthropic.com.</p>
+        <div className="space-y-3">
+          <div className="relative">
+            <input
+              type={showApiKey ? "text" : "password"}
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              className={`${inputClass} pr-10`}
+              placeholder="sk-ant-..."
+            />
+            <button
+              type="button"
+              onClick={() => setShowApiKey(!showApiKey)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={savingKey || !apiKey.trim()}
+            onClick={async () => {
+              setSavingKey(true);
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/save-smtp-credentials`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+                  body: JSON.stringify({ anthropic_api_key: apiKey }),
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || "Opslaan mislukt");
+                setApiKey("••••••••");
+                toast({ title: "API key opgeslagen" });
+              } catch (err: any) {
+                toast({ title: "Fout", description: err.message, variant: "destructive" });
+              }
+              setSavingKey(false);
+            }}
+          >
+            {savingKey ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            API Key opslaan
+          </Button>
+        </div>
+      </div>
+
       <button
         onClick={handleSave}
         disabled={saving}
