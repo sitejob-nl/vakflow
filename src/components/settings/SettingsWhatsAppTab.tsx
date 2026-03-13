@@ -132,6 +132,9 @@ const SettingsWhatsAppTab = () => {
   const [tplName, setTplName] = useState("");
   const [tplCategory, setTplCategory] = useState("UTILITY");
   const [tplBody, setTplBody] = useState("");
+  const [tplHeader, setTplHeader] = useState("");
+  const [tplFooter, setTplFooter] = useState("");
+  const [tplButtons, setTplButtons] = useState<{ type: string; text: string; url?: string; phone_number?: string }[]>([]);
 
   // Disconnect
   const [showDisconnect, setShowDisconnect] = useState(false);
