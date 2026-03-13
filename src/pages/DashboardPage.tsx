@@ -19,6 +19,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAutomotiveDashboardStats } from "@/hooks/useAutomotiveDashboard";
 import { useCleaningDashboardStats } from "@/hooks/useCleaningDashboard";
 import { useAutomotiveSalesDashboard } from "@/hooks/useAutomotiveSalesDashboard";
+import { useLiveCalls } from "@/hooks/useLiveCalls";
+import { useClickToDial } from "@/hooks/useClickToDial";
 
 const Badge = ({ children, variant = "primary" }: { children: React.ReactNode; variant?: string }) => {
   const styles: Record<string, string> = {
@@ -86,6 +88,11 @@ const DashboardPage = () => {
   const [apptDialogOpen, setApptDialogOpen] = useState(false);
   const [woDialogOpen, setWoDialogOpen] = useState(false);
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [quickDialNumber, setQuickDialNumber] = useState("");
+
+  const hasVoip = enabledFeatures.includes("voip");
+  const { activeCalls, ringingCalls, answeredCalls } = useLiveCalls();
+  const clickToDial = useClickToDial();
 
   const { containerRef, pullDistance, refreshing } = usePullToRefresh({
     onRefresh: () => queryClient.invalidateQueries() as Promise<unknown>,
@@ -193,16 +200,63 @@ const DashboardPage = () => {
           </div>
 
           {/* Communicatie rij */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 mb-5 md:mb-6">
-            <div onClick={() => navigate("calltracking")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
-              <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
-                <Phone className="h-3 w-3" /> Gesprekken vandaag
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 mb-5 md:mb-6">
+            {/* Live gesprekken kaart */}
+            {hasVoip && (
+              <div onClick={() => navigate("calltracking")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+                {activeCalls > 0 && (
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className={`h-2 w-2 rounded-full ${ringingCalls > 0 ? "bg-destructive" : "bg-emerald-500"} animate-pulse`} />
+                    <span className="text-[11px] font-bold text-emerald-600">{activeCalls} actief</span>
+                  </div>
+                )}
+                <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                  <Phone className="h-3 w-3" /> Gesprekken vandaag
+                </div>
+                <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{salesStats.callsToday}</div>
+                <div className="flex gap-3 mt-1">
+                  <span className="text-[10px] md:text-[11.5px] font-semibold text-t3">{salesStats.callsToday - salesStats.missedToday} beantwoord</span>
+                  {salesStats.missedToday > 0 && (
+                    <span className="text-[10px] md:text-[11.5px] font-semibold text-destructive">{salesStats.missedToday} gemist</span>
+                  )}
+                </div>
               </div>
-              <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{salesStats.callsToday}</div>
-              {salesStats.missedToday > 0 && (
-                <div className="text-[10px] md:text-[11.5px] mt-1 font-semibold text-destructive">{salesStats.missedToday} gemist</div>
-              )}
-            </div>
+            )}
+            {!hasVoip && (
+              <div onClick={() => navigate("calltracking")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+                <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                  <Phone className="h-3 w-3" /> Gesprekken vandaag
+                </div>
+                <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{salesStats.callsToday}</div>
+                {salesStats.missedToday > 0 && (
+                  <div className="text-[10px] md:text-[11.5px] mt-1 font-semibold text-destructive">{salesStats.missedToday} gemist</div>
+                )}
+              </div>
+            )}
+
+            {/* Laatste gemiste */}
+            {hasVoip && (
+              <div onClick={() => navigate("calltracking")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
+                <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <PhoneMissed className="h-3 w-3" /> Laatste gemiste
+                </div>
+                {salesStats.recentMissed.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {salesStats.recentMissed.slice(0, 3).map((call) => (
+                      <div key={call.id} className="flex items-center justify-between gap-2">
+                        <span className="text-[12px] font-semibold truncate">{call.customers?.name ?? call.from_number ?? "Onbekend"}</span>
+                        <span className="text-[10px] text-t3 font-mono flex-shrink-0">
+                          {call.started_at ? format(new Date(call.started_at), "HH:mm") : "—"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[12px] text-muted-foreground">Geen gemiste oproepen vandaag</p>
+                )}
+              </div>
+            )}
+
             <div onClick={() => navigate("leads")} className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card cursor-pointer hover:border-primary hover:shadow-card-hover transition-all">
               <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
                 <Users className="h-3 w-3" /> Openstaande leads
@@ -216,6 +270,42 @@ const DashboardPage = () => {
               <div className="text-[22px] md:text-[28px] font-extrabold font-mono tracking-tighter">{salesStats.portalLeadsCount}</div>
             </div>
           </div>
+
+          {/* Klik-en-bel quick action */}
+          {hasVoip && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 mb-5 md:mb-6">
+              <div className="bg-card border border-border rounded-lg p-3.5 md:p-5 shadow-card">
+                <div className="text-[10px] md:text-[11.5px] text-t3 font-semibold uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <Phone className="h-3 w-3" /> Klik-en-bel
+                </div>
+                <form
+                  className="flex gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (quickDialNumber.trim()) {
+                      clickToDial.mutate({ phone_number: quickDialNumber.trim() });
+                      setQuickDialNumber("");
+                    }
+                  }}
+                >
+                  <input
+                    type="tel"
+                    value={quickDialNumber}
+                    onChange={(e) => setQuickDialNumber(e.target.value)}
+                    placeholder="Bel een nummer..."
+                    className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!quickDialNumber.trim() || clickToDial.isPending}
+                    className="inline-flex items-center justify-center h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    {clickToDial.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
 
           {/* Hexon Status + Recente gemiste oproepen */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 mb-5 md:mb-6">
