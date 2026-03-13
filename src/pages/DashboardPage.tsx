@@ -93,8 +93,10 @@ const DashboardPage = () => {
   const [quickDialNumber, setQuickDialNumber] = useState("");
 
   const hasVoip = enabledFeatures.includes("voip");
+  const hasHexon = enabledFeatures.includes("hexon");
   const { activeCalls, ringingCalls, answeredCalls } = useLiveCalls();
   const clickToDial = useClickToDial();
+  const { data: hexonListings = [] } = useHexonListings();
 
   const { containerRef, pullDistance, refreshing } = usePullToRefresh({
     onRefresh: () => queryClient.invalidateQueries() as Promise<unknown>,
