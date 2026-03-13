@@ -22,6 +22,7 @@ import { useCleaningDashboardStats } from "@/hooks/useCleaningDashboard";
 import { useAutomotiveSalesDashboard } from "@/hooks/useAutomotiveSalesDashboard";
 import { useLiveCalls } from "@/hooks/useLiveCalls";
 import { useClickToDial } from "@/hooks/useClickToDial";
+import { useHexonListings } from "@/hooks/useTradeVehicles";
 
 const Badge = ({ children, variant = "primary" }: { children: React.ReactNode; variant?: string }) => {
   const styles: Record<string, string> = {
