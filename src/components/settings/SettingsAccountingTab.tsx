@@ -1109,6 +1109,270 @@ const EBoekhoudenSection = ({ companyId, hasToken, activeProvider, onConnected, 
   );
 };
 
+/* ═══════════════════════════════════════════
+   Rompslomp Configuration Section
+   ═══════════════════════════════════════════ */
+interface RompslompSectionProps {
+  companyId: string | null;
+  hasToken: boolean;
+  activeProvider: string;
+  onConnected: () => void;
+  onDisconnected: () => void;
+  onSetActive: () => void;
+}
+
+interface RompslompCompany {
+  id: string;
+  name: string;
+}
+
+const ROMPSLOMP_ACTIONS = [
+  { action: "sync-contacts", label: "Contacten synchroniseren", icon: "👥" },
+  { action: "pull-contacts", label: "Contacten ophalen", icon: "⬇️" },
+  { action: "sync-invoices", label: "Facturen synchroniseren", icon: "📄" },
+  { action: "pull-invoices", label: "Facturen ophalen", icon: "⬇️" },
+  { action: "sync-quotes", label: "Offertes synchroniseren", icon: "📋" },
+  { action: "pull-invoice-status", label: "Betalingsstatus ophalen", icon: "💰" },
+] as const;
+
+const RompslompSection = ({ companyId, hasToken, activeProvider, onConnected, onDisconnected, onSetActive }: RompslompSectionProps) => {
+  const { toast } = useToast();
+  const [apiKey, setApiKey] = useState("");
+  const [step, setStep] = useState<"token" | "select">("token");
+  const [companies, setCompanies] = useState<RompslompCompany[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [runningAction, setRunningAction] = useState<string | null>(null);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [companyName, setCompanyName] = useState<string | null>(null);
+
+  // Load company name on mount if connected
+  useEffect(() => {
+    if (!companyId || !hasToken) return;
+    (supabase.from("companies_safe" as any).select("rompslomp_company_name").eq("id", companyId).single() as unknown as Promise<{ data: any }>).then(({ data }) => {
+      setCompanyName(data?.rompslomp_company_name ?? null);
+    });
+  }, [companyId, hasToken]);
+
+  const handleFetchCompanies = async () => {
+    if (!apiKey.trim()) return;
+    setFetching(true);
+    setConnectError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-rompslomp", {
+        body: { action: "auto-detect", token: apiKey.trim() },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.companies?.length) throw new Error("Geen bedrijven gevonden");
+      setCompanies(data.companies);
+      setSelectedCompany(data.companies[0].id);
+      setStep("select");
+    } catch (err: any) {
+      setConnectError(err.message || "Ophalen mislukt");
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  const handleConnect = async () => {
+    if (!companyId || !selectedCompany) return;
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      const selected = companies.find(c => c.id === selectedCompany);
+      const { error: updateErr } = await supabase.from("companies").update({
+        rompslomp_api_token: apiKey.trim(),
+        rompslomp_company_id: selectedCompany,
+        rompslomp_company_name: selected?.name ?? null,
+        accounting_provider: "rompslomp",
+      }).eq("id", companyId);
+      if (updateErr) throw updateErr;
+      setApiKey("");
+      setStep("token");
+      setCompanies([]);
+      setCompanyName(selected?.name ?? null);
+      onConnected();
+      toast({ title: "✓ Rompslomp gekoppeld", description: `Bedrijf: ${selected?.name ?? selectedCompany}` });
+    } catch (err: any) {
+      setConnectError(err.message || "Koppeling mislukt");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleAction = async (action: string, label: string) => {
+    if (!companyId) return;
+    setRunningAction(action);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-rompslomp", { body: { action } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const synced = data?.synced ?? data?.created ?? data?.imported ?? 0;
+      const skipped = data?.skipped ?? 0;
+      const errors = data?.errors?.length ?? 0;
+      const parts = [`${synced} verwerkt`];
+      if (skipped) parts.push(`${skipped} overgeslagen`);
+      if (errors) parts.push(`${errors} fouten`);
+      toast({ title: `✓ ${label}`, description: parts.join(", ") });
+    } catch (err: any) {
+      toast({ title: `${label} mislukt`, description: err.message, variant: "destructive" });
+    } finally {
+      setRunningAction(null);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!companyId) return;
+    setDisconnecting(true);
+    await supabase.from("companies").update({
+      rompslomp_api_token: null,
+      rompslomp_company_id: null,
+      rompslomp_company_name: null,
+      accounting_provider: null,
+    }).eq("id", companyId);
+    setDisconnecting(false);
+    setDisconnectOpen(false);
+    setCompanyName(null);
+    onDisconnected();
+    toast({ title: "Rompslomp ontkoppeld", description: "Bestaande synchronisaties blijven bewaard." });
+  };
+
+  return (
+    <div className="border-t border-border pt-5 space-y-4">
+      <h3 className="text-[14px] font-bold">Rompslomp configuratie</h3>
+
+      {hasToken ? (
+        <>
+          <p className="text-[11px] text-success font-bold flex items-center gap-1">
+            <Check className="h-3 w-3" /> Rompslomp gekoppeld
+          </p>
+          {companyName && <p className="text-[12px] text-muted-foreground">Bedrijf: {companyName}</p>}
+
+          {/* Action buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {ROMPSLOMP_ACTIONS.map(({ action, label, icon }) => (
+              <button
+                key={action}
+                onClick={() => handleAction(action, label)}
+                disabled={!!runningAction}
+                className="px-3 py-2.5 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50 flex items-center gap-2 text-left"
+              >
+                {runningAction === action ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                ) : (
+                  <span className="text-sm shrink-0">{icon}</span>
+                )}
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Disconnect */}
+          <div className="pt-2">
+            <button
+              onClick={() => setDisconnectOpen(true)}
+              className="px-3 py-2 bg-destructive/10 text-destructive rounded-sm text-[12px] font-medium hover:bg-destructive/20 transition-colors"
+            >
+              Ontkoppelen
+            </button>
+          </div>
+
+          {activeProvider !== "rompslomp" && (
+            <button onClick={onSetActive} className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors">
+              Rompslomp als actieve provider instellen
+            </button>
+          )}
+
+          <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Rompslomp ontkoppelen?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  De API token en bedrijfsconfiguratie worden verwijderd. Bestaande Rompslomp-ID's op klanten en facturen blijven bewaard.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDisconnect} disabled={disconnecting}>
+                  {disconnecting ? "Ontkoppelen..." : "Ontkoppelen"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      ) : step === "select" ? (
+        <div className="space-y-3">
+          <div>
+            <label className={labelClass}>Bedrijf</label>
+            <select
+              value={selectedCompany}
+              onChange={(e) => setSelectedCompany(e.target.value)}
+              className={inputClass}
+            >
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleConnect}
+              disabled={connecting || !selectedCompany}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center gap-1"
+            >
+              {connecting && <Loader2 className="h-3 w-3 animate-spin" />}
+              Koppelen
+            </button>
+            <button
+              onClick={() => { setStep("token"); setCompanies([]); }}
+              className="px-3 py-2 bg-secondary text-secondary-foreground rounded-sm text-[12px] font-medium hover:bg-secondary/80 transition-colors"
+            >
+              Terug
+            </button>
+          </div>
+          {connectError && <p className="text-[11px] text-destructive">{connectError}</p>}
+        </div>
+      ) : (
+        <>
+          <div className="space-y-2">
+            <label className={labelClass}>API Token</label>
+            <div className="flex gap-2">
+              <input
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className={inputClass}
+                placeholder="Plak hier je Rompslomp API token"
+              />
+              <button
+                onClick={handleFetchCompanies}
+                disabled={fetching || !apiKey.trim()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-sm text-[12px] font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 whitespace-nowrap flex items-center gap-1"
+              >
+                {fetching && <Loader2 className="h-3 w-3 animate-spin" />}
+                Bedrijven ophalen
+              </button>
+            </div>
+            {connectError && <p className="text-[11px] text-destructive">{connectError}</p>}
+          </div>
+          <div className="bg-muted/50 border border-border rounded-lg p-3 text-[12px] text-muted-foreground space-y-1.5">
+            <p className="font-semibold text-secondary-foreground">Zo koppel je Rompslomp:</p>
+            <ol className="list-decimal list-inside space-y-0.5">
+              <li>Ga in Rompslomp naar <span className="font-medium">Instellingen → API</span></li>
+              <li>Maak een API token aan of kopieer een bestaande</li>
+              <li>Plak de token hierboven en klik op "Bedrijven ophalen"</li>
+              <li>Selecteer je bedrijf en klik op "Koppelen"</li>
+            </ol>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const TokenField = ({ label, fieldName, hasToken, saving, onSave }: { label: string; fieldName: string; hasToken: boolean; saving: boolean; onSave: (field: string, value: string) => void }) => {
   const [val, setVal] = useState("");
   return (
@@ -1140,7 +1404,7 @@ const PROVIDERS: ProviderDef[] = [
   { key: "wefact", label: "WeFact", description: "Factuur- en debiteurenbeheer via API", enabled: true },
   { key: "eboekhouden", label: "e-Boekhouden", description: "Online boekhoudpakket", enabled: true },
   { key: "moneybird", label: "Moneybird", description: "Boekhouden voor ondernemers", enabled: true },
-  { key: "rompslomp", label: "Rompslomp", description: "Eenvoudige boekhouding", enabled: false },
+  { key: "rompslomp", label: "Rompslomp", description: "Eenvoudige boekhouding", enabled: true },
   { key: "snelstart", label: "SnelStart", description: "Boekhoudpakket voor het MKB", enabled: false },
 ];
 
@@ -1179,7 +1443,7 @@ const SettingsAccountingTab = () => {
       ).eq("id", companyId).single() as { data: any };
       if (data) {
         setActiveProvider(data.accounting_provider ?? "");
-        setHasTokens({ eboekhouden: !!data.has_eboekhouden_token, wefact: !!data.has_wefact_key, moneybird: !!data.moneybird_administration_id });
+        setHasTokens({ eboekhouden: !!data.has_eboekhouden_token, wefact: !!data.has_wefact_key, moneybird: !!data.moneybird_administration_id, rompslomp: !!data.rompslomp_company_id });
         setSyncInvoices(data.sync_invoices_to_accounting ?? true);
         setSyncQuotes(data.sync_quotes_to_accounting ?? false);
         setForm({
@@ -1208,6 +1472,7 @@ const SettingsAccountingTab = () => {
     if (key === "wefact") return hasTokens.wefact ? "connected" : "not_connected";
     if (key === "moneybird") return hasTokens.moneybird ? "connected" : "not_connected";
     if (key === "eboekhouden") return hasTokens.eboekhouden ? "connected" : "not_connected";
+    if (key === "rompslomp") return hasTokens.rompslomp ? "connected" : "not_connected";
     return "not_connected";
   };
 
@@ -1292,6 +1557,7 @@ const SettingsAccountingTab = () => {
       wefact: "sync-wefact",
       moneybird: "sync-moneybird",
       eboekhouden: "sync-invoice-eboekhouden",
+      rompslomp: "sync-rompslomp",
     };
     const funcName = funcMap[activeProvider];
     if (!funcName) { setSyncing(false); return; }
@@ -1490,6 +1756,23 @@ const SettingsAccountingTab = () => {
             if (activeProvider === "eboekhouden") setActiveProvider("");
           }}
           onSetActive={() => handleSaveProvider("eboekhouden")}
+        />
+      )}
+
+      {configProvider === "rompslomp" && (
+        <RompslompSection
+          companyId={companyId}
+          hasToken={hasTokens.rompslomp}
+          activeProvider={activeProvider}
+          onConnected={() => {
+            setHasTokens((prev) => ({ ...prev, rompslomp: true }));
+            setActiveProvider("rompslomp");
+          }}
+          onDisconnected={() => {
+            setHasTokens((prev) => ({ ...prev, rompslomp: false }));
+            if (activeProvider === "rompslomp") setActiveProvider("");
+          }}
+          onSetActive={() => handleSaveProvider("rompslomp")}
         />
       )}
 
