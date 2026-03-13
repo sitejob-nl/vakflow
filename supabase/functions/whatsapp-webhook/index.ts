@@ -293,7 +293,48 @@ Deno.serve(async (req) => {
             console.error(`Message save error: ${error.message}`);
             await logEdgeFunctionError(supabase, "whatsapp-webhook", `Message save: ${error.message}`, { wamid: msg.id }, companyId);
           }
-          else await logUsage(supabase, companyId, "whatsapp_received", { from: fromNumber, type: msg.type });
+          else {
+            await logUsage(supabase, companyId, "whatsapp_received", { from: fromNumber, type: msg.type });
+
+            // ─── AI AGENT TRIGGER ───
+            // Fire-and-forget: check if AI agent is enabled and trigger conversation
+            if (msg.type === "text" && content) {
+              EdgeRuntime?.waitUntil?.(
+                (async () => {
+                  try {
+                    // Check if AI agent is enabled for this company
+                    const { data: aiConfig } = await supabase
+                      .from("ai_agent_config")
+                      .select("enabled")
+                      .eq("company_id", companyId)
+                      .maybeSingle();
+
+                    if (!aiConfig?.enabled) return;
+
+                    // Trigger ai-agent-conversation
+                    const baseUrl = Deno.env.get("SUPABASE_URL");
+                    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+                    await fetch(`${baseUrl}/functions/v1/ai-agent-conversation`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${serviceKey}`,
+                      },
+                      body: JSON.stringify({
+                        company_id: companyId,
+                        phone_number: fromNumber,
+                        message: content,
+                        trigger: "incoming",
+                        customer_id: customer?.id || null,
+                      }),
+                    });
+                  } catch (e) {
+                    console.error("AI agent trigger failed:", e);
+                  }
+                })()
+              );
+            }
+          }
         }
       }
 
