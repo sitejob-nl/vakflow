@@ -17,7 +17,7 @@ import { format } from "date-fns";
 interface RoomScore {
   room_id: string | null;
   room_name: string;
-  criteria: CriterionScore[];
+  criteria: { name: string; score: number; photo_url?: string | null }[];
   notes: string;
 }
 
