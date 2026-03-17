@@ -112,7 +112,7 @@ const AuditDialog = ({ open, onOpenChange }: Props) => {
     });
   };
 
-  const calcRoomScore = (criteria: CriterionScore[]) => {
+  const calcRoomScore = (criteria: LegacyCriterionScore[]) => {
     const scored = criteria.filter((c) => c.score > 0);
     return scored.length > 0 ? scored.reduce((s, c) => s + c.score, 0) / scored.length : null;
   };
