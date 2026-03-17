@@ -9,13 +9,17 @@ import { useAssets } from "@/hooks/useAssets";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { useCreateAudit, AUDIT_DEFAULT_CRITERIA, type CriterionScore } from "@/hooks/useQualityAudits";
+import { useCreateAudit } from "@/hooks/useQualityAudits";
+
+const AUDIT_DEFAULT_CRITERIA = ["Stof", "Vlekken", "Sanitair", "Glas", "Vloer", "Afval"];
+
+type LegacyCriterionScore = { name: string; score: number; photo_url?: string | null };
 import { format } from "date-fns";
 
 interface RoomScore {
   room_id: string | null;
   room_name: string;
-  criteria: CriterionScore[];
+  criteria: { name: string; score: number; photo_url?: string | null }[];
   notes: string;
 }
 
@@ -108,7 +112,7 @@ const AuditDialog = ({ open, onOpenChange }: Props) => {
     });
   };
 
-  const calcRoomScore = (criteria: CriterionScore[]) => {
+  const calcRoomScore = (criteria: LegacyCriterionScore[]) => {
     const scored = criteria.filter((c) => c.score > 0);
     return scored.length > 0 ? scored.reduce((s, c) => s + c.score, 0) / scored.length : null;
   };
@@ -131,7 +135,7 @@ const AuditDialog = ({ open, onOpenChange }: Props) => {
         room_scores: roomScores.map((rs) => ({
           room_id: rs.room_id,
           room_name: rs.room_name,
-          criteria: rs.criteria,
+          criteria: rs.criteria.map((c) => ({ id: c.name, name: c.name, score: c.score, max: 5, weight: 1.0 })),
           score: calcRoomScore(rs.criteria),
           notes: rs.notes || null,
         })),

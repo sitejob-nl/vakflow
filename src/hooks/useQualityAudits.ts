@@ -4,9 +4,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export interface CriterionScore {
+  id: string;
   name: string;
   score: number;
-  photo_url?: string | null;
+  max: number;
+  weight: number;
 }
 
 export interface AuditRoomScore {
@@ -38,10 +40,6 @@ export interface QualityAudit {
   room_scores?: AuditRoomScore[];
 }
 
-const AUDIT_DEFAULT_CRITERIA = ["Stof", "Vlekken", "Sanitair", "Glas", "Vloer", "Afval"];
-
-export { AUDIT_DEFAULT_CRITERIA };
-
 export const useAudits = (assetId?: string) => {
   const { companyId } = useAuth();
   return useQuery({
@@ -72,7 +70,6 @@ export const useAudit = (id: string | null) => {
         .eq("id", id!)
         .single();
       if (error) throw error;
-      // Fetch room scores
       const { data: scores } = await supabase
         .from("audit_room_scores" as any)
         .select("*")
@@ -123,7 +120,8 @@ export const useCreateAudit = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["quality_audits"] });
       qc.invalidateQueries({ queryKey: ["cleaning_dashboard"] });
-      toast.success("Audit opgeslagen");
+      qc.invalidateQueries({ queryKey: ["assets"] });
+      toast.success("Inspectie opgeslagen");
     },
     onError: (e) => toast.error("Fout bij opslaan: " + e.message),
   });
@@ -157,7 +155,7 @@ export const useDeleteAudit = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["quality_audits"] });
       qc.invalidateQueries({ queryKey: ["cleaning_dashboard"] });
-      toast.success("Audit verwijderd");
+      toast.success("Inspectie verwijderd");
     },
   });
 };
