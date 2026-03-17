@@ -51,7 +51,7 @@ const buildAllItems = (labels: { workOrders: string; assets: string; vehicles: s
     section: "Beheer",
     items: [
       { id: "assets", icon: Box, label: labels.assets, adminOnly: true },
-      ...(industry === "cleaning" ? [{ id: "audits" as Page, icon: ClipboardCheck, label: "Kwaliteit", adminOnly: true }] : []),
+      ...(industry === "cleaning" ? [{ id: "audits" as Page, icon: ClipboardCheck, label: "Inspecties", adminOnly: true }] : []),
       { id: "vehicles", icon: Car, label: labels.vehicles, adminOnly: true },
       ...(industry === "automotive" ? [{ id: "trade" as Page, icon: Repeat, label: "Inruil & Verkoop", adminOnly: true }] : []),
       { id: "marketing", icon: Megaphone, label: "Marketing", adminOnly: true },

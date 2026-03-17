@@ -9,7 +9,9 @@ import { useAssets } from "@/hooks/useAssets";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { useCreateAudit, AUDIT_DEFAULT_CRITERIA, type CriterionScore } from "@/hooks/useQualityAudits";
+import { useCreateAudit, type CriterionScore } from "@/hooks/useQualityAudits";
+
+const AUDIT_DEFAULT_CRITERIA = ["Stof", "Vlekken", "Sanitair", "Glas", "Vloer", "Afval"];
 import { format } from "date-fns";
 
 interface RoomScore {
