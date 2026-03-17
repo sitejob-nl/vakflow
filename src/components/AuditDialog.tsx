@@ -135,7 +135,7 @@ const AuditDialog = ({ open, onOpenChange }: Props) => {
         room_scores: roomScores.map((rs) => ({
           room_id: rs.room_id,
           room_name: rs.room_name,
-          criteria: rs.criteria,
+          criteria: rs.criteria.map((c) => ({ id: c.name, name: c.name, score: c.score, max: 5, weight: 1.0 })),
           score: calcRoomScore(rs.criteria),
           notes: rs.notes || null,
         })),
