@@ -9,9 +9,11 @@ import { useAssets } from "@/hooks/useAssets";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { useCreateAudit, type CriterionScore } from "@/hooks/useQualityAudits";
+import { useCreateAudit } from "@/hooks/useQualityAudits";
 
 const AUDIT_DEFAULT_CRITERIA = ["Stof", "Vlekken", "Sanitair", "Glas", "Vloer", "Afval"];
+
+type LegacyCriterionScore = { name: string; score: number; photo_url?: string | null };
 import { format } from "date-fns";
 
 interface RoomScore {
